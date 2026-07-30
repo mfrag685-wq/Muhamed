@@ -1104,6 +1104,7 @@ var ACTIONS={add:'إضافة',edit:'تعديل',delete:'حذف',auth:'دخول/�
 function doLogin(e){
   e.preventDefault();
   var u=val('lg_user').trim(), p=val('lg_pass');
+  if(cloudAccounts()){ cloudLogin(u,p); return; }   /* وضع الحسابات: الدخول عبر Firebase */
   var user=db.users.filter(function(x){return x.username.toLowerCase()===u.toLowerCase();})[0];
   var err=document.getElementById('loginErr');
   if(!user||user.pass!==hash(p)){ err.textContent='اسم المستخدم أو كلمة المرور غير صحيحة'; err.style.display='block'; return; }
@@ -1119,6 +1120,9 @@ function doLogin(e){
 function doLogout(){
   log('auth','الخروج','تسجيل خروج'); persist();
   try{ sessionStorage.removeItem(SKEY); }catch(e){}
+  if(cloudAccounts()){ cloudDetach();
+    try{ if(firebase.auth().currentUser) firebase.auth().signOut(); }catch(e){}
+    setCloudStatus('auth'); }
   ME=null; document.getElementById('app').classList.add('hidden');
   document.getElementById('loginScreen').classList.remove('hidden');
   setVal('lg_pass','');
@@ -2318,7 +2322,18 @@ function saveUser(){
     db.users.push({id:uid(),name:n,username:u,pass:hash(p),role:val('u_role'),active:Number(val('u_active')),perms:perms,lastLogin:''});
     log('add','المستخدمون','إضافة مستخدم: '+n+' ('+u+') — الدور: '+(ROLES[val('u_role')]||'مخصص'));
   }
-  cancelDoc('u'); setVal('u_role','entry'); applyRolePreset(); persist(); renderUsers(); applyPerms(); toast('تم حفظ المستخدم');
+  var savedU=editId.u?byId(db.users,editId.u):db.users[db.users.length-1];
+  cancelDoc('u'); setVal('u_role','entry'); applyRolePreset(); persist(); renderUsers(); applyPerms();
+  if(cloudAccounts()&&p&&savedU){
+    if(p.length<6){ toast('تم حفظ المستخدم — لكن كلمة المرور أقل من ٦ خانات فلم يُنشأ حسابه السحابي. عدّلها ثم فعّل حسابه.'); return; }
+    setCloudStatus('sync');
+    cloudProvisionUser(savedU,p,function(err){
+      if(err==='exists-diff-pass') toast('المستخدم محفوظ. يوجد حساب سحابي بكلمة مرور مختلفة — احذفه من Firebase ثم اضغط «حساب سحابي».');
+      else if(err) toast('المستخدم محفوظ محلياً، وتعذّر توفير حسابه السحابي — جرّب زر «حساب سحابي».');
+      else toast('تم حفظ المستخدم وتوفير حسابه السحابي');
+      persist(); setCloudStatus('ok'); renderUsers();
+    });
+  } else toast('تم حفظ المستخدم');
 }
 function editUser(id){
   if(!guard('users')) return;
@@ -2346,6 +2361,7 @@ function renderUsers(){
       +'<td class="muted">'+esc(u.lastLogin||'—')+'</td><td>'+ops+'</td>'
       +'<td><button class="btn-sm" onclick="editUser('+u.id+')">تعديل</button> '
       +'<button class="btn-sm btn-del" onclick="delUser('+u.id+')">حذف</button> '
+      +(cloudAccounts()?'<button class="btn-sm" onclick="provisionUserAccount('+u.id+')" title="إنشاء أو تحديث حساب الدخول السحابي لهذا المستخدم ليدخل من أي جهاز">حساب سحابي'+(u.fbUid?' ✓':'')+'</button> ':'')
       +(can('canExport')?'<button class="btn-sm" onclick="exportUserPackage('+u.id+')" title="تنزيل نسخة مستقلة من النظام مسجّلة الدخول تلقائياً أو بمعرّف هذا المستخدم">تصدير نسخة له</button>':'')+'</td></tr>';
   }).join('');
   if(!document.getElementById('permGrid').innerHTML) applyRolePreset();
@@ -3123,9 +3139,11 @@ function showReturnAvail(){
    المزامنة السحابية (Firebase Realtime Database)
    ────────────────────────────────────────────────────────────────────────
    تُحفظ كل البيانات على الإنترنت وتتزامن فوراً بين جميع الأجهزة والمستخدمين.
-   لتفعيلها: أنشئ مشروع Firebase مجاني، فعّل Realtime Database ودخول Anonymous،
-   ثم الصق إعدادات مشروعك داخل CLOUD_CONFIG أدناه. ما دامت الحقول فارغة يعمل
-   البرنامج محلياً على الجهاز تماماً كما كان — دون أي تغيير في السلوك.
+   وضعان للأمان عبر CLOUD_AUTH_MODE:
+     "accounts"  = حساب Firebase مستقل لكل مستخدم + قائمة عضوية تمنع أي حساب غير معتمد
+                   من قراءة البيانات أو الكتابة (الأقوى — الموصى به).
+     "anonymous" = مساحة مشتركة بسيطة بدخول مجهول (أخف حماية).
+   ما دامت حقول CLOUD_CONFIG فارغة يعمل البرنامج محلياً كما كان دون أي تغيير.
    ========================================================================== */
 var CLOUD_CONFIG={
   apiKey:"",
@@ -3137,14 +3155,22 @@ var CLOUD_CONFIG={
   appId:"",
   workspaceId:"main"   /* مساحة عمل واحدة مشتركة لكل مستخدمي المنشأة — اترِكها "main" */
 };
-var cloudReady=false, cloudRef=null, cloudPushTimer=null, cloudLastPushed='';
+var CLOUD_AUTH_MODE="accounts";   /* "accounts" (حساب لكل مستخدم) أو "anonymous" (مساحة مشتركة بسيطة) */
+var cloudReady=false, cloudRef=null, cloudPushTimer=null, cloudLastPushed='', cloudSecondary=null,
+    cloudInteractive=false, cloudAuthBusy=false;
 function setCloudStatus(state){
   var el=document.getElementById('cloudStatus'); if(!el) return;
-  var map={off:['غير مفعّل','off'],connecting:['يتصل…','connecting'],ok:['متصل ☁','ok'],
-    sync:['يُزامن…','sync'],err:['تعذّر الاتصال','err']};
+  var map={off:['غير مفعّل','off'],auth:['بانتظار الدخول','connecting'],connecting:['يتصل…','connecting'],
+    ok:['متصل ☁','ok'],sync:['يُزامن…','sync'],err:['تعذّر الاتصال','err']};
   var m=map[state]||map.off; el.textContent=m[0]; el.className='cloud-status '+m[1];
 }
 function cloudEnabled(){ return !!(CLOUD_CONFIG&&CLOUD_CONFIG.apiKey&&typeof firebase!=='undefined'); }
+function cloudAccounts(){ return cloudEnabled()&&CLOUD_AUTH_MODE==='accounts'; }
+function cloudWid(){ return CLOUD_CONFIG.workspaceId||'main'; }
+/* بريد Firebase مشتق من اسم المستخدم (ثابت وصالح مهما كانت أحرف الاسم) ما لم يُحدَّد بريد صريح */
+function synthEmail(username){ return 'u'+hash(String(username||'').toLowerCase())+'@'+cloudWid()+'.vegerp.app'; }
+function emailForUser(u){ return (u&&u.email)?u.email:synthEmail(u?u.username:''); }
+
 /* دفع نسخة كاملة من قاعدة البيانات إلى السحابة (مؤجَّل لتجميع الحفظات المتتابعة) */
 function cloudPush(s){
   if(!cloudReady||!cloudRef) return;
@@ -3169,30 +3195,135 @@ function cloudApplyRemote(remote){
     applyPerms(); renderAll(); renderMaster(); renderUsers(); renderSettingsForm(); applyLogo();
   }
 }
+/* الاشتراك في عقدة البيانات وتبنّي ما فيها أو رفع المحلي إن كانت فارغة */
+function cloudAttach(cb){
+  if(cloudReady){ if(cb) cb(); return; }
+  cloudRef=firebase.database().ref('workspaces/'+cloudWid()+'/root');
+  cloudRef.once('value').then(function(snap){
+    var v=snap.val();
+    if(v&&v.data&&Array.isArray(v.data.users)){ cloudApplyRemote(v.data); cloudReady=true; }
+    else { cloudReady=true; cloudPush(JSON.stringify(db)); }
+    setCloudStatus('ok');
+    cloudRef.on('value',function(s2){
+      var val=s2.val(); if(!val||!val.data||!Array.isArray(val.data.users)) return;
+      var rs=JSON.stringify(val.data);
+      if(rs===cloudLastPushed||rs===JSON.stringify(db)) return; /* تجاهل صدى كتابتنا نحن */
+      cloudApplyRemote(val.data);
+    });
+    if(cb) cb();
+  }).catch(function(err){ setCloudStatus('err'); if(cb) cb(err||true); });
+}
+function cloudDetach(){ if(cloudRef){ try{cloudRef.off();}catch(e){} } cloudReady=false; }
+
+/* ---------- وضع الحسابات: العضوية والتوفير والدخول ---------- */
+function cloudWriteMember(uid,u){
+  return firebase.database().ref('workspaces/'+cloudWid()+'/members/'+uid)
+    .set({username:u.username,role:u.role,active:Number(u.active)?1:0});
+}
+function cloudSecondaryApp(){
+  if(!cloudSecondary) cloudSecondary=firebase.initializeApp(CLOUD_CONFIG,'provision');
+  return cloudSecondary;
+}
+/* إنشاء/ربط حساب Firebase لمستخدم عبر تطبيق ثانوي كي لا تتأثر جلسة المدير الحالية */
+function cloudProvisionUser(u,plainPass,done){
+  if(!cloudAccounts()){ if(done) done('cloud-off'); return; }
+  var sec=cloudSecondaryApp(), email=emailForUser(u);
+  function finish(uid){ u.fbUid=uid; return cloudWriteMember(uid,u)
+    .then(function(){ return sec.auth().signOut(); }).then(function(){ persist(); if(done) done(null,uid); }); }
+  sec.auth().createUserWithEmailAndPassword(email,plainPass)
+    .then(function(cred){ return finish(cred.user.uid); })
+    .catch(function(e){
+      if(e&&e.code==='auth/email-already-in-use'){
+        sec.auth().signInWithEmailAndPassword(email,plainPass)
+          .then(function(cred){ return finish(cred.user.uid); })
+          .catch(function(){ if(done) done('exists-diff-pass'); });
+      } else { try{sec.auth().signOut();}catch(x){} if(done) done((e&&e.message)||'error'); }
+    });
+}
+/* أول تشغيل: إنشاء حساب المدير السحابي وتسجيله كأول عضو */
+function cloudBootstrapAdmin(u,password,fail){
+  var email=emailForUser(u);
+  firebase.auth().createUserWithEmailAndPassword(email,password).then(function(cred){
+    u.fbUid=cred.user.uid;
+    return cloudWriteMember(cred.user.uid,u).then(function(){ afterCloudAuth(cred.user,u.username); });
+  }).catch(function(e){
+    if(e&&e.code==='auth/email-already-in-use'){
+      firebase.auth().signInWithEmailAndPassword(email,password)
+        .then(function(cred){ afterCloudAuth(cred.user,u.username); })
+        .catch(function(){ fail('تعذّر تجهيز حساب المدير — قد تختلف كلمة المرور عن الحساب الموجود في Firebase.'); });
+    } else fail('تعذّر تجهيز حساب المدير السحابي: '+((e&&e.message)||''));
+  });
+}
+function afterCloudAuth(user,username){
+  if(cloudAuthBusy) return; cloudAuthBusy=true;
+  cloudAttach(function(err){
+    cloudAuthBusy=false;
+    var le=document.getElementById('loginErr');
+    if(err){ if(le){le.textContent='تعذّر الوصول إلى بيانات المنشأة — تأكد من قواعد الأمان والعضوية.';le.style.display='block';} return; }
+    var u=db.users.filter(function(x){return x.fbUid===user.uid;})[0]
+        || db.users.filter(function(x){return x.username.toLowerCase()===String(username).toLowerCase();})[0];
+    if(!u){ if(le){le.textContent='لا يوجد سجل مستخدم مطابق في بيانات المنشأة.';le.style.display='block';} return; }
+    if(!Number(u.active)){ if(le){le.textContent='هذا الحساب موقوف. راجع مدير النظام.';le.style.display='block';} return; }
+    if(u.fbUid!==user.uid){ u.fbUid=user.uid; }
+    u.lastLogin=nowTs(); ME=u;
+    cloudWriteMember(user.uid,u).catch(function(){});
+    log('auth','الدخول','تسجيل دخول سحابي'); persist();
+    if(le) le.style.display='none';
+    startApp();
+  });
+}
+function cloudLogin(username,password){
+  var le=document.getElementById('loginErr');
+  function fail(m){ if(le){le.textContent=m;le.style.display='block';} setCloudStatus('auth'); }
+  cloudInteractive=true; setCloudStatus('connecting');
+  var appu=db.users.filter(function(x){return x.username.toLowerCase()===String(username).toLowerCase();})[0];
+  var email=appu?emailForUser(appu):synthEmail(username);
+  firebase.auth().signInWithEmailAndPassword(email,password)
+    .then(function(cred){ afterCloudAuth(cred.user,username); })
+    .catch(function(e){
+      var code=e&&e.code;
+      if(code==='auth/wrong-password'){ fail('كلمة المرور غير صحيحة'); return; }
+      if(code==='auth/user-not-found'||code==='auth/invalid-credential'||code==='auth/invalid-login-credentials'){
+        /* الحساب غير موجود سحابياً بعد: نتحقق محلياً لتفعيل أول مرة */
+        if(appu&&appu.pass===hash(password)&&Number(appu.active)){
+          if(appu.role==='admin') cloudBootstrapAdmin(appu,password,fail);
+          else fail('حسابك السحابي غير مُفعّل بعد — اطلب من مدير النظام تفعيله من شاشة «المستخدمون».');
+        } else fail('اسم المستخدم أو كلمة المرور غير صحيحة');
+        return;
+      }
+      fail('تعذّر تسجيل الدخول السحابي: '+((e&&e.message)||''));
+    });
+}
+/* زر «حساب سحابي» في جدول المستخدمين — يوفّر/يحدّث حساب الدخول للمستخدم */
+function provisionUserAccount(id){
+  if(!guard('users')) return;
+  if(!cloudAccounts()){ toast('المزامنة بوضع الحسابات غير مفعّلة'); return; }
+  var u=byId(db.users,id); if(!u) return;
+  var p=prompt('كلمة مرور الدخول السحابي للمستخدم "'+u.name+'" (٦ أحرف/أرقام على الأقل):');
+  if(p===null) return;
+  if(p.length<6){ toast('كلمة المرور يجب ألا تقل عن ٦ خانات'); return; }
+  u.pass=hash(p); setCloudStatus('sync');
+  cloudProvisionUser(u,p,function(err){
+    if(err==='exists-diff-pass') toast('يوجد حساب سحابي بهذا الاسم بكلمة مرور مختلفة — احذفه من Firebase Authentication ثم أعد المحاولة');
+    else if(err) toast('تعذّر توفير الحساب السحابي');
+    else { log('edit','المستخدمون','توفير حساب سحابي للمستخدم '+u.name); toast('تم توفير الحساب السحابي لـ '+u.name); }
+    persist(); setCloudStatus('ok'); renderUsers();
+  });
+}
 function cloudInit(){
   if(!cloudEnabled()){ setCloudStatus('off'); return; }
-  setCloudStatus('connecting');
   try{ firebase.initializeApp(CLOUD_CONFIG); }catch(e){ /* قد يكون مُهيّأً مسبقاً */ }
-  firebase.auth().signInAnonymously().catch(function(){ setCloudStatus('err'); });
-  firebase.auth().onAuthStateChanged(function(user){
-    if(!user||cloudReady) return;
-    cloudRef=firebase.database().ref('workspaces/'+(CLOUD_CONFIG.workspaceId||'main')+'/root');
-    cloudRef.once('value').then(function(snap){
-      var v=snap.val();
-      if(v&&v.data&&Array.isArray(v.data.users)){
-        cloudApplyRemote(v.data); cloudReady=true;
-      } else {
-        cloudReady=true; cloudPush(JSON.stringify(db)); /* السحابة فارغة: نرفع البيانات المحلية أول مرة */
-      }
-      setCloudStatus('ok');
-      cloudRef.on('value',function(s2){
-        var val=s2.val(); if(!val||!val.data||!Array.isArray(val.data.users)) return;
-        var rs=JSON.stringify(val.data);
-        if(rs===cloudLastPushed||rs===JSON.stringify(db)) return; /* تجاهل صدى كتابتنا نحن */
-        cloudApplyRemote(val.data);
-      });
-    }).catch(function(){ setCloudStatus('err'); });
-  });
+  if(cloudAccounts()){
+    setCloudStatus('auth');
+    /* استئناف الجلسة المحفوظة تلقائياً عند إعادة فتح الصفحة */
+    firebase.auth().onAuthStateChanged(function(user){
+      if(user&&!ME&&!cloudReady&&!cloudInteractive&&user.uid){ afterCloudAuth(user,''); }
+    });
+  } else {
+    setCloudStatus('connecting');
+    firebase.auth().signInAnonymously().catch(function(){ setCloudStatus('err'); });
+    firebase.auth().onAuthStateChanged(function(user){ if(user&&!cloudReady) cloudAttach(); });
+  }
 }
 
 /* ==========================================================================
@@ -3202,6 +3333,13 @@ function cloudInit(){
   refreshLedger();
   cloudInit();
   applyLogo();
+  if(cloudAccounts()){
+    /* في وضع الحسابات يُدار الدخول والاستئناف عبر Firebase (onAuthStateChanged) — لا استئناف محلي */
+    document.getElementById('loginCo').textContent=db.settings.company||'نظام توريد الخضار والفواكه';
+    setTimeout(function(){ var e=document.getElementById('lg_user'); if(e) e.focus(); },200);
+    onExpenseType();
+    return;
+  }
   /* دعم النسخة المُصدَّرة لمستخدم محدد: تعبئة اسم المستخدم، أو دخول تلقائي إن اختار المدير ذلك عند التصدير */
   if(window.__PRESET_AUTOLOGIN__){
     var pu=db.users.filter(function(x){return x.username===window.__PRESET_AUTOLOGIN__.username&&x.pass===window.__PRESET_AUTOLOGIN__.pass;})[0];

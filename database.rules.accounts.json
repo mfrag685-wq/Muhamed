@@ -1,0 +1,18 @@
+{
+  "rules": {
+    "workspaces": {
+      "$wid": {
+        "members": {
+          ".read": "auth != null",
+          "$uid": {
+            ".write": "auth != null && ( ( auth.uid === $uid && !data.parent().exists() ) || root.child('workspaces').child($wid).child('members').child(auth.uid).child('role').val() === 'admin' )"
+          }
+        },
+        "root": {
+          ".read": "auth != null && root.child('workspaces').child($wid).child('members').child(auth.uid).exists()",
+          ".write": "auth != null && root.child('workspaces').child($wid).child('members').child(auth.uid).exists()"
+        }
+      }
+    }
+  }
+}
