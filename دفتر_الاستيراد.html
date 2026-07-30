@@ -4,6 +4,43 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>دفتر الاستيراد — مقارنة شركتي الاستيراد</title>
+<!-- ── طبقة التمهيد: النماذج المنفصلة + الثيم + الأسماء + العنوان ──
+     تعمل قبل تحميل React لتهيئة النموذج النشط وتطبيق الوضع الليلي/النهاري. -->
+<script>
+(function(){
+  var APP_KEY=/^(ships-|pays-|cfg-|log-)/;   // مفاتيح بيانات التطبيق
+  var PROFILES=["p1","p2"];                    // نموذجان منفصلان تماماً
+
+  // النموذج النشط (مخزَّن خارج نطاق النماذج حتى يكون مشتركاً)
+  var ap=localStorage.getItem("__activeProfile");
+  if(PROFILES.indexOf(ap)<0){ap="p1";localStorage.setItem("__activeProfile",ap);}
+  window.__AP=ap;
+  window.__PROFILES=PROFILES;
+
+  // ترحيل بيانات النسخة القديمة (بلا بادئة) إلى النموذج الأول مرة واحدة
+  if(!localStorage.getItem("__migratedV1")){
+    try{
+      var moved=0,i,k,keys=[];
+      for(i=0;i<localStorage.length;i++){k=localStorage.key(i);if(APP_KEY.test(k)&&k.indexOf("::")<0)keys.push(k);}
+      keys.forEach(function(kk){var v=localStorage.getItem(kk);localStorage.setItem("p1::"+kk,v);localStorage.removeItem(kk);moved++;});
+    }catch(e){}
+    localStorage.setItem("__migratedV1","1");
+  }
+
+  // قراءة/كتابة إعدادات النموذج النشط
+  window.__cfgGet=function(key){try{return JSON.parse(localStorage.getItem(window.__AP+"::"+key));}catch(e){return null;}};
+  window.__cfgSet=function(key,val){try{localStorage.setItem(window.__AP+"::"+key,JSON.stringify(val));}catch(e){}};
+
+  // عنوان التطبيق القابل للتعديل
+  var t=window.__cfgGet("cfg-title");
+  window.__APPTITLE=(t&&(""+t).trim())||"دفتر الاستيراد";
+  try{document.title=window.__APPTITLE;}catch(e){}
+
+  // تطبيق الثيم المحفوظ (نهاري/ليلي) قبل الرسم لتفادي الوميض
+  var th=localStorage.getItem("__theme");
+  if(th==="light"||th==="dark")document.documentElement.setAttribute("data-theme",th);
+})();
+</script>
 </head>
 <body>
 <div id="app" style="direction:rtl;font-family:'Tajawal','Segoe UI',sans-serif;min-height:600px;background:var(--surface-0);color:var(--text-primary)"></div>
@@ -343,7 +380,8 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
      كانت هذه المتغيرات تُحقن تلقائياً في بيئة المعاينة فقط،
      وبدونها يظهر التطبيق بلا ألوان. تعريفها هنا يجعله يعمل
      كملف مستقل في أي متصفح، مع دعم الوضعين الفاتح والداكن. */
-  :root{
+  /* المجموعة الفاتحة (النهارية) — الافتراضية */
+  :root, :root[data-theme="light"]{
     --surface-0:#f4f6f9; --surface-1:#eef2f6; --surface-2:#ffffff;
     --border:#dbe2ea; --border-strong:#c3ccd8; --border-accent:#9db8d6;
     --text-primary:#1c2733; --text-secondary:#48566a; --text-muted:#8593a6;
@@ -351,8 +389,9 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     --bg-accent:#e8f0f8; --bg-success:#e7f4ec; --bg-warning:#fbf1e0; --bg-danger:#fbeae6;
     --fill-danger:#c0402a;
   }
+  /* المجموعة الداكنة (الليلية) — تتبع نظام الجهاز ما لم يُختر يدوياً */
   @media(prefers-color-scheme:dark){
-    :root{
+    :root:not([data-theme="light"]){
       --surface-0:#0f1620; --surface-1:#16202c; --surface-2:#1c2836;
       --border:#2a3846; --border-strong:#3a4b5c; --border-accent:#3d5a7a;
       --text-primary:#e6ecf3; --text-secondary:#aab6c5; --text-muted:#6f7f92;
@@ -361,6 +400,16 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
       --fill-danger:#c0402a;
     }
   }
+  /* التبديل اليدوي إلى الليلي يتفوّق على إعداد النظام */
+  :root[data-theme="dark"]{
+    --surface-0:#0f1620; --surface-1:#16202c; --surface-2:#1c2836;
+    --border:#2a3846; --border-strong:#3a4b5c; --border-accent:#3d5a7a;
+    --text-primary:#e6ecf3; --text-secondary:#aab6c5; --text-muted:#6f7f92;
+    --text-accent:#7fa8d4; --text-success:#5fce97; --text-warning:#e0a862; --text-danger:#f08a78;
+    --bg-accent:#16283a; --bg-success:#123024; --bg-warning:#33260f; --bg-danger:#331713;
+    --fill-danger:#c0402a;
+  }
+  html,body{background:var(--surface-0)}
   #app *{box-sizing:border-box}
   #app ::selection{background:#1a3a5c;color:#fff}
   .ik-tbl{width:100%;border-collapse:collapse}
@@ -389,20 +438,24 @@ const {
   useMemo,
   useCallback
 } = React;
-const C = {
-  c1: {
-    label: "الشركة الأولى",
-    short: "ش١",
-    ac: "#1a3a5c",
-    soft: "#dde8f2"
-  },
-  c2: {
-    label: "الشركة الثانية",
-    short: "ش٢",
-    ac: "#7a3e10",
-    soft: "#f2e5d8"
-  }
-};
+const C = (function () {
+  const base = {
+    c1: { label: "الشركة الأولى", short: "ش١", ac: "#1a3a5c", soft: "#dde8f2" },
+    c2: { label: "الشركة الثانية", short: "ش٢", ac: "#7a3e10", soft: "#f2e5d8" }
+  };
+  try {
+    const o = (typeof window !== "undefined" && window.__cfgGet) ? window.__cfgGet("cfg-names") : null;
+    if (o && typeof o === "object") {
+      ["c1", "c2"].forEach(k => {
+        if (o[k] && typeof o[k] === "object") {
+          if (o[k].label && ("" + o[k].label).trim()) base[k].label = ("" + o[k].label).trim();
+          if (o[k].short && ("" + o[k].short).trim()) base[k].short = ("" + o[k].short).trim();
+        }
+      });
+    }
+  } catch (e) {}
+  return base;
+})();
 const NAVY = "#1a3a5c";
 const uid = () => Math.random().toString(36).slice(2, 9) + Date.now().toString(36);
 const today = () => new Date().toISOString().slice(0, 10);
@@ -472,13 +525,15 @@ const sp = j => {
 /* طبقة تخزين مرنة: تستخدم window.storage إن توفّرت (بيئة المعاينة)،
    وإلا تعود إلى localStorage ليعمل الحفظ في المتصفح كملف مستقل. */
 const hasWS = typeof window !== "undefined" && window.storage && typeof window.storage.get === "function";
+/* بادئة النموذج النشط: تعزل بيانات كل نموذج عن الآخر تماماً */
+const nsk = k => ((typeof window !== "undefined" && window.__AP) || "p1") + "::" + k;
 async function sg(k) {
   try {
     if (hasWS) {
       const r = await window.storage.get(k, false);
       return r?.value ?? null;
     }
-    return localStorage.getItem(k);
+    return localStorage.getItem(nsk(k));
   } catch {
     return null;
   }
@@ -489,7 +544,7 @@ async function ss(k, v) {
       await window.storage.set(k, v, false);
       return;
     }
-    localStorage.setItem(k, v);
+    localStorage.setItem(nsk(k), v);
   } catch {
     throw new Error("storage failed");
   }
@@ -958,7 +1013,7 @@ function App() {
       fontSize: 16,
       letterSpacing: "-.2px"
     }
-  }, "\u062F\u0641\u062A\u0631 \u0627\u0644\u0627\u0633\u062A\u064A\u0631\u0627\u062F"), /*#__PURE__*/React.createElement("div", {
+  }, (typeof window !== "undefined" && window.__APPTITLE) || "\u062F\u0641\u062A\u0631 \u0627\u0644\u0627\u0633\u062A\u064A\u0631\u0627\u062F"), /*#__PURE__*/React.createElement("div", {
     style: {
       fontSize: 10,
       color: "var(--text-muted)"
@@ -4006,14 +4061,17 @@ ReactDOM.createRoot(document.getElementById("app")).render(React.createElement(A
 (function(){
   var NAVY="#1a3a5c";
   var PREFIXES=["ships-","pays-","cfg-","log-"];
-  function isAppKey(k){for(var i=0;i<PREFIXES.length;i++){if(k.indexOf(PREFIXES[i])===0)return true;}return false;}
+  var AP=(window.__AP)||"p1";
+  var PROFILES=(window.__PROFILES)||["p1","p2"];
+  function isBareAppKey(k){for(var i=0;i<PREFIXES.length;i++){if(k.indexOf(PREFIXES[i])===0)return true;}return false;}
 
+  /* يجمع بيانات النموذج النشط فقط، ويزيل البادئة ليكون الملف قابلاً للنقل */
   function collect(){
-    var data={};
+    var data={},pre=AP+"::";
     try{
       for(var i=0;i<localStorage.length;i++){
         var k=localStorage.key(i);
-        if(isAppKey(k))data[k]=localStorage.getItem(k);
+        if(k.indexOf(pre)===0){var bare=k.slice(pre.length);if(isBareAppKey(bare))data[bare]=localStorage.getItem(k);}
       }
     }catch(e){}
     return data;
@@ -4021,26 +4079,28 @@ ReactDOM.createRoot(document.getElementById("app")).render(React.createElement(A
 
   function pad(n){return n<10?"0"+n:""+n;}
   function stamp(){var d=new Date();return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate())+"_"+pad(d.getHours())+"-"+pad(d.getMinutes());}
+  function appTitle(){return (window.__APPTITLE)||"دفتر الاستيراد";}
 
   function flash(msg,err){
     var t=document.createElement("div");
     t.textContent=msg;
-    t.style.cssText="position:fixed;bottom:60px;left:50%;transform:translateX(-50%);background:"+(err?"#c0402a":NAVY)+";color:#fff;padding:8px 20px;border-radius:20px;font-size:12px;z-index:1000;font-family:'Tajawal','Segoe UI',sans-serif;box-shadow:0 4px 12px rgba(15,30,50,.25)";
+    t.style.cssText="position:fixed;bottom:60px;left:50%;transform:translateX(-50%);background:"+(err?"#c0402a":NAVY)+";color:#fff;padding:8px 20px;border-radius:20px;font-size:12px;z-index:2000;font-family:'Tajawal','Segoe UI',sans-serif;box-shadow:0 4px 12px rgba(15,30,50,.25)";
     document.body.appendChild(t);
     setTimeout(function(){t.remove();},2600);
   }
 
+  /* ── تصدير/استيراد النسخة الاحتياطية (للنموذج النشط) ── */
   function exportData(){
     var data=collect();
-    if(!Object.keys(data).length){flash("لا توجد بيانات لتصديرها",true);return;}
-    var payload={app:"دفتر الاستيراد",kind:"backup",version:1,exportedAt:new Date().toISOString(),data:data};
+    if(!Object.keys(data).length){flash("لا توجد بيانات لتصديرها في هذا النموذج",true);return;}
+    var payload={app:appTitle(),kind:"backup",version:2,profile:AP,exportedAt:new Date().toISOString(),data:data};
     var blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
     var url=URL.createObjectURL(blob);
     var a=document.createElement("a");
-    a.href=url;a.download="نسخة_احتياطية_دفتر_الاستيراد_"+stamp()+".json";
+    a.href=url;a.download="نسخة_"+appTitle().replace(/\s+/g,"_")+"_"+stamp()+".json";
     document.body.appendChild(a);a.click();a.remove();
     setTimeout(function(){URL.revokeObjectURL(url);},1000);
-    flash("تم تصدير النسخة الاحتياطية ✓");
+    flash("تم تصدير نسخة «"+appTitle()+"» ✓");
   }
 
   function importData(file){
@@ -4049,14 +4109,16 @@ ReactDOM.createRoot(document.getElementById("app")).render(React.createElement(A
       var obj;
       try{obj=JSON.parse(reader.result);}catch(e){flash("الملف غير صالح — تعذّرت قراءته",true);return;}
       var data=obj&&obj.data&&typeof obj.data==="object"?obj.data:null;
-      if(!data||!Object.keys(data).some(isAppKey)){flash("هذا الملف لا يحتوي على نسخة احتياطية صحيحة",true);return;}
-      var n=Object.keys(data).filter(isAppKey).length;
-      if(!window.confirm("سيتم استبدال كل البيانات الحالية بمحتوى النسخة الاحتياطية ("+n+" عنصر). هل تريد المتابعة؟"))return;
+      /* دعم النسخ القديمة (بمفاتيح مسبوقة) والجديدة (مفاتيح مجرّدة) */
+      var norm={};
+      if(data)Object.keys(data).forEach(function(k){var bare=k.indexOf("::")>=0?k.split("::").pop():k;if(isBareAppKey(bare))norm[bare]=data[k];});
+      if(!Object.keys(norm).length){flash("هذا الملف لا يحتوي على نسخة احتياطية صحيحة",true);return;}
+      if(!window.confirm("سيتم استبدال كل بيانات النموذج الحالي ("+AP.toUpperCase()+") بمحتوى النسخة ("+Object.keys(norm).length+" عنصر). هل تريد المتابعة؟"))return;
       try{
-        var toDel=[];
-        for(var i=0;i<localStorage.length;i++){var k=localStorage.key(i);if(isAppKey(k))toDel.push(k);}
+        var pre=AP+"::",toDel=[];
+        for(var i=0;i<localStorage.length;i++){var k=localStorage.key(i);if(k.indexOf(pre)===0&&isBareAppKey(k.slice(pre.length)))toDel.push(k);}
         toDel.forEach(function(k){localStorage.removeItem(k);});
-        Object.keys(data).forEach(function(k){if(isAppKey(k))localStorage.setItem(k,data[k]);});
+        Object.keys(norm).forEach(function(k){localStorage.setItem(pre+k,norm[k]);});
       }catch(e){flash("تعذّر حفظ البيانات على هذا المتصفح",true);return;}
       flash("تم الاستيراد بنجاح — جارٍ إعادة التحميل…");
       setTimeout(function(){location.reload();},900);
@@ -4065,28 +4127,118 @@ ReactDOM.createRoot(document.getElementById("app")).render(React.createElement(A
     reader.readAsText(file);
   }
 
-  function mkBtn(label,title,onClick){
+  /* ── التبديل بين النموذجين ── */
+  function switchProfile(p){
+    if(p===AP)return;
+    localStorage.setItem("__activeProfile",p);
+    location.reload();
+  }
+
+  /* ── الوضع النهاري/الليلي ── */
+  function effIsDark(){
+    var t=document.documentElement.getAttribute("data-theme");
+    if(t)return t==="dark";
+    return window.matchMedia&&window.matchMedia("(prefers-color-scheme:dark)").matches;
+  }
+  function toggleTheme(){
+    var next=effIsDark()?"light":"dark";
+    document.documentElement.setAttribute("data-theme",next);
+    try{localStorage.setItem("__theme",next);}catch(e){}
+    updateThemeBtn();
+  }
+  var themeBtn=null;
+  function updateThemeBtn(){if(themeBtn)themeBtn.textContent=effIsDark()?"☀️ نهاري":"🌙 ليلي";}
+
+  /* ── نافذة الإعدادات: اسم التطبيق + اسمَي الشركتين ── */
+  function openSettings(){
+    if(document.getElementById("ik-settings-ov"))return;
+    var names=(window.__cfgGet&&window.__cfgGet("cfg-names"))||{};
+    var c1=names.c1||{},c2=names.c2||{};
+    var ov=document.createElement("div");
+    ov.id="ik-settings-ov";ov.setAttribute("dir","rtl");
+    ov.style.cssText="position:fixed;inset:0;background:rgba(10,18,28,.55);z-index:3000;display:flex;align-items:center;justify-content:center;padding:16px;font-family:'Tajawal','Segoe UI',sans-serif";
+    var box=document.createElement("div");
+    box.style.cssText="background:var(--surface-2);color:var(--text-primary);border:0.5px solid var(--border);border-radius:14px;padding:18px;width:100%;max-width:420px;box-shadow:0 20px 50px rgba(0,0,0,.4)";
+    function field(label,val,ph){
+      return '<label style="display:block;margin-bottom:10px"><span style="display:block;font-size:11px;color:var(--text-secondary);margin-bottom:3px">'+label+'</span>'+
+        '<input class="ikset" data-k="'+ph+'" value="'+String(val||"").replace(/"/g,"&quot;")+'" style="width:100%;padding:8px 10px;border:0.5px solid var(--border-strong);border-radius:8px;background:var(--surface-0);color:var(--text-primary);font-family:inherit;font-size:13px;box-sizing:border-box"></label>';
+    }
+    box.innerHTML='<div style="font-weight:700;font-size:15px;margin-bottom:14px;color:var(--text-accent)">⚙️ الإعدادات — النموذج '+(PROFILES.indexOf(AP)+1)+'</div>'+
+      field("اسم التطبيق (يظهر في الترويسة)",appTitle(),"title")+
+      '<div style="height:1px;background:var(--border);margin:12px 0"></div>'+
+      field("اسم الشركة الأولى",c1.label||"الشركة الأولى","c1label")+
+      field("الاختصار (يظهر في الجداول)",c1.short||"ش١","c1short")+
+      field("اسم الشركة الثانية",c2.label||"الشركة الثانية","c2label")+
+      field("الاختصار (يظهر في الجداول)",c2.short||"ش٢","c2short")+
+      '<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px">'+
+      '<button id="ikset-cancel" style="border:0.5px solid var(--border-strong);background:var(--surface-2);color:var(--text-secondary);border-radius:8px;padding:7px 16px;cursor:pointer;font-family:inherit;font-size:12px">إلغاء</button>'+
+      '<button id="ikset-save" style="border:none;background:'+NAVY+';color:#fff;border-radius:8px;padding:7px 18px;cursor:pointer;font-family:inherit;font-size:13px;font-weight:500">حفظ</button></div>';
+    ov.appendChild(box);document.body.appendChild(ov);
+    function close(){ov.remove();}
+    ov.addEventListener("click",function(e){if(e.target===ov)close();});
+    box.querySelector("#ikset-cancel").onclick=close;
+    box.querySelector("#ikset-save").onclick=function(){
+      var vals={};box.querySelectorAll(".ikset").forEach(function(inp){vals[inp.getAttribute("data-k")]=inp.value.trim();});
+      window.__cfgSet&&window.__cfgSet("cfg-title",vals.title||"دفتر الاستيراد");
+      window.__cfgSet&&window.__cfgSet("cfg-names",{
+        c1:{label:vals.c1label||"الشركة الأولى",short:vals.c1short||"ش١"},
+        c2:{label:vals.c2label||"الشركة الثانية",short:vals.c2short||"ش٢"}
+      });
+      flash("تم حفظ الإعدادات — جارٍ إعادة التحميل…");
+      setTimeout(function(){location.reload();},700);
+    };
+  }
+
+  function mkBtn(label,title,onClick,bg){
     var b=document.createElement("button");
     b.type="button";b.textContent=label;b.title=title;
-    b.style.cssText="border:none;background:"+NAVY+";color:#fff;border-radius:8px;padding:7px 12px;font-size:12px;font-weight:500;cursor:pointer;font-family:'Tajawal','Segoe UI',sans-serif;box-shadow:0 2px 6px rgba(15,30,50,.25)";
+    b.style.cssText="border:none;background:"+(bg||NAVY)+";color:#fff;border-radius:8px;padding:7px 11px;font-size:12px;font-weight:500;cursor:pointer;font-family:'Tajawal','Segoe UI',sans-serif;box-shadow:0 2px 6px rgba(15,30,50,.25);white-space:nowrap";
     b.onclick=onClick;
     return b;
   }
 
   function mount(){
-    if(document.getElementById("ik-backup-bar"))return;
+    if(document.getElementById("ik-tools-bar"))return;
     var bar=document.createElement("div");
-    bar.id="ik-backup-bar";
+    bar.id="ik-tools-bar";
     bar.setAttribute("dir","rtl");
-    bar.style.cssText="position:fixed;bottom:14px;right:14px;display:flex;gap:6px;z-index:900;flex-wrap:wrap";
+    bar.style.cssText="position:fixed;bottom:14px;right:14px;display:flex;gap:6px;z-index:1500;flex-wrap:wrap;align-items:center;max-width:calc(100vw - 28px);justify-content:flex-end";
 
+    /* محدّد النموذج */
+    var seg=document.createElement("div");
+    seg.style.cssText="display:flex;gap:0;background:var(--surface-2);border:0.5px solid var(--border-strong);border-radius:8px;overflow:hidden;box-shadow:0 2px 6px rgba(15,30,50,.2)";
+    PROFILES.forEach(function(p,idx){
+      var b=document.createElement("button");
+      b.type="button";b.textContent="نموذج "+(idx+1);b.title="التبديل إلى النموذج "+(idx+1)+" (بيانات منفصلة تماماً)";
+      var on=p===AP;
+      b.style.cssText="border:none;padding:7px 11px;font-size:12px;font-weight:"+(on?600:400)+";cursor:pointer;font-family:'Tajawal','Segoe UI',sans-serif;background:"+(on?NAVY:"transparent")+";color:"+(on?"#fff":"var(--text-secondary)")+"";
+      b.onclick=function(){switchProfile(p);};
+      seg.appendChild(b);
+    });
+    bar.appendChild(seg);
+
+    /* زر الثيم */
+    themeBtn=mkBtn("","تبديل الوضع النهاري/الليلي",toggleTheme,"var(--surface-2)");
+    themeBtn.style.background="var(--surface-2)";themeBtn.style.color="var(--text-primary)";
+    themeBtn.style.border="0.5px solid var(--border-strong)";
+    updateThemeBtn();
+    bar.appendChild(themeBtn);
+
+    /* الإعدادات */
+    bar.appendChild(mkBtn("⚙️","تعديل اسم التطبيق وأسماء الشركتين",openSettings,"var(--surface-2)"));
+
+    /* النسخ الاحتياطي */
     var fileInput=document.createElement("input");
     fileInput.type="file";fileInput.accept="application/json,.json";fileInput.style.display="none";
     fileInput.onchange=function(){if(fileInput.files&&fileInput.files[0]){importData(fileInput.files[0]);fileInput.value="";}};
-
-    bar.appendChild(mkBtn("⬇ تصدير نسخة","تنزيل ملف نسخة احتياطية بكل البيانات",exportData));
-    bar.appendChild(mkBtn("⬆ استيراد نسخة","استعادة البيانات من ملف نسخة احتياطية",function(){fileInput.click();}));
+    bar.appendChild(mkBtn("⬇ تصدير","تنزيل نسخة احتياطية لبيانات هذا النموذج",exportData));
+    bar.appendChild(mkBtn("⬆ استيراد","استعادة البيانات من ملف نسخة احتياطية",function(){fileInput.click();}));
     bar.appendChild(fileInput);
+
+    /* تلوين زرّي الإعدادات والثيم بحدود واضحة */
+    var settingsBtn=bar.children[2];
+    settingsBtn.style.background="var(--surface-2)";settingsBtn.style.color="var(--text-primary)";settingsBtn.style.border="0.5px solid var(--border-strong)";
+
     document.body.appendChild(bar);
   }
 
