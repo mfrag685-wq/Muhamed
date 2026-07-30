@@ -183,7 +183,18 @@ tr.sub-row td{background:#f7faf6;font-weight:700;font-size:12.5px;color:var(--in
   tbody tr:hover{background:none}
 }
 @media(prefers-reduced-motion:reduce){*{transition:none!important}}
+/* ===== مؤشّر المزامنة السحابية ===== */
+.cloud-status{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;
+  padding:5px 11px;border-radius:20px;background:#22332c;color:#9db3a7;white-space:nowrap}
+.cloud-status::before{content:"";width:8px;height:8px;border-radius:50%;background:currentColor;flex-shrink:0}
+.cloud-status.ok{color:#8fd6a8}.cloud-status.sync{color:#e6c65c}
+.cloud-status.err,.cloud-status.off{color:#e59c8f}.cloud-status.connecting{color:#8fb8e0}
+@media print{.cloud-status{display:none!important}}
 </style>
+<!-- ===== مكتبة Firebase للمزامنة السحابية (تعمل فقط عند تعبئة الإعدادات) ===== -->
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
 </head>
 <body>
 
@@ -214,6 +225,7 @@ tr.sub-row td{background:#f7faf6;font-weight:700;font-size:12.5px;color:var(--in
     </div>
   </div>
   <div class="head-actions">
+    <span id="cloudStatus" class="cloud-status off" title="حالة المزامنة السحابية">غير مفعّل</span>
     <div class="userbox"><div class="avatar" id="uAvatar">م</div>
       <div><div class="un" id="uName">—</div><div class="ur" id="uRole">—</div></div></div>
     <button class="btn-ghost" onclick="exportBackup()">نسخة احتياطية</button>
@@ -921,7 +933,7 @@ function lsSet(k,v){
   if(k===KEY) memStore=v;                 /* نسخة في الذاكرة دائماً كشبكة أمان */
   try{ localStorage.setItem(k,v); }catch(e){ storageOK=false; }
 }
-function persist(){ lsSet(KEY,JSON.stringify(db)); }
+function persist(){ var s=JSON.stringify(db); lsSet(KEY,s); if(typeof cloudPush==='function') cloudPush(s); }
 
 /* ---------- قاعدة البيانات ---------- */
 function hash(s){ var h=5381; s=String(s)+'::mfarag'; for(var i=0;i<s.length;i++) h=((h<<5)+h+s.charCodeAt(i))>>>0; return 'h'+h.toString(36); }
@@ -1001,14 +1013,15 @@ var _existingRaw=lsGet(KEY);
 try{ db=_existingRaw?JSON.parse(_existingRaw):null; }catch(e){ db=null; }
 if(!db&&window.__PRESET_DB__){ db=window.__PRESET_DB__; USING_PRESET=true; }
 if(!db||!db.settings) db=demoDB();
-['users','suppliers','clients','warehouses','items','units','purchases','sales','preturns','sreturns','transfers','waste','expenses','payments','audit','openingStock']
-  .forEach(function(k){ if(!Array.isArray(db[k])) db[k]=[]; });
-if(!db.meta) db.meta={author:AUTHOR,version:APP_VERSION};
-db.meta.author=AUTHOR;
-if(!db.users.length) db.users=emptyDB().users;
-/* ترحيل تلقائي: بناء قائمة الوحدات من الأصناف الحالية إن لم تكن معرّفة، وتفعيل كل الأصناف القديمة افتراضياً،
-   وتعبئة الأرصدة الافتتاحية الغائبة بصفر لتوافق النسخ القديمة */
-(function migrate(){
+/* تطبيع بنية قاعدة البيانات — يُستدعى عند الإقلاع وعند وصول بيانات جديدة من السحابة،
+   لضمان وجود كل المصفوفات والحقول المطلوبة مهما كان مصدر البيانات أو قِدَمها */
+function ensureDbShape(){
+  ['users','suppliers','clients','warehouses','items','units','purchases','sales','preturns','sreturns','transfers','waste','expenses','payments','audit','openingStock']
+    .forEach(function(k){ if(!Array.isArray(db[k])) db[k]=[]; });
+  if(!db.settings) db.settings=emptyDB().settings;
+  if(!db.meta) db.meta={author:AUTHOR,version:APP_VERSION};
+  db.meta.author=AUTHOR;
+  if(!db.users.length) db.users=emptyDB().users;
   /* ترحيل الوحدات من وزن مفرد إلى قائمة أوزان متعددة */
   db.units.forEach(function(u){
     if(!Array.isArray(u.weights)) u.weights=(u.weight!=null&&u.weight!=='')?[+u.weight]:[];
@@ -1028,8 +1041,9 @@ if(!db.users.length) db.users=emptyDB().users;
   }
   db.suppliers.forEach(function(s){ if(s.opening===undefined) s.opening=0; if(s.openingDate===undefined) s.openingDate=''; });
   db.clients.forEach(function(c){ if(c.opening===undefined) c.opening=0; if(c.openingDate===undefined) c.openingDate=''; });
-  if(USING_PRESET) persist(); /* أول تشغيل لنسخة مستخدم مُصدَّرة: نحفظها فوراً في تخزين هذا الجهاز لتصبح نسخته المستقلة */
-})();
+}
+ensureDbShape();
+if(USING_PRESET) persist(); /* أول تشغيل لنسخة مستخدم مُصدَّرة: نحفظها فوراً في تخزين هذا الجهاز لتصبح نسخته المستقلة */
 
 
 var ME=null;
@@ -2927,14 +2941,14 @@ function wipeData(){
   if(!confirm('سيتم مسح جميع السجلات نهائياً مع الإبقاء على المستخدمين. تأكد من تنزيل نسخة احتياطية أولاً. المتابعة؟')) return;
   if(!confirm('تأكيد أخير: لا يمكن التراجع عن هذه العملية.')) return;
   var users=db.users, settings=db.settings;
-  db=emptyDB(); db.users=users; db.settings=settings;
+  db=emptyDB(); db.users=users; db.settings=settings; ensureDbShape();
   log('delete','الإعدادات','مسح جميع بيانات الحركات');
   persist(); renderAll(); renderMaster(); toast('تم مسح البيانات');
 }
 function loadDemo(){
   if(!guard('settings')) return;
   if(!confirm('سيستبدل هذا بياناتك الحالية ببيانات تجريبية. المتابعة؟')) return;
-  var users=db.users; db=demoDB(); db.users=users;
+  var users=db.users; db=demoDB(); db.users=users; ensureDbShape();
   log('data','الإعدادات','تحميل البيانات التجريبية');
   persist(); renderAll(); renderMaster(); toast('تم تحميل البيانات التجريبية');
 }
@@ -3106,10 +3120,87 @@ function showReturnAvail(){
 }
 
 /* ==========================================================================
+   المزامنة السحابية (Firebase Realtime Database)
+   ────────────────────────────────────────────────────────────────────────
+   تُحفظ كل البيانات على الإنترنت وتتزامن فوراً بين جميع الأجهزة والمستخدمين.
+   لتفعيلها: أنشئ مشروع Firebase مجاني، فعّل Realtime Database ودخول Anonymous،
+   ثم الصق إعدادات مشروعك داخل CLOUD_CONFIG أدناه. ما دامت الحقول فارغة يعمل
+   البرنامج محلياً على الجهاز تماماً كما كان — دون أي تغيير في السلوك.
+   ========================================================================== */
+var CLOUD_CONFIG={
+  apiKey:"",
+  authDomain:"",
+  databaseURL:"",
+  projectId:"",
+  storageBucket:"",
+  messagingSenderId:"",
+  appId:"",
+  workspaceId:"main"   /* مساحة عمل واحدة مشتركة لكل مستخدمي المنشأة — اترِكها "main" */
+};
+var cloudReady=false, cloudRef=null, cloudPushTimer=null, cloudLastPushed='';
+function setCloudStatus(state){
+  var el=document.getElementById('cloudStatus'); if(!el) return;
+  var map={off:['غير مفعّل','off'],connecting:['يتصل…','connecting'],ok:['متصل ☁','ok'],
+    sync:['يُزامن…','sync'],err:['تعذّر الاتصال','err']};
+  var m=map[state]||map.off; el.textContent=m[0]; el.className='cloud-status '+m[1];
+}
+function cloudEnabled(){ return !!(CLOUD_CONFIG&&CLOUD_CONFIG.apiKey&&typeof firebase!=='undefined'); }
+/* دفع نسخة كاملة من قاعدة البيانات إلى السحابة (مؤجَّل لتجميع الحفظات المتتابعة) */
+function cloudPush(s){
+  if(!cloudReady||!cloudRef) return;
+  s=s||JSON.stringify(db);
+  clearTimeout(cloudPushTimer);
+  cloudPushTimer=setTimeout(function(){
+    var data; try{ data=JSON.parse(s); }catch(e){ return; }
+    cloudLastPushed=s; setCloudStatus('sync');
+    cloudRef.set({data:data,updatedAt:firebase.database.ServerValue.TIMESTAMP,updatedBy:(ME?ME.name:'')})
+      .then(function(){ setCloudStatus('ok'); })
+      .catch(function(){ setCloudStatus('err'); });
+  },600);
+}
+/* تطبيق بيانات وردت من السحابة على النسخة المحلية وإعادة العرض */
+function cloudApplyRemote(remote){
+  if(!remote||typeof remote!=='object'||!Array.isArray(remote.users)) return;
+  db=remote; ensureDbShape();
+  var s=JSON.stringify(db); lsSet(KEY,s); cloudLastPushed=s;
+  refreshLedger();
+  if(ME){
+    var me=byId(db.users,ME.id); if(me){ ME=me; }
+    applyPerms(); renderAll(); renderMaster(); renderUsers(); renderSettingsForm(); applyLogo();
+  }
+}
+function cloudInit(){
+  if(!cloudEnabled()){ setCloudStatus('off'); return; }
+  setCloudStatus('connecting');
+  try{ firebase.initializeApp(CLOUD_CONFIG); }catch(e){ /* قد يكون مُهيّأً مسبقاً */ }
+  firebase.auth().signInAnonymously().catch(function(){ setCloudStatus('err'); });
+  firebase.auth().onAuthStateChanged(function(user){
+    if(!user||cloudReady) return;
+    cloudRef=firebase.database().ref('workspaces/'+(CLOUD_CONFIG.workspaceId||'main')+'/root');
+    cloudRef.once('value').then(function(snap){
+      var v=snap.val();
+      if(v&&v.data&&Array.isArray(v.data.users)){
+        cloudApplyRemote(v.data); cloudReady=true;
+      } else {
+        cloudReady=true; cloudPush(JSON.stringify(db)); /* السحابة فارغة: نرفع البيانات المحلية أول مرة */
+      }
+      setCloudStatus('ok');
+      cloudRef.on('value',function(s2){
+        var val=s2.val(); if(!val||!val.data||!Array.isArray(val.data.users)) return;
+        var rs=JSON.stringify(val.data);
+        if(rs===cloudLastPushed||rs===JSON.stringify(db)) return; /* تجاهل صدى كتابتنا نحن */
+        cloudApplyRemote(val.data);
+      });
+    }).catch(function(){ setCloudStatus('err'); });
+  });
+}
+
+/* ==========================================================================
    التشغيل
    ========================================================================== */
 (function init(){
   refreshLedger();
+  cloudInit();
   applyLogo();
   /* دعم النسخة المُصدَّرة لمستخدم محدد: تعبئة اسم المستخدم، أو دخول تلقائي إن اختار المدير ذلك عند التصدير */
   if(window.__PRESET_AUTOLOGIN__){
