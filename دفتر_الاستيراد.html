@@ -1,0 +1,1043 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>دفتر الاستيراد — مقارنة شركتي الاستيراد</title>
+</head>
+<body>
+<div id="app" style="direction:rtl;font-family:'Tajawal','Segoe UI',sans-serif;min-height:600px;background:var(--surface-0);color:var(--text-primary)"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<style>
+  /* ── متغيرات التصميم (ألوان الواجهة) ─────────────────────
+     كانت هذه المتغيرات تُحقن تلقائياً في بيئة المعاينة فقط،
+     وبدونها يظهر التطبيق بلا ألوان. تعريفها هنا يجعله يعمل
+     كملف مستقل في أي متصفح، مع دعم الوضعين الفاتح والداكن. */
+  :root{
+    --surface-0:#f4f6f9; --surface-1:#eef2f6; --surface-2:#ffffff;
+    --border:#dbe2ea; --border-strong:#c3ccd8; --border-accent:#9db8d6;
+    --text-primary:#1c2733; --text-secondary:#48566a; --text-muted:#8593a6;
+    --text-accent:#1a3a5c; --text-success:#1f7a4d; --text-warning:#9a5b12; --text-danger:#b5341f;
+    --bg-accent:#e8f0f8; --bg-success:#e7f4ec; --bg-warning:#fbf1e0; --bg-danger:#fbeae6;
+    --fill-danger:#c0402a;
+  }
+  @media(prefers-color-scheme:dark){
+    :root{
+      --surface-0:#0f1620; --surface-1:#16202c; --surface-2:#1c2836;
+      --border:#2a3846; --border-strong:#3a4b5c; --border-accent:#3d5a7a;
+      --text-primary:#e6ecf3; --text-secondary:#aab6c5; --text-muted:#6f7f92;
+      --text-accent:#7fa8d4; --text-success:#5fce97; --text-warning:#e0a862; --text-danger:#f08a78;
+      --bg-accent:#16283a; --bg-success:#123024; --bg-warning:#33260f; --bg-danger:#331713;
+      --fill-danger:#c0402a;
+    }
+  }
+  #app *{box-sizing:border-box}
+  #app ::selection{background:#1a3a5c;color:#fff}
+  .ik-tbl{width:100%;border-collapse:collapse}
+  .ik-tbl th{background:#1a3a5c;color:#fff;padding:6px 8px;font-size:10px;font-weight:500;text-align:right;white-space:nowrap}
+  .ik-tbl th.l,.ik-tbl td.l{text-align:left}
+  .ik-tbl td{border-bottom:0.5px solid var(--border);padding:5px 8px;font-size:11px;color:var(--text-primary)}
+  .ik-tbl tbody tr:nth-child(odd){background:var(--surface-1)}
+  .ik-tbl tbody tr:nth-child(even){background:var(--surface-2)}
+  .ik-tbl tfoot td{background:var(--surface-0);font-weight:600;border-top:1.5px solid #1a3a5c;font-size:11px;padding:6px 8px}
+  .ik-card{background:var(--surface-2);border:0.5px solid var(--border);border-radius:12px;padding:14px;box-shadow:0 1px 2px rgba(15,30,50,.05)}
+  .ik-sec{font-weight:600;font-size:12px;color:#1a3a5c;display:flex;align-items:center;gap:7px;margin:0 0 10px}
+  .ik-sec::after{content:"";flex:1;height:0.5px;background:var(--border)}
+  .ik-sec .n{background:#1a3a5c;color:#fff;width:18px;height:18px;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;font-size:10px}
+  .ik-chip{display:inline-flex;align-items:center;gap:4px;background:var(--surface-0);border:0.5px solid var(--border);border-radius:6px;padding:2px 8px;font-size:10px;color:var(--text-secondary);white-space:nowrap}
+  .ik-chip b{color:var(--text-primary);font-weight:600}
+  .ik-ghost{border:none;background:transparent;cursor:pointer;font-family:'Tajawal','Segoe UI',sans-serif;font-size:10px;padding:0;text-decoration:underline}
+  button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid #1a3a5c;outline-offset:1px}
+  @media(prefers-reduced-motion:reduce){#app *{transition:none!important;animation:none!important}}
+</style>
+
+<script type="text/babel" data-presets="react">
+const {useState,useEffect,useMemo,useCallback}=React;
+const C={c1:{label:"الشركة الأولى",short:"ش١",ac:"#1a3a5c",soft:"#dde8f2"},c2:{label:"الشركة الثانية",short:"ش٢",ac:"#7a3e10",soft:"#f2e5d8"}};
+const NAVY="#1a3a5c";
+const uid=()=>Math.random().toString(36).slice(2,9)+Date.now().toString(36);
+const today=()=>new Date().toISOString().slice(0,10);
+const nv=v=>{const x=Number(v);return isFinite(x)?x:0;};
+const mn=(v,d=2)=>Number(v).toLocaleString("en-US",{minimumFractionDigits:d,maximumFractionDigits:d});
+const fmt=v=>mn(v,2);
+
+/* ── نموذج البيانات والحسابات ─────────────────────────── */
+const EXTRA_FIELDS=[["freight","أجور الشحن"],["customs","الجمارك"],["clearance","التخليص"],["transport","النقل"]];
+const emptyEx=()=>({freight:"",customs:"",clearance:"",transport:""});
+const exSum=e=>e?EXTRA_FIELDS.reduce((s,[k])=>s+nv(e[k]),0):0;
+
+const iC=it=>nv(it.qty)*nv(it.price);                                   // FOB للموديل
+const cC=c=>(c.items||[]).reduce((s,it)=>s+iC(it),0);                   // FOB للحاوية
+const cQ=c=>(c.items||[]).reduce((s,it)=>s+nv(it.qty),0);               // كمية الحاوية
+const sC=sh=>(sh.containers||[]).reduce((s,c)=>s+cC(c),0);              // FOB للشحنة
+const sQ=sh=>(sh.containers||[]).reduce((s,c)=>s+cQ(c),0);              // كمية الشحنة
+const shExtras=sh=>exSum(sh.extras)+(sh.containers||[]).reduce((s,c)=>s+exSum(c.extras),0);
+const sLanded=sh=>sC(sh)+shExtras(sh);                                  // التكلفة الشاملة
+
+/* توزيع التكاليف الإضافية نسبياً (حسب القيمة أو الكمية) → تكلفة القطعة الواصلة */
+function landedMap(sh){
+  const basis=sh.allocBasis==="qty"?"qty":"value";
+  const w=it=>basis==="qty"?nv(it.qty):iC(it);
+  const all=(sh.containers||[]).flatMap(c=>c.items||[]);
+  const totW=all.reduce((s,it)=>s+w(it),0);
+  const shipEx=exSum(sh.extras);
+  const map={};
+  (sh.containers||[]).forEach(c=>{
+    const cEx=exSum(c.extras);
+    const cW=(c.items||[]).reduce((s,it)=>s+w(it),0);
+    (c.items||[]).forEach(it=>{
+      const fob=iC(it);
+      const extra=(cW?cEx*w(it)/cW:0)+(totW?shipEx*w(it)/totW:0);
+      const landed=fob+extra;
+      map[it.id]={fob,extra,landed,unit:nv(it.qty)?landed/nv(it.qty):0};
+    });
+  });
+  return map;
+}
+
+const toSAR=(a,cur,r,def)=>cur==="SAR"?nv(a):nv(a)*(nv(r)||nv(def)||3.75);
+const shSAR=(sh,def)=>toSAR(sC(sh),sh.currency,sh.rate,def);
+const shLandedSAR=(sh,def)=>toSAR(sLanded(sh),sh.currency,sh.rate,def);
+const pSAR=(p,def)=>toSAR(p.amount,p.currency,p.rate,def);
+
+const sp=j=>{try{return JSON.parse(j);}catch{return null;}};
+/* طبقة تخزين مرنة: تستخدم window.storage إن توفّرت (بيئة المعاينة)،
+   وإلا تعود إلى localStorage ليعمل الحفظ في المتصفح كملف مستقل. */
+const hasWS=typeof window!=="undefined"&&window.storage&&typeof window.storage.get==="function";
+async function sg(k){
+  try{
+    if(hasWS){const r=await window.storage.get(k,false);return r?.value??null;}
+    return localStorage.getItem(k);
+  }catch{return null;}
+}
+async function ss(k,v){
+  try{
+    if(hasWS){await window.storage.set(k,v,false);return;}
+    localStorage.setItem(k,v);
+  }catch{throw new Error("storage failed");}
+}
+
+function fixS(s){
+  if(!s||typeof s!=="object")return null;
+  const b={id:s.id||uid(),company:s.company==="c2"?"c2":"c1",num:s.num||"",date:s.date||today(),
+    currency:s.currency==="SAR"?"SAR":"USD",rate:s.rate||"",note:s.note||"",
+    extras:{...emptyEx(),...(s.extras||{})},allocBasis:s.allocBasis==="qty"?"qty":"value"};
+  const fixIt=it=>({id:it.id||uid(),model:it.model||it.name||"",qty:it.qty??"",price:it.price??""});
+  if(!Array.isArray(s.containers))
+    return{...b,containers:[{id:uid(),number:"1",extras:emptyEx(),items:(s.items||[]).map(fixIt)}]};
+  return{...b,containers:s.containers.map(c=>({id:c.id||uid(),number:c.number??"",extras:{...emptyEx(),...(c.extras||{})},items:(c.items||[]).map(fixIt)}))};
+}
+function fixP(p){
+  if(!p||typeof p!=="object")return null;
+  return{id:p.id||uid(),date:p.date||today(),amount:p.amount??"",currency:p.currency==="SAR"?"SAR":"USD",rate:p.rate??"",target:["both","c1","c2"].includes(p.target)?p.target:"both",method:p.method==="exchange"?"exchange":"bank",methodName:p.methodName||"",note:p.note||""};
+}
+
+function ledger(ships,pays,co,def,from,to){
+  const ok=d=>(!from||d>=from)&&(!to||d<=to);
+  const SE=ships.filter(s=>s.company===co&&ok(s.date)).map(s=>({date:s.date,kind:"ship",ship:s,dr:shSAR(s,def),cr:0}));
+  const PE=pays.filter(p=>(p.target==="both"||p.target===co)&&ok(p.date)).map(p=>({date:p.date,kind:"pay",pay:p,dr:0,cr:pSAR(p,def)}));
+  const rows=[...SE,...PE].sort((a,b)=>a.date<b.date?-1:1);
+  let run=0;return rows.map(r=>{run+=r.dr-r.cr;return{...r,bal:run};});
+}
+function summ(ships,pays,co,def){
+  const list=ships.filter(s=>s.company===co);
+  const cost=list.reduce((s,sh)=>s+shSAR(sh,def),0);
+  const landed=list.reduce((s,sh)=>s+shLandedSAR(sh,def),0);
+  const paid=pays.filter(p=>p.target==="both"||p.target===co).reduce((s,p)=>s+pSAR(p,def),0);
+  const items=list.reduce((s,sh)=>s+sQ(sh),0);
+  return{count:list.length,items,conts:list.reduce((s,sh)=>s+(sh.containers||[]).length,0),cost,landed,paid,bal:cost-paid,avg:items?cost/items:0,avgLanded:items?landed/items:0};
+}
+const LOG_MAX=300;
+function stamp(){const d=new Date();return{date:d.toLocaleDateString("ar-SA"),time:d.toLocaleTimeString("ar-SA",{hour:"2-digit",minute:"2-digit",hour12:true}),iso:d.toISOString()};}
+
+/* ── عناصر واجهة مشتركة ───────────────────────────────── */
+const F="'Tajawal','Segoe UI',sans-serif";
+const inp={padding:"7px 10px",border:"0.5px solid var(--border-strong)",borderRadius:8,fontFamily:F,fontSize:13,background:"var(--surface-2)",color:"var(--text-primary)",width:"100%",outline:"none"};
+const Inp=({style,...p})=><input {...p} style={{...inp,...style}}/>;
+const Sel=({children,style,...p})=><select {...p} style={{...inp,...style}}>{children}</select>;
+const Btn=({children,bg,sm,onClick,style})=><button type="button" onClick={onClick} style={{border:"none",color:"#fff",borderRadius:8,padding:sm?"4px 11px":"7px 16px",cursor:"pointer",fontFamily:F,fontWeight:500,fontSize:sm?11:13,background:bg||NAVY,boxShadow:"0 1px 2px rgba(15,30,50,.15)",...style}}>{children}</button>;
+const OBtn=({children,onClick,color,style})=><button type="button" onClick={onClick} style={{border:`0.5px solid ${color||"var(--border-strong)"}`,background:"var(--surface-2)",color:color||"var(--text-secondary)",borderRadius:8,padding:"6px 14px",cursor:"pointer",fontFamily:F,fontSize:12,fontWeight:500,...style}}>{children}</button>;
+const Chip=({active,onClick,children})=><button type="button" onClick={onClick} style={{border:`0.5px solid ${active?NAVY:"var(--border-strong)"}`,background:active?NAVY:"var(--surface-2)",color:active?"#fff":"var(--text-secondary)",borderRadius:20,padding:"4px 12px",fontSize:11,cursor:"pointer",fontFamily:F,fontWeight:active?500:400}}>{children}</button>;
+const Lbl=({t,children})=><label style={{display:"flex",flexDirection:"column",gap:3,marginBottom:10}}><span style={{fontSize:11,color:"var(--text-secondary)",fontWeight:500}}>{t}</span>{children}</label>;
+const Empty=({c})=><div style={{color:"var(--text-muted)",fontSize:12,padding:"18px 0",textAlign:"center",border:"1px dashed var(--border)",borderRadius:10,background:"var(--surface-1)"}}>{c}</div>;
+const Card=({children,bt,style,className})=><div className={"ik-card "+(className||"")} style={{borderTop:bt?`3px solid ${bt}`:undefined,...style}}>{children}</div>;
+const Stat=({icon,label,value,color})=><span className="ik-chip">{icon} {label}: <b style={{color:color||"var(--text-primary)"}}>{value}</b></span>;
+const newItem=()=>({id:uid(),model:"",qty:"",price:""});
+const newCont=n=>({id:uid(),number:String(n),extras:emptyEx(),items:[newItem()]});
+const newShip=(co,n)=>({id:uid(),company:co,num:String(n),date:today(),currency:"USD",rate:"",note:"",extras:emptyEx(),allocBasis:"value",containers:[newCont(1)]});
+
+/* ── التطبيق ─────────────────────────────────────────── */
+function App(){
+  const [tab,setTab]=useState("ships");
+  const [ships,setShips]=useState([]);
+  const [pays,setPays]=useState([]);
+  const [rate,setRate]=useState(3.75);
+  const [ready,setReady]=useState(false);
+  const [toast,setToast]=useState(null);
+  const [log,setLog]=useState([]);
+  const [sv,setSv]=useState("saved");
+
+  useEffect(()=>{
+    (async()=>{
+      const ks=["ships-v4","pays-v3","cfg-v3","log-v1","ships-v3","ships-v2","ships-v1","pays-v2","pays-v1"];
+      const vs=await Promise.all(ks.map(sg));
+      let sd=vs[0]?sp(vs[0]):null;
+      if(!sd?.length){for(const j of[vs[4],vs[5],vs[6]]){const o=j?sp(j):null;if(Array.isArray(o)&&o.length){sd=o;break;}}}
+      let pd=vs[1]?sp(vs[1]):null;
+      if(!pd?.length){for(const j of[vs[7],vs[8]]){const o=j?sp(j):null;if(Array.isArray(o)&&o.length){pd=o;break;}}}
+      const c=vs[2]?sp(vs[2]):null;
+      setShips((Array.isArray(sd)?sd:[]).map(fixS).filter(Boolean));
+      setPays((Array.isArray(pd)?pd:[]).map(fixP).filter(Boolean));
+      if(c?.rate)setRate(nv(c.rate)||3.75);
+      setLog(vs[3]?sp(vs[3])||[]:[]); setReady(true);
+    })();
+  },[]);
+  useEffect(()=>{if(!ready)return;setSv("saving");const t=setTimeout(async()=>{try{await ss("ships-v4",JSON.stringify(ships));setSv("saved");}catch{setSv("err");}},400);return()=>clearTimeout(t);},[ships,ready]);
+  useEffect(()=>{if(!ready)return;setSv("saving");const t=setTimeout(async()=>{try{await ss("pays-v3",JSON.stringify(pays));setSv("saved");}catch{setSv("err");}},400);return()=>clearTimeout(t);},[pays,ready]);
+  useEffect(()=>{if(ready)ss("cfg-v3",JSON.stringify({rate}));},[rate,ready]);
+  const addLog=useCallback((action,detail,co)=>{const e={id:uid(),...stamp(),action,detail,company:co||null};setLog(prev=>{const next=[e,...prev].slice(0,LOG_MAX);ss("log-v1",JSON.stringify(next));return next;});},[]);
+  const toast_=useCallback((msg,err)=>{const id=uid();setToast({msg,err,id});setTimeout(()=>setToast(t=>t?.id===id?null:t),2500);},[]);
+
+  const s1=useMemo(()=>summ(ships,pays,"c1",rate),[ships,pays,rate]);
+  const s2=useMemo(()=>summ(ships,pays,"c2",rate),[ships,pays,rate]);
+  const TABS=[{id:"ships",lb:"⛴ الشحنات"},{id:"pays",lb:"💳 الدفعات"},{id:"reports",lb:"📑 التقارير"},{id:"statement",lb:"📋 كشف الحساب"},{id:"compare",lb:"⚖️ المقارنة"},{id:"log",lb:"🕐 سجل النشاط"}];
+  if(!ready)return <div style={{padding:40,textAlign:"center",color:"var(--text-muted)",fontFamily:F}}>جارِ التحميل…</div>;
+  return(
+    <div style={{direction:"rtl",fontFamily:F,color:"var(--text-primary)"}}>
+      <div style={{background:"linear-gradient(180deg,var(--surface-2),var(--surface-1))",borderBottom:"0.5px solid var(--border)",padding:"12px 16px 0",position:"sticky",top:0,zIndex:10,boxShadow:"0 1px 3px rgba(15,30,50,.06)"}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8,marginBottom:10}}>
+          <div style={{display:"flex",alignItems:"center",gap:10}}>
+            <span style={{fontSize:20,background:NAVY,color:"#fff",width:36,height:36,borderRadius:10,display:"inline-flex",alignItems:"center",justifyContent:"center"}}>⛁</span>
+            <div>
+              <div style={{fontWeight:700,fontSize:16,letterSpacing:"-.2px"}}>دفتر الاستيراد</div>
+              <div style={{fontSize:10,color:"var(--text-muted)"}}>مقارنة شركتي الاستيراد · تكلفة الشراء والتكلفة الواصلة</div>
+            </div>
+          </div>
+          <div style={{display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
+            <span style={{fontSize:11,color:sv==="saved"?"var(--text-success)":sv==="saving"?"var(--text-muted)":"var(--text-danger)",fontWeight:500}}>{sv==="saved"?"✓ محفوظ":sv==="saving"?"⏳ يتم الحفظ…":"⚠️ خطأ"}</span>
+            <div style={{display:"flex",alignItems:"center",gap:5,fontSize:12,color:"var(--text-secondary)",background:"var(--surface-2)",border:"0.5px solid var(--border)",borderRadius:8,padding:"3px 8px"}}>
+              <span>$1 =</span>
+              <Inp type="number" min="0" step="0.01" value={rate} onChange={e=>setRate(Number(e.target.value)||3.75)} style={{width:58,padding:"2px 6px",fontSize:12,border:"none",background:"transparent"}}/>
+              <span>ر.س</span>
+            </div>
+          </div>
+        </div>
+        <div style={{display:"flex",gap:2,overflowX:"auto"}}>
+          {TABS.map(t=><button key={t.id} onClick={()=>setTab(t.id)} style={{border:"none",background:tab===t.id?"var(--surface-0)":"transparent",padding:"8px 13px",fontSize:12,fontFamily:F,color:tab===t.id?NAVY:"var(--text-secondary)",cursor:"pointer",borderRadius:"10px 10px 0 0",borderBottom:tab===t.id?`2.5px solid ${NAVY}`:"2.5px solid transparent",fontWeight:tab===t.id?600:400,whiteSpace:"nowrap"}}>{t.lb}</button>)}
+        </div>
+      </div>
+      <div style={{padding:"16px 16px 60px",maxWidth:1100,margin:"0 auto"}}>
+        {tab==="ships"&&<Ships ships={ships} setShips={setShips} rate={rate} toast={toast_} addLog={addLog}/>}
+        {tab==="pays"&&<Pays pays={pays} setPays={setPays} rate={rate} toast={toast_} addLog={addLog}/>}
+        {tab==="reports"&&<Reports ships={ships} rate={rate} toast={toast_}/>}
+        {tab==="statement"&&<Statement ships={ships} pays={pays} rate={rate}/>}
+        {tab==="compare"&&<Compare ships={ships} rate={rate} s1={s1} s2={s2}/>}
+        {tab==="log"&&<LogView log={log}/>}
+      </div>
+      {toast&&<div style={{position:"fixed",bottom:16,left:"50%",transform:"translateX(-50%)",background:toast.err?"var(--fill-danger)":NAVY,color:"#fff",padding:"8px 20px",borderRadius:20,fontSize:12,zIndex:100,fontFamily:F,boxShadow:"0 4px 12px rgba(15,30,50,.25)"}}>{toast.msg}</div>}
+    </div>
+  );
+}
+
+/* ── تبويب الشحنات ───────────────────────────────────── */
+function Ships({ships,setShips,rate,toast,addLog}){
+  const [form,setForm]=useState(null);
+  const [filter,setFilter]=useState("all");
+  const [q,setQ]=useState("");
+  const save=clean=>{const isE=ships.some(s=>s.id===clean.id);setShips(p=>isE?p.map(s=>s.id===clean.id?clean:s):[clean,...p]);addLog(isE?"تعديل شحنة":"إضافة شحنة",`شحنة ${clean.num?"#"+clean.num:""} — ${C[clean.company].label}`,clean.company);toast("تم حفظ الشحنة ✓");setForm(null);};
+  const del=id=>{if(!window.confirm("حذف هذه الشحنة؟"))return;const sh=ships.find(s=>s.id===id);setShips(p=>p.filter(s=>s.id!==id));if(sh)addLog("حذف شحنة",`شحنة ${sh.num?"#"+sh.num:""} — ${C[sh.company].label}`,sh.company);toast("تم الحذف");};
+  const filtered=useMemo(()=>ships.filter(s=>filter==="all"||s.company===filter).filter(s=>!q.trim()||s.containers.some(c=>c.items.some(it=>it.model.toLowerCase().includes(q.toLowerCase())))||(s.num||"").includes(q)).sort((a,b)=>a.date<b.date?1:-1),[ships,filter,q]);
+  if(form)return <ShipForm init={form} rate={rate} onSave={save} onCancel={()=>setForm(null)}/>;
+  return(
+    <div>
+      <div style={{display:"flex",gap:8,marginBottom:12,flexWrap:"wrap"}}>
+        <Inp placeholder="ابحث بالموديل أو رقم الشحنة…" value={q} onChange={e=>setQ(e.target.value)} style={{flex:1,minWidth:140}}/>
+        <Sel value={filter} onChange={e=>setFilter(e.target.value)} style={{width:"auto"}}><option value="all">الكل</option><option value="c1">{C.c1.label}</option><option value="c2">{C.c2.label}</option></Sel>
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(320px,1fr))",gap:12}}>
+        {["c1","c2"].map(co=>{const meta=C[co];const list=filtered.filter(s=>s.company===co);return(
+          <Card key={co} bt={meta.ac}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10,flexWrap:"wrap",gap:6}}>
+              <span style={{fontWeight:600,color:meta.ac,fontSize:13}}>{meta.label} <span style={{fontWeight:400,fontSize:10,color:"var(--text-muted)"}}>({list.length} شحنة)</span></span>
+              <Btn bg={meta.ac} sm onClick={()=>setForm(newShip(co,ships.filter(s=>s.company===co).length+1))}>+ شحنة جديدة</Btn>
+            </div>
+            {!list.length?<Empty c={`لا توجد شحنات لـ${meta.label} بعد — اضغط «+ شحنة جديدة» للبدء.`}/>:<div style={{display:"flex",flexDirection:"column",gap:10}}>{list.map((sh,i)=><ShipCard key={sh.id} sh={sh} idx={list.length-i} rate={rate} onEdit={()=>setForm(JSON.parse(JSON.stringify(sh)))} onDel={()=>del(sh.id)}/>)}</div>}
+          </Card>
+        );})}
+      </div>
+    </div>
+  );
+}
+
+/* بطاقة ملخّصة لكل شحنة: الرقم، عدد الحاويات، إجمالي القطع، إجمالي السعر */
+function ShipCard({sh,idx,rate,onEdit,onDel}){
+  const [open,setOpen]=useState(false);
+  const meta=C[sh.company];
+  const sym=sh.currency==="USD"?"$":"ر.س";
+  const fob=sC(sh),ex=shExtras(sh),landed=fob+ex;
+  const sar=toSAR(fob,sh.currency,sh.rate,rate);
+  const lm=useMemo(()=>ex>0?landedMap(sh):null,[sh,ex]);
+  return(
+    <div style={{border:"0.5px solid var(--border)",borderRadius:10,background:"var(--surface-1)",overflow:"hidden",boxShadow:"0 1px 2px rgba(15,30,50,.04)"}}>
+      <div style={{padding:"10px 12px"}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:6,marginBottom:8}}>
+          <div style={{display:"flex",alignItems:"center",gap:7,flexWrap:"wrap"}}>
+            <span style={{background:meta.ac,color:"#fff",borderRadius:7,padding:"2px 9px",fontSize:11,fontWeight:600}}>{sh.num?`شحنة #${sh.num}`:`شحنة ${idx}`}</span>
+            <span style={{fontSize:10,color:"var(--text-muted)"}}>{sh.date}</span>
+            {ex>0&&<span style={{fontSize:9,background:"var(--bg-warning)",color:"var(--text-warning)",borderRadius:20,padding:"1px 8px",fontWeight:500}}>تشمل تكاليف إضافية</span>}
+          </div>
+          <div style={{textAlign:"left"}}>
+            <div style={{fontSize:14,fontWeight:700,color:meta.ac}}>{fmt(fob)} {sym}</div>
+            {sh.currency==="USD"&&<div style={{fontSize:9,color:"var(--text-muted)"}}>≈ {fmt(sar)} ر.س</div>}
+          </div>
+        </div>
+        <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+          <Stat icon="🧊" label="الحاويات" value={mn(sh.containers.length,0)}/>
+          <Stat icon="📦" label="إجمالي القطع" value={mn(sQ(sh),0)}/>
+          <Stat icon="🏷" label="الموديلات" value={mn(sh.containers.reduce((s,c)=>s+c.items.length,0),0)}/>
+          {ex>0&&<Stat icon="🧾" label="التكلفة الشاملة" value={`${fmt(landed)} ${sym}`} color="var(--text-warning)"/>}
+        </div>
+      </div>
+      <button onClick={()=>setOpen(v=>!v)} style={{width:"100%",border:"none",borderTop:"0.5px solid var(--border)",background:"var(--surface-2)",color:"var(--text-accent)",cursor:"pointer",fontSize:10,padding:"5px 0",fontFamily:F,fontWeight:500}}>{open?"▲ إخفاء التفاصيل":"▼ عرض تفاصيل الحاويات"}</button>
+      {open&&(
+        <div style={{padding:"10px 12px",background:"var(--surface-0)"}}>
+          {sh.containers.map(c=>{const cex=exSum(c.extras);return(
+            <div key={c.id} style={{background:"var(--surface-1)",border:"0.5px solid var(--border)",borderRadius:8,padding:"8px 10px",marginBottom:6}}>
+              <div style={{fontSize:11,fontWeight:600,color:meta.ac,marginBottom:5,display:"flex",justifyContent:"space-between",flexWrap:"wrap",gap:4}}>
+                <span>🧊 حاوية {c.number||"—"}</span>
+                <span style={{fontWeight:400,color:"var(--text-muted)",fontSize:10}}>{mn(cQ(c),0)} قطعة · FOB {fmt(cC(c))} {sym}{cex>0?` · + مصاريف ${fmt(cex)} ${sym}`:""}</span>
+              </div>
+              <table className="ik-tbl">
+                <thead><tr><th>الموديل</th><th className="l">الكمية</th><th className="l">سعر الشراء {sym}</th><th className="l">الإجمالي {sym}</th>{lm&&<th className="l">تكلفة القطعة الواصلة</th>}</tr></thead>
+                <tbody>{c.items.map(it=><tr key={it.id}>
+                  <td style={{fontWeight:500}}>{it.model}</td>
+                  <td className="l">{mn(it.qty,0)}</td>
+                  <td className="l">{fmt(it.price)}</td>
+                  <td className="l" style={{fontWeight:600}}>{fmt(iC(it))}</td>
+                  {lm&&<td className="l" style={{color:"var(--text-warning)",fontWeight:600}}>{fmt(lm[it.id]?.unit||0)} {sym}</td>}
+                </tr>)}</tbody>
+              </table>
+            </div>
+          );})}
+          {ex>0&&(
+            <div style={{fontSize:10,color:"var(--text-secondary)",background:"var(--surface-1)",border:"0.5px dashed var(--border)",borderRadius:8,padding:"6px 10px",display:"flex",gap:10,flexWrap:"wrap"}}>
+              <b style={{color:"var(--text-warning)"}}>المصاريف الإضافية:</b>
+              {EXTRA_FIELDS.map(([k,lb])=>{const shipLvl=nv(sh.extras?.[k]);const contLvl=sh.containers.reduce((s,c)=>s+nv(c.extras?.[k]),0);const tot=shipLvl+contLvl;return tot>0?<span key={k}>{lb}: <b>{fmt(tot)} {sym}</b></span>:null;})}
+              <span style={{marginRight:"auto"}}>الإجمالي الشامل: <b>{fmt(landed)} {sym}</b></span>
+            </div>
+          )}
+          {sh.note&&<div style={{fontSize:10,color:"var(--text-secondary)",fontStyle:"italic",marginTop:5}}>ملاحظة: {sh.note}</div>}
+        </div>
+      )}
+      <div style={{display:"flex",gap:10,padding:"6px 12px",borderTop:"0.5px solid var(--border)",background:"var(--surface-1)"}}>
+        <button onClick={onEdit} className="ik-ghost" style={{color:"var(--text-accent)"}}>✏️ تعديل</button>
+        <button onClick={onDel} className="ik-ghost" style={{color:"var(--text-danger)"}}>🗑 حذف</button>
+      </div>
+    </div>
+  );
+}
+
+/* حقول التكاليف الإضافية (اختيارية بالكامل) */
+function ExtrasFields({value,onChange,sym,compact}){
+  return(
+    <div style={{display:"grid",gridTemplateColumns:compact?"repeat(auto-fit,minmax(110px,1fr))":"repeat(auto-fit,minmax(130px,1fr))",gap:7}}>
+      {EXTRA_FIELDS.map(([k,lb])=>(
+        <label key={k} style={{display:"flex",flexDirection:"column",gap:2}}>
+          <span style={{fontSize:10,color:"var(--text-muted)"}}>{lb} ({sym})</span>
+          <Inp type="number" min="0" step="0.01" placeholder="0.00" value={value?.[k]??""} onChange={e=>onChange({...value,[k]:e.target.value})} style={{padding:"5px 8px",fontSize:12}}/>
+        </label>
+      ))}
+    </div>
+  );
+}
+
+/* نموذج إضافة/تعديل الشحنة — حاويات ديناميكية + تكاليف اختيارية */
+function ShipForm({init,rate,onSave,onCancel}){
+  const [f,setF]=useState(()=>({...init,extras:{...emptyEx(),...(init.extras||{})},containers:(init.containers?.length?init.containers:[newCont(1)]).map(c=>({...c,extras:{...emptyEx(),...(c.extras||{})}}))}));
+  const [openEx,setOpenEx]=useState(()=>exSum(init.extras)>0);
+  const [openCEx,setOpenCEx]=useState({});
+  const [collapsed,setCollapsed]=useState({});
+  const meta=C[f.company];
+  const sym=f.currency==="USD"?"$":"ر.س";
+  const isEdit=!!init.containers?.some(c=>c.items?.some(it=>it.model));
+
+  const upC=(ci,patch)=>setF(p=>{const cs=[...p.containers];cs[ci]={...cs[ci],...patch};return{...p,containers:cs};});
+  const si=(ci,ii,field,val)=>setF(p=>{const cs=[...p.containers];const its=[...cs[ci].items];its[ii]={...its[ii],[field]:val};cs[ci]={...cs[ci],items:its};return{...p,containers:cs};});
+  const ai=ci=>setF(p=>{const cs=[...p.containers];cs[ci]={...cs[ci],items:[...cs[ci].items,newItem()]};return{...p,containers:cs};});
+  const di=(ci,ii)=>setF(p=>{const cs=[...p.containers];const its=cs[ci].items.filter((_,i)=>i!==ii);cs[ci]={...cs[ci],items:its.length?its:[newItem()]};return{...p,containers:cs};});
+  const addCont=()=>setF(p=>({...p,containers:[...p.containers,newCont(p.containers.length+1)]}));
+  const delCont=ci=>{if(f.containers.length===1){alert("الشحنة يجب أن تحتوي على حاوية واحدة على الأقل.");return;}if(!window.confirm(`حذف الحاوية ${f.containers[ci].number||ci+1}؟`))return;setF(p=>({...p,containers:p.containers.filter((_,i)=>i!==ci)}));};
+
+  const fob=sC(f),ex=shExtras(f),landed=fob+ex,qty=sQ(f);
+  const save=()=>{
+    if(!f.date){alert("أدخل التاريخ");return;}
+    const clean={...f,containers:f.containers.map(c=>({...c,items:c.items.filter(it=>it.model.trim()&&it.qty!==""&&it.price!=="")})).filter(c=>c.items.length)};
+    if(!clean.containers.length){alert("أضف موديلًا واحدًا على الأقل (اسم الموديل، الكمية، سعر الشراء).");return;}
+    onSave(clean);
+  };
+
+  return(
+    <Card bt={meta.ac} style={{maxWidth:820,margin:"0 auto"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,paddingBottom:10,borderBottom:"0.5px solid var(--border)",flexWrap:"wrap",gap:8}}>
+        <span style={{fontWeight:700,color:meta.ac,fontSize:15}}>{isEdit?"تعديل شحنة":"شحنة جديدة"} — {meta.label}</span>
+        <button onClick={onCancel} className="ik-ghost" style={{color:"var(--text-muted)",fontSize:12,textDecoration:"none"}}>✕ إغلاق</button>
+      </div>
+
+      {/* ١ — بيانات الشحنة الرئيسية */}
+      <div className="ik-sec"><span className="n">١</span> بيانات الشحنة الرئيسية</div>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:8,marginBottom:4}}>
+        <Lbl t="رقم الشحنة"><Inp placeholder="مثال: ١" value={f.num} onChange={e=>setF(p=>({...p,num:e.target.value}))}/></Lbl>
+        <Lbl t="تاريخ الوصول"><Inp type="date" value={f.date} onChange={e=>setF(p=>({...p,date:e.target.value}))}/></Lbl>
+        <Lbl t="الشركة"><Sel value={f.company} onChange={e=>setF(p=>({...p,company:e.target.value}))}><option value="c1">{C.c1.label}</option><option value="c2">{C.c2.label}</option></Sel></Lbl>
+        <Lbl t="العملة"><Sel value={f.currency} onChange={e=>setF(p=>({...p,currency:e.target.value}))}><option value="USD">دولار $</option><option value="SAR">ريال ر.س</option></Sel></Lbl>
+      </div>
+      {f.currency==="USD"&&<Lbl t="سعر الصرف الخاص بهذه الشحنة (اختياري)"><Inp type="number" min="0" step="0.001" placeholder={`الافتراضي: ${rate}`} value={f.rate} onChange={e=>setF(p=>({...p,rate:e.target.value}))} style={{maxWidth:160}}/></Lbl>}
+
+      {/* ٢ — الحاويات والموديلات */}
+      <div className="ik-sec" style={{marginTop:14}}><span className="n">٢</span> الحاويات والموديلات <span style={{fontWeight:400,fontSize:10,color:"var(--text-muted)"}}>({f.containers.length} حاوية)</span></div>
+      {f.containers.map((c,ci)=>{
+        const isCol=!!collapsed[c.id];
+        const cex=exSum(c.extras);
+        return(
+        <div key={c.id} style={{border:`0.5px solid var(--border)`,borderInlineStart:`3px solid ${meta.ac}`,borderRadius:10,marginBottom:10,background:"var(--surface-1)",overflow:"hidden"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:6,padding:"8px 10px",background:"var(--surface-0)",borderBottom:isCol?"none":"0.5px solid var(--border)"}}>
+            <div style={{display:"flex",alignItems:"center",gap:7}}>
+              <button onClick={()=>setCollapsed(p=>({...p,[c.id]:!p[c.id]}))} style={{border:"none",background:"transparent",cursor:"pointer",fontSize:11,color:"var(--text-muted)",padding:2}}>{isCol?"▶":"▼"}</button>
+              <span style={{fontSize:11,color:"var(--text-muted)",fontWeight:500}}>🧊 رقم الحاوية:</span>
+              <Inp value={c.number} onChange={e=>upC(ci,{number:e.target.value})} placeholder={`${ci+1}`} style={{width:90,fontWeight:600,padding:"4px 8px",fontSize:12}}/>
+            </div>
+            <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+              <span style={{fontSize:10,color:"var(--text-muted)"}}>{cQ(c)?`${mn(cQ(c),0)} قطعة · FOB ${fmt(cC(c))} ${sym}`:"فارغة"}{cex>0?` · +${fmt(cex)} مصاريف`:""}</span>
+              <button onClick={()=>delCont(ci)} className="ik-ghost" style={{color:"var(--text-danger)",fontSize:11,textDecoration:"none"}}>🗑 حذف الحاوية</button>
+            </div>
+          </div>
+          {!isCol&&<div style={{padding:"9px 10px"}}>
+            <div style={{display:"grid",gridTemplateColumns:"2.5fr 1fr 1.1fr 1.1fr auto",gap:5,fontSize:10,color:"var(--text-muted)",marginBottom:3,fontWeight:500}}>
+              <span>اسم / رقم الموديل</span><span>الكمية</span><span>سعر الشراء {sym}</span><span>الإجمالي</span><span></span>
+            </div>
+            {c.items.map((it,ii)=>(
+              <div key={it.id} style={{display:"grid",gridTemplateColumns:"2.5fr 1fr 1.1fr 1.1fr auto",gap:5,alignItems:"center",marginBottom:5}}>
+                <Inp placeholder="مثال: غرفة نوم 1151" value={it.model} onChange={e=>si(ci,ii,"model",e.target.value)}/>
+                <Inp type="number" min="0" placeholder="0" value={it.qty} onChange={e=>si(ci,ii,"qty",e.target.value)}/>
+                <Inp type="number" min="0" step="0.01" placeholder="0.00" value={it.price} onChange={e=>si(ci,ii,"price",e.target.value)}/>
+                <span style={{fontSize:12,textAlign:"center",fontWeight:600,color:"var(--text-primary)"}}>{fmt(iC(it))}</span>
+                <button type="button" onClick={()=>di(ci,ii)} title="حذف الموديل" style={{border:"none",background:"transparent",color:"var(--text-danger)",cursor:"pointer",fontSize:13,padding:2}}>✕</button>
+              </div>
+            ))}
+            <div style={{display:"flex",gap:8,marginTop:5,flexWrap:"wrap"}}>
+              <button type="button" onClick={()=>ai(ci)} style={{border:"0.5px dashed var(--border-accent)",background:"transparent",color:"var(--text-accent)",borderRadius:7,padding:"4px 10px",fontSize:11,cursor:"pointer",fontFamily:F}}>+ موديل في هذه الحاوية</button>
+              <button type="button" onClick={()=>setOpenCEx(p=>({...p,[c.id]:!p[c.id]}))} style={{border:"0.5px dashed var(--border)",background:"transparent",color:cex>0?"var(--text-warning)":"var(--text-muted)",borderRadius:7,padding:"4px 10px",fontSize:11,cursor:"pointer",fontFamily:F}}>{openCEx[c.id]?"▲":"▼"} تكاليف إضافية لهذه الحاوية {cex>0?`(${fmt(cex)} ${sym})`:"(اختياري)"}</button>
+            </div>
+            {openCEx[c.id]&&<div style={{marginTop:8,background:"var(--surface-0)",border:"0.5px dashed var(--border)",borderRadius:8,padding:8}}>
+              <ExtrasFields compact value={c.extras} onChange={ex2=>upC(ci,{extras:ex2})} sym={sym}/>
+            </div>}
+          </div>}
+        </div>
+      );})}
+      <button type="button" onClick={addCont} style={{width:"100%",border:`1.5px dashed ${meta.ac}`,background:meta.soft+"66",color:meta.ac,borderRadius:10,padding:"9px 0",fontSize:13,cursor:"pointer",fontFamily:F,fontWeight:600,marginBottom:14}}>+ إضافة حاوية جديدة</button>
+
+      {/* ٣ — التكاليف الإضافية على مستوى الشحنة */}
+      <div className="ik-sec"><span className="n">٣</span> التكاليف الإضافية على مستوى الشحنة <span style={{fontWeight:400,fontSize:10,color:"var(--text-muted)"}}>اختيارية بالكامل</span></div>
+      <div style={{background:"var(--surface-1)",border:"0.5px dashed var(--border)",borderRadius:10,padding:10,marginBottom:12}}>
+        <button type="button" onClick={()=>setOpenEx(v=>!v)} style={{border:"none",background:"transparent",cursor:"pointer",fontFamily:F,fontSize:12,color:exSum(f.extras)>0?"var(--text-warning)":"var(--text-secondary)",fontWeight:500,padding:0,marginBottom:openEx?8:0}}>
+          {openEx?"▲":"▼"} أجور الشحن، الجمارك، التخليص، النقل {exSum(f.extras)>0?`— ${fmt(exSum(f.extras))} ${sym}`:""}
+        </button>
+        {openEx&&<div>
+          <ExtrasFields value={f.extras} onChange={ex2=>setF(p=>({...p,extras:ex2}))} sym={sym}/>
+          <div style={{fontSize:10,color:"var(--text-muted)",marginTop:7,lineHeight:1.7}}>تُترك فارغة أو صفرًا إن لم تتوفر — عندها يعتمد النظام على سعر الشراء (FOB) فقط. المبالغ بعملة الشحنة ({sym}).</div>
+          {ex>0&&<div style={{display:"flex",alignItems:"center",gap:8,marginTop:8,flexWrap:"wrap"}}>
+            <span style={{fontSize:11,color:"var(--text-secondary)",fontWeight:500}}>طريقة توزيع المصاريف على الموديلات:</span>
+            <Chip active={f.allocBasis!=="qty"} onClick={()=>setF(p=>({...p,allocBasis:"value"}))}>نسبةً إلى القيمة</Chip>
+            <Chip active={f.allocBasis==="qty"} onClick={()=>setF(p=>({...p,allocBasis:"qty"}))}>نسبةً إلى الكمية</Chip>
+          </div>}
+        </div>}
+      </div>
+
+      <Lbl t="ملاحظة (اختياري)"><Inp placeholder="مثال: تأخر التخليص" value={f.note} onChange={e=>setF(p=>({...p,note:e.target.value}))}/></Lbl>
+
+      {/* الملخص الحي */}
+      <div style={{background:"var(--surface-0)",border:`0.5px solid var(--border)`,borderInlineStart:`3px solid ${meta.ac}`,borderRadius:10,padding:"10px 14px",marginBottom:14,display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))",gap:8}}>
+        {[["إجمالي القطع",`${mn(qty,0)}`],["عدد الحاويات",`${mn(f.containers.length,0)}`],["إجمالي الشراء (FOB)",`${fmt(fob)} ${sym}`],
+          ...(ex>0?[["المصاريف الإضافية",`${fmt(ex)} ${sym}`],["التكلفة الشاملة",`${fmt(landed)} ${sym}`],["متوسط تكلفة القطعة الواصلة",qty?`${fmt(landed/qty)} ${sym}`:"—"]]:
+          [["متوسط سعر القطعة",qty?`${fmt(fob/qty)} ${sym}`:"—"]]),
+          ...(f.currency==="USD"?[["بالريال السعودي",`≈ ${fmt(toSAR(ex>0?landed:fob,"USD",f.rate,rate))} ر.س`]]:[])
+        ].map(([l,v])=>(
+          <div key={l}>
+            <div style={{fontSize:10,color:"var(--text-muted)"}}>{l}</div>
+            <div style={{fontSize:13,fontWeight:700,color:"var(--text-primary)"}}>{v}</div>
+          </div>
+        ))}
+      </div>
+
+      <div style={{display:"flex",justifyContent:"flex-end",gap:8}}>
+        <OBtn onClick={onCancel}>إلغاء</OBtn>
+        <Btn bg={meta.ac} onClick={save}>حفظ الشحنة</Btn>
+      </div>
+    </Card>
+  );
+}
+
+/* ── تبويب التقارير: تقريران منفصلان + تصدير ─────────── */
+function shipRows(sh,rate,withLanded){
+  const lm=withLanded?landedMap(sh):null;
+  const r=[];
+  sh.containers.forEach(c=>c.items.forEach(it=>{
+    const row={ship:sh,cont:c,it,fob:iC(it)};
+    if(lm){const d=lm[it.id]||{fob:iC(it),extra:0,landed:iC(it),unit:nv(it.qty)?iC(it)/nv(it.qty):0};row.extra=d.extra;row.landed=d.landed;row.unit=d.unit;}
+    r.push(row);
+  }));
+  return r;
+}
+function Reports({ships,rate,toast}){
+  const [kind,setKind]=useState(null);          // "fob" | "landed"
+  const [coF,setCoF]=useState("all");
+  const [from,setFrom]=useState("");const [to,setTo]=useState("");
+  const list=useMemo(()=>ships.filter(s=>coF==="all"||s.company===coF).filter(s=>(!from||s.date>=from)&&(!to||s.date<=to)).sort((a,b)=>a.date<b.date?-1:1),[ships,coF,from,to]);
+  const title=kind==="fob"?"تقرير مجمل الشراء الفاتوري (FOB)":"تقرير التكاليف الشاملة (Landed Cost)";
+
+  /* ملخص لكل شحنة */
+  const perShip=useMemo(()=>list.map(sh=>{
+    const fob=sC(sh),ex=shExtras(sh);
+    return{sh,fob,ex,landed:fob+ex,qty:sQ(sh),models:sh.containers.reduce((s,c)=>s+c.items.length,0),
+      fobSAR:toSAR(fob,sh.currency,sh.rate,rate),landedSAR:toSAR(fob+ex,sh.currency,sh.rate,rate)};
+  }),[list,rate]);
+  const totCo=co=>perShip.filter(r=>r.sh.company===co).reduce((a,r)=>({fob:a.fob+r.fobSAR,landed:a.landed+r.landedSAR,qty:a.qty+r.qty,ships:a.ships+1,conts:a.conts+r.sh.containers.length}),{fob:0,landed:0,qty:0,ships:0,conts:0});
+  const t1=totCo("c1"),t2=totCo("c2");
+  const cheaperFob=t1.ships&&t2.ships?(t1.qty&&t2.qty?(t1.fob/t1.qty<=t2.fob/t2.qty?"c1":"c2"):null):null;
+  const cheaperLanded=t1.ships&&t2.ships?(t1.qty&&t2.qty?(t1.landed/t1.qty<=t2.landed/t2.qty?"c1":"c2"):null):null;
+
+  /* مقارنة الموديلات المشتركة بالتكلفة الواصلة */
+  const sharedLanded=useMemo(()=>{
+    const map={};
+    list.forEach(sh=>{const lm=landedMap(sh);sh.containers.forEach(c=>c.items.forEach(it=>{
+      const k=(it.model||"").trim().toLowerCase();if(!k)return;
+      if(!map[k])map[k]={name:it.model.trim(),c1:[],c2:[]};
+      const u=lm[it.id]?.unit||0;
+      map[k][sh.company].push(toSAR(u,sh.currency,sh.rate,rate));
+    }));});
+    const avg=a=>a.length?a.reduce((s,x)=>s+x,0)/a.length:0;
+    return Object.values(map).filter(v=>v.c1.length&&v.c2.length).map(v=>{const a1=avg(v.c1),a2=avg(v.c2);return{name:v.name,a1,a2,diff:a1-a2,cheaper:a1<=a2?"c1":"c2"};}).sort((a,b)=>Math.abs(b.diff)-Math.abs(a.diff));
+  },[list,rate]);
+
+  /* تصدير Excel */
+  const exportXlsx=()=>{
+    try{
+      const wb=XLSX.utils.book_new();
+      const sum=perShip.map(r=>({
+        "الشركة":C[r.sh.company].label,"رقم الشحنة":r.sh.num||"—","التاريخ":r.sh.date,
+        "عدد الحاويات":r.sh.containers.length,"عدد الموديلات":r.models,"إجمالي القطع":r.qty,
+        "العملة":r.sh.currency,"إجمالي الشراء FOB":Number(r.fob.toFixed(2)),
+        ...(kind==="landed"?{"المصاريف الإضافية":Number(r.ex.toFixed(2)),"التكلفة الشاملة":Number(r.landed.toFixed(2)),"التكلفة الشاملة (ر.س)":Number(r.landedSAR.toFixed(2))}:{ "الإجمالي (ر.س)":Number(r.fobSAR.toFixed(2))})
+      }));
+      const ws1=XLSX.utils.json_to_sheet(sum);ws1["!cols"]=Object.keys(sum[0]||{a:1}).map(()=>({wch:16}));
+      XLSX.utils.book_append_sheet(wb,ws1,"ملخص الشحنات");
+      const det=[];
+      list.forEach(sh=>shipRows(sh,rate,kind==="landed").forEach(r=>det.push({
+        "الشركة":C[sh.company].label,"رقم الشحنة":sh.num||"—","التاريخ":sh.date,"الحاوية":r.cont.number||"—",
+        "الموديل":r.it.model,"الكمية":nv(r.it.qty),"سعر الشراء":Number(nv(r.it.price).toFixed(2)),"إجمالي FOB":Number(r.fob.toFixed(2)),
+        ...(kind==="landed"?{"نصيب المصاريف":Number((r.extra||0).toFixed(2)),"التكلفة الشاملة":Number((r.landed||r.fob).toFixed(2)),"تكلفة القطعة الواصلة":Number((r.unit||0).toFixed(2))}:{}),
+        "العملة":sh.currency
+      })));
+      if(det.length){const ws2=XLSX.utils.json_to_sheet(det);ws2["!cols"]=Object.keys(det[0]).map(()=>({wch:15}));XLSX.utils.book_append_sheet(wb,ws2,"تفاصيل الموديلات");}
+      if(kind==="landed"&&sharedLanded.length){
+        const ws3=XLSX.utils.json_to_sheet(sharedLanded.map(m=>({"الموديل":m.name,[`${C.c1.label} (ر.س/قطعة)`]:Number(m.a1.toFixed(2)),[`${C.c2.label} (ر.س/قطعة)`]:Number(m.a2.toFixed(2)),"الفرق (ر.س)":Number(m.diff.toFixed(2)),"الأوفر":C[m.cheaper].label})));
+        ws3["!cols"]=[{wch:24},{wch:18},{wch:18},{wch:12},{wch:14}];
+        XLSX.utils.book_append_sheet(wb,ws3,"مقارنة الموديلات");
+      }
+      XLSX.writeFile(wb,`${kind==="fob"?"تقرير_الشراء_FOB":"تقرير_التكاليف_الشاملة"}_${today()}.xlsx`);
+      toast("تم تصدير ملف Excel ✓");
+    }catch(e){toast("تعذر التصدير — أعد المحاولة","err");}
+  };
+
+  /* تصدير PDF عبر نافذة الطباعة */
+  const exportPdf=()=>{
+    const esc=s=>String(s??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+    const rowsHtml=perShip.map(r=>`<tr>
+      <td>${esc(C[r.sh.company].label)}</td><td>${esc(r.sh.num||"—")}</td><td>${esc(r.sh.date)}</td>
+      <td class="l">${r.sh.containers.length}</td><td class="l">${r.models}</td><td class="l">${mn(r.qty,0)}</td>
+      <td class="l">${fmt(r.fob)} ${r.sh.currency==="USD"?"$":"ر.س"}</td>
+      ${kind==="landed"?`<td class="l">${fmt(r.ex)}</td><td class="l"><b>${fmt(r.landed)}</b></td>`:""}
+      <td class="l">${fmt(kind==="landed"?r.landedSAR:r.fobSAR)}</td></tr>`).join("");
+    const detHtml=list.map(sh=>{
+      const rs=shipRows(sh,rate,kind==="landed");const sym=sh.currency==="USD"?"$":"ر.س";
+      return`<h3>شحنة ${esc(sh.num?"#"+sh.num:"")} — ${esc(C[sh.company].label)} — ${esc(sh.date)} (${sh.containers.length} حاوية)</h3>
+      <table><thead><tr><th>الحاوية</th><th>الموديل</th><th class="l">الكمية</th><th class="l">سعر الشراء ${sym}</th><th class="l">إجمالي FOB</th>${kind==="landed"?`<th class="l">نصيب المصاريف</th><th class="l">التكلفة الشاملة</th><th class="l">تكلفة القطعة الواصلة</th>`:""}</tr></thead><tbody>
+      ${rs.map(r=>`<tr><td>${esc(r.cont.number||"—")}</td><td>${esc(r.it.model)}</td><td class="l">${mn(r.it.qty,0)}</td><td class="l">${fmt(r.it.price)}</td><td class="l">${fmt(r.fob)}</td>${kind==="landed"?`<td class="l">${fmt(r.extra||0)}</td><td class="l">${fmt(r.landed||r.fob)}</td><td class="l"><b>${fmt(r.unit||0)}</b></td>`:""}</tr>`).join("")}
+      <tr class="tot"><td colspan="2">الإجمالي</td><td class="l">${mn(sQ(sh),0)}</td><td class="l"></td><td class="l">${fmt(sC(sh))} ${sym}</td>${kind==="landed"?`<td class="l">${fmt(shExtras(sh))}</td><td class="l">${fmt(sLanded(sh))} ${sym}</td><td class="l"></td>`:""}</tr>
+      </tbody></table>`;
+    }).join("");
+    const cmp=kind==="landed"&&t1.ships&&t2.ships?`<div class="note">🏆 بحسب متوسط تكلفة القطعة الواصلة بالريال — <b>${C[cheaperLanded].label}</b> هي الأوفر في التكلفة النهائية (${fmt(t1.qty?t1.landed/t1.qty:0)} مقابل ${fmt(t2.qty?t2.landed/t2.qty:0)} ر.س/قطعة).</div>`:
+      kind==="fob"&&t1.ships&&t2.ships?`<div class="note">بحسب متوسط سعر شراء القطعة بالريال — <b>${C[cheaperFob].label}</b> أقل في أصل قيمة الشراء.</div>`:"";
+    const html=`<!doctype html><html dir="rtl" lang="ar"><head><meta charset="utf-8"><title>${esc(title)}</title><style>
+      body{font-family:'Tajawal','Segoe UI',Tahoma,sans-serif;margin:24px;color:#1c2733}
+      h1{font-size:18px;color:${NAVY};border-bottom:2.5px solid ${NAVY};padding-bottom:6px;margin:0 0 4px}
+      .meta{font-size:11px;color:#667;margin-bottom:14px}
+      h2{font-size:13px;color:${NAVY};margin:18px 0 6px}
+      h3{font-size:12px;color:#334;margin:14px 0 4px}
+      table{width:100%;border-collapse:collapse;margin-bottom:8px}
+      th{background:${NAVY};color:#fff;padding:5px 7px;font-size:10px;text-align:right}
+      td{border:0.5px solid #ccd;padding:4px 7px;font-size:10px}
+      th.l,td.l{text-align:left}
+      tr:nth-child(even) td{background:#f4f7fa}
+      tr.tot td{background:#e8eef4;font-weight:700}
+      .note{background:#eef4ea;border:0.5px solid #c6d9bd;border-radius:6px;padding:7px 10px;font-size:11px;margin:8px 0}
+      @media print{body{margin:10mm}}
+    </style></head><body>
+      <h1>${esc(title)}</h1>
+      <div class="meta">تاريخ الإصدار: ${today()} · النطاق: ${coF==="all"?"الشركتان":C[coF].label}${from?` · من ${from}`:""}${to?` · إلى ${to}`:""} · سعر الصرف: $1 = ${rate} ر.س</div>
+      <h2>ملخص الشحنات</h2>
+      <table><thead><tr><th>الشركة</th><th>رقم الشحنة</th><th>التاريخ</th><th class="l">الحاويات</th><th class="l">الموديلات</th><th class="l">القطع</th><th class="l">إجمالي FOB</th>${kind==="landed"?`<th class="l">المصاريف</th><th class="l">التكلفة الشاملة</th>`:""}<th class="l">بالريال (ر.س)</th></tr></thead><tbody>${rowsHtml}</tbody></table>
+      ${cmp}
+      <h2>التفاصيل حسب الشحنة والحاوية</h2>
+      ${detHtml}
+    </body></html>`;
+    const ifr=document.createElement("iframe");
+    ifr.style.cssText="position:fixed;width:0;height:0;border:0;visibility:hidden";
+    document.body.appendChild(ifr);
+    ifr.srcdoc=html;
+    ifr.onload=()=>{try{ifr.contentWindow.focus();ifr.contentWindow.print();}catch(e){toast("تعذر فتح نافذة الطباعة","err");}setTimeout(()=>ifr.remove(),60000);};
+    toast("جارٍ تجهيز الطباعة — اختر «حفظ كـ PDF»");
+  };
+
+  /* ── الواجهة ── */
+  if(!kind)return(
+    <div>
+      <div className="ik-sec"><span className="n">📑</span> اختر نوع التقرير</div>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(280px,1fr))",gap:12}}>
+        <button onClick={()=>setKind("fob")} style={{textAlign:"right",cursor:"pointer",border:"0.5px solid var(--border)",borderTop:`3px solid ${NAVY}`,borderRadius:12,background:"var(--surface-2)",padding:18,fontFamily:F,boxShadow:"0 1px 3px rgba(15,30,50,.06)"}}>
+          <div style={{fontSize:26,marginBottom:6}}>🧾</div>
+          <div style={{fontWeight:700,fontSize:14,color:NAVY,marginBottom:4}}>تقرير مجمل الشراء الفاتوري (FOB)</div>
+          <div style={{fontSize:11,color:"var(--text-secondary)",lineHeight:1.8}}>معلومات الشراء الأساسية فقط: رقم الشحنة، عدد الحاويات، الموديلات، الكميات، سعر الشراء، والإجمالي — دون المصاريف الإضافية. مثالي لمقارنة أصل قيمة الشراء بين الشركتين.</div>
+        </button>
+        <button onClick={()=>setKind("landed")} style={{textAlign:"right",cursor:"pointer",border:"0.5px solid var(--border)",borderTop:"3px solid #7a3e10",borderRadius:12,background:"var(--surface-2)",padding:18,fontFamily:F,boxShadow:"0 1px 3px rgba(15,30,50,.06)"}}>
+          <div style={{fontSize:26,marginBottom:6}}>🚚</div>
+          <div style={{fontWeight:700,fontSize:14,color:"#7a3e10",marginBottom:4}}>تقرير التكاليف الشاملة (Landed Cost)</div>
+          <div style={{fontSize:11,color:"var(--text-secondary)",lineHeight:1.8}}>البيانات كاملة متضمنةً الشحن والجمارك والتخليص والنقل، مع تكلفة القطعة الواصلة الفعلية لكل موديل ومقارنة ذكية توضح الشركة الأوفر في التكلفة النهائية.</div>
+        </button>
+      </div>
+    </div>
+  );
+
+  const ac=kind==="fob"?NAVY:"#7a3e10";
+  return(
+    <div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8,marginBottom:12}}>
+        <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+          <button onClick={()=>setKind(null)} className="ik-ghost" style={{color:"var(--text-muted)",fontSize:12,textDecoration:"none"}}>→ رجوع</button>
+          <span style={{fontWeight:700,fontSize:14,color:ac}}>{kind==="fob"?"🧾":"🚚"} {title}</span>
+        </div>
+        <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+          <OBtn onClick={exportXlsx} color="var(--text-success)">📊 تصدير Excel</OBtn>
+          <OBtn onClick={exportPdf} color="var(--text-accent)">🖨 تصدير PDF / طباعة</OBtn>
+        </div>
+      </div>
+      <div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap",marginBottom:12}}>
+        <Sel value={coF} onChange={e=>setCoF(e.target.value)} style={{width:"auto"}}><option value="all">الشركتان</option><option value="c1">{C.c1.label}</option><option value="c2">{C.c2.label}</option></Sel>
+        <Inp type="date" value={from} onChange={e=>setFrom(e.target.value)} style={{width:125}}/>
+        <span style={{fontSize:10,color:"var(--text-muted)"}}>إلى</span>
+        <Inp type="date" value={to} onChange={e=>setTo(e.target.value)} style={{width:125}}/>
+        {(from||to)&&<button onClick={()=>{setFrom("");setTo("");}} className="ik-ghost" style={{color:"var(--text-danger)"}}>× مسح</button>}
+      </div>
+      {!list.length?<Empty c="لا توجد شحنات ضمن النطاق المحدد."/>:(
+        <div>
+          {/* ملخص الشركتين */}
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(260px,1fr))",gap:10,marginBottom:12}}>
+            {["c1","c2"].map(co=>{const t=totCo(co);const meta=C[co];const hi=kind==="fob"?cheaperFob===co:cheaperLanded===co;return(
+              <Card key={co} bt={meta.ac}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:7}}>
+                  <span style={{fontWeight:600,color:meta.ac,fontSize:12}}>{meta.label}</span>
+                  {hi&&<span style={{fontSize:9,background:"var(--bg-success)",color:"var(--text-success)",borderRadius:20,padding:"1px 9px",fontWeight:600}}>🏆 الأوفر</span>}
+                </div>
+                {[["عدد الشحنات",mn(t.ships,0)],["عدد الحاويات",mn(t.conts,0)],["إجمالي القطع",mn(t.qty,0)],
+                  [kind==="fob"?"إجمالي الشراء FOB (ر.س)":"إجمالي التكلفة الشاملة (ر.س)",fmt(kind==="fob"?t.fob:t.landed)],
+                  [kind==="fob"?"متوسط سعر القطعة (ر.س)":"متوسط تكلفة القطعة الواصلة (ر.س)",t.qty?fmt((kind==="fob"?t.fob:t.landed)/t.qty):"—"]
+                ].map(([l,v])=>(
+                  <div key={l} style={{display:"flex",justifyContent:"space-between",padding:"3px 0",borderBottom:"0.5px solid var(--border)",fontSize:11}}>
+                    <span style={{color:"var(--text-secondary)"}}>{l}</span><b>{v}</b>
+                  </div>
+                ))}
+              </Card>
+            );})}
+          </div>
+          {kind==="landed"&&cheaperLanded&&<div style={{background:"var(--bg-success)",border:"0.5px solid var(--border)",borderRadius:8,padding:"8px 12px",fontSize:12,marginBottom:12,color:"var(--text-success)",fontWeight:500}}>🏆 بحسب متوسط تكلفة القطعة الواصلة — <b>{C[cheaperLanded].label}</b> هي الأوفر في التكلفة النهائية.</div>}
+          {kind==="fob"&&cheaperFob&&<div style={{background:"var(--bg-accent)",border:"0.5px solid var(--border-accent)",borderRadius:8,padding:"8px 12px",fontSize:12,marginBottom:12,color:"var(--text-accent)"}}>بحسب متوسط سعر شراء القطعة — <b>{C[cheaperFob].label}</b> أقل في أصل قيمة الشراء.</div>}
+
+          {/* جدول ملخص الشحنات */}
+          <div className="ik-sec" style={{marginTop:4}}><span className="n">١</span> ملخص الشحنات</div>
+          <div style={{border:"0.5px solid var(--border)",borderRadius:10,overflow:"auto",marginBottom:14,background:"var(--surface-2)"}}>
+            <table className="ik-tbl">
+              <thead><tr><th>الشركة</th><th>رقم الشحنة</th><th>التاريخ</th><th className="l">الحاويات</th><th className="l">الموديلات</th><th className="l">القطع</th><th className="l">إجمالي FOB</th>{kind==="landed"&&<><th className="l">المصاريف</th><th className="l">التكلفة الشاملة</th></>}<th className="l">بالريال (ر.س)</th></tr></thead>
+              <tbody>{perShip.map(r=>{const sym=r.sh.currency==="USD"?"$":"ر.س";return(
+                <tr key={r.sh.id}>
+                  <td style={{color:C[r.sh.company].ac,fontWeight:600}}>{C[r.sh.company].short}</td>
+                  <td style={{fontWeight:600}}>{r.sh.num||"—"}</td>
+                  <td style={{whiteSpace:"nowrap"}}>{r.sh.date}</td>
+                  <td className="l">{r.sh.containers.length}</td>
+                  <td className="l">{r.models}</td>
+                  <td className="l">{mn(r.qty,0)}</td>
+                  <td className="l">{fmt(r.fob)} {sym}</td>
+                  {kind==="landed"&&<><td className="l" style={{color:r.ex>0?"var(--text-warning)":"var(--text-muted)"}}>{r.ex>0?fmt(r.ex):"—"}</td><td className="l" style={{fontWeight:600}}>{fmt(r.landed)} {sym}</td></>}
+                  <td className="l" style={{fontWeight:600}}>{fmt(kind==="landed"?r.landedSAR:r.fobSAR)}</td>
+                </tr>
+              );})}</tbody>
+              <tfoot><tr><td colSpan={3}>الإجمالي</td><td className="l">{mn(t1.conts+t2.conts,0)}</td><td className="l"></td><td className="l">{mn(t1.qty+t2.qty,0)}</td><td className="l"></td>{kind==="landed"&&<><td className="l"></td><td className="l"></td></>}<td className="l">{fmt(kind==="landed"?t1.landed+t2.landed:t1.fob+t2.fob)} ر.س</td></tr></tfoot>
+            </table>
+          </div>
+
+          {/* تفاصيل الموديلات */}
+          <div className="ik-sec"><span className="n">٢</span> التفاصيل حسب الشحنة والحاوية</div>
+          {list.map(sh=>{
+            const rs=shipRows(sh,rate,kind==="landed");const sym=sh.currency==="USD"?"$":"ر.س";const meta=C[sh.company];
+            return(
+              <div key={sh.id} style={{border:"0.5px solid var(--border)",borderInlineStart:`3px solid ${meta.ac}`,borderRadius:10,overflow:"auto",marginBottom:10,background:"var(--surface-2)"}}>
+                <div style={{padding:"7px 10px",fontSize:11,fontWeight:600,color:meta.ac,display:"flex",gap:10,flexWrap:"wrap",alignItems:"center",borderBottom:"0.5px solid var(--border)"}}>
+                  <span>شحنة {sh.num?"#"+sh.num:""} — {meta.label}</span>
+                  <span style={{fontWeight:400,color:"var(--text-muted)",fontSize:10}}>{sh.date} · {sh.containers.length} حاوية · {mn(sQ(sh),0)} قطعة</span>
+                </div>
+                <table className="ik-tbl">
+                  <thead><tr><th>الحاوية</th><th>الموديل</th><th className="l">الكمية</th><th className="l">سعر الشراء {sym}</th><th className="l">إجمالي FOB</th>{kind==="landed"&&<><th className="l">نصيب المصاريف</th><th className="l">التكلفة الشاملة</th><th className="l">تكلفة القطعة الواصلة</th></>}</tr></thead>
+                  <tbody>{rs.map((r,i)=>(
+                    <tr key={r.it.id+i}>
+                      <td>{r.cont.number||"—"}</td>
+                      <td style={{fontWeight:500}}>{r.it.model}</td>
+                      <td className="l">{mn(r.it.qty,0)}</td>
+                      <td className="l">{fmt(r.it.price)}</td>
+                      <td className="l">{fmt(r.fob)}</td>
+                      {kind==="landed"&&<><td className="l" style={{color:"var(--text-muted)"}}>{fmt(r.extra||0)}</td><td className="l">{fmt(r.landed||r.fob)}</td><td className="l" style={{fontWeight:700,color:"var(--text-warning)"}}>{fmt(r.unit||0)} {sym}</td></>}
+                    </tr>
+                  ))}</tbody>
+                  <tfoot><tr><td colSpan={2}>إجمالي الشحنة</td><td className="l">{mn(sQ(sh),0)}</td><td className="l"></td><td className="l">{fmt(sC(sh))} {sym}</td>{kind==="landed"&&<><td className="l">{fmt(shExtras(sh))}</td><td className="l">{fmt(sLanded(sh))} {sym}</td><td className="l"></td></>}</tr></tfoot>
+                </table>
+              </div>
+            );
+          })}
+
+          {/* مقارنة الموديلات المشتركة بالتكلفة الواصلة */}
+          {kind==="landed"&&sharedLanded.length>0&&<div>
+            <div className="ik-sec"><span className="n">٣</span> مقارنة الموديلات المشتركة — تكلفة القطعة الواصلة (ر.س)</div>
+            <div style={{border:"0.5px solid var(--border)",borderRadius:10,overflow:"auto",background:"var(--surface-2)"}}>
+              <table className="ik-tbl">
+                <thead><tr><th>الموديل</th><th className="l">{C.c1.short} (ر.س/قطعة)</th><th className="l">{C.c2.short} (ر.س/قطعة)</th><th className="l">الفرق</th><th>الأوفر</th></tr></thead>
+                <tbody>{sharedLanded.map((m,i)=>(
+                  <tr key={i}>
+                    <td style={{fontWeight:600}}>{m.name}</td>
+                    <td className="l" style={{color:m.cheaper==="c1"?"var(--text-success)":"var(--text-primary)"}}>{fmt(m.a1)}</td>
+                    <td className="l" style={{color:m.cheaper==="c2"?"var(--text-success)":"var(--text-primary)"}}>{fmt(m.a2)}</td>
+                    <td className="l" style={{color:m.diff>0?"var(--text-danger)":"var(--text-success)"}}>{m.diff>0?"+":""}{fmt(m.diff)}</td>
+                    <td><b style={{color:C[m.cheaper].ac}}>{C[m.cheaper].label}</b></td>
+                  </tr>
+                ))}</tbody>
+              </table>
+            </div>
+          </div>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── تبويب الدفعات ───────────────────────────────────── */
+function Pays({pays,setPays,rate,toast,addLog}){
+  const [form,setForm]=useState(null);
+  const newP=()=>({id:uid(),date:today(),amount:"",currency:"USD",rate:"",target:"both",method:"bank",methodName:"",note:""});
+  const save=p=>{const isE=pays.some(x=>x.id===p.id);setPays(prev=>isE?prev.map(x=>x.id===p.id?p:x):[p,...prev]);addLog(isE?"تعديل دفعة":"تسجيل دفعة",`${fmt(p.amount)} ${p.currency==="USD"?"$":"ر.س"} — ${p.target==="both"?"الشركتان":C[p.target].label}`,p.target==="both"?null:p.target);toast("تم تسجيل الدفعة ✓");setForm(null);};
+  const del=id=>{if(!window.confirm("حذف هذه الدفعة؟"))return;const p=pays.find(x=>x.id===id);setPays(prev=>prev.filter(x=>x.id!==id));if(p)addLog("حذف دفعة",`${fmt(p.amount)} ${p.currency==="USD"?"$":"ر.س"}`,p.target==="both"?null:p.target);toast("تم الحذف");};
+  const sorted=useMemo(()=>[...pays].sort((a,b)=>a.date<b.date?1:-1),[pays]);
+  if(form)return <PayForm init={form} rate={rate} onSave={save} onCancel={()=>setForm(null)}/>;
+  return(
+    <div>
+      <div style={{background:"var(--bg-accent)",border:"0.5px solid var(--border-accent)",borderRadius:10,padding:"10px 12px",marginBottom:12,fontSize:12}}>
+        <div style={{fontWeight:600,marginBottom:5,color:"var(--text-accent)"}}>كيف تعمل الدفعات؟</div>
+        <ul style={{margin:0,paddingRight:16,lineHeight:1.9,color:"var(--text-secondary)"}}>
+          <li>كل دفعة تُسجَّل <strong>مرة واحدة فقط.</strong></li>
+          <li>«الشركتين معًا» = يُخصم نفس المبلغ من رصيد كل شركة كاملًا.</li>
+          <li>«شركة واحدة» = يُخصم من رصيد تلك الشركة فقط.</li>
+        </ul>
+      </div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+        <span style={{fontSize:11,color:"var(--text-muted)"}}>عدد الدفعات: {pays.length}</span>
+        <Btn onClick={()=>setForm(newP())}>+ دفعة جديدة</Btn>
+      </div>
+      {!sorted.length?<Empty c="لا توجد دفعات بعد — سجّل أول دفعة بالزر أعلاه."/>:
+        <div style={{display:"flex",flexDirection:"column",gap:8}}>
+          {sorted.map(p=>{const sv=pSAR(p,rate);const tM=p.target==="both"?null:C[p.target];return(
+            <div key={p.id} style={{border:"0.5px solid var(--border)",borderRadius:10,padding:"10px 12px",background:"var(--surface-1)",boxShadow:"0 1px 2px rgba(15,30,50,.04)"}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:7}}>
+                <div>
+                  <span style={{fontSize:11,color:"var(--text-muted)",marginLeft:7}}>{p.date}</span>
+                  {p.target==="both"?<span style={{fontSize:10,padding:"1px 8px",borderRadius:20,fontWeight:500,background:"var(--bg-success)",color:"var(--text-success)",marginLeft:5}}>الشركتان معًا</span>:<span style={{fontSize:10,padding:"1px 8px",borderRadius:20,fontWeight:500,background:tM.soft,color:tM.ac,marginLeft:5}}>{tM.label}</span>}
+                  <span style={{fontSize:10,padding:"1px 8px",borderRadius:20,background:"var(--surface-0)",color:"var(--text-secondary)",border:"0.5px solid var(--border)"}}>{p.method==="bank"?"🏦":"💱"} {p.methodName}</span>
+                </div>
+                <div style={{textAlign:"left"}}>
+                  <div style={{fontWeight:700,fontSize:13,color:NAVY}}>{fmt(p.amount)} {p.currency==="USD"?"$":"ر.س"}</div>
+                  {p.currency==="USD"&&<div style={{fontSize:10,color:"var(--text-muted)"}}>≈ {fmt(sv)} ر.س</div>}
+                </div>
+              </div>
+              {p.note&&<div style={{fontSize:10,color:"var(--text-secondary)",fontStyle:"italic",marginTop:5}}>{p.note}</div>}
+              <div style={{display:"flex",gap:10,marginTop:7,borderTop:"0.5px solid var(--border)",paddingTop:7}}>
+                <button onClick={()=>setForm(p)} className="ik-ghost" style={{color:"var(--text-accent)"}}>✏️ تعديل</button>
+                <button onClick={()=>del(p.id)} className="ik-ghost" style={{color:"var(--text-danger)"}}>🗑 حذف</button>
+              </div>
+            </div>
+          );})}
+        </div>
+      }
+    </div>
+  );
+}
+
+function PayForm({init,rate,onSave,onCancel}){
+  const [f,setF]=useState(()=>({...init}));
+  const save=()=>{if(!f.amount||nv(f.amount)<=0){alert("أدخل مبلغًا صحيحًا");return;}if(!f.methodName.trim()){alert(`أدخل اسم ${f.method==="bank"?"البنك":"مكتب الصرافة"}`);return;}onSave(f);};
+  const sv=f.currency==="USD"?nv(f.amount)*(nv(f.rate)||rate):nv(f.amount);
+  return(
+    <Card bt={NAVY} style={{maxWidth:620,margin:"0 auto"}}>
+      <div style={{fontWeight:700,fontSize:14,marginBottom:12}}>تسجيل دفعة</div>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:8,marginBottom:8}}>
+        <Lbl t="تاريخ الدفعة"><Inp type="date" value={f.date} onChange={e=>setF(p=>({...p,date:e.target.value}))}/></Lbl>
+        <Lbl t="المبلغ"><Inp type="number" min="0" step="0.01" placeholder="0.00" value={f.amount} onChange={e=>setF(p=>({...p,amount:e.target.value}))}/></Lbl>
+        <Lbl t="العملة"><Sel value={f.currency} onChange={e=>setF(p=>({...p,currency:e.target.value}))}><option value="USD">دولار $</option><option value="SAR">ريال ر.س</option></Sel></Lbl>
+      </div>
+      {f.currency==="USD"&&<Lbl t="سعر الصرف الخاص (اختياري)"><Inp type="number" min="0" step="0.0001" placeholder={`الافتراضي: ${rate}`} value={f.rate} onChange={e=>setF(p=>({...p,rate:e.target.value}))} style={{maxWidth:140}}/></Lbl>}
+      {f.amount&&<div style={{fontSize:11,color:"var(--text-success)",margin:"-5px 0 8px"}}>≈ {fmt(sv)} ريال سعودي</div>}
+      <Lbl t="وجهة الدفعة"><div style={{display:"flex",gap:5,flexWrap:"wrap",marginTop:3}}><Chip active={f.target==="both"} onClick={()=>setF(p=>({...p,target:"both"}))}>الشركتان معًا</Chip><Chip active={f.target==="c1"} onClick={()=>setF(p=>({...p,target:"c1"}))}>{C.c1.label} فقط</Chip><Chip active={f.target==="c2"} onClick={()=>setF(p=>({...p,target:"c2"}))}>{C.c2.label} فقط</Chip></div></Lbl>
+      <Lbl t="طريقة الخروج"><div style={{display:"flex",gap:5,flexWrap:"wrap",marginTop:3}}><Chip active={f.method==="bank"} onClick={()=>setF(p=>({...p,method:"bank"}))}>تحويل بنكي</Chip><Chip active={f.method==="exchange"} onClick={()=>setF(p=>({...p,method:"exchange"}))}>مكتب صرافة</Chip></div></Lbl>
+      <Lbl t={f.method==="bank"?"اسم البنك":"اسم مكتب الصرافة"}><Inp placeholder={f.method==="bank"?"مثال: البنك الأهلي":"مثال: صرافة الراجحي"} value={f.methodName} onChange={e=>setF(p=>({...p,methodName:e.target.value}))}/></Lbl>
+      <Lbl t="ملاحظة (اختياري)"><Inp value={f.note} onChange={e=>setF(p=>({...p,note:e.target.value}))}/></Lbl>
+      <div style={{display:"flex",justifyContent:"flex-end",gap:8}}>
+        <OBtn onClick={onCancel}>إلغاء</OBtn>
+        <Btn onClick={save}>حفظ الدفعة</Btn>
+      </div>
+    </Card>
+  );
+}
+
+/* ── كشف الحساب ─────────────────────────────────────── */
+function Statement({ships,pays,rate}){
+  const [mode,setMode]=useState("summary");
+  const [from,setFrom]=useState("");const [to,setTo]=useState("");
+  const L1=useMemo(()=>ledger(ships,pays,"c1",rate,from,to),[ships,pays,rate,from,to]);
+  const L2=useMemo(()=>ledger(ships,pays,"c2",rate,from,to),[ships,pays,rate,from,to]);
+  return(
+    <div>
+      <div style={{fontSize:10,color:"var(--text-muted)",marginBottom:8}}>ملاحظة: كشف الحساب مبني على قيمة الشراء (FOB) فقط — المصاريف الإضافية تظهر في تقرير التكاليف الشاملة.</div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12,flexWrap:"wrap",gap:8}}>
+        <div style={{display:"flex",background:"var(--surface-0)",borderRadius:8,padding:3,gap:0,border:"0.5px solid var(--border)"}}>
+          {["summary","detail"].map(m=><button key={m} onClick={()=>setMode(m)} style={{border:"none",background:mode===m?"var(--surface-2)":"transparent",padding:"5px 13px",fontSize:11,fontFamily:F,color:mode===m?NAVY:"var(--text-muted)",cursor:"pointer",borderRadius:6,fontWeight:mode===m?600:400,boxShadow:mode===m?"0 1px 2px rgba(15,30,50,.1)":"none"}}>{m==="summary"?"ملخص":"تفصيلي"}</button>)}
+        </div>
+        <div style={{display:"flex",gap:5,alignItems:"center",flexWrap:"wrap"}}>
+          <Inp type="date" value={from} onChange={e=>setFrom(e.target.value)} style={{width:120}}/>
+          <span style={{fontSize:10,color:"var(--text-muted)"}}>إلى</span>
+          <Inp type="date" value={to} onChange={e=>setTo(e.target.value)} style={{width:120}}/>
+          {(from||to)&&<button onClick={()=>{setFrom("");setTo("");}} className="ik-ghost" style={{color:"var(--text-danger)"}}>× مسح</button>}
+        </div>
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(260px,1fr))",gap:10,marginBottom:12}}>
+        {[{co:"c1",L:L1},{co:"c2",L:L2}].map(({co,L})=>{const meta=C[co];const dr=L.reduce((s,r)=>s+r.dr,0);const cr=L.reduce((s,r)=>s+r.cr,0);const bal=dr-cr;return(
+          <div key={co} className="ik-card" style={{borderInlineStart:`3px solid ${meta.ac}`}}>
+            <div style={{fontWeight:600,color:meta.ac,fontSize:12,marginBottom:7}}>{meta.label}</div>
+            {[["إجمالي الشحنات (ر.س)",fmt(dr)],["إجمالي الدفعات (ر.س)",fmt(cr)]].map(([l,v])=><div key={l} style={{display:"flex",justifyContent:"space-between",fontSize:11,padding:"2px 0",color:"var(--text-secondary)"}}><span>{l}</span><b style={{color:"var(--text-primary)"}}>{v}</b></div>)}
+            <div style={{display:"flex",justifyContent:"space-between",fontSize:12,borderTop:"0.5px solid var(--border)",marginTop:5,paddingTop:5}}>
+              <span style={{fontWeight:600}}>{bal>=0?"المتبقي للمورد":"دفعت أكثر"}</span>
+              <b style={{color:bal>=0?"var(--text-danger)":"var(--text-success)"}}>{fmt(Math.abs(bal))} ر.س</b>
+            </div>
+          </div>
+        );})}
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(300px,1fr))",gap:10}}>
+        {[{co:"c1",L:L1},{co:"c2",L:L2}].map(({co,L})=>{
+          const meta=C[co];const SE=L.filter(r=>r.kind==="ship");const PE=L.filter(r=>r.kind==="pay");
+          const dr=L.reduce((s,r)=>s+r.dr,0);const cr=L.reduce((s,r)=>s+r.cr,0);
+          return(
+            <Card key={co} bt={meta.ac}>
+              <div style={{fontWeight:600,color:meta.ac,fontSize:12,marginBottom:8}}>{meta.label}</div>
+              {!SE.length?<Empty c="لا توجد شحنات."/>:mode==="summary"?<SummaryList entries={SE}/>:
+                <div style={{marginBottom:8}}>
+                  {SE.map((r,i)=>{const sh=r.ship;const sym=sh.currency==="USD"?"$":"ر.س";return(
+                    <div key={sh.id} style={{marginBottom:10,paddingBottom:8,borderBottom:"0.5px solid var(--border)"}}>
+                      <div style={{fontWeight:600,marginBottom:6,fontSize:12}}>شحنة {sh.num?"#"+sh.num:`(${i+1})`} — {sh.date}</div>
+                      {sh.containers.map(c=>(
+                        <div key={c.id} style={{background:"var(--surface-0)",borderRadius:8,padding:"6px 8px",marginBottom:4}}>
+                          <div style={{fontSize:11,fontWeight:600,color:meta.ac,marginBottom:4}}>حاوية {c.number}</div>
+                          <table className="ik-tbl">
+                            <thead><tr><th>الموديل</th><th className="l">الكمية</th><th className="l">السعر {sym}</th><th className="l">الإجمالي {sym}</th></tr></thead>
+                            <tbody>{c.items.map(it=><tr key={it.id}><td>{it.model}</td><td className="l">{mn(it.qty,0)}</td><td className="l">{fmt(it.price)}</td><td className="l" style={{fontWeight:600}}>{fmt(iC(it))}</td></tr>)}</tbody>
+                          </table>
+                        </div>
+                      ))}
+                      <div style={{fontWeight:600,textAlign:"left",fontSize:11,marginTop:3}}>إجمالي: {fmt(r.dr)} ر.س</div>
+                    </div>
+                  );})}
+                </div>
+              }
+              <div style={{fontSize:11,fontWeight:600,color:"var(--text-muted)",margin:"8px 0 5px",paddingTop:7,borderTop:"0.5px solid var(--border)"}}>الدفعات المخصومة</div>
+              {!PE.length?<Empty c="لا توجد دفعات."/>:<div style={{display:"flex",flexDirection:"column",gap:3}}>{PE.map((r,i)=><div key={i} style={{display:"flex",justifyContent:"space-between",gap:6,fontSize:10,color:"var(--text-secondary)",flexWrap:"wrap",padding:"2px 0"}}><span>{r.date}</span><span>{r.pay.method==="bank"?"🏦":"💱"} {r.pay.methodName}{r.pay.target==="both"&&<span style={{color:"var(--text-muted)"}}> (مشتركة)</span>}</span><b style={{color:"var(--text-success)"}}>− {fmt(r.cr)} ر.س</b></div>)}</div>}
+              <div style={{background:"var(--surface-0)",borderRadius:8,padding:"8px 10px",marginTop:8}}>
+                <div style={{display:"flex",justifyContent:"space-between",fontSize:11,padding:"2px 0"}}><span>إجمالي الشحنات</span><b>{fmt(dr)} ر.س</b></div>
+                <div style={{display:"flex",justifyContent:"space-between",fontSize:11,padding:"2px 0"}}><span>إجمالي الدفعات</span><b style={{color:"var(--text-success)"}}>− {fmt(cr)} ر.س</b></div>
+                <div style={{display:"flex",justifyContent:"space-between",fontSize:12,borderTop:"0.5px solid var(--border)",marginTop:4,paddingTop:6,fontWeight:600}}>
+                  <span>{dr-cr>=0?"المتبقي للمورد":"فائض مدفوع"}</span>
+                  <b style={{color:dr-cr>=0?"var(--text-danger)":"var(--text-success)"}}>{fmt(Math.abs(dr-cr))} ر.س</b>
+                </div>
+              </div>
+            </Card>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function SummaryList({entries}){
+  const [open,setOpen]=useState(null);
+  return <div style={{display:"flex",flexDirection:"column",gap:5,marginBottom:8}}>
+    {entries.map((r,i)=>{const sh=r.ship;const isO=open===sh.id;const sym=sh.currency==="USD"?"$":"ر.س";return(
+      <div key={sh.id} style={{border:"0.5px solid var(--border)",borderRadius:8,overflow:"hidden"}}>
+        <button onClick={()=>setOpen(isO?null:sh.id)} style={{display:"grid",gridTemplateColumns:"auto 1fr auto auto",gap:7,alignItems:"center",width:"100%",border:"none",background:"var(--surface-1)",padding:"7px 9px",cursor:"pointer",fontFamily:F,fontSize:11,textAlign:"right",color:"var(--text-primary)"}}>
+          <span style={{fontWeight:600}}>شحنة {sh.num?"#"+sh.num:`(${i+1})`}</span>
+          <span style={{color:"var(--text-muted)",fontSize:10}}>{sh.date}</span>
+          <span style={{fontWeight:600}}>{fmt(r.dr)} ر.س</span>
+          <span style={{color:"var(--text-muted)",fontSize:9}}>{isO?"▲":"▼"}</span>
+        </button>
+        {isO&&<div style={{padding:"8px 9px",borderTop:"0.5px solid var(--border)",background:"var(--surface-0)"}}>
+          {sh.containers.map(c=>(
+            <div key={c.id} style={{background:"var(--surface-1)",borderRadius:8,padding:"6px 8px",marginBottom:4}}>
+              <div style={{fontSize:10,fontWeight:600,color:NAVY,marginBottom:4}}>حاوية {c.number}</div>
+              <table className="ik-tbl">
+                <thead><tr><th>الموديل</th><th className="l">الكمية</th><th className="l">السعر {sym}</th><th className="l">الإجمالي {sym}</th></tr></thead>
+                <tbody>{c.items.map(it=><tr key={it.id}><td>{it.model}</td><td className="l">{mn(it.qty,0)}</td><td className="l">{fmt(it.price)}</td><td className="l" style={{fontWeight:600}}>{fmt(iC(it))}</td></tr>)}</tbody>
+              </table>
+            </div>
+          ))}
+        </div>}
+      </div>
+    );})}
+  </div>;
+}
+
+/* ── المقارنة ───────────────────────────────────────── */
+function Compare({ships,rate,s1,s2}){
+  const pairs=useMemo(()=>{const a=[...ships.filter(s=>s.company==="c1")].sort((x,y)=>x.date<y.date?-1:1);const b=[...ships.filter(s=>s.company==="c2")].sort((x,y)=>x.date<y.date?-1:1);return Array.from({length:Math.max(a.length,b.length)},(_,i)=>({i:i+1,c1:a[i]||null,c2:b[i]||null}));},[ships]);
+  const models=useMemo(()=>{const map={};ships.forEach(sh=>sh.containers.forEach(c=>c.items.forEach(it=>{const k=(it.model||"").trim().toLowerCase();if(!k)return;if(!map[k])map[k]={name:it.model.trim(),c1:[],c2:[]};map[k][sh.company].push(toSAR(it.price,sh.currency,sh.rate,rate));})));const avg=arr=>arr.length?arr.reduce((s,x)=>s+x,0)/arr.length:0;return Object.values(map).filter(v=>v.c1.length&&v.c2.length).map(v=>{const a1=avg(v.c1),a2=avg(v.c2),d=a1-a2;return{name:v.name,a1,a2,diff:d,pct:Math.abs(d)/Math.max(a1,a2)*100,cheaper:a1<=a2?"c1":"c2"};}).sort((a,b)=>Math.abs(b.diff)-Math.abs(a.diff));},[ships,rate]);
+  const ch=s1.items===0||s2.items===0?null:s1.avg<=s2.avg?"c1":"c2";
+  const chL=s1.items===0||s2.items===0?null:s1.avgLanded<=s2.avgLanded?"c1":"c2";
+  return(
+    <div>
+      <div className="ik-sec">الملخص المالي</div>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(260px,1fr))",gap:10,marginBottom:12}}>
+        {["c1","c2"].map(co=>{const meta=C[co];const s=co==="c1"?s1:s2;return(
+          <Card key={co} bt={meta.ac}>
+            <div style={{fontWeight:600,color:meta.ac,fontSize:12,marginBottom:8}}>{meta.label}</div>
+            {[["عدد الشحنات",mn(s.count,0)],["إجمالي الحاويات",mn(s.conts,0)],["إجمالي القطع",mn(s.items,0)],["متوسط سعر شراء القطعة (ر.س)",fmt(s.avg),ch===co],["متوسط تكلفة القطعة الواصلة (ر.س)",fmt(s.avgLanded),chL===co],["إجمالي الشراء FOB (ر.س)",fmt(s.cost)],["إجمالي التكلفة الشاملة (ر.س)",fmt(s.landed)],["إجمالي المدفوع (ر.س)",fmt(s.paid)],[s.bal>=0?"المتبقي للمورد":"فائض مدفوع",fmt(Math.abs(s.bal))]].map(([l,v,hi])=>(
+              <div key={l} style={{display:"flex",justifyContent:"space-between",padding:"4px 0",borderBottom:"0.5px solid var(--border)",fontSize:11}}>
+                <span style={{color:"var(--text-secondary)"}}>{l}</span>
+                <b style={{color:hi?"var(--text-success)":"var(--text-primary)"}}>{v}</b>
+              </div>
+            ))}
+          </Card>
+        );})}
+      </div>
+      {ch&&<div style={{background:"var(--bg-accent)",border:"0.5px solid var(--border-accent)",borderRadius:8,padding:"7px 12px",fontSize:11,marginBottom:6,color:"var(--text-accent)"}}>بحسب متوسط سعر الشراء — <b>{C[ch].label}</b> أقل تكلفةً في المجمل.</div>}
+      {chL&&<div style={{background:"var(--bg-success)",border:"0.5px solid var(--border)",borderRadius:8,padding:"7px 12px",fontSize:11,marginBottom:14,color:"var(--text-success)"}}>🏆 بحسب متوسط تكلفة القطعة الواصلة (شاملة المصاريف) — <b>{C[chL].label}</b> هي الأوفر في التكلفة النهائية.</div>}
+      <div className="ik-sec">مقارنة الموديلات المشتركة (سعر الشراء بالريال) — مرتبة بأكبر فرق</div>
+      {!models.length?<Empty c="لا توجد موديلات مشتركة بعد."/>:
+        <div style={{border:"0.5px solid var(--border)",borderRadius:10,overflow:"auto",marginBottom:14,background:"var(--surface-2)"}}>
+          <table className="ik-tbl">
+            <thead><tr><th>الموديل</th><th className="l">{C.c1.short} (ر.س)</th><th className="l">{C.c2.short} (ر.س)</th><th className="l">الفرق ر.س</th><th className="l">الفرق %</th><th>الأرخص</th></tr></thead>
+            <tbody>{models.map((m,i)=>(
+              <tr key={i}>
+                <td style={{fontWeight:600}}>{m.name}</td>
+                <td className="l" style={{color:m.cheaper==="c1"?"var(--text-success)":"var(--text-primary)"}}>{fmt(m.a1)}</td>
+                <td className="l" style={{color:m.cheaper==="c2"?"var(--text-success)":"var(--text-primary)"}}>{fmt(m.a2)}</td>
+                <td className="l" style={{color:m.diff>0?"var(--text-danger)":"var(--text-success)"}}>{m.diff>0?"+":""}{fmt(m.diff)}</td>
+                <td className="l">{fmt(m.pct)}%</td>
+                <td><b style={{color:C[m.cheaper].ac}}>{C[m.cheaper].label}</b></td>
+              </tr>
+            ))}</tbody>
+          </table>
+        </div>
+      }
+      <div className="ik-sec">مقارنة الشحنات (إجمالي FOB بالريال)</div>
+      {!pairs.length?<Empty c="لا توجد شحنات."/>:
+        <div style={{border:"0.5px solid var(--border)",borderRadius:10,overflow:"auto",marginBottom:14,background:"var(--surface-2)"}}>
+          <table className="ik-tbl">
+            <thead><tr><th></th><th className="l">{C.c1.label}</th><th className="l">{C.c2.label}</th><th className="l">الفرق ر.س</th></tr></thead>
+            <tbody>{pairs.map(p=>{const v1=p.c1?shSAR(p.c1,rate):null;const v2=p.c2?shSAR(p.c2,rate):null;const cheaper=v1!=null&&v2!=null?(v1<=v2?"c1":"c2"):null;const diff=v1!=null&&v2!=null?Math.abs(v1-v2):null;return(
+              <tr key={p.i}>
+                <td style={{fontWeight:600}}>شحنة #{p.i}</td>
+                <td className="l">{v1!=null?<div><div style={{fontWeight:cheaper==="c1"?600:400,color:cheaper==="c1"?"var(--text-success)":"var(--text-primary)"}}>{fmt(v1)} ر.س</div><div style={{fontSize:9,color:"var(--text-muted)"}}>{p.c1.date}</div></div>:"—"}</td>
+                <td className="l">{v2!=null?<div><div style={{fontWeight:cheaper==="c2"?600:400,color:cheaper==="c2"?"var(--text-success)":"var(--text-primary)"}}>{fmt(v2)} ر.س</div><div style={{fontSize:9,color:"var(--text-muted)"}}>{p.c2.date}</div></div>:"—"}</td>
+                <td className="l">{diff!=null?`${fmt(diff)} ر.س`:"—"}</td>
+              </tr>
+            );})}
+            </tbody>
+          </table>
+        </div>
+      }
+    </div>
+  );
+}
+
+/* ── سجل النشاط ─────────────────────────────────────── */
+const ACT={"إضافة شحنة":{icon:"⛴",sc:"var(--text-success)",bg:"var(--bg-success)"},"تعديل شحنة":{icon:"✏️",sc:"var(--text-warning)",bg:"var(--bg-warning)"},"حذف شحنة":{icon:"🗑",sc:"var(--text-danger)",bg:"var(--bg-danger)"},"تسجيل دفعة":{icon:"💳",sc:"var(--text-accent)",bg:"var(--bg-accent)"},"تعديل دفعة":{icon:"✏️",sc:"var(--text-warning)",bg:"var(--bg-warning)"},"حذف دفعة":{icon:"🗑",sc:"var(--text-danger)",bg:"var(--bg-danger)"}};
+
+function LogView({log}){
+  const [fA,setFA]=useState("all");const [fC,setFC]=useState("all");const [q,setQ]=useState("");const [pg,setPg]=useState(0);const PER=20;
+  const acts=useMemo(()=>[...new Set(log.map(e=>e.action))],[log]);
+  const filtered=useMemo(()=>log.filter(e=>fA==="all"||e.action===fA).filter(e=>fC==="all"||(fC==="both"?!e.company:e.company===fC)).filter(e=>!q.trim()||(e.detail+e.action).toLowerCase().includes(q.toLowerCase())),[log,fA,fC,q]);
+  const pages=Math.ceil(filtered.length/PER);const items=filtered.slice(pg*PER,(pg+1)*PER);
+  const stats=useMemo(()=>({total:log.length,sa:log.filter(e=>e.action==="إضافة شحنة").length,sd:log.filter(e=>e.action==="حذف شحنة").length,pa:log.filter(e=>e.action==="تسجيل دفعة").length,last:log[0]||null}),[log]);
+  return(
+    <div>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(120px,1fr))",gap:8,marginBottom:12}}>
+        {[["📦","إجمالي العمليات",stats.total,"var(--text-primary)"],["⛴","شحنات أُضيفت",stats.sa,"var(--text-success)"],["🗑","شحنات حُذفت",stats.sd,"var(--text-danger)"],["💳","دفعات سُجّلت",stats.pa,"var(--text-accent)"]].map(([ic,lb,v,co])=>(
+          <div key={lb} className="ik-card" style={{padding:"10px 12px",textAlign:"center"}}>
+            <div style={{fontSize:18,marginBottom:2}}>{ic}</div>
+            <div style={{fontSize:18,fontWeight:700,color:co}}>{v}</div>
+            <div style={{fontSize:10,color:"var(--text-muted)"}}>{lb}</div>
+          </div>
+        ))}
+      </div>
+      {stats.last&&<div style={{display:"flex",alignItems:"center",gap:7,background:"var(--surface-2)",borderRadius:8,padding:"7px 10px",marginBottom:10,fontSize:11,flexWrap:"wrap",border:"0.5px solid var(--border)"}}>
+        <span style={{color:"var(--text-muted)"}}>آخر نشاط:</span>
+        <span style={{fontWeight:600}}>{ACT[stats.last.action]?.icon||"•"} {stats.last.action}</span>
+        <span style={{color:"var(--text-secondary)"}}>{stats.last.detail}</span>
+        <span style={{color:"var(--text-muted)",fontSize:10,marginRight:"auto"}}>{stats.last.date} {stats.last.time}</span>
+      </div>}
+      <div style={{display:"flex",gap:6,marginBottom:10,flexWrap:"wrap"}}>
+        <Inp placeholder="ابحث…" value={q} onChange={e=>{setQ(e.target.value);setPg(0);}} style={{flex:1,minWidth:130}}/>
+        <Sel value={fA} onChange={e=>{setFA(e.target.value);setPg(0);}} style={{width:"auto"}}><option value="all">كل العمليات</option>{acts.map(a=><option key={a} value={a}>{a}</option>)}</Sel>
+        <Sel value={fC} onChange={e=>{setFC(e.target.value);setPg(0);}} style={{width:"auto"}}><option value="all">كل الشركات</option><option value="c1">{C.c1.label}</option><option value="c2">{C.c2.label}</option><option value="both">الشركتان</option></Sel>
+      </div>
+      {!filtered.length?<Empty c="لا توجد سجلات."/>:(
+        <div style={{background:"var(--surface-2)",borderRadius:10,border:"0.5px solid var(--border)",overflow:"hidden",marginBottom:10}}>
+          <div style={{display:"grid",gridTemplateColumns:"90px 110px 1fr 80px",background:NAVY,color:"#fff",padding:"7px 10px",fontSize:10,fontWeight:500}}>
+            {["التاريخ","العملية","التفاصيل","الشركة"].map((h,i)=><span key={i}>{h}</span>)}
+          </div>
+          {items.map((e,i)=>{const m=ACT[e.action]||{icon:"•",sc:"var(--text-secondary)",bg:"var(--surface-0)"};return(
+            <div key={e.id||i} style={{display:"grid",gridTemplateColumns:"90px 110px 1fr 80px",padding:"7px 10px",borderBottom:"0.5px solid var(--border)",alignItems:"start",background:i%2===0?"var(--surface-1)":"var(--surface-2)"}}>
+              <div><div style={{fontWeight:600,fontSize:10,color:"var(--text-primary)"}}>{e.date}</div><div style={{fontSize:9,color:"var(--text-muted)"}}>{e.time}</div></div>
+              <div><span style={{fontSize:9,padding:"1px 7px",borderRadius:20,fontWeight:500,background:m.bg,color:m.sc,whiteSpace:"nowrap"}}>{m.icon} {e.action}</span></div>
+              <span style={{fontSize:10,color:"var(--text-secondary)",lineHeight:1.5}}>{e.detail}</span>
+              <span style={{fontSize:10}}>{e.company?<span style={{color:C[e.company].ac,fontWeight:600}}>{C[e.company].label}</span>:<span style={{color:"var(--text-muted)"}}>الشركتان</span>}</span>
+            </div>
+          );})}
+        </div>
+      )}
+      {pages>1&&<div style={{display:"flex",justifyContent:"center",gap:4,flexWrap:"wrap",alignItems:"center"}}>
+        {[["««",()=>setPg(0)],["‹",()=>setPg(p=>Math.max(0,p-1))],["›",()=>setPg(p=>Math.min(pages-1,p+1))],["»»",()=>setPg(pages-1)]].map(([lb,fn],i)=><button key={i} onClick={fn} style={{border:"0.5px solid var(--border)",background:"var(--surface-2)",color:"var(--text-secondary)",borderRadius:6,padding:"3px 8px",cursor:"pointer",fontFamily:F,fontSize:10}}>{lb}</button>)}
+        <span style={{fontSize:10,color:"var(--text-muted)"}}>صفحة {pg+1} من {pages}</span>
+      </div>}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("app")).render(React.createElement(App));
+</script>
+</body>
+</html>
