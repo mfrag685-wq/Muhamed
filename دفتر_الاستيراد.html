@@ -1154,6 +1154,18 @@ function Ships({
     if (sh) addLog("حذف شحنة", `شحنة ${sh.num ? "#" + sh.num : ""} — ${C[sh.company].label}`, sh.company);
     toast("تم الحذف");
   };
+  /* نسخ الشحنة إلى الشركة الأخرى (بنفس الموديلات والكميات والأسعار) ثم يمكن تعديلها هناك */
+  const copy = sh => {
+    const other = sh.company === "c1" ? "c2" : "c1";
+    if (!window.confirm(`نسخ هذه الشحنة إلى «${C[other].label}»؟ ستُنشأ نسخة قابلة للتعديل هناك دون المساس بالأصل.`)) return;
+    const dup = JSON.parse(JSON.stringify(sh));
+    dup.id = uid();
+    dup.company = other;
+    dup.containers = (dup.containers || []).map(c => ({ ...c, id: uid(), items: (c.items || []).map(it => ({ ...it, id: uid() })) }));
+    setShips(p => [dup, ...p]);
+    addLog("نسخ شحنة", `شحنة ${sh.num ? "#" + sh.num : ""} من ${C[sh.company].label} إلى ${C[other].label}`, other);
+    toast(`تم نسخ الشحنة إلى ${C[other].label} ✓ — انتقل إليها للتعديل`);
+  };
   const filtered = useMemo(() => ships.filter(s => filter === "all" || s.company === filter).filter(s => !q.trim() || s.containers.some(c => c.items.some(it => it.model.toLowerCase().includes(q.toLowerCase()))) || (s.num || "").includes(q)).sort((a, b) => a.date < b.date ? 1 : -1), [ships, filter, q]);
   if (form) return /*#__PURE__*/React.createElement(ShipForm, {
     init: form,
@@ -1239,7 +1251,8 @@ function Ships({
       idx: list.length - i,
       rate: rate,
       onEdit: () => setForm(JSON.parse(JSON.stringify(sh))),
-      onDel: () => del(sh.id)
+      onDel: () => del(sh.id),
+      onCopy: () => copy(sh)
     }))));
   })));
 }
@@ -1250,7 +1263,8 @@ function ShipCard({
   idx,
   rate,
   onEdit,
-  onDel
+  onDel,
+  onCopy
 }) {
   const [open, setOpen] = useState(false);
   const meta = C[sh.company];
@@ -1476,7 +1490,13 @@ function ShipCard({
     style: {
       color: "var(--text-accent)"
     }
-  }, "\u270F\uFE0F \u062A\u0639\u062F\u064A\u0644"), /*#__PURE__*/React.createElement("button", {
+  }, "\u270F\uFE0F \u062A\u0639\u062F\u064A\u0644"), onCopy && /*#__PURE__*/React.createElement("button", {
+    onClick: onCopy,
+    className: "ik-ghost",
+    style: {
+      color: C[sh.company === "c1" ? "c2" : "c1"].ac
+    }
+  }, "\u29C9 \u0646\u0633\u062E \u0625\u0644\u0649 ", C[sh.company === "c1" ? "c2" : "c1"].label), /*#__PURE__*/React.createElement("button", {
     onClick: onDel,
     className: "ik-ghost",
     style: {
@@ -3800,6 +3820,11 @@ const ACT = {
     icon: "🗑",
     sc: "var(--text-danger)",
     bg: "var(--bg-danger)"
+  },
+  "نسخ شحنة": {
+    icon: "⧉",
+    sc: "var(--text-accent)",
+    bg: "var(--bg-accent)"
   },
   "تسجيل دفعة": {
     icon: "💳",
