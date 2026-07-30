@@ -4000,5 +4000,99 @@ function LogView({
 }
 ReactDOM.createRoot(document.getElementById("app")).render(React.createElement(App));
 </script>
+
+<!-- ── وحدة النسخ الاحتياطي (تصدير/استيراد) — مستقلة عن React ── -->
+<script>
+(function(){
+  var NAVY="#1a3a5c";
+  var PREFIXES=["ships-","pays-","cfg-","log-"];
+  function isAppKey(k){for(var i=0;i<PREFIXES.length;i++){if(k.indexOf(PREFIXES[i])===0)return true;}return false;}
+
+  function collect(){
+    var data={};
+    try{
+      for(var i=0;i<localStorage.length;i++){
+        var k=localStorage.key(i);
+        if(isAppKey(k))data[k]=localStorage.getItem(k);
+      }
+    }catch(e){}
+    return data;
+  }
+
+  function pad(n){return n<10?"0"+n:""+n;}
+  function stamp(){var d=new Date();return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate())+"_"+pad(d.getHours())+"-"+pad(d.getMinutes());}
+
+  function flash(msg,err){
+    var t=document.createElement("div");
+    t.textContent=msg;
+    t.style.cssText="position:fixed;bottom:60px;left:50%;transform:translateX(-50%);background:"+(err?"#c0402a":NAVY)+";color:#fff;padding:8px 20px;border-radius:20px;font-size:12px;z-index:1000;font-family:'Tajawal','Segoe UI',sans-serif;box-shadow:0 4px 12px rgba(15,30,50,.25)";
+    document.body.appendChild(t);
+    setTimeout(function(){t.remove();},2600);
+  }
+
+  function exportData(){
+    var data=collect();
+    if(!Object.keys(data).length){flash("لا توجد بيانات لتصديرها",true);return;}
+    var payload={app:"دفتر الاستيراد",kind:"backup",version:1,exportedAt:new Date().toISOString(),data:data};
+    var blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
+    var url=URL.createObjectURL(blob);
+    var a=document.createElement("a");
+    a.href=url;a.download="نسخة_احتياطية_دفتر_الاستيراد_"+stamp()+".json";
+    document.body.appendChild(a);a.click();a.remove();
+    setTimeout(function(){URL.revokeObjectURL(url);},1000);
+    flash("تم تصدير النسخة الاحتياطية ✓");
+  }
+
+  function importData(file){
+    var reader=new FileReader();
+    reader.onload=function(){
+      var obj;
+      try{obj=JSON.parse(reader.result);}catch(e){flash("الملف غير صالح — تعذّرت قراءته",true);return;}
+      var data=obj&&obj.data&&typeof obj.data==="object"?obj.data:null;
+      if(!data||!Object.keys(data).some(isAppKey)){flash("هذا الملف لا يحتوي على نسخة احتياطية صحيحة",true);return;}
+      var n=Object.keys(data).filter(isAppKey).length;
+      if(!window.confirm("سيتم استبدال كل البيانات الحالية بمحتوى النسخة الاحتياطية ("+n+" عنصر). هل تريد المتابعة؟"))return;
+      try{
+        var toDel=[];
+        for(var i=0;i<localStorage.length;i++){var k=localStorage.key(i);if(isAppKey(k))toDel.push(k);}
+        toDel.forEach(function(k){localStorage.removeItem(k);});
+        Object.keys(data).forEach(function(k){if(isAppKey(k))localStorage.setItem(k,data[k]);});
+      }catch(e){flash("تعذّر حفظ البيانات على هذا المتصفح",true);return;}
+      flash("تم الاستيراد بنجاح — جارٍ إعادة التحميل…");
+      setTimeout(function(){location.reload();},900);
+    };
+    reader.onerror=function(){flash("تعذّرت قراءة الملف",true);};
+    reader.readAsText(file);
+  }
+
+  function mkBtn(label,title,onClick){
+    var b=document.createElement("button");
+    b.type="button";b.textContent=label;b.title=title;
+    b.style.cssText="border:none;background:"+NAVY+";color:#fff;border-radius:8px;padding:7px 12px;font-size:12px;font-weight:500;cursor:pointer;font-family:'Tajawal','Segoe UI',sans-serif;box-shadow:0 2px 6px rgba(15,30,50,.25)";
+    b.onclick=onClick;
+    return b;
+  }
+
+  function mount(){
+    if(document.getElementById("ik-backup-bar"))return;
+    var bar=document.createElement("div");
+    bar.id="ik-backup-bar";
+    bar.setAttribute("dir","rtl");
+    bar.style.cssText="position:fixed;bottom:14px;right:14px;display:flex;gap:6px;z-index:900;flex-wrap:wrap";
+
+    var fileInput=document.createElement("input");
+    fileInput.type="file";fileInput.accept="application/json,.json";fileInput.style.display="none";
+    fileInput.onchange=function(){if(fileInput.files&&fileInput.files[0]){importData(fileInput.files[0]);fileInput.value="";}};
+
+    bar.appendChild(mkBtn("⬇ تصدير نسخة","تنزيل ملف نسخة احتياطية بكل البيانات",exportData));
+    bar.appendChild(mkBtn("⬆ استيراد نسخة","استعادة البيانات من ملف نسخة احتياطية",function(){fileInput.click();}));
+    bar.appendChild(fileInput);
+    document.body.appendChild(bar);
+  }
+
+  if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",mount);
+  else mount();
+})();
+</script>
 </body>
 </html>
