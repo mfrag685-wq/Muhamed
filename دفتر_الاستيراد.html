@@ -4105,6 +4105,181 @@ ReactDOM.createRoot(document.getElementById("app")).render(React.createElement(A
   function pad(n){return n<10?"0"+n:""+n;}
   function stamp(){var d=new Date();return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate())+"_"+pad(d.getHours())+"-"+pad(d.getMinutes());}
   function appTitle(){return (window.__APPTITLE)||"دفتر الاستيراد";}
+  function uid(){return Math.random().toString(36).slice(2,9)+Date.now().toString(36);}
+  function today(){return new Date().toISOString().slice(0,10);}
+  function names(){var n=(window.__cfgGet&&window.__cfgGet("cfg-names"))||{};return{c1:(n.c1&&n.c1.label)||"الشركة الأولى",c2:(n.c2&&n.c2.label)||"الشركة الثانية",s1:(n.c1&&n.c1.short)||"ش١",s2:(n.c2&&n.c2.short)||"ش٢"};}
+
+  /* ── استيراد الشحنات من إكسل ── */
+  var COLS=["الشركة","رقم الشحنة","التاريخ","العملة","سعر الصرف","رقم الحاوية","الموديل","الكمية","سعر الشراء","أجور الشحن","الجمارك","التخليص","النقل"];
+  var ALIASES={
+    company:["الشركة","الشركه","company","المورد"],
+    num:["رقم الشحنة","رقم الشحنه","الشحنة","الشحنه","shipment","رقم"],
+    date:["التاريخ","تاريخ الوصول","تاريخ","date"],
+    currency:["العملة","العمله","currency"],
+    rate:["سعر الصرف","الصرف","rate"],
+    container:["رقم الحاوية","الحاوية","الحاويه","container"],
+    model:["الموديل","الصنف","اسم الموديل","model"],
+    qty:["الكمية","الكميه","العدد","qty","quantity"],
+    price:["سعر الشراء","السعر","price"],
+    freight:["أجور الشحن","الشحن","freight"],
+    customs:["الجمارك","customs"],
+    clearance:["التخليص","clearance"],
+    transport:["النقل","transport"]
+  };
+  function normDigits(s){
+    if(s==null)return "";
+    var ar="٠١٢٣٤٥٦٧٨٩",fa="۰۱۲۳۴۵۶۷۸۹";
+    return (""+s).replace(/[٠-٩]/g,function(d){return ""+ar.indexOf(d);}).replace(/[۰-۹]/g,function(d){return ""+fa.indexOf(d);});
+  }
+  function numOr(v){
+    if(v===""||v==null)return "";
+    var x=parseFloat(normDigits(v).replace(/[,\s]/g,"").replace(/[^0-9.\-]/g,""));
+    return isFinite(x)?x:"";
+  }
+  function lc(s){return (""+(s==null?"":s)).trim().toLowerCase();}
+  function pick(row,keys){ // find a value in row by alias keys (case-insensitive header match)
+    var lcMap={};for(var k in row)lcMap[lc(k)]=row[k];
+    for(var i=0;i<keys.length;i++){var v=lcMap[lc(keys[i])];if(v!==undefined&&(""+v).trim()!=="")return v;}
+    return "";
+  }
+  function resolveCompany(v){
+    var n=names(),x=lc(v);
+    if(!x)return null;
+    if(["c1","1","١","الأولى","الاولى",lc(n.c1),lc(n.s1),"الشركة الأولى","الشركه الاولى"].indexOf(x)>=0)return "c1";
+    if(["c2","2","٢","الثانية","الثانيه",lc(n.c2),lc(n.s2),"الشركة الثانية","الشركه الثانيه"].indexOf(x)>=0)return "c2";
+    if(x===lc(n.c1))return "c1";if(x===lc(n.c2))return "c2";
+    return null;
+  }
+  function resolveCurrency(v){
+    var x=lc(v);
+    if(!x)return "USD";
+    if(x.indexOf("sar")>=0||x.indexOf("ريال")>=0||x.indexOf("ر.س")>=0||x==="ر"||x==="س")return "SAR";
+    return "USD"; // الافتراضي دولار
+  }
+
+  function downloadTemplate(){
+    try{
+      var n=names();
+      var headers=COLS.slice();
+      var ex1=[n.c1,"1",today(),"USD","","1","غرفة نوم 1151","10","500","","","",""];
+      var ex2=[n.c1,"1",today(),"USD","","1","طاولة طعام","5","300","","","",""];
+      var ex3=[n.c2,"1",today(),"USD","","1","غرفة نوم 1151","10","520","","","",""];
+      var aoa=[headers,ex1,ex2,ex3];
+      var ws=XLSX.utils.aoa_to_sheet(aoa);
+      ws["!cols"]=headers.map(function(h){return {wch:Math.max(12,h.length+3)};});
+      var wb=XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb,ws,"الشحنات");
+      var info=[
+        ["تعليمات تعبئة القالب"],
+        ["١) كل صف = موديل واحد داخل حاوية."],
+        ["٢) الصفوف التي تحمل نفس (الشركة + رقم الشحنة + التاريخ) تُجمَّع في شحنة واحدة."],
+        ["٣) داخل الشحنة، الصفوف بنفس (رقم الحاوية) تُجمَّع في حاوية واحدة."],
+        ["٤) الشركة: اكتب اسم الشركة كما هو ("+n.c1+" أو "+n.c2+") أو c1 / c2."],
+        ["٥) العملة: USD للدولار أو SAR للريال (الافتراضي دولار)."],
+        ["٦) المصاريف (أجور الشحن/الجمارك/التخليص/النقل) اختيارية وتخص الحاوية — تُكتب مرة واحدة لكل حاوية."],
+        ["٧) الكمية وسعر الشراء أرقام فقط. اترك الأعمدة الاختيارية فارغة إن لم تحتَجها."]
+      ];
+      var ws2=XLSX.utils.aoa_to_sheet(info);ws2["!cols"]=[{wch:90}];
+      XLSX.utils.book_append_sheet(wb,ws2,"تعليمات");
+      XLSX.writeFile(wb,"قالب_استيراد_الشحنات.xlsx");
+      flash("تم تنزيل قالب إكسل ✓");
+    }catch(e){flash("تعذّر إنشاء القالب",true);}
+  }
+
+  function parseWorkbook(ab){
+    var wb=XLSX.read(ab,{type:"array",cellDates:true});
+    var wsName=wb.SheetNames[0];
+    // اختر أول ورقة ليست «تعليمات»
+    for(var i=0;i<wb.SheetNames.length;i++){if(wb.SheetNames[i].indexOf("تعليمات")<0){wsName=wb.SheetNames[i];break;}}
+    var ws=wb.Sheets[wsName];
+    var rows=XLSX.utils.sheet_to_json(ws,{defval:"",raw:false});
+    var errors=[],shipMap={},order=[];
+    rows.forEach(function(row,ri){
+      var rn=ri+2; // رقم الصف في إكسل (بعد الترويسة)
+      var model=(""+pick(row,ALIASES.model)).trim();
+      var qtyRaw=pick(row,ALIASES.qty),priceRaw=pick(row,ALIASES.price);
+      var companyRaw=pick(row,ALIASES.company);
+      // تخطّي الصفوف الفارغة تماماً
+      if(!model&&(""+qtyRaw).trim()===""&&(""+priceRaw).trim()===""&&(""+companyRaw).trim()==="")return;
+      var co=resolveCompany(companyRaw);
+      if(!co){errors.push("الصف "+rn+": الشركة غير معروفة ("+(companyRaw||"فارغة")+")");return;}
+      if(!model){errors.push("الصف "+rn+": الموديل مفقود");return;}
+      var qty=numOr(qtyRaw),price=numOr(priceRaw);
+      if(qty===""){errors.push("الصف "+rn+": الكمية غير صحيحة");return;}
+      if(price===""){errors.push("الصف "+rn+": سعر الشراء غير صحيح");return;}
+      var num=(""+pick(row,ALIASES.num)).trim();
+      var dateRaw=pick(row,ALIASES.date),date="";
+      if(dateRaw instanceof Date)date=dateRaw.toISOString().slice(0,10);
+      else{var ds=(""+dateRaw).trim();date=ds?(/^\d{4}-\d{2}-\d{2}/.test(ds)?ds.slice(0,10):ds):today();}
+      var currency=resolveCurrency(pick(row,ALIASES.currency));
+      var rate=numOr(pick(row,ALIASES.rate));
+      var contNo=(""+pick(row,ALIASES.container)).trim()||"1";
+      var key=co+"|"+num+"|"+date;
+      var sh=shipMap[key];
+      if(!sh){sh={id:uid(),company:co,num:num,date:date,currency:currency,rate:rate===""?"":String(rate),note:"",extras:{freight:"",customs:"",clearance:"",transport:""},allocBasis:"value",containers:[],_cmap:{}};shipMap[key]=sh;order.push(key);}
+      var cont=sh._cmap[contNo];
+      if(!cont){cont={id:uid(),number:contNo,extras:{freight:"",customs:"",clearance:"",transport:""},items:[]};sh._cmap[contNo]=cont;sh.containers.push(cont);}
+      // مصاريف الحاوية: أول قيمة غير فارغة
+      ["freight","customs","clearance","transport"].forEach(function(f){var v=numOr(pick(row,ALIASES[f]));if(v!==""&&cont.extras[f]==="")cont.extras[f]=String(v);});
+      cont.items.push({id:uid(),model:model,qty:String(qty),price:String(price)});
+    });
+    var ships=order.map(function(k){var s=shipMap[k];delete s._cmap;return s;});
+    var models=ships.reduce(function(a,s){return a+s.containers.reduce(function(b,c){return b+c.items.length;},0);},0);
+    return {ships:ships,models:models,errors:errors,totalRows:rows.length};
+  }
+
+  function importExcel(file){
+    var reader=new FileReader();
+    reader.onload=function(){
+      var res;
+      try{res=parseWorkbook(reader.result);}catch(e){flash("تعذّرت قراءة ملف الإكسل — تأكد أنه ملف صحيح",true);return;}
+      if(!res.ships.length){
+        showImportPreview(res,true);
+        return;
+      }
+      showImportPreview(res,false);
+    };
+    reader.onerror=function(){flash("تعذّرت قراءة الملف",true);};
+    reader.readAsArrayBuffer(file);
+  }
+
+  function commitImport(ships){
+    try{
+      var key=AP+"::ships-v4";
+      var cur=[];try{cur=JSON.parse(localStorage.getItem(key)||"[]");if(!Array.isArray(cur))cur=[];}catch(e){cur=[];}
+      var merged=ships.concat(cur);
+      localStorage.setItem(key,JSON.stringify(merged));
+    }catch(e){flash("تعذّر حفظ البيانات على هذا المتصفح",true);return;}
+    flash("تم استيراد الشحنات ✓ — جارٍ إعادة التحميل…");
+    setTimeout(function(){location.reload();},800);
+  }
+
+  function showImportPreview(res,failed){
+    if(document.getElementById("ik-imp-ov"))return;
+    var ov=document.createElement("div");
+    ov.id="ik-imp-ov";ov.setAttribute("dir","rtl");
+    ov.style.cssText="position:fixed;inset:0;background:rgba(10,18,28,.55);z-index:3000;display:flex;align-items:center;justify-content:center;padding:16px;font-family:'Tajawal','Segoe UI',sans-serif";
+    var box=document.createElement("div");
+    box.style.cssText="background:var(--surface-2);color:var(--text-primary);border:0.5px solid var(--border);border-radius:14px;padding:18px;width:100%;max-width:460px;max-height:80vh;overflow:auto;box-shadow:0 20px 50px rgba(0,0,0,.4)";
+    var errHtml="";
+    if(res.errors.length){
+      var shown=res.errors.slice(0,20).map(function(e){return '<li style="margin-bottom:2px">'+e.replace(/</g,"&lt;")+'</li>';}).join("");
+      errHtml='<div style="margin-top:12px;background:var(--bg-danger);border:0.5px solid var(--border);border-radius:8px;padding:8px 10px"><div style="font-weight:600;color:var(--text-danger);font-size:12px;margin-bottom:5px">صفوف بها مشاكل (تم تخطّيها): '+res.errors.length+'</div><ul style="margin:0;padding-inline-start:18px;font-size:11px;color:var(--text-secondary);line-height:1.7">'+shown+(res.errors.length>20?'<li>… والمزيد</li>':'')+'</ul></div>';
+    }
+    var summary=failed?
+      '<div style="font-size:13px;color:var(--text-danger);font-weight:600">لم يُعثر على أي شحنة صحيحة في الملف.</div>':
+      '<div style="font-size:13px;color:var(--text-secondary);line-height:1.9">سيتم إضافة <b style="color:var(--text-primary)">'+res.ships.length+'</b> شحنة تشمل <b style="color:var(--text-primary)">'+res.models+'</b> موديلاً إلى النموذج الحالي.<br>لن تُحذف بياناتك الحالية — ستُضاف الشحنات الجديدة إليها.</div>';
+    box.innerHTML='<div style="font-weight:700;font-size:15px;margin-bottom:12px;color:var(--text-accent)">📥 معاينة استيراد إكسل</div>'+summary+errHtml+
+      '<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px">'+
+      '<button id="ik-imp-cancel" style="border:0.5px solid var(--border-strong);background:var(--surface-2);color:var(--text-secondary);border-radius:8px;padding:7px 16px;cursor:pointer;font-family:inherit;font-size:12px">إغلاق</button>'+
+      (failed?'':'<button id="ik-imp-ok" style="border:none;background:'+NAVY+';color:#fff;border-radius:8px;padding:7px 18px;cursor:pointer;font-family:inherit;font-size:13px;font-weight:500">تأكيد الاستيراد</button>')+'</div>';
+    ov.appendChild(box);document.body.appendChild(ov);
+    function close(){ov.remove();}
+    ov.addEventListener("click",function(e){if(e.target===ov)close();});
+    box.querySelector("#ik-imp-cancel").onclick=close;
+    var ok=box.querySelector("#ik-imp-ok");
+    if(ok)ok.onclick=function(){close();commitImport(res.ships);};
+  }
 
   function flash(msg,err){
     var t=document.createElement("div");
@@ -4252,12 +4427,22 @@ ReactDOM.createRoot(document.getElementById("app")).render(React.createElement(A
     /* الإعدادات */
     bar.appendChild(mkBtn("⚙️","تعديل اسم التطبيق وأسماء الشركتين",openSettings,"var(--surface-2)"));
 
-    /* النسخ الاحتياطي */
+    /* استيراد الشحنات من إكسل */
+    var xlsInput=document.createElement("input");
+    xlsInput.type="file";xlsInput.accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";xlsInput.style.display="none";
+    xlsInput.onchange=function(){if(xlsInput.files&&xlsInput.files[0]){importExcel(xlsInput.files[0]);xlsInput.value="";}};
+    var tplBtn=mkBtn("📄 قالب إكسل","تنزيل قالب إكسل جاهز لتعبئة الشحنات يدوياً",downloadTemplate,"var(--surface-2)");
+    tplBtn.style.background="var(--surface-2)";tplBtn.style.color="var(--text-primary)";tplBtn.style.border="0.5px solid var(--border-strong)";
+    bar.appendChild(tplBtn);
+    bar.appendChild(mkBtn("📥 استيراد إكسل","استيراد الشحنات من ملف إكسل معبّأ",function(){xlsInput.click();},"var(--text-success)"));
+    bar.appendChild(xlsInput);
+
+    /* النسخ الاحتياطي (JSON) */
     var fileInput=document.createElement("input");
     fileInput.type="file";fileInput.accept="application/json,.json";fileInput.style.display="none";
     fileInput.onchange=function(){if(fileInput.files&&fileInput.files[0]){importData(fileInput.files[0]);fileInput.value="";}};
-    bar.appendChild(mkBtn("⬇ تصدير","تنزيل نسخة احتياطية لبيانات هذا النموذج",exportData));
-    bar.appendChild(mkBtn("⬆ استيراد","استعادة البيانات من ملف نسخة احتياطية",function(){fileInput.click();}));
+    bar.appendChild(mkBtn("⬇ حفظ نسخة","تنزيل نسخة احتياطية كاملة لبيانات هذا النموذج",exportData));
+    bar.appendChild(mkBtn("⬆ استعادة","استعادة كل البيانات من ملف نسخة احتياطية",function(){fileInput.click();}));
     bar.appendChild(fileInput);
 
     /* تلوين زرّي الإعدادات والثيم بحدود واضحة */
