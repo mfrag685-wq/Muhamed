@@ -4108,6 +4108,10 @@ ReactDOM.createRoot(document.getElementById("app")).render(React.createElement(A
   function uid(){return Math.random().toString(36).slice(2,9)+Date.now().toString(36);}
   function today(){return new Date().toISOString().slice(0,10);}
   function names(){var n=(window.__cfgGet&&window.__cfgGet("cfg-names"))||{};return{c1:(n.c1&&n.c1.label)||"الشركة الأولى",c2:(n.c2&&n.c2.label)||"الشركة الثانية",s1:(n.c1&&n.c1.short)||"ش١",s2:(n.c2&&n.c2.short)||"ش٢"};}
+  /* أسماء النماذج (عالمية، مشتركة بين النماذج، تظهر في محدّد النماذج) */
+  function profileNames(){try{return JSON.parse(localStorage.getItem("__profileNames"))||{};}catch(e){return {};}}
+  function profileLabel(p,idx){var m=profileNames();return (m[p]&&(""+m[p]).trim())||("نموذج "+((idx>=0?idx:PROFILES.indexOf(p))+1));}
+  function setProfileName(p,val){var m=profileNames();val=(""+(val||"")).trim();if(val)m[p]=val;else delete m[p];try{localStorage.setItem("__profileNames",JSON.stringify(m));}catch(e){}}
 
   /* ── استيراد الشحنات من إكسل ── */
   var COLS=["الشركة","رقم الشحنة","التاريخ","العملة","سعر الصرف","رقم الحاوية","الموديل","الكمية","سعر الشراء","أجور الشحن","الجمارك","التخليص","النقل"];
@@ -4411,7 +4415,10 @@ ReactDOM.createRoot(document.getElementById("app")).render(React.createElement(A
       return '<label style="display:block;margin-bottom:10px"><span style="display:block;font-size:11px;color:var(--text-secondary);margin-bottom:3px">'+label+'</span>'+
         '<input class="ikset" data-k="'+ph+'" value="'+String(val||"").replace(/"/g,"&quot;")+'" style="width:100%;padding:8px 10px;border:0.5px solid var(--border-strong);border-radius:8px;background:var(--surface-0);color:var(--text-primary);font-family:inherit;font-size:13px;box-sizing:border-box"></label>';
     }
-    box.innerHTML='<div style="font-weight:700;font-size:15px;margin-bottom:14px;color:var(--text-accent)">⚙️ الإعدادات — النموذج '+(PROFILES.indexOf(AP)+1)+'</div>'+
+    var curIdx=PROFILES.indexOf(AP);
+    box.innerHTML='<div style="font-weight:700;font-size:15px;margin-bottom:14px;color:var(--text-accent)">⚙️ الإعدادات — '+profileLabel(AP,curIdx)+'</div>'+
+      field("اسم هذا النموذج (يظهر في محدّد النماذج)",profileLabel(AP,curIdx),"pname")+
+      '<div style="height:1px;background:var(--border);margin:12px 0"></div>'+
       field("اسم التطبيق (يظهر في الترويسة)",appTitle(),"title")+
       '<div style="height:1px;background:var(--border);margin:12px 0"></div>'+
       field("اسم الشركة الأولى",c1.label||"الشركة الأولى","c1label")+
@@ -4427,6 +4434,7 @@ ReactDOM.createRoot(document.getElementById("app")).render(React.createElement(A
     box.querySelector("#ikset-cancel").onclick=close;
     box.querySelector("#ikset-save").onclick=function(){
       var vals={};box.querySelectorAll(".ikset").forEach(function(inp){vals[inp.getAttribute("data-k")]=inp.value.trim();});
+      setProfileName(AP,vals.pname);
       window.__cfgSet&&window.__cfgSet("cfg-title",vals.title||"دفتر الاستيراد");
       window.__cfgSet&&window.__cfgSet("cfg-names",{
         c1:{label:vals.c1label||"الشركة الأولى",short:vals.c1short||"ش١"},
@@ -4457,7 +4465,7 @@ ReactDOM.createRoot(document.getElementById("app")).render(React.createElement(A
     seg.style.cssText="display:flex;gap:0;background:var(--surface-2);border:0.5px solid var(--border-strong);border-radius:8px;overflow:hidden;box-shadow:0 2px 6px rgba(15,30,50,.2)";
     PROFILES.forEach(function(p,idx){
       var b=document.createElement("button");
-      b.type="button";b.textContent="نموذج "+(idx+1);b.title="التبديل إلى النموذج "+(idx+1)+" (بيانات منفصلة تماماً)";
+      b.type="button";b.textContent=profileLabel(p,idx);b.title="التبديل إلى «"+profileLabel(p,idx)+"» (بيانات منفصلة تماماً)";
       var on=p===AP;
       b.style.cssText="border:none;padding:7px 11px;font-size:12px;font-weight:"+(on?600:400)+";cursor:pointer;font-family:'Tajawal','Segoe UI',sans-serif;background:"+(on?NAVY:"transparent")+";color:"+(on?"#fff":"var(--text-secondary)")+"";
       b.onclick=function(){switchProfile(p);};
