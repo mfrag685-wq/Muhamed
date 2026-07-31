@@ -4186,6 +4186,54 @@ ReactDOM.createRoot(document.getElementById("app")).render(React.createElement(A
     }catch(e){flash("تعذّر إنشاء القالب",true);}
   }
 
+  function readShips(){
+    try{var a=JSON.parse(localStorage.getItem(AP+"::ships-v4")||"[]");return Array.isArray(a)?a:[];}catch(e){return [];}
+  }
+  /* تصدير الشحنات الحالية بنفس صيغة القالب (قابلة للتعديل وإعادة الاستيراد) */
+  function exportShipmentsTemplate(){
+    try{
+      var n=names(),ships=readShips();
+      if(!ships.length){flash("لا توجد شحنات في هذا النموذج لتصديرها",true);return;}
+      var val=function(v){return v==null?"":String(v);};
+      var rows=[COLS.slice()];
+      ships.forEach(function(sh){
+        var coLabel=sh.company==="c2"?n.c2:n.c1;
+        var conts=sh.containers||[];
+        var firstShipRow=true;
+        conts.forEach(function(c){
+          var items=c.items||[];
+          if(!items.length)items=[{model:"",qty:"",price:""}];
+          var firstContRow=true;
+          items.forEach(function(it){
+            var ex=c.extras||{};
+            rows.push([
+              coLabel,
+              val(sh.num),
+              val(sh.date),
+              sh.currency==="SAR"?"SAR":"USD",
+              firstShipRow?val(sh.rate):"",             // سعر الصرف: مرة واحدة لكل شحنة
+              val(c.number),
+              val(it.model),
+              val(it.qty),
+              val(it.price),
+              firstContRow?val(ex.freight):"",          // المصاريف: مرة واحدة لكل حاوية
+              firstContRow?val(ex.customs):"",
+              firstContRow?val(ex.clearance):"",
+              firstContRow?val(ex.transport):""
+            ]);
+            firstShipRow=false;firstContRow=false;
+          });
+        });
+      });
+      var ws=XLSX.utils.aoa_to_sheet(rows);
+      ws["!cols"]=COLS.map(function(h){return {wch:Math.max(12,h.length+3)};});
+      var wb=XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb,ws,"الشحنات");
+      XLSX.writeFile(wb,"شحنات_"+appTitle().replace(/\s+/g,"_")+"_"+stamp()+".xlsx");
+      flash("تم تصدير "+ships.length+" شحنة إلى إكسل ✓");
+    }catch(e){flash("تعذّر تصدير الشحنات",true);}
+  }
+
   function parseWorkbook(ab){
     var wb=XLSX.read(ab,{type:"array",cellDates:true});
     var wsName=wb.SheetNames[0];
@@ -4434,6 +4482,9 @@ ReactDOM.createRoot(document.getElementById("app")).render(React.createElement(A
     var tplBtn=mkBtn("📄 قالب إكسل","تنزيل قالب إكسل جاهز لتعبئة الشحنات يدوياً",downloadTemplate,"var(--surface-2)");
     tplBtn.style.background="var(--surface-2)";tplBtn.style.color="var(--text-primary)";tplBtn.style.border="0.5px solid var(--border-strong)";
     bar.appendChild(tplBtn);
+    var xlsExpBtn=mkBtn("📤 تصدير إكسل","تصدير الشحنات الحالية بصيغة القالب (للتعديل وإعادة الاستيراد)",exportShipmentsTemplate,"var(--surface-2)");
+    xlsExpBtn.style.background="var(--surface-2)";xlsExpBtn.style.color="var(--text-primary)";xlsExpBtn.style.border="0.5px solid var(--border-strong)";
+    bar.appendChild(xlsExpBtn);
     bar.appendChild(mkBtn("📥 استيراد إكسل","استيراد الشحنات من ملف إكسل معبّأ",function(){xlsInput.click();},"var(--text-success)"));
     bar.appendChild(xlsInput);
 
