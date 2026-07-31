@@ -1140,6 +1140,7 @@ function Ships({
   const [form, setForm] = useState(null);
   const [filter, setFilter] = useState("all");
   const [q, setQ] = useState("");
+  const [sortDir, setSortDir] = useState("desc");
   const save = clean => {
     const isE = ships.some(s => s.id === clean.id);
     setShips(p => isE ? p.map(s => s.id === clean.id ? clean : s) : [clean, ...p]);
@@ -1166,7 +1167,17 @@ function Ships({
     addLog("نسخ شحنة", `شحنة ${sh.num ? "#" + sh.num : ""} من ${C[sh.company].label} إلى ${C[other].label}`, other);
     toast(`تم نسخ الشحنة إلى ${C[other].label} ✓ — انتقل إليها للتعديل`);
   };
-  const filtered = useMemo(() => ships.filter(s => filter === "all" || s.company === filter).filter(s => !q.trim() || s.containers.some(c => c.items.some(it => it.model.toLowerCase().includes(q.toLowerCase()))) || (s.num || "").includes(q)).sort((a, b) => a.date < b.date ? 1 : -1), [ships, filter, q]);
+  const filtered = useMemo(() => {
+    const dir = sortDir === "asc" ? 1 : -1;
+    const cmp = (a, b) => {
+      const da = a.date || "", db = b.date || "";
+      if (da !== db) return da < db ? -1 * dir : 1 * dir; // الأساس: التاريخ
+      const na = parseFloat(a.num), nb = parseFloat(b.num); // عند تساوي التاريخ: رقم الشحنة
+      if (isFinite(na) && isFinite(nb) && na !== nb) return (na - nb) * dir;
+      return 0;
+    };
+    return ships.filter(s => filter === "all" || s.company === filter).filter(s => !q.trim() || s.containers.some(c => c.items.some(it => it.model.toLowerCase().includes(q.toLowerCase()))) || (s.num || "").includes(q)).slice().sort(cmp);
+  }, [ships, filter, q, sortDir]);
   if (form) return /*#__PURE__*/React.createElement(ShipForm, {
     init: form,
     rate: rate,
@@ -1200,7 +1211,18 @@ function Ships({
     value: "c1"
   }, C.c1.label), /*#__PURE__*/React.createElement("option", {
     value: "c2"
-  }, C.c2.label))), /*#__PURE__*/React.createElement("div", {
+  }, C.c2.label)), /*#__PURE__*/React.createElement(Sel, {
+    value: sortDir,
+    onChange: e => setSortDir(e.target.value),
+    title: "الترتيب حسب التاريخ",
+    style: {
+      width: "auto"
+    }
+  }, /*#__PURE__*/React.createElement("option", {
+    value: "desc"
+  }, "الأحدث أولاً ↓"), /*#__PURE__*/React.createElement("option", {
+    value: "asc"
+  }, "الأقدم أولاً ↑"))), /*#__PURE__*/React.createElement("div", {
     style: {
       display: "grid",
       gridTemplateColumns: "repeat(auto-fit,minmax(320px,1fr))",
