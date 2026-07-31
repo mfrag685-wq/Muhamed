@@ -333,6 +333,7 @@ html{transition:none}
 body,.card,.modal-box,input,select,textarea,th,td,.card-body{transition:background .25s,color .25s,border-color .25s}
 .theme-toggle{background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.3);color:#fff;border-radius:7px;padding:5px 13px;cursor:pointer;font-size:.82rem;font-weight:600;white-space:nowrap;display:inline-flex;align-items:center;gap:5px}
 .theme-toggle:hover{background:rgba(255,255,255,.26)}
+#quick-profile-switch option{color:#1a1a1a;background:#fff}
 
 html[data-theme="dark"]{
   --primary:#3d6c9c;--accent:#d8bd82;--accent-light:#2e2814;
@@ -501,7 +502,14 @@ html[data-theme="dark"] .rt td.hl{background:#2e2814;color:var(--accent)}
     </div>
   </div>
   <div class="header-btns">
-    <button class="profile-badge" onclick="openProfileModal()" id="active-profile-badge" title="تبديل الشركة">🏢 ...</button>
+    <div style="display:flex;align-items:center;gap:4px;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.3);border-radius:7px;padding:2px 4px" title="التنقل بين النماذج (الشركات)">
+      <span style="font-size:.9rem">🔀</span>
+      <select id="quick-profile-switch" onchange="quickSwitchProfile(this.value)"
+        style="background:transparent;border:none;color:#fff;font-size:.8rem;font-weight:700;cursor:pointer;max-width:150px;outline:none"></select>
+      <button onclick="renameActiveProfile()" title="تغيير اسم النموذج"
+        style="background:none;border:none;color:#fff;cursor:pointer;font-size:.85rem;padding:2px 4px">✏️</button>
+    </div>
+    <button class="profile-badge" onclick="openProfileModal()" id="active-profile-badge" title="إدارة النماذج / الشركات">🏢 ...</button>
     <button class="theme-toggle" onclick="toggleTheme()" id="theme-toggle-btn" title="تبديل الوضع الليلي / النهاري"><span id="theme-icon">🌙</span> <span id="theme-label">ليلي</span></button>
     <div class="save-ind"><div class="save-dot"></div><span id="save-status">جاهز</span></div>
     <button class="hbtn accent" onclick="saveShipment()">💾 حفظ الشحنة</button>
@@ -1061,13 +1069,48 @@ function selectProfile(id) {
   setActiveProfileId(id);
   cfgLoad();  // load this profile's config
   applyTheme();
-  buildContainerTabs();
+  blankShipment();      // تحميل مساحة عمل نظيفة لهذا النموذج (بدون نافذة تأكيد)
   renderArchive();
   document.getElementById('profile-modal').style.display = 'none';
-  newShipment();
-  // Update badge
   updateProfileBadge();
-  toast('✅ تم التحويل إلى: ' + (profilesLoad().find(p=>p.id===id)?.name||''));
+  renderQuickSwitch();
+  showPage('page-shipment');
+  toast('✅ تم التحويل إلى النموذج: ' + (profilesLoad().find(p=>p.id===id)?.name||''));
+}
+
+// ── مبدّل النماذج السريع (أعلى الشاشة) ──
+function renderQuickSwitch() {
+  const sel = document.getElementById('quick-profile-switch');
+  if (!sel) return;
+  const profiles = profilesLoad();
+  const active = getActiveProfileId();
+  if (!profiles.length) { sel.innerHTML = '<option value="__new">➕ أنشئ نموذجاً…</option>'; return; }
+  sel.innerHTML = profiles.map(p =>
+    `<option value="${p.id}" ${p.id===active?'selected':''}>${p.icon||'🏢'} ${escH(p.name)}</option>`
+  ).join('') + '<option value="__new">➕ نموذج جديد…</option>';
+}
+function quickSwitchProfile(v) {
+  if (v === '__new') { openProfileModal(); renderQuickSwitch(); return; }
+  if (v && v !== getActiveProfileId()) selectProfile(v);
+}
+function renameActiveProfile() {
+  const id = getActiveProfileId();
+  if (!id) { toast('⚠️ اختر نموذجاً أولاً', true); return; }
+  const profiles = profilesLoad();
+  const p = profiles.find(x => x.id === id);
+  if (!p) return;
+  const name = window.prompt('اسم النموذج / الشركة:', p.name || '');
+  if (name === null) return;
+  const nm = name.trim();
+  if (!nm) { toast('⚠️ الاسم فارغ', true); return; }
+  p.name = nm;
+  profilesSave(profiles);
+  S.company = nm;
+  cfgSave();
+  updateProfileBadge();
+  renderQuickSwitch();
+  applyTheme();
+  toast('✏️ تم تغيير اسم النموذج إلى: ' + nm);
 }
 
 function editProfile(id) {
@@ -1105,6 +1148,7 @@ function updateProfileBadge() {
   const badge = document.getElementById('active-profile-badge');
   if (badge && p) badge.textContent = (p.icon||'🏢') + ' ' + p.name;
   else if (badge) badge.textContent = '🏢 اختر شركة';
+  renderQuickSwitch();
 }
 
 // ═══════════════════════════════════════════
@@ -1336,30 +1380,35 @@ function deleteShipment(id) {
   });
 }
 
+function blankShipment() {
+  S.currentId = null;
+  S.containers = [];
+  S.shipCosts = [
+    {id:1,label:'رسوم التخليص الجمركي',amount:0,cur:'SAR'},
+    {id:2,label:'الرسوم الجمركية',amount:0,cur:'SAR'},
+    {id:3,label:'رسوم الميناء / الرصيف',amount:0,cur:'SAR'},
+    {id:4,label:'مصاريف النقل الداخلي',amount:0,cur:'SAR'},
+    {id:5,label:'مصاريف التأمين',amount:0,cur:'SAR'},
+    {id:6,label:'مصاريف التفتيش',amount:0,cur:'SAR'},
+    {id:7,label:'مصاريف التخزين',amount:0,cur:'SAR'},
+  ];
+  S.nextShipCostId=8; S.nextConCostId=100;
+  document.getElementById('shipment-no').value      = 'SH-'+new Date().getFullYear()+'-';
+  document.getElementById('shipment-date').value    = new Date().toISOString().slice(0,10);
+  document.getElementById('supplier-name').value    = '';
+  document.getElementById('origin-country').value   = '';
+  document.getElementById('shipment-notes').value   = '';
+  document.getElementById('shipment-status').value  = 'active';
+  document.getElementById('container-count').value  = 4;
+  document.getElementById('save-status').textContent = 'جديد';
+  buildContainerTabs();
+  document.getElementById('results-content').innerHTML = '<div class="alert ai">⚠️ يرجى إدخال البيانات ثم الضغط على "احسب التكلفة"</div>';
+  const st=document.getElementById('import-status'); if(st) st.textContent='';
+}
+
 function newShipment() {
   confirm2('إنشاء شحنة جديدة؟ سيتم مسح البيانات الحالية غير المحفوظة.', ()=>{
-    S.currentId = null;
-    S.containers = [];
-    S.shipCosts = [
-      {id:1,label:'رسوم التخليص الجمركي',amount:0,cur:'SAR'},
-      {id:2,label:'الرسوم الجمركية',amount:0,cur:'SAR'},
-      {id:3,label:'رسوم الميناء / الرصيف',amount:0,cur:'SAR'},
-      {id:4,label:'مصاريف النقل الداخلي',amount:0,cur:'SAR'},
-      {id:5,label:'مصاريف التأمين',amount:0,cur:'SAR'},
-      {id:6,label:'مصاريف التفتيش',amount:0,cur:'SAR'},
-      {id:7,label:'مصاريف التخزين',amount:0,cur:'SAR'},
-    ];
-    S.nextShipCostId=8; S.nextConCostId=100;
-    document.getElementById('shipment-no').value      = 'SH-'+new Date().getFullYear()+'-';
-    document.getElementById('shipment-date').value    = new Date().toISOString().slice(0,10);
-    document.getElementById('supplier-name').value    = '';
-    document.getElementById('origin-country').value   = '';
-    document.getElementById('shipment-notes').value   = '';
-    document.getElementById('shipment-status').value  = 'active';
-    document.getElementById('container-count').value  = 4;
-    document.getElementById('save-status').textContent = 'جديد';
-    buildContainerTabs();
-    document.getElementById('results-content').innerHTML = '<div class="alert ai">⚠️ يرجى إدخال البيانات ثم الضغط على "احسب التكلفة"</div>';
+    blankShipment();
     showPage('page-shipment');
     toast('✨ شحنة جديدة جاهزة');
   });
@@ -2939,6 +2988,7 @@ function ensureCountOption(n){
 // ═══════════════════════════════════════════
 window.onload = function() {
   applyStoredTheme();
+  renderQuickSwitch();
   const profiles = profilesLoad();
   const activeId = getActiveProfileId();
   const hasActive = activeId && profiles.find(p=>p.id===activeId);
