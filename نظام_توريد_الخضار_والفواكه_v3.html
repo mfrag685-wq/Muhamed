@@ -2361,14 +2361,17 @@ function saveUser(){
   var savedU=editId.u?byId(db.users,editId.u):db.users[db.users.length-1];
   cancelDoc('u'); setVal('u_role','entry'); applyRolePreset(); persist(); renderUsers(); applyPerms();
   if(cloudAccounts()&&p&&savedU){
-    if(p.length<6){ toast('تم حفظ المستخدم — لكن كلمة المرور أقل من ٦ خانات فلم يُنشأ حسابه السحابي. عدّلها ثم فعّل حسابه.'); return; }
+    if(p.length<6){ toast('تم حفظ المستخدم — لكن كلمة المرور أقل من ٦ خانات فلم تُحدَّث سحابياً. اجعلها ٦ خانات على الأقل.'); return; }
     setCloudStatus('sync');
-    cloudProvisionUser(savedU,p,function(err){
+    var doneCb=function(err){
       if(err==='exists-diff-pass') toast('المستخدم محفوظ. يوجد حساب سحابي بكلمة مرور مختلفة — احذفه من Firebase ثم اضغط «حساب سحابي».');
-      else if(err) toast('المستخدم محفوظ محلياً، وتعذّر توفير حسابه السحابي — جرّب زر «حساب سحابي».');
-      else toast('تم حفظ المستخدم وتوفير حسابه السحابي');
+      else if(err==='reauth-failed') toast('كلمة المرور الحالية غير صحيحة — لم تتغيّر كلمة المرور.');
+      else if(err&&err!=='cancel') toast('المستخدم محفوظ، وتعذّر تحديث حسابه السحابي — جرّب زر «حساب سحابي».');
+      else if(!err) toast('تم حفظ المستخدم وتحديث حسابه السحابي');
       persist(); setCloudStatus('ok'); renderUsers();
-    });
+    };
+    if(ME&&savedU.id===ME.id) cloudChangeOwnPassword(p,doneCb);   /* تغيير كلمة مرور حسابي أنا */
+    else cloudProvisionUser(savedU,p,doneCb);                     /* توفير/تحديث حساب موظف آخر */
   } else toast('تم حفظ المستخدم');
 }
 function editUser(id){
@@ -3297,6 +3300,23 @@ function cloudProvisionUser(u,plainPass,done){
       } else { try{sec.auth().signOut();}catch(x){} if(done) done((e&&e.message)||'error'); }
     });
 }
+/* تغيير كلمة مرور المستخدم الحالي (نفسه) في Firebase — مع إعادة توثيق عند الحاجة */
+function cloudChangeOwnPassword(newPass,done){
+  var u=firebase.auth&&firebase.auth().currentUser;
+  if(!u){ if(done) done('no-user'); return; }
+  u.updatePassword(newPass).then(function(){ if(done) done(null); })
+    .catch(function(e){
+      if(e&&e.code==='auth/requires-recent-login'){
+        var cp=prompt('لأمانك، أدخل كلمة المرور الحالية لتأكيد التغيير:');
+        if(!cp){ if(done) done('cancel'); return; }
+        var cred=firebase.auth.EmailAuthProvider.credential(u.email,cp);
+        u.reauthenticateWithCredential(cred)
+          .then(function(){ return u.updatePassword(newPass); })
+          .then(function(){ if(done) done(null); })
+          .catch(function(){ if(done) done('reauth-failed'); });
+      } else { if(done) done((e&&e.code)||'error'); }
+    });
+}
 /* أول تشغيل: إنشاء حساب المدير السحابي وتسجيله كأول عضو */
 function cloudBootstrapAdmin(u,password,fail){
   var email=emailForUser(u);
@@ -3360,12 +3380,15 @@ function provisionUserAccount(id){
   if(p===null) return;
   if(p.length<6){ toast('كلمة المرور يجب ألا تقل عن ٦ خانات'); return; }
   u.pass=hash(p); setCloudStatus('sync');
-  cloudProvisionUser(u,p,function(err){
+  var cb=function(err){
     if(err==='exists-diff-pass') toast('يوجد حساب سحابي بهذا الاسم بكلمة مرور مختلفة — احذفه من Firebase Authentication ثم أعد المحاولة');
-    else if(err) toast('تعذّر توفير الحساب السحابي');
-    else { log('edit','المستخدمون','توفير حساب سحابي للمستخدم '+u.name); toast('تم توفير الحساب السحابي لـ '+u.name); }
+    else if(err==='reauth-failed') toast('كلمة المرور الحالية غير صحيحة — لم تتغيّر');
+    else if(err&&err!=='cancel') toast('تعذّر تحديث الحساب السحابي');
+    else if(!err){ log('edit','المستخدمون','تحديث حساب سحابي للمستخدم '+u.name); toast('تم تحديث الحساب السحابي لـ '+u.name); }
     persist(); setCloudStatus('ok'); renderUsers();
-  });
+  };
+  if(ME&&id===ME.id) cloudChangeOwnPassword(p,cb);   /* تغيير كلمة مروري أنا */
+  else cloudProvisionUser(u,p,cb);
 }
 function cloudInit(){
   if(!cloudEnabled()){ setCloudStatus('off'); return; }
