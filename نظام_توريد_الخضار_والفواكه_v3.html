@@ -639,6 +639,7 @@ tr.sub-row td{background:#f7faf6;font-weight:700;font-size:12.5px;color:var(--in
   <div class="panel-title">التقارير التفصيلية <span class="hint">مجمّعة يومياً مع إجمالي لكل يوم</span></div>
   <div class="filters no-print">
     <div class="field"><label>نوع التقرير</label><select id="rp_type" onchange="renderReport()">
+      <option value="branch">حركة فرع يومية (مبيعات ومشتريات)</option>
       <option value="purchases">مشتريات يومية تفصيلية</option>
       <option value="sales">مبيعات يومية تفصيلية</option>
       <option value="item">حركة صنف (كارت الصنف)</option>
@@ -1345,6 +1346,7 @@ function fillReportParty(){
   if(t==='supplier') h=opts(db.suppliers,'id',function(o){return o.name;},'كل الموردين');
   else if(t==='sales'||t==='client') h=opts(db.clients,'id',function(o){return o.name;},'كل العملاء');
   else if(t==='purchases') h=opts(db.suppliers,'id',function(o){return o.name;},'كل الموردين');
+  else if(t==='branch') h=opts(db.clients,'id',function(o){return o.name;},'— اختر الفرع —');
   else h='<option value="">—</option>';
   fillSelect('rp_party',h);
 }
@@ -2629,6 +2631,49 @@ function renderReport(){
       +card('ضريبة المدخلات (مشتريات)',money(TI),'المدفوعة للموردين')
       +card('صافي الضريبة المستحقة',money(TO-TI),(TO-TI)>=-0.004?'تُسدَّد للهيئة':'رصيد لك',true)
       +card('صافي المبيعات',money(TSN),'قبل الضريبة خلال الفترة');
+  }
+  else if(type==='branch'){
+    var bid=fp?+fp:null;
+    title='حركة الفرع اليومية — مبيعات ومشتريات'+(bid?('  ·  '+clientName(bid)):'')
+      +'  ·  '+((f||'البداية')+' ← '+(t||'اليوم'));
+    head=['التاريخ','الحركة','المورد / البيان','الصنف','الوحدات','الوزن (كغ)','القيمة'];
+    if(!bid){
+      cards=card('اختر الفرع','—','اختر فرعاً من قائمة «الجهة» أعلاه لعرض حركته اليومية مفصّلة');
+    } else {
+      var whset={}; clientWhs(bid).forEach(function(w){ whset[w.id]=1; });   /* مستودعات هذا الفرع */
+      var days={};
+      function dd(d){ if(!days[d]) days[d]={buys:[],sells:[],bt:0,st:0,w:0}; return days[d]; }
+      var TB=0,TS=0,TW=0,nB=0,nS=0;
+      db.purchases.forEach(function(p){
+        if(!inRange(p.date,f,t)) return;
+        (p.lines||[]).forEach(function(l){
+          if(!whset[l.whId]) return;
+          var v=+l.total||0, w=(+l.units||0)*(+l.uw||0), g=dd(p.date);
+          g.buys.push([p.date,'شراء',supName(p.supplierId)+' ← '+whName(l.whId),itemName(l.itemId),qty(l.units)+' '+(l.unit||''),qty(w),num(v)]);
+          g.bt+=v; g.w+=w; TB+=v; TW+=w; nB++;
+        });
+      });
+      db.sales.forEach(function(s){
+        if(!inRange(s.date,f,t)||s.clientId!==bid) return;
+        (s.lines||[]).forEach(function(l){
+          var v=+l.total||0, w=(+l.units||0)*(+l.uw||0), g=dd(s.date);
+          g.sells.push([s.date,'بيع','فاتورة '+(s.no||'#'+s.id),itemName(l.itemId),qty(l.units),qty(w),num(v)]);
+          g.st+=v; g.w+=w; TS+=v; TW+=w; nS++;
+        });
+      });
+      Object.keys(days).sort().forEach(function(d){
+        var g=days[d];
+        push('day-row',['يوم '+d+' — '+(g.buys.length+g.sells.length)+' حركة','','','','','','']);
+        g.buys.forEach(function(r){ push('',r); });
+        g.sells.forEach(function(r){ push('',r); });
+        push('sub-row',['إجمالي يوم '+d,'مشتريات: '+num(g.bt)+' • مبيعات: '+num(g.st),'','','',qty(g.w)+' كغ','صافي: '+num(g.st-g.bt)]);
+      });
+      if(rows.length) push('total-row',['الإجمالي','مشتريات: '+num(TB)+' • مبيعات: '+num(TS),'','','',qty(TW)+' كغ','صافي: '+num(TS-TB)]);
+      cards=card('مبيعات الفرع',money(TS),nS+' حركة بيع خلال الفترة')
+        +card('مشتريات الفرع',money(TB),nB+' حركة شراء إلى مستودعاته')
+        +card('الفرق (مبيعات − مشتريات)',money(TS-TB),(TS-TB)>=-0.004?'المبيعات أعلى':'المشتريات أعلى',true)
+        +card('عدد أيام الحركة',String(Object.keys(days).length),'خلال الفترة');
+    }
   }
   else {
     title='تقرير الفاقد والمرتجعات';
