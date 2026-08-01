@@ -206,10 +206,21 @@ tr.sub-row td{background:#f7faf6;font-weight:700;font-size:12.5px;color:var(--in
     <p class="lead">سجّل الدخول للمتابعة</p>
     <div class="login-err" id="loginErr"></div>
     <div class="login-err" id="bootError" style="display:none;text-align:right;line-height:1.7"></div>
-    <div class="field"><label>اسم المستخدم</label><input type="text" id="lg_user" autocomplete="username" required></div>
-    <div class="field"><label>كلمة المرور</label><input type="password" id="lg_pass" autocomplete="current-password" required></div>
-    <button type="submit" class="btn-main" style="width:100%;margin-top:8px">دخول</button>
-    <div class="author-tag">إعداد وتصميم <b>أ/ محمد فرج</b><br>جميع الحقوق محفوظة © 2026</div>
+    <div id="joinMsg" style="display:none;background:var(--leaf-soft);color:var(--leaf-dark);border-radius:8px;padding:10px;font-size:13px;margin-bottom:12px;text-align:right;line-height:1.7"></div>
+    <div id="loginFields">
+      <div class="field"><label>اسم المستخدم</label><input type="text" id="lg_user" autocomplete="username"></div>
+      <div class="field"><label>كلمة المرور</label><input type="password" id="lg_pass" autocomplete="current-password"></div>
+      <button type="submit" class="btn-main" style="width:100%;margin-top:8px">دخول</button>
+    </div>
+    <div id="joinFields" class="hidden">
+      <div class="field"><label>الاسم الكامل</label><input type="text" id="jn_name"></div>
+      <div class="field"><label>اسم المستخدم المطلوب</label><input type="text" id="jn_user" autocomplete="off"></div>
+      <div class="field"><label>كلمة المرور <span class="mini">(٦ خانات على الأقل)</span></label><input type="password" id="jn_pass" autocomplete="new-password"></div>
+      <button type="button" class="btn-alt" style="width:100%;margin-top:8px" onclick="submitJoinRequest()">إرسال طلب انضمام</button>
+    </div>
+    <div class="author-tag">
+      <a id="joinToggle" onclick="toggleJoin()" style="cursor:pointer;color:var(--leaf-dark);font-weight:700;display:block;margin-bottom:12px">ليس لديك حساب؟ اطلب حساباً جديداً</a>
+      إعداد وتصميم <b>أ/ محمد فرج</b><br>جميع الحقوق محفوظة © 2026</div>
   </form>
 </div>
 
@@ -822,6 +833,13 @@ tr.sub-row td{background:#f7faf6;font-weight:700;font-size:12.5px;color:var(--in
 <section id="users" class="panel">
   <div class="panel-title">المستخدمون والصلاحيات</div>
   <div class="note">كل عملية إضافة أو تعديل أو حذف تُسجَّل باسم المستخدم وتاريخها في سجل الحركات أسفل الصفحة.</div>
+  <div id="joinReqSection" class="hidden">
+    <div class="sec-title warn">طلبات الانضمام المعلّقة <button class="btn btn-sm no-print" onclick="renderJoinRequests()">تحديث</button>
+      <span class="hint">مستخدمون سجّلوا عبر الرابط بانتظار موافقتك — بعد القبول عدّل دورهم وصلاحياتهم من الجدول أدناه.</span></div>
+    <div class="table-scroll"><table>
+      <thead><tr><th>وقت الطلب</th><th class="name">الاسم</th><th>اسم المستخدم</th><th>إجراء</th></tr></thead>
+      <tbody id="tbJoinReq"></tbody></table></div>
+  </div>
   <div class="doc-box no-print">
     <div class="grid">
       <div class="field"><label>الاسم الكامل</label><input type="text" id="u_name" placeholder="محمد أحمد"></div>
@@ -2360,6 +2378,7 @@ function saveUser(){
   }
   var savedU=editId.u?byId(db.users,editId.u):db.users[db.users.length-1];
   cancelDoc('u'); setVal('u_role','entry'); applyRolePreset(); persist(); renderUsers(); applyPerms();
+  if(cloudAccounts()&&savedU&&savedU.fbUid){ cloudWriteMember(savedU.fbUid,savedU).catch(function(){}); }  /* مزامنة الدور/الحالة في العضوية */
   if(cloudAccounts()&&p&&savedU){
     if(p.length<6){ toast('تم حفظ المستخدم — لكن كلمة المرور أقل من ٦ خانات فلم تُحدَّث سحابياً. اجعلها ٦ خانات على الأقل.'); return; }
     setCloudStatus('sync');
@@ -2388,6 +2407,7 @@ function delUser(id){
   var u=byId(db.users,id);
   if(u.role==='admin'&&db.users.filter(function(x){return x.role==='admin';}).length<=1){ toast('لا يمكن حذف آخر مدير نظام'); return; }
   if(!confirm('حذف المستخدم "'+u.name+'"؟ ستبقى حركاته في السجل.')) return;
+  if(cloudAccounts()&&u.fbUid){ firebase.database().ref('workspaces/'+cloudWid()+'/members/'+u.fbUid).remove().catch(function(){}); }  /* إلغاء وصوله السحابي */
   log('delete','المستخدمون','حذف المستخدم '+u.name+' ('+u.username+')');
   db.users=db.users.filter(function(x){return x.id!==id;}); persist(); renderUsers(); toast('تم الحذف');
 }
@@ -2404,6 +2424,7 @@ function renderUsers(){
       +(can('canExport')?'<button class="btn-sm" onclick="exportUserPackage('+u.id+')" title="تنزيل نسخة مستقلة من النظام مسجّلة الدخول تلقائياً أو بمعرّف هذا المستخدم">تصدير نسخة له</button>':'')+'</td></tr>';
   }).join('');
   if(!document.getElementById('permGrid').innerHTML) applyRolePreset();
+  if(cloudAccounts()&&can('users')) renderJoinRequests();
 }
 function renderAudit(){
   var u=val('au_user'),a=val('au_action'),f=val('au_from'),t=val('au_to');
@@ -3336,7 +3357,8 @@ function afterCloudAuth(user,username){
   cloudAttach(function(err){
     cloudAuthBusy=false;
     var le=document.getElementById('loginErr');
-    if(err){ if(le){le.textContent='تعذّر الوصول إلى بيانات المنشأة — تأكد من قواعد الأمان والعضوية.';le.style.display='block';} return; }
+    if(err){ if(le){le.textContent='حسابك قيد المراجعة — لم تتم موافقة المدير على انضمامك بعد. حاول لاحقاً بعد الموافقة.';le.style.display='block';}
+      cloudReady=false; try{ firebase.auth().signOut(); }catch(e){} setCloudStatus('auth'); return; }
     var u=db.users.filter(function(x){return x.fbUid===user.uid;})[0]
         || db.users.filter(function(x){return x.username.toLowerCase()===String(username).toLowerCase();})[0];
     if(!u){ if(le){le.textContent='لا يوجد سجل مستخدم مطابق في بيانات المنشأة.';le.style.display='block';} return; }
@@ -3389,6 +3411,80 @@ function provisionUserAccount(id){
   };
   if(ME&&id===ME.id) cloudChangeOwnPassword(p,cb);   /* تغيير كلمة مروري أنا */
   else cloudProvisionUser(u,p,cb);
+}
+
+/* ---------- التسجيل الذاتي وطلبات الانضمام ---------- */
+function toggleJoin(){
+  var lf=document.getElementById('loginFields'), jf=document.getElementById('joinFields'), tg=document.getElementById('joinToggle');
+  var lead=document.querySelector('#loginScreen .lead');
+  var joining=jf.classList.contains('hidden');   /* هل سننتقل لوضع التسجيل؟ */
+  jf.classList.toggle('hidden',!joining); lf.classList.toggle('hidden',joining);
+  tg.textContent=joining?'لديك حساب؟ عُد لتسجيل الدخول':'ليس لديك حساب؟ اطلب حساباً جديداً';
+  document.getElementById('loginErr').style.display='none';
+  document.getElementById('joinMsg').style.display='none';
+  if(lead) lead.textContent=joining?'أنشئ حساباً وانتظر موافقة المدير':'سجّل الدخول للمتابعة';
+}
+function submitJoinRequest(){
+  var err=document.getElementById('loginErr');
+  function fail(m){ err.textContent=m; err.style.display='block'; }
+  if(!cloudAccounts()){ fail('التسجيل الذاتي متاح في النسخة السحابية فقط.'); return; }
+  var name=val('jn_name').trim(), u=val('jn_user').trim(), p=val('jn_pass');
+  if(!name||!u){ fail('أدخل الاسم واسم المستخدم'); return; }
+  if(p.length<6){ fail('كلمة المرور يجب ألا تقل عن ٦ خانات'); return; }
+  err.style.display='none'; cloudInteractive=true; setCloudStatus('connecting');
+  var email=synthEmail(u);
+  firebase.auth().createUserWithEmailAndPassword(email,p).then(function(cred){
+    return firebase.database().ref('workspaces/'+cloudWid()+'/requests/'+cred.user.uid)
+      .set({name:name,username:u,ts:nowTs(),uid:cred.user.uid})
+      .then(function(){ return firebase.auth().signOut(); });
+  }).then(function(){
+    setVal('jn_name','');setVal('jn_user','');setVal('jn_pass','');
+    toggleJoin(); setCloudStatus('auth');
+    var ok=document.getElementById('joinMsg');
+    ok.innerHTML='تم إرسال طلبك بنجاح ✅<br>بانتظار موافقة المدير. بعد الموافقة سجّل الدخول باسم المستخدم وكلمة المرور اللذين أدخلتهما.';
+    ok.style.display='block';
+  }).catch(function(e){
+    setCloudStatus('auth');
+    if(e&&e.code==='auth/email-already-in-use') fail('اسم المستخدم مستخدم بالفعل — اختر اسماً آخر، أو سجّل الدخول إن كان لديك حساب.');
+    else if(e&&e.code==='auth/weak-password') fail('كلمة المرور ضعيفة — اجعلها ٦ خانات على الأقل.');
+    else fail('تعذّر إرسال الطلب: '+((e&&e.message)||''));
+  });
+}
+function renderJoinRequests(){
+  var sec=document.getElementById('joinReqSection'); if(!sec) return;
+  if(!cloudAccounts()||!can('users')){ sec.classList.add('hidden'); return; }
+  firebase.database().ref('workspaces/'+cloudWid()+'/requests').once('value').then(function(snap){
+    var v=snap.val()||{}, keys=Object.keys(v); window.__joinReqCache=v;
+    if(!keys.length){ sec.classList.add('hidden'); document.getElementById('tbJoinReq').innerHTML=''; return; }
+    sec.classList.remove('hidden');
+    document.getElementById('tbJoinReq').innerHTML=keys.map(function(ruid){
+      var r=v[ruid]||{};
+      return '<tr><td>'+esc(r.ts||'')+'</td><td class="name"><b>'+esc(r.name||'')+'</b></td><td>'+esc(r.username||'')+'</td>'
+        +'<td><button class="btn-sm" onclick="approveJoinRequest(\''+ruid+'\')">موافقة</button> '
+        +'<button class="btn-sm btn-del" onclick="rejectJoinRequest(\''+ruid+'\')">رفض</button></td></tr>';
+    }).join('');
+  }).catch(function(){ sec.classList.add('hidden'); });
+}
+function approveJoinRequest(ruid){
+  if(!guard('users')) return;
+  var cache=window.__joinReqCache||{}, r=cache[ruid];
+  if(!r){ toast('حدّث القائمة ثم أعد المحاولة'); return; }
+  if(db.users.filter(function(x){return x.username.toLowerCase()===String(r.username).toLowerCase();}).length){
+    toast('اسم المستخدم "'+r.username+'" مستخدم بالفعل — ارفض الطلب أو اطلب منه اسماً آخر'); return; }
+  db.users.push({id:uid(),name:r.name||r.username,username:r.username,pass:hash('cloud-'+ruid),
+    role:'entry',active:1,perms:preset('entry'),fbUid:ruid,lastLogin:''});
+  firebase.database().ref('workspaces/'+cloudWid()+'/members/'+ruid).set({username:r.username,role:'entry',active:1}).catch(function(){});
+  firebase.database().ref('workspaces/'+cloudWid()+'/requests/'+ruid).remove().catch(function(){});
+  log('add','المستخدمون','قبول طلب انضمام: '+(r.name||r.username)+' ('+r.username+') — بدور مدخل بيانات مبدئياً');
+  commit('تمت الموافقة — عدّل دوره وصلاحياته من الجدول'); renderUsers(); renderJoinRequests();
+}
+function rejectJoinRequest(ruid){
+  if(!guard('users')) return;
+  var cache=window.__joinReqCache||{}, r=cache[ruid];
+  if(!confirm('رفض طلب "'+((r&&r.name)||'')+'" وحذفه؟')) return;
+  firebase.database().ref('workspaces/'+cloudWid()+'/requests/'+ruid).remove().catch(function(){});
+  log('delete','المستخدمون','رفض طلب انضمام'+(r?': '+(r.name||r.username):''));
+  persist(); renderJoinRequests(); toast('تم رفض الطلب');
 }
 function cloudInit(){
   if(!cloudEnabled()){ setCloudStatus('off'); return; }

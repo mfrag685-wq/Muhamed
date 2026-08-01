@@ -8,6 +8,12 @@
             ".write": "auth != null && ( ( auth.uid === $uid && !data.parent().exists() ) || root.child('workspaces').child($wid).child('members').child(auth.uid).child('role').val() === 'admin' )"
           }
         },
+        "requests": {
+          ".read": "auth != null && root.child('workspaces').child($wid).child('members').child(auth.uid).child('role').val() === 'admin'",
+          "$uid": {
+            ".write": "auth != null && ( ( auth.uid === $uid && newData.exists() && newData.child('username').exists() ) || root.child('workspaces').child($wid).child('members').child(auth.uid).child('role').val() === 'admin' )"
+          }
+        },
         "root": {
           ".read": "auth != null && root.child('workspaces').child($wid).child('members').child(auth.uid).exists()",
           ".write": "auth != null && root.child('workspaces').child($wid).child('members').child(auth.uid).exists()"
