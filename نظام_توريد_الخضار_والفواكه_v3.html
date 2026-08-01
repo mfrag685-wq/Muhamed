@@ -2321,7 +2321,7 @@ function renderMaster(){
   document.getElementById('tbItMaster').innerHTML=db.items.map(function(i){
     var u=0; Object.keys(L.stock).forEach(function(k){ if(L.stock[k].itemId===i.id) u+=L.stock[k].units; });
     var isActive=i.active!==0;
-    return '<tr><td class="name"><b>'+esc(i.name)+'</b></td><td>'+esc(i.unit)+'</td><td>'+qty(i.uw)+' كغ</td>'
+    return '<tr><td class="name"><b>'+esc(i.name)+'</b>'+(i.code?' <span class="mini">('+esc(i.code)+')</span>':'')+'</td><td>'+esc(i.unit)+'</td><td>'+qty(i.uw)+' كغ</td>'
       +'<td>'+qty(i.min||0)+'</td><td>'+qty(u)+(i.min>0&&u<i.min?' <span class="pill pill-warn">تحت الحد</span>':'')+'</td>'
       +'<td><span class="pill '+(isActive?'pill-ok':'pill-bad')+'">'+(isActive?'نشط':'متوقف')+'</span></td>'
       +'<td>'+(can('canEdit')?'<button class="btn-sm" onclick="editItem('+i.id+')">تعديل</button> '
@@ -2767,12 +2767,13 @@ var TPL={
           {k:'weights',h:'الأوزان المتاحة بالكيلو (افصل بفاصلة)',alias:['اوزان','أوزان','وزن','weight']}],
     samples:[['كيس','5, 7, 10'],['كرتون','12, 15'],['صندوق','8, 10, 12']]},
   items:{name:'نموذج_الأصناف',title:'الأصناف',arr:'items',
-    cols:[{k:'name',h:'اسم الصنف',alias:['اسم الصنف','الصنف','item','name'],req:1},
+    cols:[{k:'code',h:'كود الصنف',alias:['كود الصنف','كود','code','sku']},
+          {k:'name',h:'اسم الصنف',alias:['اسم الصنف','الصنف','item','name'],req:1},
           {k:'unit',h:'الوحدة',alias:['الوحدة','وحدة','unit']},
-          {k:'uw',h:'وزن الوحدة بالكيلو',alias:['وزن','weight'],num:1},
+          {k:'uw',h:'وزن الوحدة بالكيلو',alias:['وزن الوحدة','وزن','weight'],num:1},
           {k:'min',h:'حد إعادة الطلب',alias:['حد','طلب','reorder','min'],num:1},
           {k:'active',h:'الحالة (نشط/متوقف)',alias:['الحالة','status']}],
-    samples:[['طماطم','صندوق','10','20','نشط'],['بطاطس','شوال','25','10','نشط'],['ليمون','كيس','7','5','نشط']]},
+    samples:[['20213','بطاطس كبير','صندوق','10','20','نشط'],['20211','بصل كبير','شوال','25','10','نشط'],['448660','بصل ابيض','كيس','7','5','نشط']]},
   suppliers:{name:'نموذج_الموردين',title:'الموردين',arr:'suppliers',
     cols:[{k:'name',h:'اسم المورد',alias:['اسم المورد','المورد','supplier','name'],req:1},
           {k:'phone',h:'الجوال',alias:['جوال','هاتف','phone','mobile']},
@@ -2798,28 +2799,34 @@ var TPL={
           {k:'price',h:'التكلفة',alias:['تكلفة','سعر','price','cost'],num:1}],
     samples:[['2026-01-01','المستودع الرئيسي','طماطم','40','10','وحدة','30']]},
   purchases:{name:'نموذج_المشتريات',title:'المشتريات',
-    cols:[{k:'date',h:'التاريخ',alias:['تاريخ','date'],req:1},
-          {k:'no',h:'رقم الفاتورة',alias:['رقم','فاتورة','invoice','no']},
-          {k:'party',h:'المورد',alias:['مورد','supplier'],req:1},
-          {k:'item',h:'الصنف',alias:['صنف','item'],req:1},
-          {k:'units',h:'عدد الوحدات',alias:['عدد','كمية','units','qty'],num:1,req:1},
-          {k:'uw',h:'وزن الوحدة بالكيلو',alias:['وزن','weight'],num:1},
+    cols:[{k:'date',h:'التاريخ',alias:['التاريخ','تاريخ','date']},
+          {k:'no',h:'رقم الفاتورة',alias:['رقم الفاتورة','رقم','فاتورة','invoice','no']},
+          {k:'party',h:'المورد',alias:['المورد','مورد','supplier'],req:1},
+          {k:'code',h:'كود الصنف',alias:['كود الصنف','كود','code','sku']},
+          {k:'item',h:'اسم الصنف',alias:['اسم الصنف','الصنف','صنف','item'],req:1},
+          {k:'units',h:'الكمية',alias:['الكمية','عدد الوحدات','عدد','كمية','units','qty'],num:1,req:1},
+          {k:'uw',h:'وزن الوحدة بالكيلو (اختياري)',alias:['وزن الوحدة','وزن','weight'],num:1},
           {k:'basis',h:'أساس السعر (وحدة/كيلو)',alias:['اساس','أساس','basis']},
-          {k:'price',h:'السعر',alias:['سعر','price'],num:1,req:1},
-          {k:'wh',h:'المستودع',alias:['مستودع','warehouse'],req:1}],
-    samples:[['2026-07-01','F-1001','مؤسسة المزارع الحديثة','طماطم','60','10','وحدة','35','مستودع الفرع أ'],
-             ['2026-07-01','F-1001','مؤسسة المزارع الحديثة','طماطم','40','10','وحدة','35','مستودع الفرع ب']]},
+          {k:'price',h:'سعر الوحدة',alias:['سعر الوحدة','السعر','سعر','price'],num:1,req:1},
+          {k:'wh',h:'المستودع (اختياري)',alias:['المستودع','مستودع','warehouse']},
+          {k:'note',h:'ملاحظات',alias:['ملاحظات','ملاحظة','note']}],
+    samples:[['2026-07-27','','مؤسسة المزارع الحديثة','20213','بطاطس كبير','60','','','9',''],
+             ['2026-07-27','','مؤسسة المزارع الحديثة','20211','بصل كبير','40','','','9','']]},
   sales:{name:'نموذج_المبيعات',title:'المبيعات',
-    cols:[{k:'date',h:'التاريخ',alias:['تاريخ','date'],req:1},
-          {k:'no',h:'رقم الفاتورة',alias:['رقم','فاتورة','invoice','no']},
-          {k:'party',h:'العميل',alias:['عميل','فرع','client'],req:1},
-          {k:'item',h:'الصنف',alias:['صنف','item'],req:1},
-          {k:'units',h:'عدد الوحدات',alias:['عدد','كمية','units','qty'],num:1,req:1},
-          {k:'uw',h:'وزن الوحدة بالكيلو',alias:['وزن','weight'],num:1},
+    cols:[{k:'date',h:'التاريخ',alias:['التاريخ','تاريخ','date']},
+          {k:'no',h:'رقم الفاتورة',alias:['رقم الفاتورة','رقم','فاتورة','invoice','no']},
+          {k:'party',h:'الفرع / العميل',alias:['الفرع','فرع','العميل','عميل','client'],req:1},
+          {k:'code',h:'كود الصنف',alias:['كود الصنف','كود','code','sku']},
+          {k:'item',h:'اسم الصنف',alias:['اسم الصنف','الصنف','صنف','item'],req:1},
+          {k:'units',h:'الكمية',alias:['الكمية','عدد الوحدات','عدد','كمية','units','qty'],num:1,req:1},
+          {k:'uw',h:'وزن الوحدة بالكيلو (اختياري)',alias:['وزن الوحدة','وزن','weight'],num:1},
           {k:'basis',h:'أساس السعر (وحدة/كيلو)',alias:['اساس','أساس','basis']},
-          {k:'price',h:'سعر البيع',alias:['سعر','price'],num:1,req:1},
-          {k:'wh',h:'المستودع',alias:['مستودع','warehouse'],req:1}],
-    samples:[['2026-07-03','S-2001','الفرع أ','طماطم','50','10','وحدة','46','مستودع الفرع أ']]}
+          {k:'price',h:'سعر الوحدة',alias:['سعر الوحدة','سعر البيع','السعر','سعر','price'],num:1,req:1},
+          {k:'wh',h:'المستودع (اختياري)',alias:['المستودع','مستودع','warehouse']},
+          {k:'note',h:'ملاحظات',alias:['ملاحظات','ملاحظة','note']}],
+    samples:[['2026-07-27','','فرع النسيم','20213','بطاطس كبير','567','','','9',''],
+             ['2026-07-27','','فرع النسيم','20211','بصل كبير','590','','','9',''],
+             ['2026-07-27','','فرع حراء','20211','بصل كبير','300','','','9','']]}
 };
 function downloadTemplate(k){
   var t=TPL[k];
@@ -2919,9 +2926,11 @@ function importRow(k,v){
     if(!ur){ ur={id:uid(),name:un,weights:[]}; db.units.push(ur); }
     if(uw>0&&ur.weights.indexOf(uw)<0){ ur.weights.push(uw); ur.weights.sort(function(a,b){return a-b;}); }
     var act=(String(v.active||'').indexOf('متوقف')>-1||String(v.active||'')==='0')?0:1;
-    var it=db.items.filter(function(x){return x.name===nm;})[0];
-    if(it){ it.unit=un; it.uw=uw; it.min=v.min||0; it.active=act; return 'update'; }
-    db.items.push({id:uid(),name:nm,unit:un,uw:uw,min:v.min||0,active:act}); return 'add';
+    var code=String(v.code==null?'':v.code).trim();
+    var it=code?db.items.filter(function(x){return String(x.code||'')===code;})[0]:null;
+    if(!it) it=db.items.filter(function(x){return x.name===nm;})[0];
+    if(it){ it.name=nm; if(code) it.code=code; it.unit=un; it.uw=uw; it.min=v.min||0; it.active=act; return 'update'; }
+    db.items.push({id:uid(),name:nm,code:code,unit:un,uw:uw,min:v.min||0,active:act}); return 'add';
   }
   if(k==='suppliers'||k==='clients'){
     var name=needTxt(v.name,k==='suppliers'?'اسم المورد':'اسم العميل');
@@ -2945,21 +2954,32 @@ function importRow(k,v){
     return 'add';
   }
   if(k==='purchases'||k==='sales'){
-    var dt=needTxt(v.date,'التاريخ'), no=(v.no||'').trim();
-    var party=needTxt(v.party,k==='purchases'?'المورد':'العميل');
-    var itemId=findOrCreate(db.items,needTxt(v.item,'الصنف'),function(n){return {name:n,unit:'وحدة',uw:v.uw||1,min:0,active:1};});
-    var whId=findOrCreate(db.warehouses,needTxt(v.wh,'المستودع'),function(n){return {name:n,clientId:null};});
-    var units=v.units; if(!units||units<=0) throw new Error('عدد الوحدات غير صالح');
-    var price=v.price; if(!price||price<=0) throw new Error('السعر غير صالح');
-    var uw=v.uw||1, basis=(String(v.basis||'').indexOf('كيلو')>-1)?'kg':'unit';
+    var dt=(v.date&&String(v.date).trim())?String(v.date).trim():importDefaultDate;
+    if(!dt) throw new Error('التاريخ مطلوب (أضف عمود تاريخ أو أدخله عند الاستيراد)');
+    var no=(v.no||'').trim();
+    var party=needTxt(v.party,k==='purchases'?'المورد':'الفرع/العميل');
+    var units=v.units; if(!units||units<=0) throw new Error('الكمية غير صالحة');
+    var price=v.price; if(!price||price<=0) throw new Error('سعر الوحدة غير صالح');
+    var uw=(v.uw&&v.uw>0)?v.uw:0, basis=(String(v.basis||'').indexOf('كيلو')>-1)?'kg':'unit';
+    var itemId=resolveItem(v.item,v.code,uw);
+    if(!uw){ var itRec=byId(db.items,itemId); uw=(itRec&&itRec.uw>0)?itRec.uw:1; }   /* وزن الوحدة من الصنف إن لم يُذكر */
+    var whId=(v.wh&&String(v.wh).trim())?findOrCreate(db.warehouses,String(v.wh).trim(),function(n){return {name:n,clientId:null};}):defaultWh();
     var total=basis==='kg'?units*uw*price:units*price;
     var line={itemId:itemId,unit:itemUnit(itemId),units:units,uw:uw,basis:basis,price:price,total:total,whId:whId};
     var arr2=k==='purchases'?db.purchases:db.sales;
-    var doc=no?arr2.filter(function(x){return x.no===no&&x.date===dt;})[0]:null;
-    if(doc){ doc.lines.push(line); doc.total+=total; doc.weight+=units*uw; return 'update'; }
     var pid=k==='purchases'?findOrCreate(db.suppliers,party,function(n){return {name:n,phone:'',note:'',opening:0,openingDate:''};})
-                          :findOrCreate(db.clients,party,function(n){return {name:n,phone:'',note:'',opening:0,openingDate:''};});
-    var d2={id:uid(),no:no,date:dt,note:'مستورد من Excel',lines:[line],total:total,weight:units*uw,uid:ME.id,ts:nowTs()};
+                          :findOrCreateClient(party);
+    /* التجميع: بنفس رقم الفاتورة إن وُجد، وإلا كل أسطر نفس الفرع في نفس اليوم = فاتورة واحدة */
+    var doc=no?arr2.filter(function(x){return x.no===no&&x.date===dt;})[0]
+              :arr2.filter(function(x){return x._imp&&x.date===dt&&(k==='purchases'?x.supplierId===pid:x.clientId===pid);})[0];
+    if(doc){
+      doc.lines.push(line); doc.total+=total; doc.weight+=units*uw;
+      doc.vat=round2(doc.total*((doc.vatRate!=null?doc.vatRate:vatRate()))/100);
+      return 'update';
+    }
+    var rate=vatRate();
+    var d2={id:uid(),no:no,date:dt,note:(v.note||'مستورد من Excel'),lines:[line],total:total,weight:units*uw,
+      vatRate:rate,vat:round2(total*rate/100),_imp:1,uid:ME.id,ts:nowTs()};
     if(k==='purchases'){ d2.supplierId=pid; d2.paid=0; } else { d2.clientId=pid; d2.recv=0; }
     arr2.push(d2); return 'add';
   }
@@ -2994,6 +3014,31 @@ function findOrCreate(arr,name,mk){
   if(f) return f.id;
   var o=mk(n); o.id=uid(); arr.push(o); return o.id;
 }
+var importDefaultDate='';   /* تاريخ يُطبَّق على أسطر الاستيراد التي بلا عمود تاريخ */
+/* عميل (فرع) مع إنشاء مستودع خاص به تلقائياً كما في الإضافة اليدوية */
+function findOrCreateClient(name){
+  var n=String(name||'').trim(); if(!n) throw new Error('اسم الفرع/العميل مطلوب');
+  var f=db.clients.filter(function(x){return x.name===n;})[0]; if(f) return f.id;
+  var id=uid(); db.clients.push({id:id,name:n,phone:'',note:'',opening:0,openingDate:''});
+  db.warehouses.push({id:uid()+1,name:'مستودع '+n,clientId:id});
+  return id;
+}
+/* المستودع الافتراضي (عام) لسحب/إدخال البضاعة عند غياب عمود المستودع */
+function defaultWh(){
+  var g=generalWhs()[0]; if(g) return g.id;
+  if(db.warehouses[0]) return db.warehouses[0].id;
+  var id=uid(); db.warehouses.push({id:id,name:'المستودع الرئيسي',clientId:null}); return id;
+}
+/* مطابقة الصنف بالكود أولاً ثم بالاسم، وإنشاؤه إن لم يوجد */
+function resolveItem(name,code,uw){
+  code=String(code==null?'':code).trim(); name=String(name==null?'':name).trim();
+  var it=null;
+  if(code) it=db.items.filter(function(x){return String(x.code||'')===code;})[0];
+  if(!it&&name) it=db.items.filter(function(x){return x.name===name;})[0];
+  if(it){ if(code&&!it.code) it.code=code; return it.id; }
+  if(!name) throw new Error('اسم الصنف مطلوب');
+  var id=uid(); db.items.push({id:id,name:name,code:code,unit:'وحدة',uw:(uw&&uw>0)?uw:1,min:0,active:1}); return id;
+}
 function handleImport(ev){
   var f=ev.target.files[0]; if(!f) return;
   var rd=new FileReader();
@@ -3002,6 +3047,15 @@ function handleImport(ev){
     var rows=parseCSV(e.target.result);
     var res=readSheet(rows,t);
     if(res.error){ alert('تعذّر قراءة الملف:\n\n'+res.error+'\n\nالأعمدة المتوقعة:\n'+t.cols.map(function(c){return '• '+c.h;}).join('\n')); ev.target.value=''; return; }
+    importDefaultDate='';
+    if(k==='purchases'||k==='sales'){
+      var needDate=res.rows.some(function(r){ return !r.v.date||!String(r.v.date).trim(); });
+      if(needDate){
+        var dd=prompt('بعض الأسطر بلا عمود تاريخ.\nاكتب تاريخ الفواتير (بصيغة سنة-شهر-يوم مثل '+today()+') ليُطبَّق على أسطر هذا الملف:', today());
+        if(dd===null){ ev.target.value=''; return; }
+        importDefaultDate=String(dd).trim();
+      }
+    }
     var added=0,updated=0,errs=[];
     res.rows.forEach(function(r){
       try{
