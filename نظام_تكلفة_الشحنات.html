@@ -524,6 +524,7 @@ html[data-theme="dark"] .rt td.hl{background:#2e2814;color:var(--accent)}
   <div class="tab"         onclick="showPage('page-results')">📊 التكاليف</div>
   <div class="tab tab-pricing" onclick="showPage('page-pricing')">💹 احتساب البيع</div>
   <div class="tab"         onclick="showPage('page-archive')">🗂️ سجل الشحنات</div>
+  <div class="tab"         onclick="showPage('page-payments')">💵 الدفعات المسددة</div>
 </div>
 
 <div class="main">
@@ -635,6 +636,9 @@ html[data-theme="dark"] .rt td.hl{background:#2e2814;color:var(--accent)}
   <div class="card">
     <div class="card-header">📋 فواتير الحاويات <span class="badge" id="containers-badge">4 حاويات</span></div>
     <div class="card-body">
+      <div class="search-box" style="margin-bottom:9px;max-width:420px">
+        <input id="container-search" placeholder="ابحث عن حاوية برقمها أو رقم فاتورة أو صنف…" oninput="searchContainers(this.value)">
+      </div>
       <div class="ctabs" id="container-tabs"></div>
       <div id="container-panels"></div>
     </div>
@@ -888,6 +892,71 @@ html[data-theme="dark"] .rt td.hl{background:#2e2814;color:var(--accent)}
   </div>
 </div>
 
+<!-- ══ PAGE 6: PAYMENTS ══ -->
+<div id="page-payments" class="page">
+  <div class="card import-card">
+    <div class="card-header" style="background:#1b5e20">📥 استيراد الدفعات المسددة من Excel</div>
+    <div class="card-body">
+      <div class="alert as" style="margin-bottom:10px;font-size:.8rem">
+        💡 <strong>الطريقة:</strong> نزّل النموذج الجاهز → سجّل الدفعات (نقدًا أو تحويل مع ذكر البنك) → ارفعه.
+        عمود <strong>«النموذج / الشركة»</strong> يوجّه كل دفعة لشركتها تلقائياً، فيمكن استيراد دفعات الشركة الأولى والثانية معاً في ملف واحد. إن تُرك فارغاً تُسجَّل للشركة النشطة.
+      </div>
+      <div style="display:flex;gap:9px;flex-wrap:wrap;align-items:center">
+        <button class="btn btn-accent" onclick="downloadPaymentTemplate()">⬇️ تحميل نموذج الدفعات</button>
+        <button class="btn btn-primary" onclick="document.getElementById('pay-excel-input').click()">📊 استيراد من Excel</button>
+        <button class="btn btn-outline" onclick="document.getElementById('pay-csv-input').click()">📄 استيراد من CSV</button>
+        <label style="display:flex;align-items:center;gap:5px;font-size:.78rem;color:var(--muted);cursor:pointer">
+          <input type="checkbox" id="pay-replace" style="width:auto"> استبدال دفعات كل شركة مستوردة
+        </label>
+        <input type="file" id="pay-excel-input" accept=".xlsx,.xls" style="display:none" onchange="handlePayExcelImport(event)">
+        <input type="file" id="pay-csv-input" accept=".csv,.txt" style="display:none" onchange="handlePayCsvImport(event)">
+      </div>
+      <div id="pay-import-status" style="font-size:.78rem;color:var(--muted);margin-top:8px"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header" style="justify-content:space-between;flex-wrap:wrap;gap:8px">
+      <span>➕ إضافة دفعة يدوياً — للشركة النشطة: <span id="pay-active-name" style="color:var(--accent)"></span></span>
+    </div>
+    <div class="card-body">
+      <div class="form-row">
+        <div class="fg"><label>التاريخ</label><input type="date" id="pay-date"></div>
+        <div class="fg"><label>المبلغ</label><input type="number" id="pay-amount" min="0" step="0.01" placeholder="0.00" style="width:110px"></div>
+        <div class="fg"><label>العملة</label><select id="pay-cur"><option value="SAR">ريال (SAR)</option><option value="USD">دولار (USD)</option></select></div>
+        <div class="fg"><label>طريقة الدفع</label><select id="pay-method" onchange="onPayMethodChange()"><option value="cash">💵 نقدًا</option><option value="transfer">🏦 تحويل بنكي</option></select></div>
+        <div class="fg" id="pay-bank-wrap" style="display:none"><label>البنك</label><input id="pay-bank" placeholder="اسم البنك" style="min-width:140px"></div>
+        <div class="fg"><label>مرجع العملية</label><input id="pay-ref" placeholder="اختياري" style="width:120px"></div>
+        <div class="fg"><label>رقم الشحنة</label><input id="pay-ship" placeholder="اختياري" style="width:120px"></div>
+        <div class="fg"><label>ملاحظات</label><input id="pay-notes" placeholder="اختياري" style="min-width:140px"></div>
+        <button class="btn btn-accent" onclick="addPaymentManual()">＋ إضافة</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="sum-cards" id="pay-sum-cards"></div>
+
+  <div class="card">
+    <div class="card-header" style="justify-content:space-between;flex-wrap:wrap;gap:8px">
+      <span>💵 سجل الدفعات <span class="badge" id="pay-badge">0</span></span>
+      <div style="display:flex;gap:7px;flex-wrap:wrap;align-items:center">
+        <div class="search-box" style="min-width:200px"><input id="pay-search" placeholder="ابحث: بنك، مرجع، شحنة، طريقة…" oninput="renderPayments()"></div>
+        <button class="btn btn-green btn-sm" onclick="exportPaymentsExcel()">📥 تصدير Excel</button>
+        <button class="btn btn-danger btn-sm" onclick="clearAllPayments()">🗑️ حذف الكل</button>
+      </div>
+    </div>
+    <div class="card-body" style="padding:0">
+      <div class="tbl-wrap"><table id="pay-table">
+        <thead><tr>
+          <th>#</th><th>التاريخ</th><th>المبلغ</th><th>العملة</th><th>= SAR</th>
+          <th>طريقة الدفع</th><th>البنك</th><th>مرجع</th><th>رقم الشحنة</th><th>ملاحظات</th><th>×</th>
+        </tr></thead>
+        <tbody id="pay-tbody"></tbody>
+      </table></div>
+    </div>
+  </div>
+</div>
+
 </div><!-- /main -->
 
 <!-- DETAIL MODAL -->
@@ -1133,6 +1202,7 @@ function deleteProfile(id) {
     // Remove all data for this profile
     localStorage.removeItem('scs_db_'+id);
     localStorage.removeItem('scs_cfg_'+id);
+    localStorage.removeItem('scs_pay_'+id);
     profilesSave(profiles.filter(x=>x.id!==id));
     // If was active, clear active
     if (getActiveProfileId()===id) localStorage.removeItem(ACTIVE_KEY);
@@ -2536,11 +2606,34 @@ function preparePricingPrint(){ setTimeout(()=>window.print(),100); }
 function showPage(id){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.getElementById(id).classList.add('active');
-  const pages=['page-shipment','page-costs','page-results','page-pricing','page-archive'];
+  const pages=['page-shipment','page-costs','page-results','page-pricing','page-archive','page-payments'];
   document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',pages[i]===id));
   if(id==='page-costs'){ buildInvCostPanels(); buildConCostPanels(); renderShipCosts(); }
   if(id==='page-archive'){ renderArchive(); }
   if(id==='page-pricing'){ loadPricingPage(); }
+  if(id==='page-payments'){ renderPayments(); }
+}
+
+// ═══════════════════════════════════════════
+// بحث الحاويات داخل صفحة الشحنة
+// ═══════════════════════════════════════════
+function searchContainers(q){
+  q=(q||'').trim().toLowerCase();
+  let first=null;
+  S.containers.forEach((c,i)=>{
+    const ci=i+1;
+    const tab=document.getElementById('ctab-'+ci);
+    if(!tab) return;
+    const match = !q
+      || String(c.number||'').toLowerCase().includes(q)
+      || ('حاوية '+ci).includes(q)
+      || c.invoices.some(iv => String(iv.invNumber||'').toLowerCase().includes(q)
+           || iv.items.some(it => String(it.name||'').toLowerCase().includes(q)));
+    tab.style.display = match ? '' : 'none';
+    tab.style.outline = (q && match) ? '2px solid var(--accent)' : '';
+    if(match && first===null) first=ci;
+  });
+  if(q && first) activateCTab(first);
 }
 
 // ═══════════════════════════════════════════
@@ -2981,6 +3074,208 @@ function ensureCountOption(n){
     const o=document.createElement('option'); o.value=n; o.textContent=n; sel.appendChild(o);
   }
   sel.value=n;
+}
+
+// ═══════════════════════════════════════════
+// 💵 الدفعات المسددة (لكل شركة مستقلة)
+// ═══════════════════════════════════════════
+const PAY_HEADERS=['النموذج / الشركة','التاريخ','المبلغ','العملة','طريقة الدفع','البنك','مرجع العملية','رقم الشحنة','ملاحظات'];
+function payKey(pid){ return 'scs_pay_'+(pid||getActiveProfileId()||'default'); }
+function payLoad(pid){ try{ return JSON.parse(localStorage.getItem(payKey(pid))||'[]'); }catch(e){ return []; } }
+function paySave(arr,pid){ try{ localStorage.setItem(payKey(pid),JSON.stringify(arr)); return true; }catch(e){ toast('⚠️ فشل حفظ الدفعات: التخزين ممتلئ',true); return false; } }
+function payToSar(amt,cur){ amt=parseFloat(amt)||0; return cur==='SAR'?amt:amt*(S.fxUsdSar||3.756); }
+
+function onPayMethodChange(){
+  const m=document.getElementById('pay-method').value;
+  document.getElementById('pay-bank-wrap').style.display = m==='transfer' ? '' : 'none';
+}
+
+function renderPayments(){
+  const pid=getActiveProfileId();
+  const pname=profilesLoad().find(p=>p.id===pid)?.name||'—';
+  const nameEl=document.getElementById('pay-active-name'); if(nameEl) nameEl.textContent=pname;
+  const dEl=document.getElementById('pay-date'); if(dEl && !dEl.value) dEl.value=new Date().toISOString().slice(0,10);
+
+  const list=payLoad();
+  const q=(document.getElementById('pay-search')?.value||'').trim().toLowerCase();
+  let rows=list.slice().sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  if(q) rows=rows.filter(p=>[p.date,p.bank,p.ref,p.shipmentNo,p.notes,p.method==='transfer'?'تحويل':'نقدا',p.amount].join(' ').toLowerCase().includes(q));
+
+  const tb=document.getElementById('pay-tbody');
+  if(tb){
+    if(!rows.length){
+      tb.innerHTML=`<tr><td colspan="11" style="padding:22px;color:var(--muted)">لا توجد دفعات — أضف دفعة أو استورد من Excel</td></tr>`;
+    } else {
+      tb.innerHTML=rows.map((p,i)=>{
+        const sar=payToSar(p.amount,p.cur);
+        const m=p.method==='transfer'?'🏦 تحويل':'💵 نقدًا';
+        return `<tr>
+          <td>${i+1}</td><td>${escH(p.date||'—')}</td>
+          <td class="num">${fmtD(p.amount||0)}</td><td>${escH(p.cur||'SAR')}</td>
+          <td style="color:var(--success)">${fmtD(sar)}</td>
+          <td>${m}</td><td>${escH(p.bank||'')}</td><td>${escH(p.ref||'')}</td>
+          <td>${escH(p.shipmentNo||'')}</td><td style="font-size:.75rem">${escH(p.notes||'')}</td>
+          <td><button class="del-btn" onclick="deletePayment('${p.id}')">✕</button></td>
+        </tr>`;
+      }).join('');
+    }
+  }
+  const badge=document.getElementById('pay-badge'); if(badge) badge.textContent=list.length;
+
+  const tot  = list.reduce((s,p)=>s+payToSar(p.amount,p.cur),0);
+  const cash = list.filter(p=>p.method!=='transfer').reduce((s,p)=>s+payToSar(p.amount,p.cur),0);
+  const trans= list.filter(p=>p.method==='transfer').reduce((s,p)=>s+payToSar(p.amount,p.cur),0);
+  const sc=document.getElementById('pay-sum-cards');
+  if(sc) sc.innerHTML=`
+    <div class="sum-card"><div class="lbl">إجمالي المسدد (SAR)</div><div class="val">${fmtD(tot)}</div><div class="sub">${list.length} دفعة</div></div>
+    <div class="sum-card"><div class="lbl">نقدًا (SAR)</div><div class="val">${fmtD(cash)}</div></div>
+    <div class="sum-card"><div class="lbl">تحويل بنكي (SAR)</div><div class="val">${fmtD(trans)}</div></div>`;
+}
+
+function addPaymentManual(){
+  const amount=parseFloat(document.getElementById('pay-amount').value)||0;
+  if(amount<=0){ toast('⚠️ أدخل مبلغاً صحيحاً',true); return; }
+  const p={
+    id:'pm_'+Date.now(),
+    date:document.getElementById('pay-date').value||new Date().toISOString().slice(0,10),
+    amount, cur:document.getElementById('pay-cur').value,
+    method:document.getElementById('pay-method').value,
+    bank:document.getElementById('pay-bank').value.trim(),
+    ref:document.getElementById('pay-ref').value.trim(),
+    shipmentNo:document.getElementById('pay-ship').value.trim(),
+    notes:document.getElementById('pay-notes').value.trim()
+  };
+  const list=payLoad(); list.push(p); paySave(list);
+  ['pay-amount','pay-ref','pay-notes','pay-bank'].forEach(id=>{ const e=document.getElementById(id); if(e)e.value=''; });
+  renderPayments();
+  toast('✅ تمت إضافة الدفعة');
+}
+function deletePayment(id){
+  const list=payLoad().filter(p=>p.id!==id); paySave(list); renderPayments(); toast('🗑️ تم حذف الدفعة');
+}
+function clearAllPayments(){
+  const pname=profilesLoad().find(p=>p.id===getActiveProfileId())?.name||'';
+  confirm2(`حذف كل دفعات شركة "${pname}" نهائياً؟`, ()=>{ paySave([]); renderPayments(); toast('🗑️ تم حذف الدفعات'); });
+}
+
+function downloadPaymentTemplate(){
+  if(typeof XLSX==='undefined'){ toast('⚠️ مكتبة Excel غير محمّلة',true); return; }
+  const profs=profilesLoad();
+  const n1=profs[0]?.name||'الشركة الأولى';
+  const n2=profs[1]?.name||'الشركة الثانية';
+  const rows=[PAY_HEADERS,
+    [n1,'2025-06-05',50000,'SAR','نقدًا','','','SH-2025-001','دفعة أولى'],
+    [n1,'2025-06-20',30000,'SAR','تحويل','مصرف الراجحي','TRX-99','SH-2025-001','دفعة ثانية'],
+    [n2,'2025-06-22',12000,'USD','تحويل','البنك الأهلي','TRX-100','SH-2025-050','دفعة الشركة الثانية'],
+  ];
+  const ws=XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols']=[{wch:20},{wch:13},{wch:12},{wch:9},{wch:14},{wch:18},{wch:14},{wch:14},{wch:22}];
+  const info=XLSX.utils.aoa_to_sheet([
+    ['📘 تعليمات تعبئة نموذج الدفعات المسددة'],[''],
+    ['• كل سطر = دفعة واحدة مسددة.'],
+    ['• «النموذج / الشركة»: اكتب اسم الشركة تماماً كما هو في التطبيق ليُوجَّه إليها.'],
+    ['   يمكن خلط دفعات شركتين في نفس الملف — كل سطر يذهب لشركته.'],
+    ['   إن تُرك فارغاً تُسجَّل الدفعة للشركة النشطة حالياً.'],
+    ['• «طريقة الدفع»: نقدًا أو تحويل. عند التحويل اذكر اسم «البنك».'],
+    ['• «العملة» المسموحة: '+VALID_CURS.join('، ')+'.'],
+    ['• «التاريخ» بصيغة سنة-شهر-يوم مثل: 2025-06-05.'],
+    ['• أسماء شركاتك الحالية: '+(profs.map(p=>p.name).join('  |  ')||'—')],
+  ]);
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'الدفعات');
+  XLSX.utils.book_append_sheet(wb,info,'تعليمات');
+  XLSX.writeFile(wb,'نموذج_الدفعات_المسددة.xlsx');
+  toast('⬇️ تم تنزيل نموذج الدفعات');
+}
+
+function handlePayExcelImport(e){
+  const file=e.target.files[0]; if(!file) return;
+  if(typeof XLSX==='undefined'){ toast('⚠️ مكتبة Excel غير محمّلة',true); return; }
+  const reader=new FileReader();
+  reader.onload=function(ev){
+    try{
+      const wb=XLSX.read(ev.target.result,{type:'array',cellDates:true});
+      const shName=wb.SheetNames.includes('الدفعات')?'الدفعات':wb.SheetNames[0];
+      const aoa=XLSX.utils.sheet_to_json(wb.Sheets[shName],{header:1,defval:''});
+      applyPaymentRows(aoa,file.name);
+    }catch(err){ toast('⚠️ خطأ في قراءة الملف: '+err.message,true); }
+    e.target.value='';
+  };
+  reader.readAsArrayBuffer(file);
+}
+function handlePayCsvImport(e){
+  const file=e.target.files[0]; if(!file) return;
+  const reader=new FileReader();
+  reader.onload=function(ev){
+    try{ applyPaymentRows(parseCSV(ev.target.result),file.name); }
+    catch(err){ toast('⚠️ خطأ في قراءة الملف: '+err.message,true); }
+    e.target.value='';
+  };
+  reader.readAsText(file,'utf-8');
+}
+
+function applyPaymentRows(aoa,fname){
+  if(!aoa||!aoa.length){ toast('⚠️ الملف فارغ',true); return; }
+  const norm=s=>String(s==null?'':s).replace(/[إأآا]/g,'ا').replace(/[ة]/g,'ه').replace(/\s+/g,'').toLowerCase();
+  let hi=aoa.findIndex(r=>Array.isArray(r)&&r.some(c=>String(c).trim()!==''));
+  if(hi<0){ toast('⚠️ لا توجد بيانات في الملف',true); return; }
+  const header=aoa[hi]||[];
+  const idxOf=(exact,inc)=>{ let i=header.findIndex(h=>norm(h)===norm(exact)); if(i<0&&inc) i=header.findIndex(h=>norm(h).includes(norm(inc))); return i; };
+  let cCo=idxOf('النموذج / الشركة','شركه'), cDate=idxOf('التاريخ','تاريخ'),
+      cAmt=idxOf('المبلغ','مبلغ'), cCur=idxOf('العملة','عمله'),
+      cMeth=idxOf('طريقة الدفع','طريقه'), cBank=idxOf('البنك','بنك'),
+      cRef=idxOf('مرجع العملية','مرجع'), cShip=idxOf('رقم الشحنة','شحنه'), cNotes=idxOf('ملاحظات','ملاحظ');
+  let dataStart=hi+1;
+  if(cAmt<0){ cCo=0;cDate=1;cAmt=2;cCur=3;cMeth=4;cBank=5;cRef=6;cShip=7;cNotes=8; dataStart=hi; }
+  const val=(r,c)=>c>=0?String(r[c]!=null?r[c]:'').trim():'';
+  const profs=profilesLoad();
+  const resolvePid=name=>{
+    if(!name) return getActiveProfileId();
+    const n=norm(name);
+    const p=profs.find(x=>norm(x.name)===n) || profs.find(x=>norm(x.name).includes(n)||n.includes(norm(x.name)));
+    return p?p.id:getActiveProfileId();
+  };
+  const byPid={}; let count=0;
+  for(let i=dataStart;i<aoa.length;i++){
+    const r=aoa[i]; if(!Array.isArray(r)) continue;
+    const amount=parseFloat(String(r[cAmt]!=null?r[cAmt]:'').replace(/[^\d.\-]/g,''))||0;
+    if(amount<=0) continue;
+    const pid=resolvePid(val(r,cCo));
+    let cur=val(r,cCur).toUpperCase(); if(!VALID_CURS.includes(cur)) cur='SAR';
+    const mv=norm(val(r,cMeth));
+    const method=(mv.includes('تحويل')||mv.includes('بنك')||mv.includes('transfer')||mv.includes('حواله'))?'transfer':'cash';
+    (byPid[pid]=byPid[pid]||[]).push({
+      id:'pi_'+Date.now()+'_'+(count++),
+      date:toDateStr(r[cDate]), amount, cur, method,
+      bank:val(r,cBank), ref:val(r,cRef), shipmentNo:val(r,cShip), notes:val(r,cNotes)
+    });
+  }
+  const pids=Object.keys(byPid);
+  if(!pids.length){ toast('⚠️ لم يُعثر على دفعات صالحة في الملف',true); return; }
+  const replace=document.getElementById('pay-replace')?.checked;
+  const summary=[];
+  pids.forEach(pid=>{
+    const base=replace?[]:payLoad(pid);
+    paySave(base.concat(byPid[pid]),pid);
+    const nm=profs.find(p=>p.id===pid)?.name||'الشركة النشطة';
+    summary.push(`${byPid[pid].length} → ${nm}`);
+  });
+  renderPayments();
+  const st=document.getElementById('pay-import-status');
+  if(st) st.innerHTML=`✅ استُوردت الدفعات: ${escH(summary.join('، '))} — من الملف: ${escH(fname)}`;
+  toast('✅ تم استيراد الدفعات ('+count+')');
+}
+
+function exportPaymentsExcel(){
+  if(typeof XLSX==='undefined'){ toast('⚠️ مكتبة Excel غير محمّلة',true); return; }
+  const list=payLoad(); if(!list.length){ toast('⚠️ لا توجد دفعات للتصدير',true); return; }
+  const pname=profilesLoad().find(p=>p.id===getActiveProfileId())?.name||'الشركة';
+  const aoa=[PAY_HEADERS];
+  list.forEach(p=>aoa.push([pname,p.date,p.amount,p.cur,p.method==='transfer'?'تحويل':'نقدًا',p.bank,p.ref,p.shipmentNo,p.notes]));
+  const ws=XLSX.utils.aoa_to_sheet(aoa);
+  const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'الدفعات');
+  XLSX.writeFile(wb,'دفعات_'+pname.replace(/\s+/g,'_')+'.xlsx');
+  toast('📥 تم تصدير الدفعات');
 }
 
 // ═══════════════════════════════════════════
