@@ -756,10 +756,17 @@ html[data-theme="dark"] .rt td.hl{background:#2e2814;color:var(--accent)}
       <div class="chip" onclick="setChip('month',this)">📅 هذا الشهر</div>
       <div class="chip" onclick="setChip('year',this)">📆 هذا العام</div>
     </div>
-    <div style="display:flex;gap:7px;flex-wrap:wrap">
-      <button class="btn btn-green btn-sm" onclick="exportBackup()" title="حفظ نسخة احتياطية على جهازك">⬇️ نسخ احتياطي</button>
+    <div style="display:flex;gap:7px;flex-wrap:wrap;align-items:center">
+      <button class="btn btn-green btn-sm" onclick="exportFullBackup()" title="نسخة شاملة لكل الشركات (شحنات + إعدادات + دفعات)">⬇️ نسخة شاملة (كل الشركات)</button>
+      <button class="btn btn-outline btn-sm" onclick="importFullBackup()" title="استعادة نسخة شاملة">⬆️ استعادة شاملة</button>
+      <button class="btn btn-green btn-sm" onclick="exportBackup()" title="نسخة الشركة الحالية فقط">⬇️ الشركة الحالية</button>
       <button class="btn btn-outline btn-sm" onclick="importBackup()" title="استعادة من نسخة احتياطية">⬆️ استعادة</button>
+      <button class="btn btn-outline btn-sm" onclick="restoreAutoBackup()" title="استعادة آخر نسخة حُفظت تلقائياً عند الإغلاق">♻️ استعادة آخر نسخة تلقائية</button>
       <button class="btn btn-danger btn-sm" onclick="clearAllData()">🗑️ حذف الكل</button>
+      <label style="display:flex;align-items:center;gap:4px;font-size:.72rem;color:var(--muted);cursor:pointer" title="حفظ نسخة احتياطية شاملة تلقائياً عند إغلاق البرنامج">
+        <input type="checkbox" id="autobackup-toggle" onchange="setAutoBackupPref(this.checked)" style="width:auto"> نسخة تلقائية عند الإغلاق
+      </label>
+      <span id="autobackup-status" style="font-size:.7rem;color:var(--success)"></span>
     </div>
   </div>
 
@@ -1488,6 +1495,7 @@ function newShipment() {
 // ARCHIVE RENDER
 // ═══════════════════════════════════════════
 function renderArchive() {
+  updateAutoBackupLabel();
   const db = dbLoad();
   if(!db.length){
     document.getElementById('arch-grid').innerHTML = `<div class="arch-empty" style="grid-column:1/-1"><div class="big">📦</div><div>لا توجد شحنات محفوظة بعد</div><div style="font-size:.8rem;margin-top:6px;color:var(--muted)">اضغط "💾 حفظ الشحنة" بعد إدخال البيانات</div></div>`;
@@ -2898,6 +2906,140 @@ function closeConfirm(){ document.getElementById('confirm-modal').style.display=
 document.getElementById('confirm-ok-btn').onclick=function(){ const cb=confirmCb; closeConfirm(); if(cb)cb(); };
 
 // ═══════════════════════════════════════════
+// 💾 النسخ الاحتياطي الشامل والتلقائي عند الإغلاق
+// ═══════════════════════════════════════════
+const AUTOBK_PREF='scs_autobackup_pref';
+const AUTOBK_DATA='scs_lastbackup_all';
+const AUTOBK_TIME='scs_lastbackup_at';
+
+function buildFullBackup(){
+  const profiles=profilesLoad();
+  const out={ version:3, app:'shipment-cost', exportedAt:new Date().toISOString(), active:getActiveProfileId(), profiles:[] };
+  profiles.forEach(p=>{
+    out.profiles.push({
+      profile:p,
+      cfg: JSON.parse(localStorage.getItem('scs_cfg_'+p.id)||'{}'),
+      db:  JSON.parse(localStorage.getItem('scs_db_'+p.id)||'[]'),
+      pay: JSON.parse(localStorage.getItem('scs_pay_'+p.id)||'[]')
+    });
+  });
+  return out;
+}
+
+function exportFullBackup(){
+  const data=buildFullBackup();
+  if(!data.profiles.length){ toast('⚠️ لا توجد شركات لعمل نسخة',true); return; }
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='نسخة_شاملة_كل_الشركات_'+new Date().toISOString().slice(0,10)+'.json';
+  a.click();
+  const nShip=data.profiles.reduce((s,e)=>s+(e.db?.length||0),0);
+  const nPay =data.profiles.reduce((s,e)=>s+(e.pay?.length||0),0);
+  toast(`✅ نسخة شاملة: ${data.profiles.length} شركة، ${nShip} شحنة، ${nPay} دفعة`);
+}
+
+function importFullBackup(){
+  const inp=document.createElement('input'); inp.type='file'; inp.accept='.json';
+  inp.onchange=function(e){
+    const f=e.target.files[0]; if(!f) return;
+    const rd=new FileReader();
+    rd.onload=function(ev){
+      try{
+        const d=JSON.parse(ev.target.result);
+        if(!d.profiles||!Array.isArray(d.profiles)) throw new Error('صيغة غير صحيحة — استخدم ملف «نسخة شاملة»');
+        confirm2(`استعادة نسخة شاملة تحتوي ${d.profiles.length} شركة؟ ستُحدَّث بيانات الشركات المطابقة.`, ()=>{
+          const profiles=profilesLoad();
+          d.profiles.forEach(entry=>{
+            const p=entry.profile; if(!p||!p.id) return;
+            if(!profiles.find(x=>x.id===p.id)) profiles.push(p);
+            localStorage.setItem('scs_cfg_'+p.id, JSON.stringify(entry.cfg||{}));
+            localStorage.setItem('scs_db_'+p.id,  JSON.stringify(entry.db||[]));
+            localStorage.setItem('scs_pay_'+p.id, JSON.stringify(entry.pay||[]));
+          });
+          profilesSave(profiles);
+          renderQuickSwitch(); renderArchive();
+          try{ renderProfileCards(); }catch(e){}
+          toast('✅ تم استعادة النسخة الشاملة ('+d.profiles.length+' شركة)');
+        });
+      }catch(err){ toast('⚠️ خطأ في قراءة الملف: '+err.message,true); }
+    };
+    rd.readAsText(f);
+  };
+  inp.click();
+}
+
+// حفظ الشحنة الجارية بصمت (بدون رسائل) لمنع فقد العمل غير المحفوظ
+function autoSaveCurrentShipment(){
+  try{
+    if(!getActiveProfileId()) return;
+    const noEl=document.getElementById('shipment-no'); if(!noEl) return;
+    const no=(noEl.value||'').trim();
+    const hasData = S.containers && S.containers.some(c=>c.invoices.some(iv=>iv.items.some(it=>it.name||it.unitPrice)));
+    if(!no || !hasData) return;
+    syncCostsFromDOM();
+    const snap=buildSnapshot();
+    const db=dbLoad();
+    if(S.currentId){ const idx=db.findIndex(x=>x.id===S.currentId); snap.id=S.currentId; if(idx>=0) db[idx]=snap; else db.push(snap); }
+    else { S.currentId=snap.id; db.push(snap); }
+    dbSave(db);
+  }catch(e){}
+}
+
+function writeAutoBackup(){
+  try{
+    localStorage.setItem(AUTOBK_DATA, JSON.stringify(buildFullBackup()));
+    localStorage.setItem(AUTOBK_TIME, new Date().toISOString());
+  }catch(e){/* قد يمتلئ التخزين — نتجاهل */}
+}
+
+function autoBackupEnabled(){ return localStorage.getItem(AUTOBK_PREF)!=='off'; } // مفعّلة افتراضياً
+function setAutoBackupPref(on){
+  localStorage.setItem(AUTOBK_PREF, on?'on':'off');
+  toast(on?'✅ ستُحفظ نسخة احتياطية تلقائياً عند الإغلاق':'⏸️ تم إيقاف النسخ التلقائي');
+  updateAutoBackupLabel();
+}
+function updateAutoBackupLabel(){
+  const cb=document.getElementById('autobackup-toggle'); if(cb) cb.checked=autoBackupEnabled();
+  const st=document.getElementById('autobackup-status');
+  const t=localStorage.getItem(AUTOBK_TIME);
+  if(st) st.textContent = t ? ('آخر نسخة تلقائية: '+new Date(t).toLocaleString('ar')) : '';
+}
+
+function restoreAutoBackup(){
+  const raw=localStorage.getItem(AUTOBK_DATA);
+  if(!raw){ toast('⚠️ لا توجد نسخة تلقائية محفوظة بعد',true); return; }
+  let d; try{ d=JSON.parse(raw); }catch(e){ toast('⚠️ النسخة التلقائية تالفة',true); return; }
+  if(!d.profiles||!d.profiles.length){ toast('⚠️ النسخة التلقائية فارغة',true); return; }
+  const t=localStorage.getItem(AUTOBK_TIME);
+  confirm2(`استعادة آخر نسخة تلقائية (${d.profiles.length} شركة)${t?' — '+new Date(t).toLocaleString('ar'):''}؟`, ()=>{
+    const profiles=profilesLoad();
+    d.profiles.forEach(entry=>{
+      const p=entry.profile; if(!p||!p.id) return;
+      if(!profiles.find(x=>x.id===p.id)) profiles.push(p);
+      localStorage.setItem('scs_cfg_'+p.id, JSON.stringify(entry.cfg||{}));
+      localStorage.setItem('scs_db_'+p.id,  JSON.stringify(entry.db||[]));
+      localStorage.setItem('scs_pay_'+p.id, JSON.stringify(entry.pay||[]));
+    });
+    profilesSave(profiles);
+    renderQuickSwitch(); renderArchive();
+    toast('✅ تم استعادة آخر نسخة تلقائية');
+  });
+}
+
+let _autoBkDone=false;
+function onAppClose(){
+  if(_autoBkDone) return; _autoBkDone=true;
+  autoSaveCurrentShipment();
+  if(autoBackupEnabled()) writeAutoBackup();
+  // إعادة السماح بنسخة جديدة لاحقاً إن بقيت الصفحة (تبديل تبويب)
+  setTimeout(()=>{ _autoBkDone=false; }, 1500);
+}
+window.addEventListener('beforeunload', onAppClose);
+window.addEventListener('pagehide',    onAppClose);
+document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='hidden') onAppClose(); });
+
+// ═══════════════════════════════════════════
 // THEME — الوضع الليلي / النهاري
 // ═══════════════════════════════════════════
 const THEME_KEY='scs_theme';
@@ -3324,6 +3466,7 @@ function exportPaymentsExcel(){
 window.onload = function() {
   applyStoredTheme();
   renderQuickSwitch();
+  updateAutoBackupLabel();
   const profiles = profilesLoad();
   const activeId = getActiveProfileId();
   const hasActive = activeId && profiles.find(p=>p.id===activeId);
