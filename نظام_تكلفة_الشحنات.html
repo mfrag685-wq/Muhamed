@@ -535,8 +535,8 @@ html[data-theme="dark"] .rt td.hl{background:#2e2814;color:var(--accent)}
     <div class="card-header" style="background:#1b5e20">📥 استيراد البيانات وتعبئتها من ملف Excel</div>
     <div class="card-body">
       <div class="alert as" style="margin-bottom:10px;font-size:.8rem">
-        💡 <strong>الطريقة:</strong> نزّل النموذج الجاهز → املأ الحاويات والفواتير والأصناف → ارفعه هنا ليُعبّأ النظام تلقائياً.
-        كل سطر = صنف واحد (الحاوية، رقم الحاوية، رقم الفاتورة، عملة الشراء، الصنف، الكمية، سعر الوحدة).
+        💡 <strong>الطريقة:</strong> نزّل النموذج الجاهز → املأ رقم الشحنة والحاويات والفواتير والأصناف → ارفعه هنا ليُعبّأ النظام تلقائياً.
+        كل سطر = صنف واحد. <strong>رقم الحاوية</strong> هو ما يفصل الحاويات (كل رقم مختلف = حاوية مستقلة)، و<strong>رقم الشحنة</strong> يُكتب مرة واحدة في أول سطر.
       </div>
       <div style="display:flex;gap:9px;flex-wrap:wrap;align-items:center">
         <button class="btn btn-accent" onclick="downloadExcelTemplate()">⬇️ تحميل نموذج Excel جاهز</button>
@@ -2919,7 +2919,7 @@ function toggleTheme(){
 // ═══════════════════════════════════════════
 // استيراد البيانات من Excel / CSV
 // ═══════════════════════════════════════════
-const IMPORT_HEADERS=['الحاوية','رقم الحاوية','رقم الفاتورة','عملة الشراء','الصنف','الكمية','سعر الوحدة'];
+const IMPORT_HEADERS=['رقم الشحنة','تاريخ الشحنة','المورد','بلد المنشأ','رقم الحاوية','رقم الفاتورة','عملة الشراء','الصنف','الكمية','سعر الوحدة'];
 const VALID_CURS=['USD','SAR','EUR','CNY','GBP','AED'];
 
 function downloadExcelTemplate(){
@@ -2927,21 +2927,24 @@ function downloadExcelTemplate(){
   const label=S.itemLabel||'الصنف';
   const rows=[
     IMPORT_HEADERS,
-    [1,'TCKU1234567','INV-001','USD',label+' تجريبي (أ)',10,120.50],
-    [1,'TCKU1234567','INV-001','USD',label+' تجريبي (ب)',5,89.00],
-    [1,'TCKU1234567','INV-002','USD',label+' من فاتورة ثانية',8,45.00],
-    [2,'MSKU7654321','INV-003','SAR',label+' في حاوية أخرى',20,300.00],
+    // بيانات الشحنة تُكتب في أول سطر فقط — كل سطر تالٍ = صنف
+    ['SH-2025-001','2025-06-01','مورد تجريبي','China','TCKU1234567','INV-001','USD',label+' (أ)',10,120.50],
+    ['','','','','TCKU1234567','INV-001','USD',label+' (ب)',5,89.00],
+    ['','','','','TCKU1234567','INV-002','USD',label+' فاتورة ثانية بنفس الحاوية',8,45.00],
+    ['','','','','MSKU7654321','INV-003','SAR',label+' في حاوية مختلفة',20,300.00],
   ];
   const ws=XLSX.utils.aoa_to_sheet(rows);
-  ws['!cols']=[{wch:8},{wch:16},{wch:14},{wch:12},{wch:26},{wch:8},{wch:12}];
+  ws['!cols']=[{wch:14},{wch:13},{wch:16},{wch:12},{wch:16},{wch:14},{wch:12},{wch:28},{wch:8},{wch:12}];
   const info=XLSX.utils.aoa_to_sheet([
     ['📘 تعليمات تعبئة نموذج استيراد الشحنة'],
     [''],
     ['• كل سطر في ورقة «البيانات» يمثل صنفاً واحداً.'],
-    ['• عمود «الحاوية»: رقم تسلسلي (1، 2، 3...) لتجميع الأصناف داخل نفس الحاوية.'],
-    ['• الأصناف التي لها نفس (الحاوية + رقم الفاتورة) تُجمَّع في فاتورة واحدة.'],
+    ['• «رقم الشحنة» و«تاريخ الشحنة» و«المورد» و«بلد المنشأ»: تُكتب مرة واحدة (يكفي في أول سطر).'],
+    ['• «رقم الحاوية»: هو ما يفصل الحاويات — كل رقم حاوية مختلف يُنشئ حاوية مستقلة.'],
+    ['• الأصناف التي لها نفس (رقم الحاوية + رقم الفاتورة) تُجمَّع في فاتورة واحدة.'],
     ['• «عملة الشراء» المسموحة: '+VALID_CURS.join('، ')+'.'],
     ['• «الكمية» و«سعر الوحدة» أرقام فقط (بدون رموز عملة).'],
+    ['• «تاريخ الشحنة» بصيغة سنة-شهر-يوم مثل: 2025-06-01.'],
     ['• لا تُغيّر أسماء الأعمدة في الصف الأول بورقة «البيانات».'],
     ['• بعد التعبئة: احفظ الملف ثم ارفعه من زر «استيراد من Excel».'],
     ['• مصاريف الشحن والحاويات والشحنة تُدخَل يدوياً في صفحة «المصاريف» بعد الاستيراد.'],
@@ -2959,7 +2962,7 @@ function handleExcelImport(e){
   const reader=new FileReader();
   reader.onload=function(ev){
     try{
-      const wb=XLSX.read(ev.target.result,{type:'array'});
+      const wb=XLSX.read(ev.target.result,{type:'array',cellDates:true});
       const shName=wb.SheetNames.includes('البيانات')?'البيانات':wb.SheetNames[0];
       const aoa=XLSX.utils.sheet_to_json(wb.Sheets[shName],{header:1,defval:''});
       applyImportedRows(aoa,file.name);
@@ -3000,9 +3003,20 @@ function parseCSV(text){
   return rows;
 }
 
+function toDateStr(v){
+  if(v===null||v===undefined||v==='') return '';
+  if(v instanceof Date && !isNaN(v)) return new Date(v.getTime()-v.getTimezoneOffset()*60000).toISOString().slice(0,10);
+  const s=String(v).trim();
+  if(/^\d{4}-\d{1,2}-\d{1,2}/.test(s)){
+    const p=s.slice(0,10).split('-'); return p[0]+'-'+p[1].padStart(2,'0')+'-'+p[2].padStart(2,'0');
+  }
+  const d=new Date(s);
+  return isNaN(d)?'':new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10);
+}
+
 function applyImportedRows(aoa,fname){
   if(!aoa||!aoa.length){ toast('⚠️ الملف فارغ',true); return; }
-  const norm=s=>String(s==null?'':s).replace(/[إأآا]/g,'ا').replace(/\s+/g,'').toLowerCase();
+  const norm=s=>String(s==null?'':s).replace(/[إأآا]/g,'ا').replace(/[ة]/g,'ه').replace(/\s+/g,'').toLowerCase();
   let hi=aoa.findIndex(r=>Array.isArray(r)&&r.some(c=>String(c).trim()!==''));
   if(hi<0){ toast('⚠️ لا توجد بيانات في الملف',true); return; }
   const header=aoa[hi]||[];
@@ -3011,31 +3025,49 @@ function applyImportedRows(aoa,fname){
     if(i<0&&inc) i=header.findIndex(h=>norm(h).includes(norm(inc)));
     return i;
   };
-  let cCon=idxOf('الحاوية'), cConNo=idxOf('رقم الحاوية','رقمالحاوية'),
-      cInv=idxOf('رقم الفاتورة','فاتورة'), cCur=idxOf('عملة الشراء','عملة'),
-      cName=idxOf('الصنف','صنف'), cQty=idxOf('الكمية','كمية'), cPrice=idxOf('سعر الوحدة','سعر');
+  // أعمدة معلومات الشحنة (اختيارية)
+  let cShipNo=idxOf('رقم الشحنة','رقمالشحنه'), cDate=idxOf('تاريخ الشحنة','تاريخ'),
+      cSup=idxOf('المورد','مورد'), cOrig=idxOf('بلد المنشأ','منشا');
+  // أعمدة البيانات
+  let cConNo=idxOf('رقم الحاوية','الحاويه'), cConIdx=idxOf('الحاوية'),
+      cInv=idxOf('رقم الفاتورة','فاتوره'), cCur=idxOf('عملة الشراء','عمله'),
+      cName=idxOf('الصنف','صنف'), cQty=idxOf('الكمية','كميه'), cPrice=idxOf('سعر الوحدة','سعر');
   let dataStart=hi+1;
-  if(cName<0){ // لا يوجد صف رأس معروف — نعتمد الترتيب
-    cCon=0;cConNo=1;cInv=2;cCur=3;cName=4;cQty=5;cPrice=6; dataStart=hi;
+  if(cName<0){ // لا يوجد صف رأس معروف — نعتمد ترتيب النموذج الجديد
+    cShipNo=0;cDate=1;cSup=2;cOrig=3;cConNo=4;cInv=5;cCur=6;cName=7;cQty=8;cPrice=9;cConIdx=-1;
+    dataStart=hi;
   }
 
+  const val=(r,c)=>c>=0 ? String(r[c]!=null?r[c]:'').trim() : '';
+  // معلومات الشحنة — أول قيمة غير فارغة
+  let shipNo='',shipDate='',supplier='',origin='';
   const conMap={}, order=[];
+
   for(let i=dataStart;i<aoa.length;i++){
     const r=aoa[i]; if(!Array.isArray(r)) continue;
-    const name=String(r[cName]!=null?r[cName]:'').trim();
+    if(!shipNo   && cShipNo>=0) shipNo   = val(r,cShipNo);
+    if(!shipDate && cDate>=0)   shipDate = toDateStr(r[cDate]);
+    if(!supplier && cSup>=0)    supplier = val(r,cSup);
+    if(!origin   && cOrig>=0)   origin   = val(r,cOrig);
+
+    const name=val(r,cName);
     const qty=parseFloat(r[cQty])||0;
     const price=parseFloat(r[cPrice])||0;
     if(!name && !qty && !price) continue;
-    const g=(String(r[cCon]!=null?r[cCon]:'').trim())||'1';
-    const conNo=String(r[cConNo]!=null?r[cConNo]:'').trim();
-    const invNo=String(r[cInv]!=null?r[cInv]:'').trim();
-    let cur=String(r[cCur]!=null?r[cCur]:'').trim().toUpperCase();
+
+    const conNo=val(r,cConNo);
+    const idxVal=val(r,cConIdx);
+    // مفتاح التجميع: رقم الحاوية أولاً (هو ما يفصل الحاويات فعلياً)، ثم عمود الترتيب، وإلا حاوية واحدة
+    const gkey = conNo ? ('NO:'+conNo) : (idxVal ? ('IDX:'+idxVal) : '__single');
+    const invNo=val(r,cInv);
+    let cur=val(r,cCur).toUpperCase();
     if(!VALID_CURS.includes(cur)) cur=S.invCur||'USD';
-    if(!conMap[g]){ conMap[g]={number:conNo,invMap:{},invOrder:[]}; order.push(g); }
-    if(conNo && !conMap[g].number) conMap[g].number=conNo;
+
+    if(!conMap[gkey]){ conMap[gkey]={number:conNo,invMap:{},invOrder:[]}; order.push(gkey); }
+    if(conNo && !conMap[gkey].number) conMap[gkey].number=conNo;
     const ik=invNo||'__def';
-    if(!conMap[g].invMap[ik]){ conMap[g].invMap[ik]={invNumber:invNo,purchCur:cur,items:[]}; conMap[g].invOrder.push(ik); }
-    conMap[g].invMap[ik].items.push({name:name||(S.itemLabel||'صنف'),qty:qty||1,unitPrice:price||0});
+    if(!conMap[gkey].invMap[ik]){ conMap[gkey].invMap[ik]={invNumber:invNo,purchCur:cur,items:[]}; conMap[gkey].invOrder.push(ik); }
+    conMap[gkey].invMap[ik].items.push({name:name||(S.itemLabel||'صنف'),qty:qty||1,unitPrice:price||0});
   }
 
   const built=order.map((g,ci)=>{
@@ -3051,9 +3083,16 @@ function applyImportedRows(aoa,fname){
   if(!built.length){ toast('⚠️ لم يُعثر على أصناف صالحة في الملف',true); return; }
 
   const replace=document.getElementById('import-replace')?.checked;
-  if(replace){ S.containers=built; }
+  if(replace){ S.containers=built; S.currentId=null; }
   else { built.forEach(c=>S.containers.push(c)); S.containers.forEach((c,i)=>c.id=i+1); }
   S.nextConCostId=100;
+
+  // كتابة معلومات الشحنة في النموذج (عند الاستبدال أو إذا كان الحقل فارغاً)
+  const setField=(id,v)=>{ const el=document.getElementById(id); if(el && v && (replace || !el.value.trim())) el.value=v; };
+  setField('shipment-no',shipNo);
+  setField('shipment-date',shipDate);
+  setField('supplier-name',supplier);
+  setField('origin-country',origin);
 
   ensureCountOption(S.containers.length);
   rebuildAllPanels();
@@ -3062,9 +3101,10 @@ function applyImportedRows(aoa,fname){
   const nInv=S.containers.reduce((s,c)=>s+c.invoices.length,0);
   const nItem=S.containers.reduce((s,c)=>s+c.invoices.reduce((ss,iv)=>ss+iv.items.length,0),0);
   const st=document.getElementById('import-status');
-  if(st) st.innerHTML=`✅ تم استيراد <strong>${nItem}</strong> صنف ضمن <strong>${nInv}</strong> فاتورة و<strong>${nCon}</strong> حاوية من الملف: ${escH(fname)}`;
+  if(st) st.innerHTML=`✅ تم استيراد <strong>${nItem}</strong> صنف ضمن <strong>${nInv}</strong> فاتورة و<strong>${nCon}</strong> حاوية`
+    + (shipNo?` — الشحنة <strong>${escH(shipNo)}</strong>`:'') + ` — من الملف: ${escH(fname)}`;
   showPage('page-shipment');
-  toast('✅ تم استيراد البيانات بنجاح');
+  toast('✅ تم استيراد البيانات بنجاح ('+nCon+' حاوية)');
 }
 
 function ensureCountOption(n){
