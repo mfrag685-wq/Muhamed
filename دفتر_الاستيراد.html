@@ -477,25 +477,50 @@ const emptyEx = () => ({
   clearance: "",
   transport: ""
 });
-const exSum = e => e ? EXTRA_FIELDS.reduce((s, [k]) => s + nv(e[k]), 0) : 0;
+const emptyCur = cur => ({
+  freight: cur || "USD",
+  customs: cur || "USD",
+  clearance: cur || "USD",
+  transport: cur || "USD"
+});
+const exSum = e => e ? EXTRA_FIELDS.reduce((s, [k]) => s + nv(e[k]), 0) : 0; // مجموع خام (لكشف وجود مصاريف فقط)
+/* سعر صرف عام مشترك يحدّثه المكوّن App، لتحويل المصاريف إلى عملة الشحنة */
+let DEF_RATE = 3.75;
+const effRate = sh => nv(sh && sh.rate) || DEF_RATE || 3.75;
+/* تحويل مبلغ من عملة إلى أخرى */
+const cvt = (amount, from, to, rate) => {
+  const a = nv(amount);
+  if (from === to) return a;
+  if (from === "USD" && to === "SAR") return a * (nv(rate) || 3.75);
+  if (from === "SAR" && to === "USD") return rate ? a / nv(rate) : 0;
+  return a;
+};
+/* قيمة المصاريف محوّلةً إلى عملة الشحنة (لكل مصروف عملته الخاصة) */
+const exVal = (extras, extrasCur, shipCur, rate) => extras ? EXTRA_FIELDS.reduce((s, [k]) => s + cvt(extras[k], (extrasCur && extrasCur[k]) || shipCur, shipCur, rate), 0) : 0;
 const iC = it => nv(it.qty) * nv(it.price); // FOB للموديل
 const cC = c => (c.items || []).reduce((s, it) => s + iC(it), 0); // FOB للحاوية
 const cQ = c => (c.items || []).reduce((s, it) => s + nv(it.qty), 0); // كمية الحاوية
 const sC = sh => (sh.containers || []).reduce((s, c) => s + cC(c), 0); // FOB للشحنة
 const sQ = sh => (sh.containers || []).reduce((s, c) => s + cQ(c), 0); // كمية الشحنة
-const shExtras = sh => exSum(sh.extras) + (sh.containers || []).reduce((s, c) => s + exSum(c.extras), 0);
+const shExtras = sh => {
+  const r = effRate(sh),
+    cur = sh.currency;
+  return exVal(sh.extras, sh.extrasCur, cur, r) + (sh.containers || []).reduce((s, c) => s + exVal(c.extras, c.extrasCur, cur, r), 0);
+}; // إجمالي المصاريف بعملة الشحنة
 const sLanded = sh => sC(sh) + shExtras(sh); // التكلفة الشاملة
 
 /* توزيع التكاليف الإضافية نسبياً (حسب القيمة أو الكمية) → تكلفة القطعة الواصلة */
 function landedMap(sh) {
   const basis = sh.allocBasis === "qty" ? "qty" : "value";
+  const r = effRate(sh),
+    cur = sh.currency;
   const w = it => basis === "qty" ? nv(it.qty) : iC(it);
   const all = (sh.containers || []).flatMap(c => c.items || []);
   const totW = all.reduce((s, it) => s + w(it), 0);
-  const shipEx = exSum(sh.extras);
+  const shipEx = exVal(sh.extras, sh.extrasCur, cur, r);
   const map = {};
   (sh.containers || []).forEach(c => {
-    const cEx = exSum(c.extras);
+    const cEx = exVal(c.extras, c.extrasCur, cur, r);
     const cW = (c.items || []).reduce((s, it) => s + w(it), 0);
     (c.items || []).forEach(it => {
       const fob = iC(it);
@@ -551,18 +576,24 @@ async function ss(k, v) {
 }
 function fixS(s) {
   if (!s || typeof s !== "object") return null;
+  const cur = s.currency === "SAR" ? "SAR" : "USD";
+  const fixCur = ec => ({
+    ...emptyCur(cur),
+    ...(ec || {})
+  }); // العملة الافتراضية لكل مصروف = عملة الشحنة (حفاظاً على البيانات القديمة)
   const b = {
     id: s.id || uid(),
     company: s.company === "c2" ? "c2" : "c1",
     num: s.num || "",
     date: s.date || today(),
-    currency: s.currency === "SAR" ? "SAR" : "USD",
+    currency: cur,
     rate: s.rate || "",
     note: s.note || "",
     extras: {
       ...emptyEx(),
       ...(s.extras || {})
     },
+    extrasCur: fixCur(s.extrasCur),
     allocBasis: s.allocBasis === "qty" ? "qty" : "value"
   };
   const fixIt = it => ({
@@ -577,6 +608,7 @@ function fixS(s) {
       id: uid(),
       number: "1",
       extras: emptyEx(),
+      extrasCur: emptyCur(cur),
       items: (s.items || []).map(fixIt)
     }]
   };
@@ -589,6 +621,7 @@ function fixS(s) {
         ...emptyEx(),
         ...(c.extras || {})
       },
+      extrasCur: fixCur(c.extrasCur),
       items: (c.items || []).map(fixIt)
     }))
   };
@@ -820,10 +853,11 @@ const newItem = () => ({
   qty: "",
   price: ""
 });
-const newCont = n => ({
+const newCont = (n, cur) => ({
   id: uid(),
   number: String(n),
   extras: emptyEx(),
+  extrasCur: emptyCur(cur || "USD"),
   items: [newItem()]
 });
 const newShip = (co, n) => ({
@@ -835,8 +869,9 @@ const newShip = (co, n) => ({
   rate: "",
   note: "",
   extras: emptyEx(),
+  extrasCur: emptyCur("USD"),
   allocBasis: "value",
-  containers: [newCont(1)]
+  containers: [newCont(1, "USD")]
 });
 
 /* ── التطبيق ─────────────────────────────────────────── */
@@ -849,6 +884,7 @@ function App() {
   const [toast, setToast] = useState(null);
   const [log, setLog] = useState([]);
   const [sv, setSv] = useState("saved");
+  DEF_RATE = nv(rate) || 3.75; // سعر الصرف العام لتحويل المصاريف إلى عملة الشحنة
   useEffect(() => {
     (async () => {
       const ks = ["ships-v4", "pays-v3", "cfg-v3", "log-v1", "ships-v3", "ships-v2", "ships-v1", "pays-v2", "pays-v1"];
@@ -1176,7 +1212,8 @@ function Ships({
       if (isFinite(na) && isFinite(nb) && na !== nb) return (na - nb) * dir;
       return 0;
     };
-    return ships.filter(s => filter === "all" || s.company === filter).filter(s => !q.trim() || s.containers.some(c => c.items.some(it => it.model.toLowerCase().includes(q.toLowerCase()))) || (s.num || "").includes(q)).slice().sort(cmp);
+    const qq = q.trim().toLowerCase();
+    return ships.filter(s => filter === "all" || s.company === filter).filter(s => !qq || (s.num || "").toLowerCase().includes(qq) || s.containers.some(c => (c.number || "").toString().toLowerCase().includes(qq) || c.items.some(it => (it.model || "").toLowerCase().includes(qq)))).slice().sort(cmp);
   }, [ships, filter, q, sortDir]);
   if (form) return /*#__PURE__*/React.createElement(ShipForm, {
     init: form,
@@ -1192,7 +1229,7 @@ function Ships({
       flexWrap: "wrap"
     }
   }, /*#__PURE__*/React.createElement(Inp, {
-    placeholder: "\u0627\u0628\u062D\u062B \u0628\u0627\u0644\u0645\u0648\u062F\u064A\u0644 \u0623\u0648 \u0631\u0642\u0645 \u0627\u0644\u0634\u062D\u0646\u0629\u2026",
+    placeholder: "\u0627\u0628\u062D\u062B \u0628\u0627\u0644\u0645\u0648\u062F\u064A\u0644 \u0623\u0648 \u0631\u0642\u0645 \u0627\u0644\u0634\u062D\u0646\u0629 \u0623\u0648 \u0631\u0642\u0645 \u0627\u0644\u062D\u0627\u0648\u064A\u0629\u2026",
     value: q,
     onChange: e => setQ(e.target.value),
     style: {
@@ -1481,8 +1518,9 @@ function ShipCard({
       color: "var(--text-warning)"
     }
   }, "\u0627\u0644\u0645\u0635\u0627\u0631\u064A\u0641 \u0627\u0644\u0625\u0636\u0627\u0641\u064A\u0629:"), EXTRA_FIELDS.map(([k, lb]) => {
-    const shipLvl = nv(sh.extras?.[k]);
-    const contLvl = sh.containers.reduce((s, c) => s + nv(c.extras?.[k]), 0);
+    const r = effRate(sh);
+    const shipLvl = cvt(sh.extras?.[k], sh.extrasCur?.[k] || sh.currency, sh.currency, r);
+    const contLvl = sh.containers.reduce((s, c) => s + cvt(c.extras?.[k], c.extrasCur?.[k] || sh.currency, sh.currency, r), 0);
     const tot = shipLvl + contLvl;
     return tot > 0 ? /*#__PURE__*/React.createElement("span", {
       key: k
@@ -1531,13 +1569,15 @@ function ShipCard({
 function ExtrasFields({
   value,
   onChange,
-  sym,
+  cur,
+  onCurChange,
+  defCur,
   compact
 }) {
   return /*#__PURE__*/React.createElement("div", {
     style: {
       display: "grid",
-      gridTemplateColumns: compact ? "repeat(auto-fit,minmax(110px,1fr))" : "repeat(auto-fit,minmax(130px,1fr))",
+      gridTemplateColumns: compact ? "repeat(auto-fit,minmax(150px,1fr))" : "repeat(auto-fit,minmax(170px,1fr))",
       gap: 7
     }
   }, EXTRA_FIELDS.map(([k, lb]) => /*#__PURE__*/React.createElement("label", {
@@ -1552,7 +1592,12 @@ function ExtrasFields({
       fontSize: 10,
       color: "var(--text-muted)"
     }
-  }, lb, " (", sym, ")"), /*#__PURE__*/React.createElement(Inp, {
+  }, lb), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 4
+    }
+  }, /*#__PURE__*/React.createElement(Inp, {
     type: "number",
     min: "0",
     step: "0.01",
@@ -1564,9 +1609,28 @@ function ExtrasFields({
     }),
     style: {
       padding: "5px 8px",
-      fontSize: 12
+      fontSize: 12,
+      flex: 1,
+      minWidth: 0
     }
-  }))));
+  }), /*#__PURE__*/React.createElement(Sel, {
+    value: cur && cur[k] || defCur || "USD",
+    onChange: e => onCurChange({
+      ...(cur || {}),
+      [k]: e.target.value
+    }),
+    title: "عملة هذا المصروف",
+    style: {
+      width: 62,
+      padding: "5px 4px",
+      fontSize: 11,
+      flexShrink: 0
+    }
+  }, /*#__PURE__*/React.createElement("option", {
+    value: "USD"
+  }, "$"), /*#__PURE__*/React.createElement("option", {
+    value: "SAR"
+  }, "ر.س"))))));
 }
 
 /* نموذج إضافة/تعديل الشحنة — حاويات ديناميكية + تكاليف اختيارية */
@@ -1576,20 +1640,31 @@ function ShipForm({
   onSave,
   onCancel
 }) {
-  const [f, setF] = useState(() => ({
-    ...init,
-    extras: {
-      ...emptyEx(),
-      ...(init.extras || {})
-    },
-    containers: (init.containers?.length ? init.containers : [newCont(1)]).map(c => ({
-      ...c,
+  const [f, setF] = useState(() => {
+    const cur0 = init.currency === "SAR" ? "SAR" : "USD";
+    return {
+      ...init,
       extras: {
         ...emptyEx(),
-        ...(c.extras || {})
-      }
-    }))
-  }));
+        ...(init.extras || {})
+      },
+      extrasCur: {
+        ...emptyCur(cur0),
+        ...(init.extrasCur || {})
+      },
+      containers: (init.containers?.length ? init.containers : [newCont(1, cur0)]).map(c => ({
+        ...c,
+        extras: {
+          ...emptyEx(),
+          ...(c.extras || {})
+        },
+        extrasCur: {
+          ...emptyCur(cur0),
+          ...(c.extrasCur || {})
+        }
+      }))
+    };
+  });
   const [openEx, setOpenEx] = useState(() => exSum(init.extras) > 0);
   const [openCEx, setOpenCEx] = useState({});
   const [collapsed, setCollapsed] = useState({});
@@ -1648,7 +1723,7 @@ function ShipForm({
   });
   const addCont = () => setF(p => ({
     ...p,
-    containers: [...p.containers, newCont(p.containers.length + 1)]
+    containers: [...p.containers, newCont(p.containers.length + 1, p.currency)]
   }));
   const delCont = ci => {
     if (f.containers.length === 1) {
@@ -1985,7 +2060,11 @@ function ShipForm({
       onChange: ex2 => upC(ci, {
         extras: ex2
       }),
-      sym: sym
+      cur: c.extrasCur,
+      onCurChange: cc => upC(ci, {
+        extrasCur: cc
+      }),
+      defCur: f.currency
     }))));
   }), /*#__PURE__*/React.createElement("button", {
     type: "button",
@@ -2041,7 +2120,12 @@ function ShipForm({
       ...p,
       extras: ex2
     })),
-    sym: sym
+    cur: f.extrasCur,
+    onCurChange: cc => setF(p => ({
+      ...p,
+      extrasCur: cc
+    })),
+    defCur: f.currency
   }), /*#__PURE__*/React.createElement("div", {
     style: {
       fontSize: 10,
@@ -2049,7 +2133,7 @@ function ShipForm({
       marginTop: 7,
       lineHeight: 1.7
     }
-  }, "\u062A\u064F\u062A\u0631\u0643 \u0641\u0627\u0631\u063A\u0629 \u0623\u0648 \u0635\u0641\u0631\u064B\u0627 \u0625\u0646 \u0644\u0645 \u062A\u062A\u0648\u0641\u0631 \u2014 \u0639\u0646\u062F\u0647\u0627 \u064A\u0639\u062A\u0645\u062F \u0627\u0644\u0646\u0638\u0627\u0645 \u0639\u0644\u0649 \u0633\u0639\u0631 \u0627\u0644\u0634\u0631\u0627\u0621 (FOB) \u0641\u0642\u0637. \u0627\u0644\u0645\u0628\u0627\u0644\u063A \u0628\u0639\u0645\u0644\u0629 \u0627\u0644\u0634\u062D\u0646\u0629 (", sym, ")."), ex > 0 && /*#__PURE__*/React.createElement("div", {
+  }, "\u064A\u0645\u0643\u0646 \u0627\u062E\u062A\u064A\u0627\u0631 \u0639\u0645\u0644\u0629 \u0643\u0644 \u0645\u0635\u0631\u0648\u0641 (\u062F\u0648\u0644\u0627\u0631 \u0623\u0648 \u0631\u064A\u0627\u0644) \u0648\u064A\u062A\u0645 \u062A\u062D\u0648\u064A\u0644\u0647\u0627 \u062A\u0644\u0642\u0627\u0626\u064A\u064B\u0627 \u062D\u0633\u0628 \u0633\u0639\u0631 \u0627\u0644\u0635\u0631\u0641. \u062A\u064F\u062A\u0631\u0643 \u0641\u0627\u0631\u063A\u0629 \u0625\u0646 \u0644\u0645 \u062A\u062A\u0648\u0641\u0631."), ex > 0 && /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
       alignItems: "center",
