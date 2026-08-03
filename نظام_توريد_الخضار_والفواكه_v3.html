@@ -269,6 +269,10 @@ tr.sub-row td{background:#f7faf6;font-weight:700;font-size:12.5px;color:var(--in
     </div>
   </div>
   <div class="head-actions">
+    <div id="deptBox" style="display:flex;align-items:center;gap:6px;background:#22332c;padding:4px 10px;border-radius:22px">
+      <span style="font-size:12px;color:#9db3a7">القسم</span>
+      <select id="deptSwitch" onchange="switchDept(this.value)" style="background:#152420;color:#fff;border:1px solid #3f5449;border-radius:8px;padding:4px 8px;font-size:13px;font-weight:700"></select>
+    </div>
     <span id="cloudStatus" class="cloud-status off" title="حالة المزامنة السحابية">غير مفعّل</span>
     <div class="userbox"><div class="avatar" id="uAvatar">م</div>
       <div><div class="un" id="uName">—</div><div class="ur" id="uRole">—</div></div></div>
@@ -656,12 +660,12 @@ tr.sub-row td{background:#f7faf6;font-weight:700;font-size:12.5px;color:var(--in
       <span class="editing-note" id="pay_editing"></span></div>
   </div>
   <div class="split">
-    <div><div class="sec-title">أرصدة الموردين (مستحق عليك)</div>
+    <div id="accSupBlock"><div class="sec-title">أرصدة الموردين (مستحق عليك)</div>
       <div class="table-scroll"><table>
         <thead><tr><th class="name">المورد</th><th>المشتريات</th><th>المرتجعات</th><th>صافي المستحق</th>
           <th>افتتاحي</th><th>المسدد</th><th>الرصيد</th><th>كشف</th></tr></thead>
         <tbody id="tbSuppliers"></tbody></table></div></div>
-    <div><div class="sec-title alt">أرصدة العملاء (مستحق لك)</div>
+    <div id="accClBlock"><div class="sec-title alt">أرصدة العملاء (مستحق لك)</div>
       <div class="table-scroll"><table>
         <thead><tr><th class="name">العميل</th><th>المبيعات</th><th>المرتجعات</th><th>صافي المستحق</th>
           <th>افتتاحي</th><th>المحصّل</th><th>الرصيد</th><th>كشف</th></tr></thead>
@@ -671,8 +675,8 @@ tr.sub-row td{background:#f7faf6;font-weight:700;font-size:12.5px;color:var(--in
   <div class="table-scroll" id="ledgerBox" style="display:none"><table>
     <thead><tr><th>التاريخ</th><th class="name">البيان</th><th>مدين</th><th>دائن</th><th>الرصيد</th><th class="no-print">إجراء</th></tr></thead>
     <tbody id="tbLedger"></tbody></table></div>
-  <div class="sec-title">سجل السداد والتحصيل</div>
-  <div class="table-scroll"><table>
+  <div class="sec-title" id="accPayTitle">سجل السداد والتحصيل</div>
+  <div class="table-scroll" id="accPayBox"><table>
     <thead><tr><th>التاريخ</th><th>النوع</th><th class="name">الجهة</th><th>المبلغ</th><th>الطريقة</th>
       <th class="name">ملاحظة</th><th class="name">أدخلها</th><th>إجراء</th></tr></thead>
     <tbody id="tbPayments"></tbody></table></div>
@@ -900,6 +904,8 @@ tr.sub-row td{background:#f7faf6;font-weight:700;font-size:12.5px;color:var(--in
         <option value="custom">مخصص</option></select></div>
       <div class="field"><label>الحالة</label><select id="u_active"><option value="1">نشط</option><option value="0">موقوف</option></select></div>
     </div>
+    <div class="sec-title" style="margin-top:16px">الأقسام المتاحة للمستخدم <span class="hint">حدّد الأقسام التي يعمل عليها — يمكن منح موظف قسماً واحداً أو الاثنين</span></div>
+    <div class="perm-grid" id="deptGrid"></div>
     <div class="sec-title" style="margin-top:16px">الصلاحيات</div>
     <div class="perm-grid" id="permGrid"></div>
     <div class="form-foot"><button class="btn-main" onclick="saveUser()">حفظ المستخدم</button>
@@ -1009,7 +1015,7 @@ function lsSet(k,v){
   if(k===KEY) memStore=v;                 /* نسخة في الذاكرة دائماً كشبكة أمان */
   try{ localStorage.setItem(k,v); }catch(e){ storageOK=false; }
 }
-function persist(){ var s=JSON.stringify(db); lsSet(KEY,s); if(typeof cloudPush==='function') cloudPush(s); }
+function persist(){ var s=JSON.stringify(serializeDB()); lsSet(KEY,s); if(typeof cloudPush==='function') cloudPush(s); }
 
 /* ---------- قاعدة البيانات ---------- */
 function hash(s){ var h=5381; s=String(s)+'::mfarag'; for(var i=0;i<s.length;i++) h=((h<<5)+h+s.charCodeAt(i))>>>0; return 'h'+h.toString(36); }
@@ -1020,8 +1026,9 @@ function uid(){ var t=Date.now()*1000; if(t<=_uidSeq) t=_uidSeq+1; _uidSeq=t; re
 var ROLES={admin:'مدير النظام',manager:'مدير عام',accountant:'محاسب',entry:'مدخل بيانات',viewer:'مطّلع',custom:'مخصص'};
 var PERM_KEYS=[
  ['purchases','المشتريات'],['sales','المبيعات'],['returns','المرتجعات'],['stock','المخزون'],
- ['expenses','المصروفات'],['accounts','الحسابات والسداد'],['reports','التقارير'],['income','قائمة الدخل'],
+ ['expenses','المصروفات'],['accounts','الحسابات والسداد (كامل)'],['reports','التقارير'],['income','قائمة الدخل'],
  ['master','البيانات الأساسية'],['users','المستخدمون'],['settings','الإعدادات'],
+ ['accSuppliers','اطّلاع: أرصدة الموردين فقط'],['accClients','اطّلاع: أرصدة العملاء فقط'],
  ['canAdd','إضافة سجلات'],['canEdit','تعديل السجلات'],['canDelete','حذف السجلات'],['canExport','التصدير والطباعة']
 ];
 function preset(role){
@@ -1093,33 +1100,61 @@ if(!db&&window.__PRESET_DB__){ db=window.__PRESET_DB__; USING_PRESET=true; }
 if(!db||!db.settings) db=demoDB();
 /* تطبيع بنية قاعدة البيانات — يُستدعى عند الإقلاع وعند وصول بيانات جديدة من السحابة،
    لضمان وجود كل المصفوفات والحقول المطلوبة مهما كان مصدر البيانات أو قِدَمها */
+/* ===== الأقسام: دفاتر حسابات منفصلة (الفاكهة/الخضار) داخل نفس النظام ===== */
+var DEPT_BOOKS=['suppliers','clients','warehouses','items','purchases','sales','preturns','sreturns','transfers','waste','expenses','payments','openingStock'];
+var DEFAULT_DEPTS=[['fruits','الفاكهة'],['veg','الخضار']];
+var curDept=null;   /* القسم النشط لهذا الجهاز (مستقل عن بقية الأجهزة) */
+function deptName(key){ return (db.departments&&db.departments[key]&&db.departments[key].name)||key; }
+function desiredDept(){
+  if(curDept&&db.departments&&db.departments[curDept]) return curDept;
+  if(db.activeDept&&db.departments&&db.departments[db.activeDept]) return db.activeDept;
+  return (db.departments&&Object.keys(db.departments)[0])||'fruits';
+}
+/* يجعل مصفوفات العمل (db.suppliers ...) تشير إلى دفاتر القسم النشط */
+function loadDept(key){
+  if(!db.departments) db.departments={};
+  if(!db.departments[key]) key=Object.keys(db.departments)[0]||'fruits';
+  if(!db.departments[key]){ db.departments[key]={name:key}; DEPT_BOOKS.forEach(function(k){db.departments[key][k]=[];}); }
+  db.activeDept=key;
+  DEPT_BOOKS.forEach(function(k){ db[k]=db.departments[key][k]; });
+}
+/* الشكل المحفوظ: بيانات مشتركة + أقسام (دون تكرار مصفوفات العمل) */
+function serializeDB(){
+  return {meta:db.meta,settings:db.settings,users:db.users,audit:db.audit,units:db.units,
+    activeDept:db.activeDept,departments:db.departments};
+}
 function ensureDbShape(){
-  ['users','suppliers','clients','warehouses','items','units','purchases','sales','preturns','sreturns','transfers','waste','expenses','payments','audit','openingStock']
-    .forEach(function(k){ if(!Array.isArray(db[k])) db[k]=[]; });
+  ['users','audit','units'].forEach(function(k){ if(!Array.isArray(db[k])) db[k]=[]; });   /* مشترك */
   if(!db.settings) db.settings=emptyDB().settings;
   if(db.settings.vatRate===undefined||db.settings.vatRate===null||db.settings.vatRate==='') db.settings.vatRate=15;
   if(!db.meta) db.meta={author:AUTHOR,version:APP_VERSION};
   db.meta.author=AUTHOR;
   if(!db.users.length) db.users=emptyDB().users;
-  /* ترحيل الوحدات من وزن مفرد إلى قائمة أوزان متعددة */
-  db.units.forEach(function(u){
-    if(!Array.isArray(u.weights)) u.weights=(u.weight!=null&&u.weight!=='')?[+u.weight]:[];
-    delete u.weight;
+  /* ترحيل: إن لم توجد أقسام، تُنقل الدفاتر الحالية إلى «الفاكهة»، ويُنشأ «الخضار» فارغاً */
+  if(!db.departments||typeof db.departments!=='object'||!Object.keys(db.departments).length){
+    db.departments={fruits:{name:'الفاكهة'},veg:{name:'الخضار'}};
+    DEPT_BOOKS.forEach(function(k){ db.departments.fruits[k]=Array.isArray(db[k])?db[k]:[]; db.departments.veg[k]=[]; });
+  }
+  DEFAULT_DEPTS.forEach(function(p){ if(!db.departments[p[0]]) db.departments[p[0]]={name:p[1]}; });
+  Object.keys(db.departments).forEach(function(dn){
+    var d=db.departments[dn]; if(!d.name) d.name=dn;
+    DEPT_BOOKS.forEach(function(k){ if(!Array.isArray(d[k])) d[k]=[]; });
+    if(!d.warehouses.length) d.warehouses.push({id:uid(),name:'المستودع الرئيسي',clientId:null});
+    d.suppliers.forEach(function(s){ if(s.opening===undefined) s.opening=0; if(s.openingDate===undefined) s.openingDate=''; });
+    d.clients.forEach(function(c){ if(c.opening===undefined) c.opening=0; if(c.openingDate===undefined) c.openingDate=''; });
+    d.items.forEach(function(i){ if(i.active===undefined) i.active=1; });
   });
+  loadDept(desiredDept());   /* يحترم اختيار هذا الجهاز إن وُجد */
+  /* الوحدات مشتركة: ترحيل الأوزان + اشتقاقها من أصناف كل الأقسام */
+  db.units.forEach(function(u){ if(!Array.isArray(u.weights)) u.weights=(u.weight!=null&&u.weight!=='')?[+u.weight]:[]; delete u.weight; });
   var names={}; db.units.forEach(function(u){ names[u.name]=1; });
-  db.items.forEach(function(i){
-    if(i.active===undefined) i.active=1;
+  Object.keys(db.departments).forEach(function(dn){ db.departments[dn].items.forEach(function(i){
     if(!i.unit) return;
     if(!names[i.unit]){ names[i.unit]=1; db.units.push({id:uid(),name:i.unit,weights:i.uw?[+i.uw]:[]}); }
-    else if(i.uw){ var u2=db.units.filter(function(x){return x.name===i.unit;})[0];
-      if(u2&&u2.weights.indexOf(+i.uw)<0) u2.weights.push(+i.uw); }
-  });
+    else if(i.uw){ var u2=db.units.filter(function(x){return x.name===i.unit;})[0]; if(u2&&u2.weights.indexOf(+i.uw)<0) u2.weights.push(+i.uw); }
+  }); });
   db.units.forEach(function(u){ u.weights=u.weights.filter(function(v,i,a){return v>0&&a.indexOf(v)===i;}).sort(function(a,b){return a-b;}); });
-  if(!db.units.length){
-    ['صندوق','شوال','كرتون','كيس','طبق','كيلو'].forEach(function(n){ db.units.push({id:uid(),name:n,weights:[]}); });
-  }
-  db.suppliers.forEach(function(s){ if(s.opening===undefined) s.opening=0; if(s.openingDate===undefined) s.openingDate=''; });
-  db.clients.forEach(function(c){ if(c.opening===undefined) c.opening=0; if(c.openingDate===undefined) c.openingDate=''; });
+  if(!db.units.length){ ['صندوق','شوال','كرتون','كيس','طبق','كيلو'].forEach(function(n){ db.units.push({id:uid(),name:n,weights:[]}); }); }
 }
 ensureDbShape();
 if(USING_PRESET) persist(); /* أول تشغيل لنسخة مستخدم مُصدَّرة: نحفظها فوراً في تخزين هذا الجهاز لتصبح نسخته المستقلة */
@@ -1189,7 +1224,9 @@ function can(k){ return !!(ME&&ME.perms&&ME.perms[k]); }
 function guard(k,msg){ if(can(k)) return true; toast(msg||'لا تملك صلاحية لهذا الإجراء'); return false; }
 function applyPerms(){
   document.querySelectorAll('.tab-btn').forEach(function(b){
-    b.classList.toggle('hidden',!can(b.dataset.perm));
+    var vis=can(b.dataset.perm);
+    if(b.dataset.tab==='accounts') vis=can('accounts')||can('accSuppliers')||can('accClients');  /* أرصدة العملاء/الموردين فقط */
+    b.classList.toggle('hidden',!vis);
   });
   var vis=Array.prototype.filter.call(document.querySelectorAll('.tab-btn'),function(b){return !b.classList.contains('hidden');});
   var act=document.querySelector('.tab-btn.active');
@@ -1239,7 +1276,39 @@ function startApp(){
   document.getElementById('uName').textContent=ME.name;
   document.getElementById('uRole').textContent=ROLES[ME.role]||'مخصص';
   document.getElementById('uAvatar').textContent=(ME.name||'؟').trim().charAt(0);
+  updateDeptUI();
   applyPerms(); setDefaults(); renderAll(); renderMaster(); renderUsers(); renderSettingsForm(); applyLogo();
+}
+/* ---------- الأقسام: التبديل والصلاحيات ---------- */
+function userDepts(){ /* الأقسام المسموح بها للمستخدم الحالي */
+  var all=Object.keys(db.departments||{fruits:1});
+  if(!ME) return all;
+  if(ME.role==='admin') return all;
+  if(!Array.isArray(ME.depts)) return all;   /* غير محدّد = كل الأقسام (توافق) */
+  var d=ME.depts.filter(function(k){ return all.indexOf(k)>-1; });
+  return d.length?d:all;
+}
+function userCanDept(key){ return userDepts().indexOf(key)>-1; }
+function updateDeptUI(){
+  var sel=document.getElementById('deptSwitch'), box=document.getElementById('deptBox'); if(!sel) return;
+  var allowed=userDepts();
+  if(!curDept||allowed.indexOf(curDept)<0){ curDept=allowed[0]||'fruits'; loadDept(curDept); }   /* أول قسم مسموح لهذا المستخدم */
+  sel.innerHTML=allowed.map(function(k){ return '<option value="'+k+'">'+esc(deptName(k))+'</option>'; }).join('');
+  sel.value=curDept;
+  if(box) box.style.display=allowed.length>1?'flex':'none';   /* إخفاء المبدّل إن كان قسماً واحداً */
+  var st=document.querySelector('header .sub');
+  if(st) st.textContent='قسم: '+deptName(db.activeDept)+' · دفتر حسابات مستقل · إعداد أ/ محمد فرج';
+}
+function switchDept(key){
+  if(!userCanDept(key)){ toast('لا تملك صلاحية الدخول لهذا القسم'); updateDeptUI(); return; }
+  if(key===curDept) return;
+  /* إنهاء أي فاتورة قيد الإدخال قبل التبديل */
+  draft={p:{lines:[],editId:null},s:{lines:[],editId:null}};
+  curDept=key; loadDept(key); persist();
+  ledgerView={type:null,id:null};
+  refreshLedger(); setDefaults(); renderAll(); renderMaster(); renderUsers(); renderSettingsForm();
+  updateDeptUI();
+  toast('تم التبديل إلى قسم '+deptName(key));
 }
 
 /* ---------- التبويبات ---------- */
@@ -2244,6 +2313,11 @@ function partyTotals(){
   return {sup:sup,cl:cl};
 }
 function renderAccounts(){
+  /* صلاحيات العرض: كامل، أو أرصدة موردين فقط، أو عملاء فقط */
+  var full=can('accounts'), seeSup=full||can('accSuppliers'), seeCl=full||can('accClients');
+  var tg=function(id,show){ var e=document.getElementById(id); if(e) e.style.display=show?'':'none'; };
+  tg('paymentFormBox', full&&can('canAdd')); tg('accSupBlock',seeSup); tg('accClBlock',seeCl);
+  tg('accPayTitle',full); tg('accPayBox',full);
   var t=partyTotals(),h='',A=0,B=0,C=0,D=0,OA=0;
   var q=(val('accSearch')||'').trim();
   db.suppliers.forEach(function(s){
@@ -2453,30 +2527,43 @@ function collectPerms(){
   document.querySelectorAll('#permGrid input[data-perm]').forEach(function(i){ p[i.dataset.perm]=i.checked; });
   return p;
 }
+/* شبكة الأقسام المتاحة للمستخدم */
+function renderDeptGrid(depts){
+  var all=Object.keys(db.departments||{fruits:1});
+  var sel=Array.isArray(depts)?depts:all;   /* غير محدّد = الكل */
+  document.getElementById('deptGrid').innerHTML=all.map(function(k){
+    return '<label class="perm"><input type="checkbox" data-dept="'+k+'" '+(sel.indexOf(k)>-1?'checked':'')+'> '+esc(deptName(k))+'</label>';
+  }).join('');
+}
+function collectDepts(){
+  var d=[]; document.querySelectorAll('#deptGrid input[data-dept]').forEach(function(i){ if(i.checked) d.push(i.dataset.dept); });
+  return d;
+}
 function saveUser(){
   if(!guard('users','إدارة المستخدمين تتطلب صلاحية خاصة')) return;
   var n=val('u_name').trim(), u=val('u_user').trim(), p=val('u_pass');
   if(!n||!u){ toast('أدخل الاسم واسم المستخدم'); return; }
   if(db.users.filter(function(x){return x.username.toLowerCase()===u.toLowerCase()&&x.id!==editId.u;}).length){
     toast('اسم المستخدم مستخدم بالفعل'); return; }
-  var perms=collectPerms();
+  var perms=collectPerms(), depts=collectDepts();
+  if(!depts.length) depts=Object.keys(db.departments||{fruits:1});   /* لا اختيار = كل الأقسام */
   if(editId.u){
     var ex=byId(db.users,editId.u);
     if(ex.role==='admin'&&(val('u_role')!=='admin'||val('u_active')==='0')){
       var admins=db.users.filter(function(x){return x.role==='admin'&&Number(x.active);}).length;
       if(admins<=1){ toast('لا يمكن تعطيل آخر مدير نظام'); return; }
     }
-    ex.name=n; ex.username=u; ex.role=val('u_role'); ex.active=Number(val('u_active')); ex.perms=perms;
+    ex.name=n; ex.username=u; ex.role=val('u_role'); ex.active=Number(val('u_active')); ex.perms=perms; ex.depts=depts;
     if(p) ex.pass=hash(p);
     if(ME.id===ex.id) ME=ex;
     log('edit','المستخدمون','تعديل المستخدم '+n+' — الدور: '+(ROLES[ex.role]||'مخصص')+(p?' مع تغيير كلمة المرور':''));
   } else {
     if(!p){ toast('أدخل كلمة مرور للمستخدم الجديد'); return; }
-    db.users.push({id:uid(),name:n,username:u,pass:hash(p),role:val('u_role'),active:Number(val('u_active')),perms:perms,lastLogin:''});
+    db.users.push({id:uid(),name:n,username:u,pass:hash(p),role:val('u_role'),active:Number(val('u_active')),perms:perms,depts:depts,lastLogin:''});
     log('add','المستخدمون','إضافة مستخدم: '+n+' ('+u+') — الدور: '+(ROLES[val('u_role')]||'مخصص'));
   }
   var savedU=editId.u?byId(db.users,editId.u):db.users[db.users.length-1];
-  cancelDoc('u'); setVal('u_role','entry'); applyRolePreset(); persist(); renderUsers(); applyPerms();
+  cancelDoc('u'); setVal('u_role','entry'); applyRolePreset(); renderDeptGrid(null); persist(); renderUsers(); applyPerms();
   if(cloudAccounts()&&savedU&&savedU.fbUid){ cloudWriteMember(savedU.fbUid,savedU).catch(function(){}); }  /* مزامنة الدور/الحالة في العضوية */
   if(cloudAccounts()&&p&&savedU){
     if(p.length<6){ toast('تم حفظ المستخدم — لكن كلمة المرور أقل من ٦ خانات فلم تُحدَّث سحابياً. اجعلها ٦ خانات على الأقل.'); return; }
@@ -2496,7 +2583,7 @@ function editUser(id){
   if(!guard('users')) return;
   var u=byId(db.users,id); if(!u) return;
   editId.u=id; setVal('u_name',u.name); setVal('u_user',u.username); setVal('u_pass','');
-  setVal('u_role',u.role); setVal('u_active',String(u.active?1:0)); renderPermGrid(u.perms);
+  setVal('u_role',u.role); setVal('u_active',String(u.active?1:0)); renderPermGrid(u.perms); renderDeptGrid(u.depts);
   document.getElementById('u_editing').textContent='وضع التعديل — اترك كلمة المرور فارغة للإبقاء عليها';
   showTab('users');
 }
@@ -2523,6 +2610,7 @@ function renderUsers(){
       +(can('canExport')?'<button class="btn-sm" onclick="exportUserPackage('+u.id+')" title="تنزيل نسخة مستقلة من النظام مسجّلة الدخول تلقائياً أو بمعرّف هذا المستخدم">تصدير نسخة له</button>':'')+'</td></tr>';
   }).join('');
   if(!document.getElementById('permGrid').innerHTML) applyRolePreset();
+  if(!document.getElementById('deptGrid').innerHTML) renderDeptGrid(null);
   if(cloudAccounts()&&can('users')) renderJoinRequests();
 }
 function renderAudit(){
@@ -3221,7 +3309,7 @@ function exportUserPackage(userId){
     'اضغط "إلغاء" لتصدير نسخة تُظهر اسم المستخدم معبّأً وتطلب من الموظف كتابة كلمة المرور بنفسه (أكثر أماناً).'
   );
   var snapshot;
-  try{ snapshot=JSON.stringify(db).replace(/<\//g,'<\\/'); }catch(e){ toast('تعذّر تجهيز نسخة البيانات'); return; }
+  try{ snapshot=JSON.stringify(serializeDB()).replace(/<\//g,'<\\/'); }catch(e){ toast('تعذّر تجهيز نسخة البيانات'); return; }
   var presetLines='<script>window.__PRESET_DB__='+snapshot+';'
     +'window.__PRESET_LOGIN__='+JSON.stringify(u.username)+';'
     +(autoLogin?'window.__PRESET_AUTOLOGIN__='+JSON.stringify({username:u.username,pass:u.pass})+';':'')
@@ -3243,7 +3331,7 @@ function exportUserPackage(userId){
    ========================================================================== */
 function exportBackup(){
   db.meta={author:AUTHOR,version:APP_VERSION,exported:nowTs(),by:ME?ME.name:'',note:'إعداد '+AUTHOR+' — جميع الحقوق محفوظة'};
-  var blob=new Blob([JSON.stringify(db,null,2)],{type:'application/json'});
+  var blob=new Blob([JSON.stringify(serializeDB(),null,2)],{type:'application/json'});
   var a=document.createElement('a'); a.href=URL.createObjectURL(blob);
   a.download='نسخة_احتياطية_'+today()+'.json'; document.body.appendChild(a); a.click(); a.remove();
   setTimeout(function(){URL.revokeObjectURL(a.href);},1000);
@@ -3257,9 +3345,7 @@ function importBackup(ev){
     try{
       var d=JSON.parse(e.target.result);
       if(!d.settings||!Array.isArray(d.users)) throw 0;
-      db=d;
-      ['users','suppliers','clients','warehouses','items','units','purchases','sales','preturns','sreturns','transfers','waste','expenses','payments','audit','openingStock']
-        .forEach(function(k){ if(!Array.isArray(db[k])) db[k]=[]; });
+      db=d; ensureDbShape();   /* يعالج البنية القديمة والأقسام تلقائياً */
       db.meta=db.meta||{}; db.meta.author=AUTHOR;
       var me=byId(db.users,ME?ME.id:0);
       ME=me||db.users.filter(function(u){return u.role==='admin';})[0]||db.users[0];
@@ -3321,16 +3407,16 @@ function wipeData(){
   if(!confirm('سيتم مسح جميع السجلات نهائياً مع الإبقاء على المستخدمين. تأكد من تنزيل نسخة احتياطية أولاً. المتابعة؟')) return;
   if(!confirm('تأكيد أخير: لا يمكن التراجع عن هذه العملية.')) return;
   var users=db.users, settings=db.settings;
-  db=emptyDB(); db.users=users; db.settings=settings; ensureDbShape();
+  db=emptyDB(); db.users=users; db.settings=settings; curDept=null; ensureDbShape();
   log('delete','الإعدادات','مسح جميع بيانات الحركات');
-  persist(); renderAll(); renderMaster(); toast('تم مسح البيانات');
+  persist(); updateDeptUI(); renderAll(); renderMaster(); toast('تم مسح البيانات');
 }
 function loadDemo(){
   if(!guard('settings')) return;
   if(!confirm('سيستبدل هذا بياناتك الحالية ببيانات تجريبية. المتابعة؟')) return;
-  var users=db.users; db=demoDB(); db.users=users; ensureDbShape();
+  var users=db.users; db=demoDB(); db.users=users; curDept='fruits'; ensureDbShape();
   log('data','الإعدادات','تحميل البيانات التجريبية');
-  persist(); renderAll(); renderMaster(); toast('تم تحميل البيانات التجريبية');
+  persist(); updateDeptUI(); renderAll(); renderMaster(); toast('تم تحميل البيانات التجريبية');
 }
 
 
@@ -3538,7 +3624,7 @@ function emailForUser(u){ return (u&&u.email)?u.email:synthEmail(u?u.username:''
 /* دفع نسخة كاملة من قاعدة البيانات إلى السحابة (مؤجَّل لتجميع الحفظات المتتابعة) */
 function cloudPush(s){
   if(!cloudReady||!cloudRef) return;
-  s=s||JSON.stringify(db);
+  s=s||JSON.stringify(serializeDB());
   clearTimeout(cloudPushTimer);
   cloudPushTimer=setTimeout(function(){
     var data; try{ data=JSON.parse(s); }catch(e){ return; }
@@ -3552,11 +3638,11 @@ function cloudPush(s){
 function cloudApplyRemote(remote){
   if(!remote||typeof remote!=='object'||!Array.isArray(remote.users)) return;
   db=remote; ensureDbShape();
-  var s=JSON.stringify(db); lsSet(KEY,s); cloudLastPushed=s;
+  var s=JSON.stringify(serializeDB()); lsSet(KEY,s); cloudLastPushed=s;
   refreshLedger();
   if(ME){
     var me=byId(db.users,ME.id); if(me){ ME=me; }
-    applyPerms(); renderAll(); renderMaster(); renderUsers(); renderSettingsForm(); applyLogo();
+    updateDeptUI(); applyPerms(); renderAll(); renderMaster(); renderUsers(); renderSettingsForm(); applyLogo();
   }
 }
 /* الاشتراك في عقدة البيانات وتبنّي ما فيها أو رفع المحلي إن كانت فارغة */
@@ -3566,12 +3652,12 @@ function cloudAttach(cb){
   cloudRef.once('value').then(function(snap){
     var v=snap.val();
     if(v&&v.data&&Array.isArray(v.data.users)){ cloudApplyRemote(v.data); cloudReady=true; }
-    else { cloudReady=true; cloudPush(JSON.stringify(db)); }
+    else { cloudReady=true; cloudPush(JSON.stringify(serializeDB())); }
     setCloudStatus('ok');
     cloudRef.on('value',function(s2){
       var val=s2.val(); if(!val||!val.data||!Array.isArray(val.data.users)) return;
       var rs=JSON.stringify(val.data);
-      if(rs===cloudLastPushed||rs===JSON.stringify(db)) return; /* تجاهل صدى كتابتنا نحن */
+      if(rs===cloudLastPushed||rs===JSON.stringify(serializeDB())) return; /* تجاهل صدى كتابتنا نحن */
       cloudApplyRemote(val.data);
     });
     if(cb) cb();
