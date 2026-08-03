@@ -955,9 +955,11 @@ tr.sub-row td{background:#f7faf6;font-weight:700;font-size:12.5px;color:var(--in
     <button class="btn-alt" onclick="exportBackup()">تنزيل نسخة احتياطية شاملة (JSON)</button>
     <button class="btn" onclick="document.getElementById('importFile').click()">استعادة من نسخة</button>
     <button class="btn" onclick="exportAllExcel()">تصدير كل الجداول (Excel)</button>
+    <button class="btn" onclick="repairDuplicates()">فحص وإصلاح التكرار</button>
     <button class="btn" onclick="loadDemo()">تحميل بيانات تجريبية</button>
     <button class="btn btn-del" onclick="wipeData()">مسح جميع البيانات</button>
   </div>
+  <div class="note" style="border-right-color:var(--citrus)">زر <b>«فحص وإصلاح التكرار»</b> يدمج الموردين/العملاء/الأصناف المكرّرة بنفس الاسم (يجمع حركاتهم في حساب واحد) ويصلح أي معرّفات متكرّرة. نزّل نسخة احتياطية قبله للاحتياط.</div>
   <div class="note" id="storageNote" style="margin-top:14px"></div>
 
   <div class="sec-title">مشاركة النظام مع الموظفين</div>
@@ -1011,7 +1013,9 @@ function persist(){ var s=JSON.stringify(db); lsSet(KEY,s); if(typeof cloudPush=
 
 /* ---------- قاعدة البيانات ---------- */
 function hash(s){ var h=5381; s=String(s)+'::mfarag'; for(var i=0;i<s.length;i++) h=((h<<5)+h+s.charCodeAt(i))>>>0; return 'h'+h.toString(36); }
-function uid(){ return Date.now()*1000+Math.floor(Math.random()*1000); }
+/* معرّف فريد مضمون التزايد — يمنع التكرار حتى عند إنشاء عشرات السجلات في نفس اللحظة (الاستيراد) */
+var _uidSeq=0;
+function uid(){ var t=Date.now()*1000; if(t<=_uidSeq) t=_uidSeq+1; _uidSeq=t; return t; }
 
 var ROLES={admin:'مدير النظام',manager:'مدير عام',accountant:'محاسب',entry:'مدخل بيانات',viewer:'مطّلع',custom:'مخصص'};
 var PERM_KEYS=[
@@ -1802,7 +1806,7 @@ function saveClient(){
     c.opening=opening; c.openingDate=openDate;
     log('edit','البيانات الأساسية','تعديل بيانات العميل '+n+(opening?' — رصيد افتتاحي '+num(opening):'')); }
   else { var id=uid(); db.clients.push({id:id,name:n,phone:val('cl_phone').trim(),note:val('cl_note').trim(),opening:opening,openingDate:openDate});
-    db.warehouses.push({id:uid()+1,name:'مستودع '+n,clientId:id});
+    db.warehouses.push({id:uid(),name:'مستودع '+n,clientId:id});
     log('add','البيانات الأساسية','إضافة عميل جديد: '+n+' مع مستودع خاص'+(opening?' — رصيد افتتاحي '+num(opening):'')); }
   cancelDoc('cl'); commit('تم حفظ العميل'); renderMaster();
 }
@@ -3073,7 +3077,7 @@ function importRow(k,v){
       openingDate:(v.openingDate||'').trim(),note:(v.note||'').trim()};
     if(ex2){ ex2.phone=rec.phone; ex2.opening=rec.opening; ex2.openingDate=rec.openingDate; ex2.note=rec.note; return 'update'; }
     var nid=uid(); rec.id=nid; arr.push(rec);
-    if(k==='clients') db.warehouses.push({id:uid()+1,name:'مستودع '+name,clientId:nid});
+    if(k==='clients') db.warehouses.push({id:uid(),name:'مستودع '+name,clientId:nid});
     return 'add';
   }
   if(k==='openingStock'){
@@ -3153,7 +3157,7 @@ function findOrCreateClient(name){
   var n=String(name||'').trim(); if(!n) throw new Error('اسم الفرع/العميل مطلوب');
   var f=db.clients.filter(function(x){return x.name===n;})[0]; if(f) return f.id;
   var id=uid(); db.clients.push({id:id,name:n,phone:'',note:'',opening:0,openingDate:''});
-  db.warehouses.push({id:uid()+1,name:'مستودع '+n,clientId:id});
+  db.warehouses.push({id:uid(),name:'مستودع '+n,clientId:id});
   return id;
 }
 /* المستودع الافتراضي (عام) لسحب/إدخال البضاعة عند غياب عمود المستودع */
@@ -3264,6 +3268,53 @@ function importBackup(ev){
     }catch(err){ toast('الملف غير صالح — اختر ملف نسخة احتياطية بصيغة JSON'); }
   };
   rd.readAsText(f); ev.target.value='';
+}
+/* إصلاح البيانات المتكرّرة: دمج الموردين/العملاء/الأصناف بنفس الاسم (مع إعادة توجيه كل حركاتهم)،
+   ثم إصلاح أي معرّفات متكرّرة لضمان استقلال كل حساب */
+function repairDuplicates(){
+  if(!guard('settings')) return;
+  if(!confirm('سيتم دمج الموردين/العملاء/الأصناف المكرّرة (نفس الاسم) في حساب واحد، وإصلاح المعرّفات المتكرّرة.\nيُنصح بتنزيل نسخة احتياطية أولاً.\nالمتابعة؟')) return;
+  var rep={sup:0,cl:0,it:0,ids:0};
+  function repointSupplier(dup,keep){
+    db.purchases.forEach(function(p){ if(p.supplierId===dup) p.supplierId=keep; });
+    db.preturns.forEach(function(r){ if(r.supplierId===dup) r.supplierId=keep; });
+    db.payments.forEach(function(p){ if(p.type==='supplier'&&p.partyId===dup) p.partyId=keep; });
+  }
+  function repointClient(dup,keep){
+    db.sales.forEach(function(s){ if(s.clientId===dup) s.clientId=keep; });
+    db.sreturns.forEach(function(r){ if(r.clientId===dup) r.clientId=keep; });
+    db.payments.forEach(function(p){ if(p.type==='client'&&p.partyId===dup) p.partyId=keep; });
+    db.expenses.forEach(function(e){ if(e.clientId===dup) e.clientId=keep;
+      if(e.splits&&e.splits[dup]!=null){ e.splits[keep]=(+e.splits[keep]||0)+(+e.splits[dup]||0); delete e.splits[dup]; } });
+    db.warehouses.forEach(function(w){ if(w.clientId===dup) w.clientId=keep; });
+  }
+  function repointItem(dup,keep){
+    [db.purchases,db.sales].forEach(function(arr){ arr.forEach(function(d){ (d.lines||[]).forEach(function(l){ if(l.itemId===dup) l.itemId=keep; }); }); });
+    [db.preturns,db.sreturns,db.waste,db.transfers,db.openingStock].forEach(function(arr){ arr.forEach(function(r){ if(r.itemId===dup) r.itemId=keep; }); });
+  }
+  function mergeByName(arr,repoint,mergeExtra){
+    var seen={},removed=0;
+    for(var i=0;i<arr.length;i++){
+      var key=String(arr[i].name||'').trim();
+      if(!key) continue;
+      if(seen[key]!=null){
+        if(mergeExtra){ var keepObj=arr.filter(function(x){return x.id===seen[key];})[0]; if(keepObj) mergeExtra(keepObj,arr[i]); }
+        repoint(arr[i].id,seen[key]); arr.splice(i,1); i--; removed++;
+      } else seen[key]=arr[i].id;
+    }
+    return removed;
+  }
+  rep.sup=mergeByName(db.suppliers,repointSupplier,function(keep,dup){ keep.opening=(+keep.opening||0)+(+dup.opening||0); });
+  rep.cl =mergeByName(db.clients,  repointClient,  function(keep,dup){ keep.opening=(+keep.opening||0)+(+dup.opening||0); });
+  rep.it =mergeByName(db.items,    repointItem,    null);
+  /* إصلاح أي معرّفات متكرّرة متبقّية لضمان تمييز كل سجل */
+  ['users','suppliers','clients','warehouses','items','purchases','sales','preturns','sreturns','transfers','waste','expenses','payments','openingStock'].forEach(function(k){
+    var seen={};
+    (db[k]||[]).forEach(function(o){ if(o.id==null) return; if(seen[o.id]){ o.id=uid(); rep.ids++; } else seen[o.id]=1; });
+  });
+  log('data','الإعدادات','إصلاح تكرار البيانات — موردون '+rep.sup+'، عملاء '+rep.cl+'، أصناف '+rep.it+'، معرّفات '+rep.ids);
+  commit('تم الإصلاح'); renderMaster(); renderUsers();
+  alert('اكتمل الإصلاح:\n\n• موردون مكرّرون مدموجون: '+rep.sup+'\n• عملاء مكرّرون مدموجون: '+rep.cl+'\n• أصناف مكرّرة مدموجة: '+rep.it+'\n• معرّفات متكرّرة أُصلحت: '+rep.ids+'\n\nراجع أرصدة الموردين الآن — يجب أن يظهر لكل مورد رصيد واحد صحيح.');
 }
 function wipeData(){
   if(!guard('settings')) return;
