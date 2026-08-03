@@ -564,6 +564,26 @@ tr.sub-row td{background:#f7faf6;font-weight:700;font-size:12.5px;color:var(--in
     </div>
   </div>
 
+  <div id="interDeptBox" style="display:none">
+    <div class="sec-title alt">تحويل بضائع بين الأقسام <span class="hint">ينقص من القسم الحالي ويزيد في القسم الهدف بتكلفته — الرابط الوحيد بين الأقسام</span></div>
+    <div class="doc-box no-print">
+      <div class="grid">
+        <div class="field"><label>التاريخ</label><input type="date" id="it2_date"></div>
+        <div class="field"><label>الصنف (من القسم الحالي)</label><select id="it2_item"></select></div>
+        <div class="field"><label>من مستودع</label><select id="it2_from"></select></div>
+        <div class="field"><label>عدد الوحدات</label><input type="number" id="it2_units" step="0.01" min="0"></div>
+        <div class="field"><label>إلى قسم</label><select id="it2_toDept" onchange="fillInterDeptToWh()"></select></div>
+        <div class="field"><label>إلى مستودع (في القسم الهدف)</label><select id="it2_toWh"></select></div>
+        <div class="field" style="grid-column:1/-1"><label>ملاحظة</label><input type="text" id="it2_note" placeholder="اختياري — الصنف يُنشأ في القسم الهدف تلقائياً إن لم يكن موجوداً"></div>
+      </div>
+      <div class="form-foot"><button class="btn-main" onclick="saveInterTransfer()">تنفيذ التحويل بين الأقسام</button></div>
+    </div>
+    <div class="table-scroll"><table>
+      <thead><tr><th>التاريخ</th><th class="name">الاتجاه (قسم ← قسم)</th><th class="name">الصنف</th>
+        <th class="name">المستودع (من ← إلى)</th><th>الوحدات</th><th>التكلفة</th><th class="name">ملاحظة</th><th>إجراء</th></tr></thead>
+      <tbody id="tbInterTransfers"></tbody></table></div>
+  </div>
+
   <div class="sec-title">رصيد افتتاحي للمخزون <span class="hint">لتسجيل الكميات الموجودة فعلياً قبل بدء العمل بالنظام</span></div>
   <div class="doc-box no-print" id="openingFormBox">
     <div class="grid">
@@ -607,7 +627,15 @@ tr.sub-row td{background:#f7faf6;font-weight:700;font-size:12.5px;color:var(--in
         <option>تعبئة وتغليف</option><option>صيانة</option><option>رسوم حكومية</option><option>تسويق</option><option>أخرى</option></select></div>
       <div class="field"><label>القيمة</label><input type="number" id="e_amount" step="0.01" min="0"></div>
       <div class="field"><label>البيان</label><input type="text" id="e_desc" placeholder="فاتورة كهرباء المستودع"></div>
+      <div class="field"><label>توزيع المصروف على فترة</label><select id="e_amortUnit" onchange="onAmortChange()">
+        <option value="none">دفعة واحدة (لا توزيع)</option>
+        <option value="day">توزيع يومي</option>
+        <option value="month">توزيع شهري</option>
+        <option value="year">توزيع سنوي</option></select></div>
+      <div class="field" id="e_amortCountWrap" style="display:none"><label id="e_amortCountLbl">عدد الفترات</label>
+        <input type="number" id="e_amortCount" step="1" min="1" placeholder="مثال: 365 يوم أو 6 شهور"></div>
     </div>
+    <div class="note no-print" id="e_amortNote" style="display:none;margin-top:8px"></div>
     <div id="e_splitBox" class="hidden" style="margin-top:12px">
       <div class="sec-title" style="margin-top:0">توزيع المصروف على الفروع</div>
       <div class="grid" id="e_splitGrid"></div>
@@ -696,6 +724,8 @@ tr.sub-row td{background:#f7faf6;font-weight:700;font-size:12.5px;color:var(--in
       <option value="supplier">مشتريات حسب المورد</option>
       <option value="waste">الفاقد والمرتجعات</option>
       <option value="vat">ملخص ضريبة القيمة المضافة</option>
+      <option value="interdept">التحويلات بين الأقسام</option>
+      <option value="consolidated">الأرصدة المجمّعة عبر الأقسام</option>
     </select></div>
     <div class="field"><label>من</label><input type="date" id="rp_from" onchange="renderReport()"></div>
     <div class="field"><label>إلى</label><input type="date" id="rp_to" onchange="renderReport()"></div>
@@ -1121,10 +1151,10 @@ function loadDept(key){
 /* الشكل المحفوظ: بيانات مشتركة + أقسام (دون تكرار مصفوفات العمل) */
 function serializeDB(){
   return {meta:db.meta,settings:db.settings,users:db.users,audit:db.audit,units:db.units,
-    activeDept:db.activeDept,departments:db.departments};
+    interTransfers:db.interTransfers,activeDept:db.activeDept,departments:db.departments};
 }
 function ensureDbShape(){
-  ['users','audit','units'].forEach(function(k){ if(!Array.isArray(db[k])) db[k]=[]; });   /* مشترك */
+  ['users','audit','units','interTransfers'].forEach(function(k){ if(!Array.isArray(db[k])) db[k]=[]; });   /* مشترك */
   if(!db.settings) db.settings=emptyDB().settings;
   if(db.settings.vatRate===undefined||db.settings.vatRate===null||db.settings.vatRate==='') db.settings.vatRate=15;
   if(!db.meta) db.meta={author:AUTHOR,version:APP_VERSION};
@@ -1363,6 +1393,12 @@ function buildLedger(){
   db.sales.forEach(function(x){ ev.push({t:4,d:x.date,id:x.id,r:x}); });
   db.preturns.forEach(function(x){ ev.push({t:5,d:x.date,id:x.id,r:x}); });
   db.waste.forEach(function(x){ ev.push({t:6,d:x.date,id:x.id,r:x}); });
+  /* التحويلات بين الأقسام: كل تحويل له طرفان — صادر من قسم المصدر ووارد إلى قسم الهدف.
+     يُدرَج في دفتر القسم النشط فقط الطرف الذي يخصّه (لأن الدفاتر منفصلة) */
+  (db.interTransfers||[]).forEach(function(x){
+    if(x.fromDept===db.activeDept) ev.push({t:7,dir:'out',d:x.date,id:x.id,r:x});
+    if(x.toDept===db.activeDept)   ev.push({t:7,dir:'in', d:x.date,id:x.id,r:x});
+  });
   ev.sort(function(a,b){ if(a.d!==b.d) return a.d<b.d?-1:1; if(a.t!==b.t) return a.t-b.t; return a.id-b.id; });
 
   ev.forEach(function(e){
@@ -1417,7 +1453,7 @@ function buildLedger(){
       prCost[r.id]=c2;
       moves.push({date:r.date,whId:r.whId,itemId:r.itemId,type:'مرتجع شراء',ref:'#'+r.id,party:supName(r.supplierId),
         inU:0,outU:+r.units||0,val:c2});
-    } else {
+    } else if(e.t===6){
       /* الفاقد يخصم من مستودعه المحدد فقط */
       var need6=+r.units||0, g6=take(r.whId,r.itemId,need6), c3=g6.cost;
       if(g6.taken<need6-0.001){
@@ -1427,6 +1463,21 @@ function buildLedger(){
       }
       wasteCost[r.id]=c3;
       moves.push({date:r.date,whId:r.whId,itemId:r.itemId,type:'فاقد',ref:'#'+r.id,party:r.reason||'',inU:0,outU:+r.units||0,val:c3});
+    } else {
+      /* تحويل بين الأقسام: الصادر يُخرِج من مستودع المصدر بمتوسط تكلفته،
+         والوارد يُدخِل بتكلفة اللحظة المُسجّلة على السند (سعر تحويل متفق) */
+      if(e.dir==='out'){
+        var need7=+r.units||0, g7=take(r.fromWh,r.fromItemId,need7);
+        if(g7.taken<need7-0.001) warn.push('تحويل لقسم '+deptName(r.toDept)+' '+r.date+': رصيد '
+          +itemName(r.fromItemId)+' في '+whName(r.fromWh)+' غير كافٍ — العجز '+qty(need7-g7.taken)+' وحدة.');
+        moves.push({date:r.date,whId:r.fromWh,itemId:r.fromItemId,type:'تحويل صادر لقسم',
+          ref:'#'+r.id,party:deptName(r.toDept),inU:0,outU:g7.taken,val:g7.cost});
+      } else {
+        var u7=+r.units||0, w7=u7*(+r.uw||0), c7=+r.cost||0;
+        put(r.toWh,r.toItemId,u7,c7,w7);
+        moves.push({date:r.date,whId:r.toWh,itemId:r.toItemId,type:'تحويل وارد من قسم',
+          ref:'#'+r.id,party:deptName(r.fromDept),inU:u7,outU:0,val:c7});
+      }
     }
   });
   return {stock:stock,cogsLine:cogsLine,cogsDoc:cogsDoc,srCost:srCost,prCost:prCost,wasteCost:wasteCost,warn:warn,moves:moves};
@@ -1478,7 +1529,7 @@ function fillAllSelects(){
   fillSelect('st_wh',opts(db.warehouses,'id',whTxt,'كل المستودعات'));
   fillSelect('rp_wh',opts(db.warehouses,'id',whTxt,'كل المستودعات'));
   fillSelect('au_user',opts(db.users,'id',nm,'كل المستخدمين'));
-  onReturnType(true); onPayType(true); fillReportParty();
+  onReturnType(true); onPayType(true); fillReportParty(); fillInterDeptTargets();
   if(document.getElementById('pl_dist')&&val('pl_dist')!=='single') renderPurchaseDist();
 }
 function fillReportParty(){
@@ -1491,7 +1542,7 @@ function fillReportParty(){
   fillSelect('rp_party',h);
 }
 function setDefaults(){
-  ['p_date','s_date','r_date','t_date','w_date','e_date','pay_date','os_date'].forEach(function(id){ if(!val(id)) setVal(id,today()); });
+  ['p_date','s_date','r_date','t_date','w_date','e_date','pay_date','os_date','it2_date'].forEach(function(id){ if(!val(id)) setVal(id,today()); });
   ['p_vatrate','s_vatrate','r_vatrate'].forEach(function(id){ if(!val(id)) setVal(id,vatRate()); });
 }
 
@@ -1605,7 +1656,7 @@ function cancelDoc(k){
       wh:['wh_name'],it:['it_name','it_uw','it_min'],un:['un_name','un_weights'],u:['u_name','u_user','u_pass'],
       os:['os_units','os_uw','os_price','os_total']};
     if(k==='r'){ setVal('r_doc',''); setVal('r_vatrate',vatRate()); setVal('r_vatmode','add'); onReturnDoc(true); }
-    if(k==='e'){ db.clients.forEach(function(c){ setVal('esp_'+c.id,''); }); }
+    if(k==='e'){ db.clients.forEach(function(c){ setVal('esp_'+c.id,''); }); setVal('e_amortUnit','none'); setVal('e_amortCount',''); onAmortChange(); }
     (ids[k]||[]).forEach(function(id){ setVal(id,''); });
     if(k==='it') setVal('it_active','1');
     var n=document.getElementById(k+'_editing'); if(n) n.textContent='';
@@ -1736,6 +1787,70 @@ function saveTransfer(){
   log('add','المخزون','تحويل '+qty(u)+' وحدة '+itemName(i)+' من '+whName(f)+' إلى '+whName(t));
   setVal('t_units',''); setVal('t_note',''); commit('تم تنفيذ التحويل');
 }
+/* ---------- التحويل بين الأقسام ---------- */
+function otherDepts(){ return Object.keys(db.departments).filter(function(k){return k!==db.activeDept;}); }
+function fillInterDeptTargets(){
+  var box=document.getElementById('interDeptBox'); if(!box) return;
+  var others=otherDepts();
+  box.style.display=(Object.keys(db.departments).length>1)?'':'none';
+  fillSelect('it2_item',opts(db.items,'id',itemLabel));
+  fillSelect('it2_from',opts(db.warehouses,'id',function(w){return w.name+(w.clientId?' — '+clientName(w.clientId):' (عام)');}));
+  fillSelect('it2_toDept',opts(others.map(function(k){return {id:k,name:deptName(k)};}),'id',function(o){return o.name;}));
+  fillInterDeptToWh();
+}
+function fillInterDeptToWh(){
+  var dk=val('it2_toDept'); var whs=(db.departments[dk]&&db.departments[dk].warehouses)||[];
+  fillSelect('it2_toWh',opts(whs,'id',function(w){return w.name;}));
+}
+function saveInterTransfer(){
+  if(!guard('canAdd')) return;
+  if(Object.keys(db.departments).length<2){ toast('يلزم وجود قسمين على الأقل'); return; }
+  var fromWh=+val('it2_from'), fromItem=+val('it2_item'), u=fnum('it2_units'),
+      toDept=val('it2_toDept'), toWh=+val('it2_toWh');
+  if(!fromItem||!fromWh){ toast('اختر الصنف والمستودع المصدر'); return; }
+  if(!toDept||!db.departments[toDept]){ toast('اختر القسم الهدف'); return; }
+  if(toDept===db.activeDept){ toast('اختر قسماً مختلفاً عن القسم الحالي'); return; }
+  if(u<=0){ toast('أدخل الكمية'); return; }
+  if(!L) refreshLedger();
+  var s=L.stock[fromWh+'|'+fromItem], have=s?s.units:0;
+  if(u>have+0.0001){ toast('الكمية '+qty(u)+' تتجاوز رصيد '+whName(fromWh)+' ('+qty(have)+' وحدة)'); return; }
+  var unitCost=(s&&s.units>0)?s.cost/s.units:0;
+  var uw=(s&&s.units>0)?s.weight/s.units:0;
+  var srcItem=byId(db.items,fromItem)||{name:itemName(fromItem)};
+  if(!uw) uw=+srcItem.uw||0;
+  var totalCost=round2(unitCost*u);
+  var toItemId=ensureDeptItem(toDept,srcItem);
+  if(!toWh){ toWh=((db.departments[toDept].warehouses||[])[0]||{}).id; }
+  db.interTransfers.push({id:uid(),date:val('it2_date')||today(),fromDept:db.activeDept,fromWh:fromWh,fromItemId:fromItem,
+    toDept:toDept,toWh:toWh,toItemId:toItemId,units:u,uw:uw,cost:totalCost,note:val('it2_note').trim(),uid:ME.id,ts:nowTs()});
+  log('add','المخزون','تحويل '+qty(u)+' وحدة '+srcItem.name+' من قسم '+deptName(db.activeDept)+' إلى قسم '+deptName(toDept)+' بتكلفة '+num(totalCost));
+  setVal('it2_units',''); setVal('it2_note','');
+  commit('تم التحويل بين الأقسام');
+}
+function delInterTransfer(id){
+  if(!guard('canDelete')) return;
+  var r=byId(db.interTransfers,id); if(!r) return;
+  if(!confirm('حذف هذا التحويل بين الأقسام؟')) return;
+  log('delete','المخزون','حذف تحويل بين الأقسام #'+id);
+  db.interTransfers=db.interTransfers.filter(function(x){return x.id!==id;});
+  commit('تم الحذف');
+}
+function renderInterTransfers(){
+  var tb=document.getElementById('tbInterTransfers'); if(!tb) return;
+  var rows=(db.interTransfers||[]).slice().sort(function(a,b){return a.date===b.date?b.id-a.id:(a.date<b.date?1:-1);});
+  var h='';
+  rows.forEach(function(x){
+    var mine=(x.fromDept===db.activeDept||x.toDept===db.activeDept);
+    h+='<tr'+(mine?'':' class="muted"')+'><td>'+esc(x.date)+'</td>'
+      +'<td class="name">'+esc(deptName(x.fromDept))+' ← '+esc(deptName(x.toDept))+'</td>'
+      +'<td class="name">'+esc(deptItemName(x.fromDept,x.fromItemId))+'</td>'
+      +'<td class="name">'+esc(deptWhName(x.fromDept,x.fromWh))+' ← '+esc(deptWhName(x.toDept,x.toWh))+'</td>'
+      +'<td>'+qty(x.units)+'</td><td>'+money(x.cost)+'</td>'
+      +'<td class="name">'+esc(x.note||'')+'</td>'
+      +'<td>'+(can('canDelete')?'<button class="btn-sm btn-del" onclick="delInterTransfer('+x.id+')">حذف</button>':'<span class="muted">—</span>')+'</td></tr>';
+  });
+  tb.innerHTML=h||'<tr><td colspan="8" class="empty">لا توجد تحويلات بين الأقسام.</td></tr>';
+}
 function saveWaste(){
   if(!guard('canAdd')) return;
   var w=+val('w_wh'), i=+val('w_item'), u=fnum('w_units');
@@ -1774,11 +1889,28 @@ function onExpenseType(){
   box.classList.toggle('hidden',!manual);
   if(manual) renderExpenseSplits();
 }
+function onAmortChange(){
+  var u=val('e_amortUnit'), on=(u&&u!=='none');
+  document.getElementById('e_amortCountWrap').style.display=on?'flex':'none';
+  var lbl={day:'عدد الأيام',month:'عدد الشهور',year:'عدد السنوات'}[u]||'عدد الفترات';
+  var lblEl=document.getElementById('e_amortCountLbl'); if(lblEl) lblEl.textContent=lbl;
+  var note=document.getElementById('e_amortNote');
+  if(on){
+    var n=Math.max(1,parseInt(val('e_amortCount'),10)||0), a=fnum('e_amount');
+    var uw={day:'يوم',month:'شهر',year:'سنة'}[u];
+    if(n>0&&a>0) note.textContent='سيُوزَّع المبلغ '+num(a)+' على '+n+' '+uw+' — أي '+num(a/n)+' لكل '+uw+' في قائمة الدخل حسب الفترة المختارة. المبلغ الكامل يبقى في سجل المصروفات كالتزام فعلي.';
+    else note.textContent='حدّد عدد الفترات ليُوزَّع المبلغ عليها (مثال: الإيجار السنوي على 365 يوم أو 12 شهراً).';
+    note.style.display='';
+  } else note.style.display='none';
+}
 function saveExpense(){
   if(!guard('canAdd')) return;
   var t=val('e_type'), a=fnum('e_amount');
   if(a<=0){ toast('أدخل قيمة المصروف'); return; }
   if(!val('e_desc').trim()){ toast('أدخل بيان المصروف'); return; }
+  var amortUnit=val('e_amortUnit')||'none';
+  var amortCount=(amortUnit!=='none')?Math.max(1,parseInt(val('e_amortCount'),10)||0):0;
+  if(amortUnit!=='none'&&amortCount<1){ toast('أدخل عدد الفترات لتوزيع المصروف'); return; }
   var splits=null;
   if(t==='amounts'||t==='percents'){
     splits={}; var sum=0;
@@ -1788,7 +1920,8 @@ function saveExpense(){
     if(t==='amounts'&&Math.abs(sum-a)>0.01){ toast('مجموع المبالغ الموزّعة '+num(sum)+' لا يساوي قيمة المصروف '+num(a)); return; }
   }
   var rec={id:editId.e||uid(),date:val('e_date'),type:t,clientId:(t==='direct'?+val('e_client'):null),
-    cat:val('e_cat'),amount:a,desc:val('e_desc').trim(),splits:splits,uid:ME.id,ts:nowTs()};
+    cat:val('e_cat'),amount:a,desc:val('e_desc').trim(),splits:splits,
+    amortUnit:amortUnit,amortCount:amortCount,uid:ME.id,ts:nowTs()};
   if(editId.e){ var i=db.expenses.findIndex(function(x){return x.id===editId.e;}); db.expenses[i]=rec; }
   else db.expenses.push(rec);
   log(editId.e?'edit':'add','المصروفات',expTypeLabel(t)+' — '+rec.desc+' بقيمة '+num(a)
@@ -1800,6 +1933,7 @@ function editExpense(id){
   var r=byId(db.expenses,id); if(!r) return;
   editId.e=id; setVal('e_date',r.date); setVal('e_type',r.type);
   setVal('e_cat',r.cat); setVal('e_amount',r.amount); setVal('e_desc',r.desc);
+  setVal('e_amortUnit',r.amortUnit||'none'); setVal('e_amortCount',r.amortCount||''); onAmortChange();
   onExpenseType();
   if(r.type==='direct') setVal('e_client',r.clientId);
   if(r.splits){ db.clients.forEach(function(c){ setVal('esp_'+c.id, r.splits[c.id]||''); }); updateSplitSummary(); }
@@ -2062,6 +2196,83 @@ function setRange(k){
 }
 function changeAlloc(){ db.settings.alloc=val('allocMethod'); persist(); log('data','قائمة الدخل','تغيير طريقة توزيع المصروفات المشتركة'); renderAll(); }
 
+/* ===== أدوات التواريخ وتوزيع (استهلاك) المصروفات على فترة ===== */
+function parseDate(s){ if(!s) return null; var p=String(s).split('-'); if(p.length<3) return null;
+  var d=new Date(Date.UTC(+p[0],(+p[1]||1)-1,+p[2]||1)); return isNaN(d.getTime())?null:d; }
+function fmtDate(dt){ return dt.toISOString().slice(0,10); }
+function addDays(dt,n){ var d=new Date(dt.getTime()); d.setUTCDate(d.getUTCDate()+n); return d; }
+function addMonths(dt,n){ var d=new Date(dt.getTime()), day=d.getUTCDate(); d.setUTCDate(1);
+  d.setUTCMonth(d.getUTCMonth()+n);
+  var last=new Date(Date.UTC(d.getUTCFullYear(),d.getUTCMonth()+1,0)).getUTCDate();
+  d.setUTCDate(Math.min(day,last)); return d; }
+function amortInfo(x){
+  var unit=x&&x.amortUnit, n=Math.max(1,parseInt(x&&x.amortCount,10)||1);
+  if(!unit||unit==='none'||n<=1) return null;
+  return {unit:unit,n:n};
+}
+/* حصة المصروف الواقعة داخل الفترة [from,to] — يدعم التوزيع اليومي/الشهري/السنوي */
+function expenseAmountInRange(x,from,to){
+  var a=amortInfo(x), amt=+x.amount||0;
+  if(!a) return inRange(x.date,from,to)?amt:0;
+  var start=parseDate(x.date); if(!start) return inRange(x.date,from,to)?amt:0;
+  if(a.unit==='day'){
+    var per=amt/a.n, end=addDays(start,a.n-1);
+    var lo=from?parseDate(from):null, hi=to?parseDate(to):null;
+    var s=(lo&&lo>start)?lo:start, e=(hi&&hi<end)?hi:end;
+    if(e<s) return 0;
+    var days=Math.round((e.getTime()-s.getTime())/86400000)+1;
+    return per*Math.max(0,days);
+  }
+  var per2=amt/a.n, sum=0;
+  for(var k=0;k<a.n;k++){
+    var d=(a.unit==='year')?addMonths(start,k*12):addMonths(start,k);
+    if(inRange(fmtDate(d),from,to)) sum+=per2;
+  }
+  return sum;
+}
+function amortLabel(x){
+  var a=amortInfo(x); if(!a) return '';
+  var u=a.unit==='day'?'يوم':(a.unit==='month'?'شهر':'سنة');
+  return 'موزّع على '+a.n+' '+u;
+}
+/* ===== أدوات عبر الأقسام (للتقارير المجمّعة والتحويلات) ===== */
+function deptItemName(dk,id){ var a=db.departments[dk]&&db.departments[dk].items;
+  var it=a&&a.filter(function(x){return x.id===id;})[0]; return it?it.name:('#'+id); }
+function deptWhName(dk,id){ var a=db.departments[dk]&&db.departments[dk].warehouses;
+  var w=a&&a.filter(function(x){return x.id===id;})[0]; return w?w.name:('#'+id); }
+/* يضمن وجود الصنف في القسم الهدف بالمطابقة على الاسم، وإلا ينشئ نسخة جديدة */
+function ensureDeptItem(deptKey,srcItem){
+  var arr=db.departments[deptKey].items, nm=(srcItem.name||'').trim();
+  var found=arr.filter(function(i){return (i.name||'').trim()===nm;})[0];
+  if(found) return found.id;
+  var ni={id:uid(),name:srcItem.name,unit:srcItem.unit||'',uw:+srcItem.uw||1,min:+srcItem.min||0,active:1};
+  arr.push(ni); return ni.id;
+}
+/* أرصدة الموردين/العملاء في كل قسم مُجمّعة بالاسم عبر كل الأقسام */
+function consolidatedBalances(){
+  var depts=Object.keys(db.departments), map={};
+  function acc(type,dk,name,bal){
+    var key=type+'|'+(name||'').trim();
+    if(!map[key]) map[key]={name:(name||'').trim(),type:type,by:{},total:0};
+    map[key].by[dk]=(map[key].by[dk]||0)+bal; map[key].total+=bal;
+  }
+  depts.forEach(function(dk){
+    var d=db.departments[dk], sup={}, cl={};
+    (d.suppliers||[]).forEach(function(s){ sup[s.id]={buy:0,ret:0,paid:0,opening:+s.opening||0,name:s.name}; });
+    (d.clients||[]).forEach(function(c){ cl[c.id]={sell:0,ret:0,recv:0,opening:+c.opening||0,name:c.name}; });
+    (d.purchases||[]).forEach(function(p){ if(sup[p.supplierId]){ sup[p.supplierId].buy+=docGrand(p); sup[p.supplierId].paid+=+p.paid||0; } });
+    (d.preturns||[]).forEach(function(r){ if(sup[r.supplierId]) sup[r.supplierId].ret+=docGrand(r); });
+    (d.sales||[]).forEach(function(s){ if(cl[s.clientId]){ cl[s.clientId].sell+=docGrand(s); cl[s.clientId].recv+=+s.recv||0; } });
+    (d.sreturns||[]).forEach(function(r){ if(cl[r.clientId]) cl[r.clientId].ret+=docGrand(r); });
+    (d.payments||[]).forEach(function(p){
+      if(p.type==='supplier'&&sup[p.partyId]) sup[p.partyId].paid+=+p.amount||0;
+      if(p.type==='client'&&cl[p.partyId]) cl[p.partyId].recv+=+p.amount||0; });
+    Object.keys(sup).forEach(function(id){ var v=sup[id]; acc('supplier',dk,v.name,v.buy-v.ret+v.opening-v.paid); });
+    Object.keys(cl).forEach(function(id){ var v=cl[id]; acc('client',dk,v.name,v.sell-v.ret+v.opening-v.recv); });
+  });
+  return {map:map,depts:depts};
+}
+
 function pnl(){
   var res={}, method=db.settings.alloc||'sales', pool=0;
   db.clients.forEach(function(c){ res[c.id]={rev:0,ret:0,cogs:0,waste:0,direct:0,shared:0,weight:0}; });
@@ -2080,15 +2291,18 @@ function pnl(){
     var c=L.wasteCost[w.id]||0, cid=whClient(w.whId);
     if(cid&&res[cid]) res[cid].waste+=c; else pool+=c;
   });
+  var _rg=rg();
   db.expenses.forEach(function(x){
-    if(!inRg(x.date)) return;
-    var amt=+x.amount||0;
+    var amt=expenseAmountInRange(x,_rg.from,_rg.to);   /* يحترم توزيع (استهلاك) المصروف على الفترة */
+    if(amt<=0.0000001) return;
+    /* في التوزيع اليدوي بمبالغ محددة، تُقسَّم الحصص بنفس نسبة الجزء الواقع في الفترة */
+    var scale=(amortInfo(x)&&(+x.amount||0)>0)?(amt/(+x.amount)):1;
     if(x.type==='direct'){ if(res[x.clientId]) res[x.clientId].direct+=amt; else pool+=amt; }
     else if((x.type==='amounts'||x.type==='percents')&&x.splits){
       var used=0;
       db.clients.forEach(function(c){
         var v=+x.splits[c.id]||0; if(!v) return;
-        var share=(x.type==='percents')?amt*v/100:v;
+        var share=(x.type==='percents')?amt*v/100:v*scale;
         res[c.id].shared+=share; used+=share;
       });
       var left=amt-used; if(left>0.009) pool+=left;   /* حصة فرع محذوف تعود للمشترك */
@@ -2123,7 +2337,7 @@ function renderAll(){
   document.getElementById('dashRange').textContent=txt;
   document.getElementById('incRange').textContent=txt;
   setVal('f_from2',r.from); setVal('f_to2',r.to); setVal('allocMethod',db.settings.alloc||'sales');
-  renderPurchases(); renderSales(); renderReturns(); renderStock(); renderExpenses();
+  renderPurchases(); renderSales(); renderReturns(); renderStock(); renderInterTransfers(); renderExpenses();
   renderAccounts(); renderIncome(); renderDash(); renderReport(); renderAudit();
   renderDraft('p'); renderDraft('s');
   document.getElementById('storageNote').innerHTML = storageOK
@@ -2287,7 +2501,7 @@ function renderExpenses(){
     h+='<tr><td>'+esc(x.date)+'</td><td><span class="pill '+(x.type==='direct'?'pill-ok':(x.type==='shared'?'pill-warn':'pill-info'))+'">'
       +esc(expTypeLabel(x.type))+'</span></td>'
       +'<td class="name">'+esc(expTargetLabel(x))+'</td>'
-      +'<td class="name">'+esc(x.cat||'')+'</td><td>'+money(x.amount)+'</td><td class="name">'+esc(x.desc)+'</td>'
+      +'<td class="name">'+esc(x.cat||'')+'</td><td>'+money(x.amount)+(amortInfo(x)?' <span class="pill pill-info">'+esc(amortLabel(x))+'</span>':'')+'</td><td class="name">'+esc(x.desc)+'</td>'
       +'<td class="name muted">'+esc(userName(x.uid))+'</td>'
       +'<td>'+actionBtns('expenses',x.id,'editExpense('+x.id+')')+'</td></tr>';
   });
@@ -2899,6 +3113,52 @@ function renderReport(){
         +card('الفرق (مبيعات − مشتريات)',money(TS-TB),(TS-TB)>=-0.004?'المبيعات أعلى':'المشتريات أعلى',true)
         +card('عدد أيام الحركة',String(Object.keys(days).length),'خلال الفترة');
     }
+  }
+  else if(type==='interdept'){
+    title='تقرير التحويلات بين الأقسام';
+    head=['التاريخ','من قسم','إلى قسم','الصنف','من مستودع','إلى مستودع','الوحدات','التكلفة','ملاحظة'];
+    var itAll=(db.interTransfers||[]).filter(function(x){ return inRange(x.date,f,t); })
+      .sort(function(a,b){ return a.date===b.date?a.id-b.id:(a.date<b.date?-1:1); });
+    var days={},TC=0,TU=0;
+    itAll.forEach(function(x){
+      if(!days[x.date]) days[x.date]=[];
+      days[x.date].push([x.date,deptName(x.fromDept),deptName(x.toDept),deptItemName(x.fromDept,x.fromItemId),
+        deptWhName(x.fromDept,x.fromWh),deptWhName(x.toDept,x.toWh),qty(x.units),num(x.cost),x.note||'']);
+      TC+=+x.cost||0; TU+=+x.units||0;
+    });
+    Object.keys(days).sort().forEach(function(d){
+      var dc=0;
+      push('day-row',['يوم '+d+' — '+days[d].length+' تحويل','','','','','','','','']);
+      days[d].forEach(function(r){ dc+=parseFloat(r[7].replace(/,/g,''))||0; push('',r); });
+      push('sub-row',['إجمالي يوم '+d,'','','','','','',num(dc),'']);
+    });
+    cards=card('عدد التحويلات',String(itAll.length),'خلال الفترة')
+      +card('إجمالي الوحدات المحوّلة',qty(TU),'')
+      +card('إجمالي تكلفة التحويلات',money(TC),'قيمة البضائع المنقولة بين الأقسام');
+  }
+  else if(type==='consolidated'){
+    title='الأرصدة المجمّعة عبر الأقسام';
+    var cb=consolidatedBalances(), dks=cb.depts;
+    head=['الجهة','النوع'].concat(dks.map(function(k){return 'رصيد '+deptName(k);})).concat(['الرصيد الإجمالي','عدد الأقسام']);
+    var q=(val('accSearch')||'').trim();   /* يشارك مربّع البحث نفسه إن استُخدم */
+    var keys=Object.keys(cb.map).filter(function(k){
+      var m=cb.map[k]; if(Math.abs(m.total)<0.009&&Object.keys(m.by).length<=1) return false; return true;
+    }).sort(function(a,b){
+      var ma=cb.map[a], mb=cb.map[b], na=Object.keys(ma.by).length, nb=Object.keys(mb.by).length;
+      if(na!==nb) return nb-na;                       /* المشترك في أكثر من قسم أولاً */
+      return ma.name<mb.name?-1:1;
+    });
+    var multi=0;
+    keys.forEach(function(k){
+      var m=cb.map[k], nd=Object.keys(m.by).length; if(nd>1) multi++;
+      var cells=[m.name, m.type==='supplier'?'مورد':'عميل'];
+      dks.forEach(function(dk){ cells.push(m.by[dk]!=null?num(m.by[dk]):'—'); });
+      cells.push(num(m.total)); cells.push(String(nd));
+      push(nd>1?'total-row':'',cells);
+    });
+    cards=card('جهات مشتركة بين الأقسام',String(multi),'نفس الاسم في أكثر من قسم — تظهر أولاً بخلفية مميّزة')
+      +card('عدد الأقسام',String(dks.length),dks.map(deptName).join(' · '))
+      +card('إجمالي الجهات',String(keys.length),'ذات رصيد أو مشتركة');
   }
   else {
     title='تقرير الفاقد والمرتجعات';
