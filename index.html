@@ -2575,6 +2575,46 @@ function applyLogo(){
   var co=db.settings.company||'';
   var heads=document.querySelectorAll('.print-head p');
   for(var j=0;j<heads.length;j++) heads[j].textContent=co+' · إعداد '+AUTHOR;
+  updateAppIcons(logo);   /* شعار المنشأة يصبح أيقونة التطبيق على الجوال */
+}
+/* توليد أيقونة تطبيق مربّعة من شعار المنشأة (خلفية بيضاء + هوامش)، وضبط الأيقونات والـ manifest ديناميكياً */
+var _mfManifestUrl=null;
+function iconFromLogo(src,size,cb){
+  var img=new Image();
+  img.onload=function(){
+    var cv=document.createElement('canvas'); cv.width=size; cv.height=size;
+    var x=cv.getContext('2d'); x.fillStyle='#ffffff'; x.fillRect(0,0,size,size);
+    var pad=Math.round(size*0.12), box=size-pad*2;
+    var r=Math.min(box/img.width,box/img.height), w=img.width*r, h=img.height*r;
+    x.drawImage(img,(size-w)/2,(size-h)/2,w,h);
+    cb(cv.toDataURL('image/png'));
+  };
+  img.onerror=function(){ cb(null); };
+  img.src=src;
+}
+function updateAppIcons(logo){
+  if(!logo) return;   /* بلا شعار: تبقى الأيقونة الافتراضية (الورقة الخضراء) */
+  iconFromLogo(logo,512,function(i512){ if(!i512) return;
+    iconFromLogo(logo,192,function(i192){
+      var i1=i192||i512;
+      var setIcon=function(sel,href){ var el=document.querySelector(sel); if(el&&href) el.href=href; };
+      setIcon('link[rel="apple-touch-icon"]',i1);
+      var icons=document.querySelectorAll('link[rel="icon"]');
+      for(var k=0;k<icons.length;k++) icons[k].href=(icons[k].sizes&&String(icons[k].sizes).indexOf('512')>-1)?i512:i1;
+      /* manifest ديناميكي بالشعار */
+      try{
+        var man={name:(db.settings.company||'نظام التوريدات'),short_name:(db.settings.company||'التوريدات').slice(0,12),
+          start_url:'./',scope:'./',display:'standalone',orientation:'portrait',
+          background_color:'#e9eee9',theme_color:'#152420',
+          icons:[{src:i192||i512,sizes:'192x192',type:'image/png',purpose:'any'},
+                 {src:i512,sizes:'512x512',type:'image/png',purpose:'any maskable'}]};
+        var blob=new Blob([JSON.stringify(man)],{type:'application/manifest+json'});
+        if(_mfManifestUrl) URL.revokeObjectURL(_mfManifestUrl);
+        _mfManifestUrl=URL.createObjectURL(blob);
+        var ml=document.querySelector('link[rel="manifest"]'); if(ml) ml.href=_mfManifestUrl;
+      }catch(e){}
+    });
+  });
 }
 function uploadLogo(ev){
   if(!guard('settings')) return;
@@ -2584,7 +2624,7 @@ function uploadLogo(ev){
   rd.onload=function(e){
     var img=new Image();
     img.onload=function(){
-      var MAX=220, w=img.width, h=img.height, scale=Math.min(1,MAX/Math.max(w,h));
+      var MAX=512, w=img.width, h=img.height, scale=Math.min(1,MAX/Math.max(w,h));
       var cw=Math.round(w*scale), ch=Math.round(h*scale);
       var cv=document.createElement('canvas'); cv.width=cw; cv.height=ch;
       cv.getContext('2d').drawImage(img,0,0,cw,ch);
