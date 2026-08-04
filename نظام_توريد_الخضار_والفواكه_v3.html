@@ -102,6 +102,15 @@ header .sub{font-size:12.5px;color:#9db3a7;margin-top:2px}
 .dept-img-card .thumb img{width:100%;height:100%;object-fit:cover}
 .dept-perm-block{border:1px solid var(--line-soft);border-radius:12px;padding:12px;margin-top:10px;background:var(--surface-2)}
 .perm.strong{font-weight:700;background:transparent;border:0;padding:0 0 6px}
+/* قوائم المجموعات */
+.group-list{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.group-chip{display:flex;align-items:center;gap:8px;background:var(--surface-2);border:1px solid var(--line);
+  border-radius:20px;padding:5px 6px 5px 12px;font-size:13px}
+.group-chip b{font-weight:700}
+.group-chip .cnt{background:var(--leaf-soft);color:var(--leaf-dark);border-radius:12px;padding:1px 8px;font-size:11px;font-weight:700}
+.group-chip button{padding:2px 8px;font-size:11px}
+/* بطاقة إدارة القسم في الإعدادات */
+.dept-manage input.dept-name{flex:1;min-width:120px;font-weight:700}
 
 /* ===== التبويبات ===== */
 nav.tabs{display:flex;gap:3px;flex-wrap:wrap;margin:16px 0 14px;background:var(--surface);padding:6px;
@@ -704,6 +713,8 @@ tr.sub-row td{background:#f7faf6;font-weight:700;font-size:12.5px;color:var(--in
   <div class="panel-title">حركات السداد والتحصيل
     <span class="no-print" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
       <input type="text" id="accSearch" oninput="renderAccounts()" placeholder="🔍 ابحث باسم المورد أو العميل" style="width:240px;max-width:100%">
+      <select id="accSupGroup" onchange="renderAccounts()" title="تصفية الموردين بالمجموعة" style="max-width:100%"></select>
+      <select id="accClGroup" onchange="renderAccounts()" title="تصفية العملاء بالمجموعة" style="max-width:100%"></select>
       <button class="btn btn-sm" onclick="exportTable('accounts')">تصدير الأرصدة Excel</button>
     </span></div>
   <div class="doc-box no-print" id="paymentFormBox">
@@ -845,6 +856,7 @@ tr.sub-row td{background:#f7faf6;font-weight:700;font-size:12.5px;color:var(--in
         <div class="grid-2">
           <div class="field"><label>اسم المورد</label><input type="text" id="sup_name" placeholder="مؤسسة المزارع الحديثة"></div>
           <div class="field"><label>الجوال</label><input type="text" id="sup_phone" placeholder="اختياري"></div>
+          <div class="field"><label>المجموعة</label><select id="sup_group"></select></div>
           <div class="field"><label>الرصيد الافتتاحي <span class="mini">(مستحق عليك له)</span></label><input type="number" id="sup_opening" step="0.01" placeholder="0"></div>
           <div class="field"><label>تاريخ الرصيد الافتتاحي</label><input type="date" id="sup_openDate"></div>
           <div class="field" style="grid-column:1/-1"><label>ملاحظات</label><input type="text" id="sup_note" placeholder="اختياري"></div>
@@ -856,9 +868,18 @@ tr.sub-row td{background:#f7faf6;font-weight:700;font-size:12.5px;color:var(--in
           <button class="btn-alt" onclick="pickImport('suppliers')">استيراد من Excel</button>
           <span class="editing-note" id="sup_editing"></span></div>
       </div>
+      <div class="filters no-print" style="margin:6px 0">
+        <div class="field"><label>تصفية بالمجموعة</label><select id="msSupGroup" onchange="renderMaster()"></select></div>
+      </div>
       <div class="table-scroll"><table>
-        <thead><tr><th class="name">المورد</th><th>الجوال</th><th>عدد الفواتير</th><th>إجمالي التعامل</th><th>افتتاحي</th><th>إجراء</th></tr></thead>
+        <thead><tr><th class="name">المورد</th><th class="name">المجموعة</th><th>الجوال</th><th>عدد الفواتير</th><th>إجمالي التعامل</th><th>افتتاحي</th><th>إجراء</th></tr></thead>
         <tbody id="tbSupMaster"></tbody></table></div>
+      <div class="sec-title" style="margin-top:12px">مجموعات الموردين <span class="hint">صنّف مورديك (مثل: موردو التوريد) وتحكّم في التسمية</span></div>
+      <div class="doc-box no-print">
+        <div class="inline-add"><input type="text" id="grp_sup_name" placeholder="اسم المجموعة الجديدة" style="flex:1">
+          <button class="btn btn-sm" onclick="saveGroup('sup')">إضافة مجموعة</button></div>
+        <div id="supGroupList" class="group-list"></div>
+      </div>
     </div>
     <div>
       <div class="sec-title alt">العملاء / الفروع <input type="text" id="msClSearch" class="no-print" oninput="renderMaster()" placeholder="🔍 بحث بالاسم" style="font-weight:400;font-size:13px;width:160px;margin-right:8px"></div>
@@ -866,6 +887,7 @@ tr.sub-row td{background:#f7faf6;font-weight:700;font-size:12.5px;color:var(--in
         <div class="grid-2">
           <div class="field"><label>اسم العميل</label><input type="text" id="cl_name" placeholder="الفرع أ"></div>
           <div class="field"><label>الجوال</label><input type="text" id="cl_phone" placeholder="اختياري"></div>
+          <div class="field"><label>المجموعة</label><select id="cl_group"></select></div>
           <div class="field"><label>الرصيد الافتتاحي <span class="mini">(مستحق له لك)</span></label><input type="number" id="cl_opening" step="0.01" placeholder="0"></div>
           <div class="field"><label>تاريخ الرصيد الافتتاحي</label><input type="date" id="cl_openDate"></div>
           <div class="field" style="grid-column:1/-1"><label>ملاحظات</label><input type="text" id="cl_note" placeholder="اختياري"></div>
@@ -878,9 +900,18 @@ tr.sub-row td{background:#f7faf6;font-weight:700;font-size:12.5px;color:var(--in
           <span class="editing-note" id="cl_editing"></span>
           <span class="mini">عند إضافة عميل يُنشأ له مستودع خاص تلقائياً.</span></div>
       </div>
+      <div class="filters no-print" style="margin:6px 0">
+        <div class="field"><label>تصفية بالمجموعة</label><select id="msClGroup" onchange="renderMaster()"></select></div>
+      </div>
       <div class="table-scroll"><table>
-        <thead><tr><th class="name">العميل</th><th>الجوال</th><th>عدد الفواتير</th><th>إجمالي المبيعات</th><th>افتتاحي</th><th>إجراء</th></tr></thead>
+        <thead><tr><th class="name">العميل</th><th class="name">المجموعة</th><th>الجوال</th><th>عدد الفواتير</th><th>إجمالي المبيعات</th><th>افتتاحي</th><th>إجراء</th></tr></thead>
         <tbody id="tbClMaster"></tbody></table></div>
+      <div class="sec-title alt" style="margin-top:12px">مجموعات العملاء <span class="hint">صنّف عملاءك (مثل: عملاء التوريد) وتحكّم في التسمية</span></div>
+      <div class="doc-box no-print">
+        <div class="inline-add"><input type="text" id="grp_cl_name" placeholder="اسم المجموعة الجديدة" style="flex:1">
+          <button class="btn btn-sm" onclick="saveGroup('cl')">إضافة مجموعة</button></div>
+        <div id="clGroupList" class="group-list"></div>
+      </div>
     </div>
   </div>
   <div class="split">
@@ -1026,9 +1057,13 @@ tr.sub-row td{background:#f7faf6;font-weight:700;font-size:12.5px;color:var(--in
     </div>
   </div>
 
-  <div class="sec-title">صور الأقسام</div>
-  <div class="note">اختر صورة معبّرة لكل قسم (خضار / فاكهة)؛ تظهر على أزرار التبديل أعلى الصفحة لكل المستخدمين. يمكنك تغييرها في أي وقت.</div>
+  <div class="sec-title">إدارة الأقسام</div>
+  <div class="note">تحكّم في <b>اسم كل قسم</b> و<b>صورته</b> (تظهر على أزرار التبديل أعلى الصفحة). يمكنك أيضاً إضافة قسم جديد. تُطبَّق التغييرات لكل المستخدمين فور الحفظ.</div>
   <div id="deptImagesBox"></div>
+  <div class="doc-box no-print" style="margin-top:10px">
+    <div class="inline-add"><input type="text" id="newDeptName" placeholder="اسم قسم جديد (مثل: أعشاب)" style="flex:1">
+      <button class="btn btn-sm" onclick="addDepartment()">➕ إضافة قسم</button></div>
+  </div>
   <input type="file" id="deptImgFile" accept="image/*" class="hidden" onchange="uploadDeptImage(event)">
 
   <div class="sec-title">البيانات والنسخ الاحتياطي</div>
@@ -1176,7 +1211,7 @@ if(!db||!db.settings) db=demoDB();
 /* تطبيع بنية قاعدة البيانات — يُستدعى عند الإقلاع وعند وصول بيانات جديدة من السحابة،
    لضمان وجود كل المصفوفات والحقول المطلوبة مهما كان مصدر البيانات أو قِدَمها */
 /* ===== الأقسام: دفاتر حسابات منفصلة (الفاكهة/الخضار) داخل نفس النظام ===== */
-var DEPT_BOOKS=['suppliers','clients','warehouses','items','purchases','sales','preturns','sreturns','transfers','waste','expenses','payments','openingStock'];
+var DEPT_BOOKS=['suppliers','clients','warehouses','items','purchases','sales','preturns','sreturns','transfers','waste','expenses','payments','openingStock','supplierGroups','clientGroups'];
 var DEFAULT_DEPTS=[['fruits','الفاكهة'],['veg','الخضار']];
 var curDept=null;   /* القسم النشط لهذا الجهاز (مستقل عن بقية الأجهزة) */
 function deptName(key){ return (db.departments&&db.departments[key]&&db.departments[key].name)||key; }
@@ -1193,8 +1228,17 @@ function loadDept(key){
   db.activeDept=key;
   DEPT_BOOKS.forEach(function(k){ db[k]=db.departments[key][k]; });
 }
+/* يعيد كتابة مصفوفات العمل (db.suppliers ...) داخل كائن القسم النشط، كي لا تضيع
+   أي عملية أعادت إسناد المصفوفة كاملة (مثل الحذف عبر filter) عند الحفظ/المزامنة */
+function syncActiveDept(){
+  if(db.activeDept&&db.departments&&db.departments[db.activeDept]){
+    var d=db.departments[db.activeDept];
+    DEPT_BOOKS.forEach(function(k){ if(Array.isArray(db[k])) d[k]=db[k]; });
+  }
+}
 /* الشكل المحفوظ: بيانات مشتركة + أقسام (دون تكرار مصفوفات العمل) */
 function serializeDB(){
+  syncActiveDept();
   return {meta:db.meta,settings:db.settings,users:db.users,audit:db.audit,units:db.units,
     interTransfers:db.interTransfers,activeDept:db.activeDept,departments:db.departments};
 }
@@ -1711,7 +1755,7 @@ function cancelDoc(k){
   } else {
     editId[k]=null;
     var ids={r:['r_units','r_uw','r_price','r_total','r_grand','r_reason'],e:['e_amount','e_desc'],
-      sup:['sup_name','sup_phone','sup_note','sup_opening','sup_openDate'],cl:['cl_name','cl_phone','cl_note','cl_opening','cl_openDate'],
+      sup:['sup_name','sup_phone','sup_note','sup_opening','sup_openDate','sup_group'],cl:['cl_name','cl_phone','cl_note','cl_opening','cl_openDate','cl_group'],
       wh:['wh_name'],it:['it_name','it_uw','it_min'],un:['un_name','un_weights'],u:['u_name','u_user','u_pass'],
       os:['os_units','os_uw','os_price','os_total']};
     if(k==='r'){ setVal('r_doc',''); setVal('r_vatrate',vatRate()); setVal('r_vatmode','add'); onReturnDoc(true); }
@@ -2035,22 +2079,71 @@ function editPayment(id){
 }
 
 /* ---------- البيانات الأساسية ---------- */
+/* ---------- مجموعات الموردين والعملاء ---------- */
+function groupsArr(kind){ return kind==='sup'?db.supplierGroups:db.clientGroups; }
+function groupName(kind,id){ if(id==null||id==='') return ''; var g=byId(groupsArr(kind),+id); return g?g.name:''; }
+function saveGroup(kind){
+  if(!guard('canAdd')) return;
+  var el=kind==='sup'?'grp_sup_name':'grp_cl_name', n=val(el).trim();
+  if(!n){ toast('أدخل اسم المجموعة'); return; }
+  if(groupsArr(kind).some(function(g){return g.name===n;})){ toast('اسم المجموعة مستخدم بالفعل'); return; }
+  groupsArr(kind).push({id:uid(),name:n});
+  log('add','البيانات الأساسية','إضافة مجموعة '+(kind==='sup'?'موردين':'عملاء')+': '+n);
+  setVal(el,''); commit('تمت إضافة المجموعة'); renderMaster();
+}
+function renameGroup(kind,id){
+  if(!guard('canEdit')) return;
+  var g=byId(groupsArr(kind),id); if(!g) return;
+  var n=prompt('اسم المجموعة الجديد:',g.name); if(n==null) return; n=n.trim(); if(!n) return;
+  if(groupsArr(kind).some(function(x){return x.name===n&&x.id!==id;})){ toast('اسم المجموعة مستخدم'); return; }
+  g.name=n; log('edit','البيانات الأساسية','تعديل اسم مجموعة إلى '+n);
+  commit('تم تعديل اسم المجموعة'); renderMaster();
+}
+function delGroup(kind,id){
+  if(!guard('canDelete')) return;
+  var g=byId(groupsArr(kind),id); if(!g) return;
+  if(!confirm('حذف المجموعة "'+g.name+'"؟ سيبقى أعضاؤها لكن دون مجموعة.')) return;
+  (kind==='sup'?db.suppliers:db.clients).forEach(function(p){ if(p.groupId===id) p.groupId=null; });
+  if(kind==='sup') db.supplierGroups=db.supplierGroups.filter(function(x){return x.id!==id;});
+  else db.clientGroups=db.clientGroups.filter(function(x){return x.id!==id;});
+  log('delete','البيانات الأساسية','حذف مجموعة '+g.name);
+  commit('تم حذف المجموعة'); renderMaster();
+}
+function renderGroupManagers(){
+  ['sup','cl'].forEach(function(kind){
+    var arr=groupsArr(kind), parties=(kind==='sup'?db.suppliers:db.clients);
+    var box=document.getElementById(kind==='sup'?'supGroupList':'clGroupList'); if(!box) return;
+    box.innerHTML=arr.map(function(g){
+      var cnt=parties.filter(function(p){return p.groupId===g.id;}).length;
+      return '<span class="group-chip"><b>'+esc(g.name)+'</b><span class="cnt">'+cnt+'</span>'
+        +(can('canEdit')?'<button class="btn-sm" onclick="renameGroup(\''+kind+'\','+g.id+')">تسمية</button>':'')
+        +(can('canDelete')?'<button class="btn-sm btn-del" onclick="delGroup(\''+kind+'\','+g.id+')">حذف</button>':'')+'</span>';
+    }).join('')||'<span class="muted" style="font-size:12px">لا توجد مجموعات بعد — أضف أول مجموعة من الأعلى.</span>';
+  });
+  /* تعبئة قوائم اختيار المجموعة في نماذج الإضافة */
+  fillSelect('sup_group',opts(db.supplierGroups,'id',function(g){return g.name;},'بدون مجموعة'));
+  fillSelect('cl_group',opts(db.clientGroups,'id',function(g){return g.name;},'بدون مجموعة'));
+  /* قوائم التصفية في جدول البيانات الأساسية */
+  fillSelect('msSupGroup',opts(db.supplierGroups,'id',function(g){return g.name;},'كل المجموعات'));
+  fillSelect('msClGroup',opts(db.clientGroups,'id',function(g){return g.name;},'كل المجموعات'));
+}
 function saveSupplier(){
   if(!guard('canAdd')) return;
   var n=val('sup_name').trim(); if(!n){ toast('أدخل اسم المورد'); return; }
   var dup=db.suppliers.filter(function(s){return s.name===n&&s.id!==editId.sup;}).length;
   if(dup){ toast('اسم المورد مستخدم بالفعل'); return; }
   var opening=fnum('sup_opening'), openDate=val('sup_openDate');
+  var grp=val('sup_group')?+val('sup_group'):null;
   if(editId.sup){ var s=byId(db.suppliers,editId.sup); s.name=n; s.phone=val('sup_phone').trim(); s.note=val('sup_note').trim();
-    s.opening=opening; s.openingDate=openDate;
+    s.opening=opening; s.openingDate=openDate; s.groupId=grp;
     log('edit','البيانات الأساسية','تعديل بيانات المورد '+n+(opening?' — رصيد افتتاحي '+num(opening):'')); }
-  else { db.suppliers.push({id:uid(),name:n,phone:val('sup_phone').trim(),note:val('sup_note').trim(),opening:opening,openingDate:openDate});
+  else { db.suppliers.push({id:uid(),name:n,phone:val('sup_phone').trim(),note:val('sup_note').trim(),opening:opening,openingDate:openDate,groupId:grp});
     log('add','البيانات الأساسية','إضافة مورد جديد: '+n+(opening?' — رصيد افتتاحي '+num(opening):'')); }
   cancelDoc('sup'); commit('تم حفظ المورد'); renderMaster();
 }
 function editSupplier(id){ if(!guard('canEdit'))return; var s=byId(db.suppliers,id); if(!s)return;
   editId.sup=id; setVal('sup_name',s.name); setVal('sup_phone',s.phone); setVal('sup_note',s.note);
-  setVal('sup_opening',s.opening||0); setVal('sup_openDate',s.openingDate||'');
+  setVal('sup_opening',s.opening||0); setVal('sup_openDate',s.openingDate||''); setVal('sup_group',s.groupId||'');
   document.getElementById('sup_editing').textContent='وضع التعديل'; showTab('master'); }
 function delSupplier(id){
   if(!guard('canDelete')) return;
@@ -2065,17 +2158,18 @@ function saveClient(){
   var n=val('cl_name').trim(); if(!n){ toast('أدخل اسم العميل'); return; }
   if(db.clients.filter(function(c){return c.name===n&&c.id!==editId.cl;}).length){ toast('اسم العميل مستخدم'); return; }
   var opening=fnum('cl_opening'), openDate=val('cl_openDate');
+  var grp=val('cl_group')?+val('cl_group'):null;
   if(editId.cl){ var c=byId(db.clients,editId.cl); c.name=n; c.phone=val('cl_phone').trim(); c.note=val('cl_note').trim();
-    c.opening=opening; c.openingDate=openDate;
+    c.opening=opening; c.openingDate=openDate; c.groupId=grp;
     log('edit','البيانات الأساسية','تعديل بيانات العميل '+n+(opening?' — رصيد افتتاحي '+num(opening):'')); }
-  else { var id=uid(); db.clients.push({id:id,name:n,phone:val('cl_phone').trim(),note:val('cl_note').trim(),opening:opening,openingDate:openDate});
+  else { var id=uid(); db.clients.push({id:id,name:n,phone:val('cl_phone').trim(),note:val('cl_note').trim(),opening:opening,openingDate:openDate,groupId:grp});
     db.warehouses.push({id:uid(),name:'مستودع '+n,clientId:id});
     log('add','البيانات الأساسية','إضافة عميل جديد: '+n+' مع مستودع خاص'+(opening?' — رصيد افتتاحي '+num(opening):'')); }
   cancelDoc('cl'); commit('تم حفظ العميل'); renderMaster();
 }
 function editClient(id){ if(!guard('canEdit'))return; var c=byId(db.clients,id); if(!c)return;
   editId.cl=id; setVal('cl_name',c.name); setVal('cl_phone',c.phone); setVal('cl_note',c.note);
-  setVal('cl_opening',c.opening||0); setVal('cl_openDate',c.openingDate||'');
+  setVal('cl_opening',c.opening||0); setVal('cl_openDate',c.openingDate||''); setVal('cl_group',c.groupId||'');
   document.getElementById('cl_editing').textContent='وضع التعديل'; showTab('master'); }
 function delClient(id){
   if(!guard('canDelete')) return;
@@ -2593,27 +2687,31 @@ function renderAccounts(){
   var tg=function(id,show){ var e=document.getElementById(id); if(e) e.style.display=show?'':'none'; };
   tg('paymentFormBox', full&&can('canAdd')); tg('accSupBlock',seeSup); tg('accClBlock',seeCl);
   tg('accPayTitle',full); tg('accPayBox',full);
+  fillSelect('accSupGroup',opts(db.supplierGroups,'id',function(g){return g.name;},'كل مجموعات الموردين'));
+  fillSelect('accClGroup',opts(db.clientGroups,'id',function(g){return g.name;},'كل مجموعات العملاء'));
   var t=partyTotals(),h='',A=0,B=0,C=0,D=0,OA=0;
-  var q=(val('accSearch')||'').trim();
+  var q=(val('accSearch')||'').trim(), sg=val('accSupGroup'), cg=val('accClGroup');
   db.suppliers.forEach(function(s){
-    var v=t.sup[s.id],net=v.buy-v.ret,bal=net+v.opening-v.paid; A+=v.buy;B+=v.ret;C+=v.paid;D+=bal;OA+=v.opening;
     if(q&&s.name.indexOf(q)<0) return;
+    if(sg&&s.groupId!==+sg) return;
+    var v=t.sup[s.id],net=v.buy-v.ret,bal=net+v.opening-v.paid; A+=v.buy;B+=v.ret;C+=v.paid;D+=bal;OA+=v.opening;
     h+='<tr><td class="name">'+esc(s.name)+'</td><td>'+money(v.buy)+'</td><td>'+money(v.ret)+'</td><td>'+money(net)+'</td>'
       +'<td class="muted">'+money(v.opening)+'</td><td>'+money(v.paid)+'</td><td class="'+balCls(bal)+'">'+money(bal)+'</td>'
       +'<td><button class="btn-sm" onclick="showLedger(\'supplier\','+s.id+')">عرض</button></td></tr>';
   });
-  document.getElementById('tbSuppliers').innerHTML=h?h+'<tr class="total-row"><td>الإجمالي</td><td>'+money(A)+'</td><td>'+money(B)+'</td><td>'+money(A-B)+'</td><td>'+money(OA)+'</td><td>'+money(C)+'</td><td>'+money(D)+'</td><td></td></tr>'
-    :'<tr><td colspan="8" class="empty">لا يوجد موردون. أضفهم من البيانات الأساسية.</td></tr>';
+  document.getElementById('tbSuppliers').innerHTML=h?h+'<tr class="total-row"><td>الإجمالي'+(sg?' — '+esc(groupName('sup',sg)):'')+'</td><td>'+money(A)+'</td><td>'+money(B)+'</td><td>'+money(A-B)+'</td><td>'+money(OA)+'</td><td>'+money(C)+'</td><td>'+money(D)+'</td><td></td></tr>'
+    :'<tr><td colspan="8" class="empty">لا يوجد موردون مطابقون.</td></tr>';
   var h2='',E=0,F=0,G=0,H=0,OB=0;
   db.clients.forEach(function(c){
-    var v=t.cl[c.id],net=v.sell-v.ret,bal=net+v.opening-v.recv; E+=v.sell;F+=v.ret;G+=v.recv;H+=bal;OB+=v.opening;
     if(q&&c.name.indexOf(q)<0) return;
+    if(cg&&c.groupId!==+cg) return;
+    var v=t.cl[c.id],net=v.sell-v.ret,bal=net+v.opening-v.recv; E+=v.sell;F+=v.ret;G+=v.recv;H+=bal;OB+=v.opening;
     h2+='<tr><td class="name">'+esc(c.name)+'</td><td>'+money(v.sell)+'</td><td>'+money(v.ret)+'</td><td>'+money(net)+'</td>'
       +'<td class="muted">'+money(v.opening)+'</td><td>'+money(v.recv)+'</td><td class="'+balCls(bal)+'">'+money(bal)+'</td>'
       +'<td><button class="btn-sm" onclick="showLedger(\'client\','+c.id+')">عرض</button></td></tr>';
   });
-  document.getElementById('tbClients').innerHTML=h2?h2+'<tr class="total-row"><td>الإجمالي</td><td>'+money(E)+'</td><td>'+money(F)+'</td><td>'+money(E-F)+'</td><td>'+money(OB)+'</td><td>'+money(G)+'</td><td>'+money(H)+'</td><td></td></tr>'
-    :'<tr><td colspan="8" class="empty">لا يوجد عملاء.</td></tr>';
+  document.getElementById('tbClients').innerHTML=h2?h2+'<tr class="total-row"><td>الإجمالي'+(cg?' — '+esc(groupName('cl',cg)):'')+'</td><td>'+money(E)+'</td><td>'+money(F)+'</td><td>'+money(E-F)+'</td><td>'+money(OB)+'</td><td>'+money(G)+'</td><td>'+money(H)+'</td><td></td></tr>'
+    :'<tr><td colspan="8" class="empty">لا يوجد عملاء مطابقون.</td></tr>';
   var hp='';
   db.payments.slice().sort(function(a,b){return a.date<b.date?1:-1;}).forEach(function(p){
     hp+='<tr><td>'+esc(p.date)+'</td><td><span class="pill '+(p.type==='supplier'?'pill-bad':'pill-ok')+'">'
@@ -2896,21 +2994,27 @@ function renderDashCharts(pnlRows,pay,rec){
 function renderMaster(){
   var t=partyTotals();
   var supQ=(val('msSupSearch')||'').trim(), clQ=(val('msClSearch')||'').trim();
-  document.getElementById('tbSupMaster').innerHTML=db.suppliers.filter(function(s){return !supQ||s.name.indexOf(supQ)>-1;}).map(function(s){
-    var v=t.sup[s.id];
+  var supG=val('msSupGroup'), clG=val('msClGroup');
+  document.getElementById('tbSupMaster').innerHTML=db.suppliers.filter(function(s){
+      return (!supQ||s.name.indexOf(supQ)>-1)&&(!supG||s.groupId===+supG); }).map(function(s){
+    var v=t.sup[s.id], gn=groupName('sup',s.groupId);
     return '<tr><td class="name"><b>'+esc(s.name)+'</b>'+(s.note?'<br><span class="mini">'+esc(s.note)+'</span>':'')+'</td>'
+      +'<td class="name">'+(gn?'<span class="pill pill-info">'+esc(gn)+'</span>':'<span class="muted">—</span>')+'</td>'
       +'<td>'+esc(s.phone||'—')+'</td><td>'+v.n+'</td><td>'+money(v.buy)+'</td><td class="muted">'+money(v.opening)+'</td>'
       +'<td>'+(can('canEdit')?'<button class="btn-sm" onclick="editSupplier('+s.id+')">تعديل</button> ':'')
       +(can('canDelete')?'<button class="btn-sm btn-del" onclick="delSupplier('+s.id+')">حذف</button>':'')+'</td></tr>';
-  }).join('')||'<tr><td colspan="6" class="empty">لا يوجد موردون. أضف أول مورد من النموذج.</td></tr>';
+  }).join('')||'<tr><td colspan="7" class="empty">لا يوجد موردون مطابقون.</td></tr>';
 
-  document.getElementById('tbClMaster').innerHTML=db.clients.filter(function(c){return !clQ||c.name.indexOf(clQ)>-1;}).map(function(c){
-    var v=t.cl[c.id];
+  document.getElementById('tbClMaster').innerHTML=db.clients.filter(function(c){
+      return (!clQ||c.name.indexOf(clQ)>-1)&&(!clG||c.groupId===+clG); }).map(function(c){
+    var v=t.cl[c.id], gn=groupName('cl',c.groupId);
     return '<tr><td class="name"><b>'+esc(c.name)+'</b>'+(c.note?'<br><span class="mini">'+esc(c.note)+'</span>':'')+'</td>'
+      +'<td class="name">'+(gn?'<span class="pill pill-info">'+esc(gn)+'</span>':'<span class="muted">—</span>')+'</td>'
       +'<td>'+esc(c.phone||'—')+'</td><td>'+v.n+'</td><td>'+money(v.sell)+'</td><td class="muted">'+money(v.opening)+'</td>'
       +'<td>'+(can('canEdit')?'<button class="btn-sm" onclick="editClient('+c.id+')">تعديل</button> ':'')
       +(can('canDelete')?'<button class="btn-sm btn-del" onclick="delClient('+c.id+')">حذف</button>':'')+'</td></tr>';
-  }).join('')||'<tr><td colspan="6" class="empty">لا يوجد عملاء.</td></tr>';
+  }).join('')||'<tr><td colspan="7" class="empty">لا يوجد عملاء مطابقون.</td></tr>';
+  renderGroupManagers();
 
   document.getElementById('tbWhMaster').innerHTML=db.warehouses.map(function(w){
     var v=0; Object.keys(L.stock).forEach(function(k){ if(L.stock[k].whId===w.id) v+=L.stock[k].cost; });
@@ -3211,20 +3315,63 @@ function removeLogo(){
   log('data','الإعدادات','إزالة شعار المنشأة');
   commit('تم إزالة الشعار'); renderSettingsForm(); applyLogo();
 }
-/* ---------- صور الأقسام ---------- */
+/* ---------- إدارة الأقسام: الاسم + الصورة يدوياً + إضافة/حذف ---------- */
 var _deptImgTarget=null;
 function renderDeptImages(){
   var box=document.getElementById('deptImagesBox'); if(!box) return;
-  var keys=Object.keys(db.departments||{});
+  var keys=Object.keys(db.departments||{}), only1=keys.length<=1;
   box.innerHTML=keys.map(function(k){
     var img=db.departments[k].image;
     var thumb=img?'<img src="'+esc(img)+'" alt="">':deptEmoji(k);
-    return '<div class="dept-img-card"><div class="thumb">'+thumb+'</div>'
-      +'<div style="flex:1;min-width:120px"><b>'+esc(deptName(k))+'</b><div class="muted" style="font-size:12px">'
-      +(img?'صورة مخصّصة':'الأيقونة الافتراضية '+deptEmoji(k))+'</div></div>'
+    return '<div class="dept-img-card dept-manage"><div class="thumb">'+thumb+'</div>'
+      +'<input type="text" class="dept-name" value="'+esc(deptName(k))+'" onchange="renameDept(\''+k+'\',this.value)" title="اسم القسم">'
       +'<div class="form-foot" style="margin-top:0"><button class="btn" onclick="pickDeptImage(\''+k+'\')">'+(img?'تغيير الصورة':'رفع صورة')+'</button>'
-      +(img?'<button class="btn btn-del" onclick="removeDeptImage(\''+k+'\')">إزالة</button>':'')+'</div></div>';
+      +(img?'<button class="btn btn-del" onclick="removeDeptImage(\''+k+'\')">إزالة الصورة</button>':'')
+      +(only1?'':'<button class="btn btn-del" onclick="delDepartment(\''+k+'\')" title="حذف القسم (يجب أن يكون فارغاً)">حذف القسم</button>')
+      +'</div></div>';
   }).join('')||'<div class="note">لا توجد أقسام.</div>';
+}
+function renameDept(key,name){
+  if(!guard('settings')){ renderDeptImages(); return; }
+  name=(name||'').trim(); if(!name||!db.departments[key]){ renderDeptImages(); return; }
+  if(Object.keys(db.departments).some(function(k){return k!==key&&db.departments[k].name===name;})){
+    toast('اسم القسم مستخدم بالفعل'); renderDeptImages(); return; }
+  db.departments[key].name=name;
+  log('data','الإعدادات','تعديل اسم قسم إلى '+name);
+  commit('تم تعديل اسم القسم'); updateDeptUI(); renderDeptImages();
+}
+function addDepartment(){
+  if(!guard('settings')) return;
+  var name=val('newDeptName').trim(); if(!name){ toast('أدخل اسم القسم'); return; }
+  if(Object.keys(db.departments).some(function(k){return db.departments[k].name===name;})){ toast('اسم القسم مستخدم'); return; }
+  var key='dept_'+uid();
+  db.departments[key]={name:name}; DEPT_BOOKS.forEach(function(k){ db.departments[key][k]=[]; });
+  db.departments[key].warehouses.push({id:uid(),name:'المستودع الرئيسي',clientId:null});
+  log('add','الإعدادات','إضافة قسم جديد: '+name);
+  setVal('newDeptName','');
+  commit('تمت إضافة القسم «'+name+'»'); updateDeptUI(); renderDeptImages();
+}
+function deptIsEmpty(key){
+  var d=db.departments[key]; if(!d) return true;
+  var books=['suppliers','clients','items','purchases','sales','preturns','sreturns','transfers','waste','expenses','payments','openingStock'];
+  var has=books.some(function(b){ return (d[b]||[]).length>0; });
+  var wh=(d.warehouses||[]).filter(function(w){return w.name!=='المستودع الرئيسي'||w.clientId;}).length>0;
+  var it=(db.interTransfers||[]).some(function(x){return x.fromDept===key||x.toDept===key;});
+  return !has&&!wh&&!it;
+}
+function delDepartment(key){
+  if(!guard('settings')) return;
+  if(Object.keys(db.departments).length<=1){ toast('لا يمكن حذف القسم الوحيد'); return; }
+  if(!db.departments[key]) return;
+  if(!deptIsEmpty(key)){ toast('لا يمكن حذف قسم يحتوي بيانات — انقل أو احذف بياناته أولاً'); return; }
+  if(!confirm('حذف قسم «'+deptName(key)+'» نهائياً؟')) return;
+  var nm=deptName(key);
+  delete db.departments[key];
+  db.users.forEach(function(u){ if(Array.isArray(u.depts)) u.depts=u.depts.filter(function(x){return x!==key;});
+    if(u.deptPerms&&u.deptPerms[key]){ delete u.deptPerms[key]; if(!Object.keys(u.deptPerms).length) delete u.deptPerms; } });
+  if(curDept===key||db.activeDept===key){ curDept=Object.keys(db.departments)[0]; loadDept(curDept); }
+  log('delete','الإعدادات','حذف قسم '+nm);
+  commit('تم حذف القسم'); applyPerms(); updateDeptUI(); renderAll(); renderDeptImages();
 }
 function pickDeptImage(k){
   if(!guard('settings')) return;
