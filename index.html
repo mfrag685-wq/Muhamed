@@ -890,6 +890,9 @@ tr.sub-row td{background:#f7faf6;font-weight:700;font-size:12.5px;color:var(--in
           <div class="field"><label>اسم العميل</label><input type="text" id="cl_name" placeholder="الفرع أ"></div>
           <div class="field"><label>الجوال</label><input type="text" id="cl_phone" placeholder="اختياري"></div>
           <div class="field"><label>المجموعة</label><select id="cl_group"></select></div>
+          <div class="field"><label>مستودع خاص للعميل</label><select id="cl_hasWh">
+            <option value="yes">نعم — يُنشأ له مستودع لاستلام بضاعته</option>
+            <option value="no">لا — عميل بدون مستودع</option></select></div>
           <div class="field"><label>الرصيد الافتتاحي <span class="mini">(مستحق له لك)</span></label><input type="number" id="cl_opening" step="0.01" placeholder="0"></div>
           <div class="field"><label>تاريخ الرصيد الافتتاحي</label><input type="date" id="cl_openDate"></div>
           <div class="field" style="grid-column:1/-1"><label>ملاحظات</label><input type="text" id="cl_note" placeholder="اختياري"></div>
@@ -900,7 +903,7 @@ tr.sub-row td{background:#f7faf6;font-weight:700;font-size:12.5px;color:var(--in
           <button class="btn" onclick="exportForEdit('clients')">تصدير الحالي للتعديل</button>
           <button class="btn-alt" onclick="pickImport('clients')">استيراد من Excel</button>
           <span class="editing-note" id="cl_editing"></span>
-          <span class="mini">عند إضافة عميل يُنشأ له مستودع خاص تلقائياً.</span></div>
+          <span class="mini">اختر «نعم» للفروع التي تستلم بضاعة في مستودعها، و«لا» للعملاء الذين لا يحتاجون مستودعاً.</span></div>
       </div>
       <div class="filters no-print" style="margin:6px 0">
         <div class="field"><label>تصفية بالمجموعة</label><select id="msClGroup" onchange="renderMaster()"></select></div>
@@ -1765,6 +1768,7 @@ function cancelDoc(k){
     if(k==='r'){ setVal('r_doc',''); setVal('r_vatrate',vatRate()); setVal('r_vatmode','add'); onReturnDoc(true); }
     if(k==='e'){ db.clients.forEach(function(c){ setVal('esp_'+c.id,''); }); setVal('e_amortUnit','none'); setVal('e_amortCount',''); onAmortChange(); }
     if(k==='u'){ setVal('u_role','entry'); applyRolePreset(); renderDeptGrid(null); renderDeptPermGrids(null); }
+    if(k==='cl') setVal('cl_hasWh','yes');
     (ids[k]||[]).forEach(function(id){ setVal(id,''); });
     if(k==='it') setVal('it_active','1');
     var n=document.getElementById(k+'_editing'); if(n) n.textContent='';
@@ -2162,18 +2166,21 @@ function saveClient(){
   var n=val('cl_name').trim(); if(!n){ toast('أدخل اسم العميل'); return; }
   if(db.clients.filter(function(c){return c.name===n&&c.id!==editId.cl;}).length){ toast('اسم العميل مستخدم'); return; }
   var opening=fnum('cl_opening'), openDate=val('cl_openDate');
-  var grp=val('cl_group')?+val('cl_group'):null;
+  var grp=val('cl_group')?+val('cl_group'):null, wantWh=val('cl_hasWh')!=='no';
   if(editId.cl){ var c=byId(db.clients,editId.cl); c.name=n; c.phone=val('cl_phone').trim(); c.note=val('cl_note').trim();
     c.opening=opening; c.openingDate=openDate; c.groupId=grp;
+    /* إن طُلب مستودع ولم يكن للعميل مستودع بعد، يُنشأ الآن */
+    if(wantWh&&!clientWhs(editId.cl).length) db.warehouses.push({id:uid(),name:'مستودع '+n,clientId:editId.cl});
     log('edit','البيانات الأساسية','تعديل بيانات العميل '+n+(opening?' — رصيد افتتاحي '+num(opening):'')); }
   else { var id=uid(); db.clients.push({id:id,name:n,phone:val('cl_phone').trim(),note:val('cl_note').trim(),opening:opening,openingDate:openDate,groupId:grp});
-    db.warehouses.push({id:uid(),name:'مستودع '+n,clientId:id});
-    log('add','البيانات الأساسية','إضافة عميل جديد: '+n+' مع مستودع خاص'+(opening?' — رصيد افتتاحي '+num(opening):'')); }
+    if(wantWh) db.warehouses.push({id:uid(),name:'مستودع '+n,clientId:id});
+    log('add','البيانات الأساسية','إضافة عميل جديد: '+n+(wantWh?' مع مستودع خاص':' بدون مستودع')+(opening?' — رصيد افتتاحي '+num(opening):'')); }
   cancelDoc('cl'); commit('تم حفظ العميل'); renderMaster();
 }
 function editClient(id){ if(!guard('canEdit'))return; var c=byId(db.clients,id); if(!c)return;
   editId.cl=id; setVal('cl_name',c.name); setVal('cl_phone',c.phone); setVal('cl_note',c.note);
   setVal('cl_opening',c.opening||0); setVal('cl_openDate',c.openingDate||''); setVal('cl_group',c.groupId||'');
+  setVal('cl_hasWh',clientWhs(id).length?'yes':'no');
   document.getElementById('cl_editing').textContent='وضع التعديل'; showTab('master'); }
 function delClient(id){
   if(!guard('canDelete')) return;
