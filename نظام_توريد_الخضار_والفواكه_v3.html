@@ -770,6 +770,8 @@ tr.sub-row td{background:#f7faf6;font-weight:700;font-size:12.5px;color:var(--in
       <option value="item">حركة صنف (كارت الصنف)</option>
       <option value="balClients">أرصدة العملاء (الرصيد الصافي)</option>
       <option value="balSuppliers">أرصدة الموردين (الرصيد الصافي)</option>
+      <option value="stmtClient">كشف حساب عميل</option>
+      <option value="stmtSupplier">كشف حساب مورد</option>
       <option value="client">ربحية العملاء</option>
       <option value="supplier">مشتريات حسب المورد</option>
       <option value="waste">الفاقد والمرتجعات</option>
@@ -783,6 +785,7 @@ tr.sub-row td{background:#f7faf6;font-weight:700;font-size:12.5px;color:var(--in
     <div class="field"><label>إلى</label><input type="date" id="rp_to" onchange="renderReport()"></div>
     <div class="field"><label>الصنف</label><select id="rp_item" onchange="renderReport()"></select></div>
     <div class="field"><label>المستودع</label><select id="rp_wh" onchange="renderReport()"></select></div>
+    <div class="field" id="rp_groupWrap"><label>المجموعة</label><select id="rp_group" onchange="fillReportParty();renderReport()"></select></div>
     <div class="field"><label>الجهة</label><select id="rp_party" onchange="renderReport()"></select></div>
     <button class="btn" onclick="clearReportFilters()">إلغاء الفلترة</button>
     <button class="btn-alt" onclick="exportReport()">تصدير Excel</button>
@@ -1661,16 +1664,31 @@ function fillAllSelects(){
   onReturnType(true); onPayType(true); fillReportParty(); fillInterDeptTargets();
   if(document.getElementById('pl_dist')&&val('pl_dist')!=='single') renderPurchaseDist();
 }
+function reportPartyKind(t){
+  if(['sales','client','branch','balClients','stmtClient'].indexOf(t)>-1) return 'client';
+  if(['purchases','supplier','balSuppliers','stmtSupplier'].indexOf(t)>-1) return 'supplier';
+  return null;
+}
 function fillReportParty(){
-  var t=val('rp_type'), h='';
-  if(t==='supplier') h=opts(db.suppliers,'id',function(o){return o.name;},'كل الموردين');
-  else if(t==='sales'||t==='client') h=opts(db.clients,'id',function(o){return o.name;},'كل العملاء');
-  else if(t==='purchases') h=opts(db.suppliers,'id',function(o){return o.name;},'كل الموردين');
-  else if(t==='branch') h=opts(db.clients,'id',function(o){return o.name;},'— اختر الفرع —');
-  else if(t==='balClients') h=opts(db.clientGroups,'id',function(o){return o.name;},'كل مجموعات العملاء');
-  else if(t==='balSuppliers') h=opts(db.supplierGroups,'id',function(o){return o.name;},'كل مجموعات الموردين');
-  else h='<option value="">—</option>';
-  fillSelect('rp_party',h);
+  var t=val('rp_type'), kind=reportPartyKind(t);
+  var gWrap=document.getElementById('rp_groupWrap');
+  var pWrap=document.getElementById('rp_party')?document.getElementById('rp_party').parentNode:null;
+  if(!kind){ if(gWrap) gWrap.style.display='none'; if(pWrap) pWrap.style.display='none';
+    fillSelect('rp_group','<option value="">—</option>'); fillSelect('rp_party','<option value="">—</option>'); return; }
+  if(gWrap) gWrap.style.display=''; if(pWrap) pWrap.style.display='';
+  fillSelect('rp_group',groupOpts(kind==='client'?'cl':'sup','كل المجموعات'));
+  var g=val('rp_group');
+  var parties=(kind==='client'?db.clients:db.suppliers).filter(function(p){ return !g||p.groupId===+g; });
+  var needsParty=(t==='stmtClient'||t==='stmtSupplier'||t==='branch');
+  var blank=needsParty?('— اختر '+(kind==='client'?'العميل':'المورد')+' —'):('كل '+(kind==='client'?'العملاء':'الموردين'));
+  fillSelect('rp_party',opts(parties,'id',function(o){return o.name;},blank));
+}
+/* هل تندرج الجهة ضمن فلترة التقرير (مجموعة + جهة محددة)؟ */
+function inPartyScope(kind,pid){
+  var fp=val('rp_party'), fg=val('rp_group');
+  if(fp) return pid===+fp;
+  if(fg){ var p=byId(kind==='client'?db.clients:db.suppliers,pid); return !!(p&&p.groupId===+fg); }
+  return true;
 }
 function setDefaults(){
   ['p_date','s_date','r_date','t_date','w_date','e_date','pay_date','os_date','it2_date'].forEach(function(id){ if(!val(id)) setVal(id,today()); });
@@ -2765,8 +2783,8 @@ function renderAccounts(){
   document.getElementById('tbPayments').innerHTML=hp||'<tr><td colspan="8" class="empty">لا توجد حركات سداد.</td></tr>';
   if(ledgerView.type) showLedger(ledgerView.type,ledgerView.id,true);
 }
-function showLedger(type,id,silent){
-  ledgerView={type:type,id:id};
+/* حركات كشف الحساب لجهة (مورد/عميل) — مصدر واحد لكشف الشاشة وتقرير الطباعة */
+function partyStatementRows(type,id){
   var rows=[];
   if(type==='supplier'){
     var s0=byId(db.suppliers,id);
@@ -2790,6 +2808,11 @@ function showLedger(type,id,silent){
       rows.push({d:p.date,t:'تحصيل '+(p.method||''),dr:0,cr:p.amount,e:'editPayment('+p.id+')'}); });
   }
   rows.sort(function(a,b){return a.d<b.d?-1:1;});
+  return rows;
+}
+function showLedger(type,id,silent){
+  ledgerView={type:type,id:id};
+  var rows=partyStatementRows(type,id);
   var bal=0,h='',canEd=can('canEdit');
   rows.forEach(function(r){ bal+=(type==='supplier'?(r.cr-r.dr):(r.dr-r.cr));
     h+='<tr><td>'+esc(r.d==='0000-00-00'?'—':r.d)+'</td><td class="name">'+esc(r.t)+'</td><td>'+(r.dr?money(r.dr):'—')+'</td>'
@@ -3456,10 +3479,10 @@ function removeDeptImage(k){
    التقارير
    ========================================================================== */
 var lastReport={title:'',head:[],rows:[]};
-function clearReportFilters(){ ['rp_from','rp_to','rp_item','rp_wh','rp_party'].forEach(function(i){setVal(i,'');}); renderReport(); }
+function clearReportFilters(){ ['rp_from','rp_to','rp_item','rp_wh','rp_group','rp_party'].forEach(function(i){setVal(i,'');}); fillReportParty(); renderReport(); }
 function renderReport(){
   fillReportParty();
-  var type=val('rp_type'),f=val('rp_from'),t=val('rp_to'),fi=val('rp_item'),fw=val('rp_wh'),fp=val('rp_party');
+  var type=val('rp_type'),f=val('rp_from'),t=val('rp_to'),fi=val('rp_item'),fw=val('rp_wh'),fp=val('rp_party'),fg=val('rp_group');
   var head=[],rows=[],cards='',title='',chart='';
   var push=function(cls,cells){ rows.push({cls:cls,c:cells}); };
 
@@ -3468,7 +3491,7 @@ function renderReport(){
     head=['التاريخ','رقم الفاتورة','المورد','الصنف','الوحدات','وزن الوحدة','الوزن الكلي','أساس السعر','السعر','القيمة','المستودع'];
     var days={},T=0,W=0,U=0;
     db.purchases.forEach(function(p){
-      if(!inRange(p.date,f,t)) return; if(fp&&p.supplierId!==+fp) return;
+      if(!inRange(p.date,f,t)) return; if(!inPartyScope('supplier',p.supplierId)) return;
       (p.lines||[]).forEach(function(l){
         if(fi&&l.itemId!==+fi) return; if(fw&&l.whId!==+fw) return;
         if(!days[p.date]) days[p.date]=[];
@@ -3494,7 +3517,7 @@ function renderReport(){
     head=['التاريخ','رقم الفاتورة','العميل','الصنف','الوحدات','الوزن الكلي','السعر','الإيراد','التكلفة','مجمل الربح','المستودع'];
     var days2={},R=0,C=0,W2=0;
     db.sales.forEach(function(s){
-      if(!inRange(s.date,f,t)) return; if(fp&&s.clientId!==+fp) return;
+      if(!inRange(s.date,f,t)) return; if(!inPartyScope('client',s.clientId)) return;
       (s.lines||[]).forEach(function(l,i){
         if(fi&&l.itemId!==+fi) return; if(fw&&l.whId!==+fw) return;
         var c=L.cogsLine[s.id+'#'+i]||0;
@@ -3540,11 +3563,11 @@ function renderReport(){
     if(!fi) cards=card('اختر صنفاً','—','لعرض كارت صنف محدد')+cards;
   }
   else if(type==='balClients'){
-    var gf=fp?+fp:null;
-    title='تقرير أرصدة العملاء (الرصيد الصافي)'+(gf?('  ·  مجموعة: '+groupName('cl',gf)):'')+'  ·  حتى '+today();
+    var gf=fg?+fg:null;
+    title='تقرير أرصدة العملاء (الرصيد الصافي)'+(gf?('  ·  مجموعة: '+groupName('cl',gf)):'')+(fp?('  ·  '+clientName(+fp)):'')+'  ·  حتى '+today();
     head=['العميل','المجموعة','المبيعات','المرتجعات','صافي المستحق','رصيد افتتاحي','المحصّل','الرصيد الصافي'];
     var tc=partyTotals().cl, Tsell=0,Tret=0,Topen=0,Trecv=0,Tbal=0,nOwed=0,nOver=0;
-    db.clients.filter(function(c){ return !gf||c.groupId===gf; })
+    db.clients.filter(function(c){ return inPartyScope('client',c.id); })
       .map(function(c){ var v=tc[c.id]; return {c:c,bal:v.sell-v.ret+v.opening-v.recv,v:v}; })
       .sort(function(a,b){ return b.bal-a.bal; })
       .forEach(function(o){ var c=o.c,v=o.v,net=v.sell-v.ret,bal=o.bal;
@@ -3556,17 +3579,17 @@ function renderReport(){
       +card('عدد العملاء المدينين',String(nOwed),'عليهم رصيد لك')
       +card('عملاء بدفعات زائدة',String(nOver),'لك عليهم رصيد سالب')
       +card('إجمالي المحصّل',money(Trecv),'حتى الآن');
-    var topC=db.clients.filter(function(c){return !gf||c.groupId===gf;})
+    var topC=db.clients.filter(function(c){return inPartyScope('client',c.id);})
       .map(function(c){ var v=tc[c.id]; return {label:c.name,value:v.sell-v.ret+v.opening-v.recv};})
       .filter(function(d){return Math.abs(d.value)>0.009;}).sort(function(a,b){return b.value-a.value;}).slice(0,8);
     chart=hBarChart('أعلى أرصدة العملاء','الرصيد الصافي المستحق',topC);
   }
   else if(type==='balSuppliers'){
-    var gfs=fp?+fp:null;
-    title='تقرير أرصدة الموردين (الرصيد الصافي)'+(gfs?('  ·  مجموعة: '+groupName('sup',gfs)):'')+'  ·  حتى '+today();
+    var gfs=fg?+fg:null;
+    title='تقرير أرصدة الموردين (الرصيد الصافي)'+(gfs?('  ·  مجموعة: '+groupName('sup',gfs)):'')+(fp?('  ·  '+supName(+fp)):'')+'  ·  حتى '+today();
     head=['المورد','المجموعة','المشتريات','المرتجعات','صافي المستحق','رصيد افتتاحي','المسدد','الرصيد الصافي'];
     var ts=partyTotals().sup, Sbuy=0,Sret=0,Sopen=0,Spaid=0,Sbal=0,mOwed=0,mOver=0;
-    db.suppliers.filter(function(s){ return !gfs||s.groupId===gfs; })
+    db.suppliers.filter(function(s){ return inPartyScope('supplier',s.id); })
       .map(function(s){ var v=ts[s.id]; return {s:s,bal:v.buy-v.ret+v.opening-v.paid,v:v}; })
       .sort(function(a,b){ return b.bal-a.bal; })
       .forEach(function(o){ var s=o.s,v=o.v,net=v.buy-v.ret,bal=o.bal;
@@ -3578,16 +3601,45 @@ function renderReport(){
       +card('عدد الموردين الدائنين',String(mOwed),'لهم رصيد عليك')
       +card('موردون بدفعات زائدة',String(mOver),'لك عليهم رصيد سالب')
       +card('إجمالي المسدد',money(Spaid),'حتى الآن');
-    var topS=db.suppliers.filter(function(s){return !gfs||s.groupId===gfs;})
+    var topS=db.suppliers.filter(function(s){return inPartyScope('supplier',s.id);})
       .map(function(s){ var v=ts[s.id]; return {label:s.name,value:v.buy-v.ret+v.opening-v.paid};})
       .filter(function(d){return Math.abs(d.value)>0.009;}).sort(function(a,b){return b.value-a.value;}).slice(0,8);
     chart=hBarChart('أعلى أرصدة الموردين','الرصيد الصافي المستحق',topS);
+  }
+  else if(type==='stmtClient'||type==='stmtSupplier'){
+    var pk=(type==='stmtClient')?'client':'supplier';
+    if(!fp){
+      title='كشف حساب '+(pk==='client'?'عميل':'مورد');
+      head=['التاريخ','البيان','مدين','دائن','الرصيد'];
+      cards=card('اختر '+(pk==='client'?'العميل':'المورد'),'—','اختر الجهة من قائمة «الجهة» أعلاه — ويمكنك التصفية بالمجموعة أولاً');
+    } else {
+      var pid=+fp, pname=(pk==='client'?clientName(pid):supName(pid));
+      title='كشف حساب '+(pk==='client'?'عميل':'مورد')+': '+pname+'  ·  '+((f||'البداية')+' ← '+(t||'اليوم'));
+      head=['التاريخ','البيان','مدين','دائن','الرصيد'];
+      var allRows=partyStatementRows(pk,pid);
+      var dir=function(r){ return pk==='supplier'?(r.cr-r.dr):(r.dr-r.cr); };  /* اتجاه رصيد الجهة */
+      var opening=0;
+      allRows.forEach(function(r){ if(f&&(r.d==='0000-00-00'||r.d<f)) opening+=dir(r); });   /* ما قبل الفترة */
+      var bal=opening, tdr=0,tcr=0,cnt=0;
+      if(f) push('sub-row',['—','رصيد ما قبل الفترة (مُرحّل)','','',num(opening)]);
+      allRows.forEach(function(r){
+        if(f&&(r.d==='0000-00-00'||r.d<f)) return; if(t&&r.d>t) return;
+        bal+=dir(r); tdr+=+r.dr||0; tcr+=+r.cr||0; cnt++;
+        push('',[r.d==='0000-00-00'?'—':r.d, r.t, r.dr?num(r.dr):'—', r.cr?num(r.cr):'—', num(bal)]);
+      });
+      push('total-row',['','إجمالي الحركة / الرصيد الختامي',num(tdr),num(tcr),num(bal)]);
+      var grp=(pk==='client'?byId(db.clients,pid):byId(db.suppliers,pid));
+      cards=card('الرصيد الختامي',money(bal),balCls(bal)==='neg'?'دفعة زائدة (سالب)':(pk==='client'?'مستحق لك':'مستحق عليك'),true)
+        +card('رصيد ما قبل الفترة',money(opening),'مُرحّل')
+        +card('إجمالي المدين',money(tdr),String(cnt)+' حركة خلال الفترة')
+        +card('إجمالي الدائن',money(tcr),(grp&&grp.groupId?('المجموعة: '+groupName(pk==='client'?'cl':'sup',grp.groupId)):''));
+    }
   }
   else if(type==='client'){
     title='تقرير ربحية العملاء';
     head=['العميل','صافي المبيعات','تكلفة المبيعات','مجمل الربح','الفاقد','مصروفات مباشرة','حصة المشتركة','صافي الربح','الهامش'];
     var P=pnl();
-    db.clients.forEach(function(c){ var x=P.rows[c.id];
+    db.clients.filter(function(c){return inPartyScope('client',c.id);}).forEach(function(c){ var x=P.rows[c.id];
       push('',[c.name,num(x.net_rev),num(x.cogs),num(x.gp),num(x.waste),num(x.direct),num(x.shared),num(x.net),pct(x.net,x.net_rev)]); });
     cards=card('ملاحظة','الفترة من فلترة الملخص','تقرير الربحية يتبع فترة تبويب الملخص');
     var clNet=db.clients.map(function(c){return {label:c.name,value:P.rows[c.id].net};})
@@ -3602,7 +3654,7 @@ function renderReport(){
     head=['المورد','عدد الفواتير','إجمالي الوحدات','إجمالي الأوزان','قيمة المشتريات','المرتجعات','افتتاحي','المسدد','الرصيد'];
     var pt=partyTotals().sup, agg={};
     db.purchases.forEach(function(p){
-      if(!inRange(p.date,f,t)) return; if(fp&&p.supplierId!==+fp) return;
+      if(!inRange(p.date,f,t)) return; if(!inPartyScope('supplier',p.supplierId)) return;
       if(!agg[p.supplierId]) agg[p.supplierId]={n:0,u:0,w:0,v:0};
       agg[p.supplierId].n++; agg[p.supplierId].v+=p.total;
       (p.lines||[]).forEach(function(l){ agg[p.supplierId].u+=+l.units||0; agg[p.supplierId].w+=(+l.units||0)*(+l.uw||0); });
