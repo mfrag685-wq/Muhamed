@@ -863,8 +863,9 @@ tr.sub-row td{background:#f7faf6;font-weight:700;font-size:12.5px;color:var(--in
     <button class="btn-alt" onclick="exportTable('income')">تصدير Excel</button>
     <button class="btn" onclick="window.print()">طباعة</button>
   </div>
+  <div class="note no-print">«الفرع» = عميل له مستودع خاص (مركز تكلفة). أما العملاء بدون مستودع فيُجمّعون في سطر واحد «عملاء آخرون» ولا يظهر كل واحد كفرع مستقل.</div>
   <div class="table-scroll"><table>
-    <thead><tr><th class="name">الفرع</th><th>المبيعات</th><th>مرتجعات</th><th>صافي المبيعات</th><th>تكلفة المبيعات</th>
+    <thead><tr><th class="name">الفرع / العميل</th><th>المبيعات</th><th>مرتجعات</th><th>صافي المبيعات</th><th>تكلفة المبيعات</th>
       <th>مجمل الربح</th><th>الفاقد</th><th>مصروفات مباشرة</th><th>حصة المشتركة</th><th>إجمالي المصروفات</th>
       <th>صافي الربح</th><th>الهامش</th></tr></thead>
     <tbody id="tbIncome"></tbody></table></div>
@@ -1418,6 +1419,8 @@ function userName(id){ var u=byId(db.users,id); return u?u.name:'—'; }
 function itemUnit(id){ var i=byId(db.items,id); return i?i.unit:''; }
 function generalWhs(){ return db.warehouses.filter(function(w){return !w.clientId;}); }
 function clientWhs(cid){ return db.warehouses.filter(function(w){return w.clientId===cid;}); }
+/* الفرع/مركز التكلفة = عميل له مستودع خاص؛ العميل بدون مستودع = عميل عادي */
+function isBranch(cid){ return clientWhs(cid).length>0; }
 function whClient(id){ var w=byId(db.warehouses,id); return w?w.clientId:null; }
 
 /* ---------- الصلاحيات ---------- */
@@ -2623,17 +2626,22 @@ function pnl(){
     }
     else pool+=amt;
   });
-  var tRev=0,tGP=0,tW=0;
   db.clients.forEach(function(c){ var r=res[c.id];
-    r.net_rev=r.rev-r.ret; r.gp=r.net_rev-r.cogs-r.waste;
+    r.net_rev=r.rev-r.ret; r.gp=r.net_rev-r.cogs-r.waste; });
+  /* المصروفات المشتركة تُوزَّع على الفروع فقط (عملاء لهم مستودع)؛ فإن لم يوجد فرع فعلى الكل */
+  var targets=db.clients.filter(function(c){return isBranch(c.id);});
+  if(!targets.length) targets=db.clients.slice();
+  var isT={},tRev=0,tGP=0,tW=0; targets.forEach(function(c){ isT[c.id]=1; var r=res[c.id];
     tRev+=r.net_rev; tGP+=Math.max(0,r.gp); tW+=r.weight; });
-  var n=db.clients.length||1;
+  var n=targets.length||1;
   db.clients.forEach(function(c){
-    var r=res[c.id],share;
-    if(method==='equal') share=1/n;
-    else if(method==='gp') share=tGP>0?Math.max(0,r.gp)/tGP:1/n;
-    else if(method==='weight') share=tW>0?r.weight/tW:1/n;
-    else share=tRev>0?r.net_rev/tRev:1/n;
+    var r=res[c.id],share=0;
+    if(isT[c.id]){
+      if(method==='equal') share=1/n;
+      else if(method==='gp') share=tGP>0?Math.max(0,r.gp)/tGP:1/n;
+      else if(method==='weight') share=tW>0?r.weight/tW:1/n;
+      else share=tRev>0?r.net_rev/tRev:1/n;
+    }
     r.shared+=pool*share; r.exp=r.direct+r.shared; r.net=r.gp-r.exp;
   });
   return {rows:res,pool:pool};
@@ -2927,15 +2935,21 @@ function showLedger(type,id,silent){
 
 function renderIncome(){
   var P=pnl(),r=P.rows,h='',T={rev:0,ret:0,nrev:0,cogs:0,gp:0,waste:0,direct:0,shared:0,exp:0,net:0};
-  db.clients.forEach(function(c){
-    var x=r[c.id];
-    T.rev+=x.rev;T.ret+=x.ret;T.nrev+=x.net_rev;T.cogs+=x.cogs;T.gp+=x.gp;T.waste+=x.waste;
-    T.direct+=x.direct;T.shared+=x.shared;T.exp+=x.exp;T.net+=x.net;
-    h+='<tr><td class="name"><b>'+esc(c.name)+'</b></td><td>'+money(x.rev)+'</td><td>'+money(x.ret)+'</td>'
+  var rowHtml=function(name,x,bold){
+    return '<tr><td class="name">'+(bold?'<b>':'')+esc(name)+(bold?'</b>':'')+'</td><td>'+money(x.rev)+'</td><td>'+money(x.ret)+'</td>'
       +'<td>'+money(x.net_rev)+'</td><td>'+money(x.cogs)+'</td><td>'+sign(x.gp)+'</td><td>'+money(x.waste)+'</td>'
       +'<td>'+money(x.direct)+'</td><td>'+money(x.shared)+'</td><td>'+money(x.exp)+'</td><td>'+sign(x.net)+'</td>'
       +'<td class="muted">'+pct(x.net,x.net_rev)+'</td></tr>';
+  };
+  var acc=function(x){ T.rev+=x.rev;T.ret+=x.ret;T.nrev+=x.net_rev;T.cogs+=x.cogs;T.gp+=x.gp;T.waste+=x.waste;
+    T.direct+=x.direct;T.shared+=x.shared;T.exp+=x.exp;T.net+=x.net; };
+  /* الفروع (عملاء لهم مستودع) كل واحد على حدة، وبقية العملاء يُجمّعون في سطر واحد */
+  var others={rev:0,ret:0,net_rev:0,cogs:0,gp:0,waste:0,direct:0,shared:0,exp:0,net:0}, nOther=0;
+  db.clients.forEach(function(c){ var x=r[c.id];
+    if(isBranch(c.id)){ acc(x); h+=rowHtml(c.name,x,true); }
+    else { nOther++; ['rev','ret','net_rev','cogs','gp','waste','direct','shared','exp','net'].forEach(function(k){ others[k]+=x[k]; }); }
   });
+  if(nOther){ acc(others); h+=rowHtml('عملاء آخرون ('+nOther+' — بدون مستودع)',others,false); }
   h+='<tr class="total-row"><td>الإجمالي</td><td>'+money(T.rev)+'</td><td>'+money(T.ret)+'</td><td>'+money(T.nrev)+'</td>'
     +'<td>'+money(T.cogs)+'</td><td>'+sign(T.gp)+'</td><td>'+money(T.waste)+'</td><td>'+money(T.direct)+'</td>'
     +'<td>'+money(T.shared)+'</td><td>'+money(T.exp)+'</td><td>'+sign(T.net)+'</td><td>'+pct(T.net,T.nrev)+'</td></tr>';
@@ -3094,10 +3108,14 @@ function renderDash(){
    +card('قيمة المخزون',money(stockVal),'رصيد حالي بكل المستودعات')
    +(canSeeBalances()?(card('مستحق للموردين',money(pay),'التزامات قائمة')
    +card('مستحق من العملاء',money(rec),'ذمم لم تُحصّل')):'');
-  var hb='';
+  var hb='', dbrow=function(name,x){ return '<tr><td class="name"><b>'+esc(name)+'</b></td><td>'+money(x.net_rev)+'</td><td>'+money(x.cogs)+'</td>'
+      +'<td>'+sign(x.gp)+'</td><td class="muted">'+pct(x.gp,x.net_rev)+'</td><td>'+money(x.exp)+'</td><td>'+sign(x.net)+'</td></tr>'; };
+  var oth={net_rev:0,cogs:0,gp:0,exp:0,net:0}, nO=0;
   db.clients.forEach(function(c){ var x=r[c.id];
-    hb+='<tr><td class="name"><b>'+esc(c.name)+'</b></td><td>'+money(x.net_rev)+'</td><td>'+money(x.cogs)+'</td>'
-      +'<td>'+sign(x.gp)+'</td><td class="muted">'+pct(x.gp,x.net_rev)+'</td><td>'+money(x.exp)+'</td><td>'+sign(x.net)+'</td></tr>'; });
+    if(isBranch(c.id)) hb+=dbrow(c.name,x);
+    else { nO++; ['net_rev','cogs','gp','exp','net'].forEach(function(k){ oth[k]+=x[k]; }); }
+  });
+  if(nO) hb+=dbrow('عملاء آخرون ('+nO+')',oth);
   document.getElementById('dashBranches').innerHTML=hb||'<tr><td colspan="7" class="empty">لا يوجد عملاء بعد.</td></tr>';
   var it={};
   db.sales.forEach(function(s){ if(!inRg(s.date)) return;
@@ -3786,12 +3804,16 @@ function renderReport(){
     }
   }
   else if(type==='client'){
-    title='تقرير ربحية العملاء';
-    head=['العميل','صافي المبيعات','تكلفة المبيعات','مجمل الربح','الفاقد','مصروفات مباشرة','حصة المشتركة','صافي الربح','الهامش'];
+    title='تقرير ربحية الفروع والعملاء';
+    head=['الفرع / العميل','صافي المبيعات','تكلفة المبيعات','مجمل الربح','الفاقد','مصروفات مباشرة','حصة المشتركة','صافي الربح','الهامش'];
     var P=pnl();
+    var oth={net_rev:0,cogs:0,gp:0,waste:0,direct:0,shared:0,net:0}, nO=0;
     db.clients.filter(function(c){return inPartyScope('client',c.id);}).forEach(function(c){ var x=P.rows[c.id];
-      push('',[c.name,num(x.net_rev),num(x.cogs),num(x.gp),num(x.waste),num(x.direct),num(x.shared),num(x.net),pct(x.net,x.net_rev)]); });
-    cards=card('ملاحظة','الفترة من فلترة الملخص','تقرير الربحية يتبع فترة تبويب الملخص');
+      if(isBranch(c.id)||fp) push('',[c.name,num(x.net_rev),num(x.cogs),num(x.gp),num(x.waste),num(x.direct),num(x.shared),num(x.net),pct(x.net,x.net_rev)]);
+      else { nO++; ['net_rev','cogs','gp','waste','direct','shared','net'].forEach(function(k){ oth[k]+=x[k]; }); }
+    });
+    if(nO) push('',['عملاء آخرون ('+nO+' — بدون مستودع)',num(oth.net_rev),num(oth.cogs),num(oth.gp),num(oth.waste),num(oth.direct),num(oth.shared),num(oth.net),pct(oth.net,oth.net_rev)]);
+    cards=card('ملاحظة','الفروع = عملاء لهم مستودع','بقية العملاء مجمّعون في «عملاء آخرون»');
     var clNet=db.clients.map(function(c){return {label:c.name,value:P.rows[c.id].net};})
       .filter(function(d){return Math.abs(d.value)>0.009;}).sort(function(a,b){return b.value-a.value;}).slice(0,8);
     var clRev=db.clients.map(function(c){return {label:c.name,value:P.rows[c.id].net_rev};})
