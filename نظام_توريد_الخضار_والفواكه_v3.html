@@ -84,6 +84,24 @@ header .sub{font-size:12.5px;color:#9db3a7;margin-top:2px}
   align-items:center;justify-content:center;font-weight:700;font-size:13px}
 .userbox .un{font-size:13px;font-weight:700;color:#fff;line-height:1.2}
 .userbox .ur{font-size:11px;color:#9db3a7}
+/* ===== أزرار الأقسام (بصورة لكل قسم) ===== */
+.dept-switch{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.dept-btn{display:flex;align-items:center;gap:7px;background:#152420;color:#cde0d5;border:1px solid #3f5449;
+  border-radius:22px;padding:3px 12px 3px 4px;cursor:pointer;font-family:inherit;font-size:13px;font-weight:700;
+  transition:all .15s;line-height:1}
+.dept-btn:hover{border-color:var(--leaf);color:#fff}
+.dept-btn.active{background:var(--leaf);border-color:var(--leaf);color:#fff;box-shadow:0 2px 8px rgba(0,0,0,.25)}
+.dept-btn img,.dept-btn .dept-emo{width:30px;height:30px;border-radius:50%;object-fit:cover;background:#22332c;
+  display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0;border:1px solid rgba(255,255,255,.2)}
+.dept-btn .dept-nm{white-space:nowrap}
+/* بطاقات صور الأقسام في الإعدادات */
+.dept-img-card{display:flex;align-items:center;gap:14px;background:var(--surface-2);border:1px solid var(--line);
+  border-radius:12px;padding:12px 14px;margin-bottom:10px;flex-wrap:wrap}
+.dept-img-card .thumb{width:64px;height:64px;border-radius:12px;overflow:hidden;background:var(--surface);
+  border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:28px;flex-shrink:0}
+.dept-img-card .thumb img{width:100%;height:100%;object-fit:cover}
+.dept-perm-block{border:1px solid var(--line-soft);border-radius:12px;padding:12px;margin-top:10px;background:var(--surface-2)}
+.perm.strong{font-weight:700;background:transparent;border:0;padding:0 0 6px}
 
 /* ===== التبويبات ===== */
 nav.tabs{display:flex;gap:3px;flex-wrap:wrap;margin:16px 0 14px;background:var(--surface);padding:6px;
@@ -156,6 +174,16 @@ tr.sub-row td{background:#f7faf6;font-weight:700;font-size:12.5px;color:var(--in
 .card .n{font-size:11.5px;color:var(--ink-3);margin-top:2px}
 .card.dark{background:var(--ink);border-color:var(--ink)}
 .card.dark .k,.card.dark .n{color:#93aa9d}.card.dark .v{color:#fff}
+/* ===== الرسوم البيانية ===== */
+.chart-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px;margin:14px 0}
+.chart-box{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+.chart-box h4{font-size:13.5px;font-weight:700;color:var(--ink);margin-bottom:2px}
+.chart-box .csub{font-size:11.5px;color:var(--ink-3);margin-bottom:10px}
+.chart-box svg{width:100%;height:auto;display:block;overflow:visible}
+.chart-legend{display:flex;flex-wrap:wrap;gap:10px 16px;margin-top:12px}
+.chart-legend .lg{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--ink-2)}
+.chart-legend .sw{width:12px;height:12px;border-radius:3px;flex-shrink:0}
+.chart-legend .lv{font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums}
 
 .note{background:var(--surface-2);border:1px solid var(--line-soft);border-right:3px solid var(--leaf);
   padding:12px 14px;border-radius:8px;font-size:13px;color:var(--ink-2);margin-bottom:16px}
@@ -214,6 +242,11 @@ tr.sub-row td{background:#f7faf6;font-weight:700;font-size:12.5px;color:var(--in
   .card.dark .k,.card.dark .n{color:#333!important}.card.dark .v{color:#000!important}
   .note,.alert{border:1px solid #bbb!important;background:#f7f7f5!important;color:#000}
   tbody tr:hover{background:none}
+  /* الرسوم البيانية عند الطباعة: عمود واحد وحدود خفيفة لوضوح A4 */
+  .chart-grid{display:block!important}
+  .chart-box{border:1px solid #ccc!important;padding:8px 10px!important;margin-bottom:8px;page-break-inside:avoid}
+  .chart-box h4{font-size:12px}.chart-box .csub{font-size:9px}
+  .chart-legend .lg{font-size:9px}
 }
 @media(prefers-reduced-motion:reduce){*{transition:none!important}}
 /* ===== مؤشّر المزامنة السحابية ===== */
@@ -269,9 +302,9 @@ tr.sub-row td{background:#f7faf6;font-weight:700;font-size:12.5px;color:var(--in
     </div>
   </div>
   <div class="head-actions">
-    <div id="deptBox" style="display:flex;align-items:center;gap:6px;background:#22332c;padding:4px 10px;border-radius:22px">
-      <span style="font-size:12px;color:#9db3a7">القسم</span>
-      <select id="deptSwitch" onchange="switchDept(this.value)" style="background:#152420;color:#fff;border:1px solid #3f5449;border-radius:8px;padding:4px 8px;font-size:13px;font-weight:700"></select>
+    <div id="deptBox" style="display:flex;align-items:center;gap:8px;background:#22332c;padding:4px 8px;border-radius:26px">
+      <span style="font-size:12px;color:#9db3a7;padding-right:4px">القسم</span>
+      <div id="deptSwitch" class="dept-switch"></div>
     </div>
     <span id="cloudStatus" class="cloud-status off" title="حالة المزامنة السحابية">غير مفعّل</span>
     <div class="userbox"><div class="avatar" id="uAvatar">م</div>
@@ -315,6 +348,7 @@ tr.sub-row td{background:#f7faf6;font-weight:700;font-size:12.5px;color:var(--in
   </div>
   <div id="dashWarn"></div>
   <div class="cards" id="kpiCards"></div>
+  <div class="chart-grid" id="dashCharts"></div>
   <div class="sec-title">أداء الفروع خلال الفترة</div>
   <div class="table-scroll"><table>
     <thead><tr><th class="name">الفرع / مركز التكلفة</th><th>المبيعات</th><th>تكلفة المبيعات</th><th>مجمل الربح</th>
@@ -724,6 +758,8 @@ tr.sub-row td{background:#f7faf6;font-weight:700;font-size:12.5px;color:var(--in
       <option value="supplier">مشتريات حسب المورد</option>
       <option value="waste">الفاقد والمرتجعات</option>
       <option value="vat">ملخص ضريبة القيمة المضافة</option>
+      <option value="agingC">تحليل أعمار ذمم العملاء</option>
+      <option value="agingS">تحليل أعمار مستحقات الموردين</option>
       <option value="interdept">التحويلات بين الأقسام</option>
       <option value="consolidated">الأرصدة المجمّعة عبر الأقسام</option>
     </select></div>
@@ -737,6 +773,7 @@ tr.sub-row td{background:#f7faf6;font-weight:700;font-size:12.5px;color:var(--in
     <button class="btn" onclick="window.print()">طباعة</button>
   </div>
   <div class="cards" id="rpCards" style="margin-bottom:14px"></div>
+  <div id="rpChart"></div>
   <div class="table-scroll"><table>
     <thead id="rpHead"></thead><tbody id="rpBody"></tbody></table></div>
 
@@ -936,8 +973,11 @@ tr.sub-row td{background:#f7faf6;font-weight:700;font-size:12.5px;color:var(--in
     </div>
     <div class="sec-title" style="margin-top:16px">الأقسام المتاحة للمستخدم <span class="hint">حدّد الأقسام التي يعمل عليها — يمكن منح موظف قسماً واحداً أو الاثنين</span></div>
     <div class="perm-grid" id="deptGrid"></div>
-    <div class="sec-title" style="margin-top:16px">الصلاحيات</div>
+    <div class="sec-title" style="margin-top:16px">الصلاحيات الأساسية <span class="hint">تُطبَّق على كل الأقسام ما لم تُحدَّد صلاحيات خاصة بقسم أدناه</span></div>
     <div class="perm-grid" id="permGrid"></div>
+    <div class="sec-title" style="margin-top:16px">صلاحيات خاصة بكل قسم (اختياري)
+      <span class="hint">فعّل قسماً لتمنح فيه صلاحيات مختلفة — مثلاً إضافة في الخضار واطّلاع فقط في الفاكهة</span></div>
+    <div id="deptPermBox"></div>
     <div class="form-foot"><button class="btn-main" onclick="saveUser()">حفظ المستخدم</button>
       <button class="btn" onclick="cancelDoc('u')">إلغاء</button><span class="editing-note" id="u_editing"></span></div>
   </div>
@@ -985,6 +1025,11 @@ tr.sub-row td{background:#f7faf6;font-weight:700;font-size:12.5px;color:var(--in
       <button class="btn btn-del" onclick="removeLogo()">إزالة الشعار</button>
     </div>
   </div>
+
+  <div class="sec-title">صور الأقسام</div>
+  <div class="note">اختر صورة معبّرة لكل قسم (خضار / فاكهة)؛ تظهر على أزرار التبديل أعلى الصفحة لكل المستخدمين. يمكنك تغييرها في أي وقت.</div>
+  <div id="deptImagesBox"></div>
+  <input type="file" id="deptImgFile" accept="image/*" class="hidden" onchange="uploadDeptImage(event)">
 
   <div class="sec-title">البيانات والنسخ الاحتياطي</div>
   <div class="form-foot">
@@ -1250,7 +1295,13 @@ function clientWhs(cid){ return db.warehouses.filter(function(w){return w.client
 function whClient(id){ var w=byId(db.warehouses,id); return w?w.clientId:null; }
 
 /* ---------- الصلاحيات ---------- */
-function can(k){ return !!(ME&&ME.perms&&ME.perms[k]); }
+/* الصلاحية الفعّالة: إن وُجدت صلاحيات خاصة بالقسم النشط تُستخدم، وإلا الصلاحيات الأساسية */
+function effPerms(){
+  if(!ME||!ME.perms) return null;
+  var dp=ME.deptPerms&&db&&db.activeDept&&ME.deptPerms[db.activeDept];
+  return dp||ME.perms;
+}
+function can(k){ var p=effPerms(); return !!(p&&p[k]); }
 function guard(k,msg){ if(can(k)) return true; toast(msg||'لا تملك صلاحية لهذا الإجراء'); return false; }
 function applyPerms(){
   document.querySelectorAll('.tab-btn').forEach(function(b){
@@ -1319,12 +1370,19 @@ function userDepts(){ /* الأقسام المسموح بها للمستخدم �
   return d.length?d:all;
 }
 function userCanDept(key){ return userDepts().indexOf(key)>-1; }
+function deptEmoji(key){ return key==='veg'?'🥬':(key==='fruits'?'🍎':'📦'); }
+function deptIconHtml(key){
+  var img=db.departments&&db.departments[key]&&db.departments[key].image;
+  return img?'<img src="'+esc(img)+'" alt="">':'<span class="dept-emo">'+deptEmoji(key)+'</span>';
+}
 function updateDeptUI(){
   var sel=document.getElementById('deptSwitch'), box=document.getElementById('deptBox'); if(!sel) return;
   var allowed=userDepts();
   if(!curDept||allowed.indexOf(curDept)<0){ curDept=allowed[0]||'fruits'; loadDept(curDept); }   /* أول قسم مسموح لهذا المستخدم */
-  sel.innerHTML=allowed.map(function(k){ return '<option value="'+k+'">'+esc(deptName(k))+'</option>'; }).join('');
-  sel.value=curDept;
+  sel.innerHTML=allowed.map(function(k){
+    return '<button type="button" class="dept-btn'+(k===curDept?' active':'')+'" onclick="switchDept(\''+k+'\')" title="التبديل إلى قسم '+esc(deptName(k))+'">'
+      +deptIconHtml(k)+'<span class="dept-nm">'+esc(deptName(k))+'</span></button>';
+  }).join('');
   if(box) box.style.display=allowed.length>1?'flex':'none';   /* إخفاء المبدّل إن كان قسماً واحداً */
   var st=document.querySelector('header .sub');
   if(st) st.textContent='قسم: '+deptName(db.activeDept)+' · دفتر حسابات مستقل · إعداد أ/ محمد فرج';
@@ -1336,6 +1394,7 @@ function switchDept(key){
   draft={p:{lines:[],editId:null},s:{lines:[],editId:null}};
   curDept=key; loadDept(key); persist();
   ledgerView={type:null,id:null};
+  applyPerms();   /* الصلاحيات قد تختلف بين الأقسام — أعد ضبط التبويبات والنماذج */
   refreshLedger(); setDefaults(); renderAll(); renderMaster(); renderUsers(); renderSettingsForm();
   updateDeptUI();
   toast('تم التبديل إلى قسم '+deptName(key));
@@ -1657,6 +1716,7 @@ function cancelDoc(k){
       os:['os_units','os_uw','os_price','os_total']};
     if(k==='r'){ setVal('r_doc',''); setVal('r_vatrate',vatRate()); setVal('r_vatmode','add'); onReturnDoc(true); }
     if(k==='e'){ db.clients.forEach(function(c){ setVal('esp_'+c.id,''); }); setVal('e_amortUnit','none'); setVal('e_amortCount',''); onAmortChange(); }
+    if(k==='u'){ setVal('u_role','entry'); applyRolePreset(); renderDeptGrid(null); renderDeptPermGrids(null); }
     (ids[k]||[]).forEach(function(id){ setVal(id,''); });
     if(k==='it') setVal('it_active','1');
     var n=document.getElementById(k+'_editing'); if(n) n.textContent='';
@@ -2200,6 +2260,7 @@ function changeAlloc(){ db.settings.alloc=val('allocMethod'); persist(); log('da
 function parseDate(s){ if(!s) return null; var p=String(s).split('-'); if(p.length<3) return null;
   var d=new Date(Date.UTC(+p[0],(+p[1]||1)-1,+p[2]||1)); return isNaN(d.getTime())?null:d; }
 function fmtDate(dt){ return dt.toISOString().slice(0,10); }
+function daysBetween(a,b){ var da=parseDate(a),dbb=parseDate(b); if(!da||!dbb) return 0; return Math.round((dbb.getTime()-da.getTime())/86400000); }
 function addDays(dt,n){ var d=new Date(dt.getTime()); d.setUTCDate(d.getUTCDate()+n); return d; }
 function addMonths(dt,n){ var d=new Date(dt.getTime()), day=d.getUTCDate(); d.setUTCDate(1);
   d.setUTCMonth(d.getUTCMonth()+n);
@@ -2628,6 +2689,130 @@ function renderIncome(){
 }
 
 function card(k,v,n,dark){ return '<div class="card'+(dark?' dark':'')+'"><div class="k">'+k+'</div><div class="v">'+v+'</div><div class="n">'+n+'</div></div>'; }
+
+/* ==========================================================================
+   مكتبة الرسوم البيانية — SVG مضمّن بلا مكتبات خارجية (تعمل دون إنترنت)
+   ========================================================================== */
+var CHART_COLORS=['#2c7a52','#c1841a','#1c7ed6','#c0392b','#6f42c1','#0ca678','#d6336c','#4c6ef5','#f59f00','#495057'];
+var CHART_AXIS='#8a9a90', CHART_GRID='#e6ebe5', CHART_TEXT='#3f524a';
+function fmtK(n){ n=Number(n)||0; var a=Math.abs(n);
+  if(a>=1e6) return (n/1e6).toFixed(a>=1e7?0:1)+'M';
+  if(a>=1e3) return (n/1e3).toFixed(a>=1e4?0:1)+'K';
+  return String(Math.round(n)); }
+function niceMax(v){ if(v<=0) return 1;
+  var pow=Math.pow(10,Math.floor(Math.log(v)/Math.LN10)), f=v/pow;
+  var nf=f<=1?1:f<=2?2:f<=2.5?2.5:f<=5?5:10; return nf*pow; }
+function chartBox(title,sub,inner,legend){
+  return '<div class="chart-box"><h4>'+esc(title)+'</h4>'+(sub?'<div class="csub">'+esc(sub)+'</div>':'')
+    +inner+(legend||'')+'</div>';
+}
+function legendRow(items){ /* items:[{label,color,val}] */
+  return '<div class="chart-legend">'+items.map(function(i){
+    return '<span class="lg"><span class="sw" style="background:'+i.color+'"></span>'+esc(i.label)
+      +(i.val!=null?' <span class="lv">'+esc(i.val)+'</span>':'')+'</span>';
+  }).join('')+'</div>';
+}
+function emptyChart(msg){ return '<div class="csub" style="padding:26px 0;text-align:center">'+esc(msg||'لا توجد بيانات كافية للرسم')+'</div>'; }
+
+/* أعمدة رأسية مجمّعة — cats:[..labels], series:[{name,color,vals:[]}] */
+function barChart(title,sub,cats,series,unitFmt){
+  unitFmt=unitFmt||money;
+  var has=series.some(function(s){return s.vals.some(function(v){return Math.abs(v)>0.0001;});});
+  if(!cats.length||!has) return chartBox(title,sub,emptyChart());
+  var W=680,H=300,padL=52,padR=14,padT=14,padB=52,iw=W-padL-padR,ih=H-padT-padB;
+  var max=0,min=0; series.forEach(function(s){ s.vals.forEach(function(v){ if(v>max)max=v; if(v<min)min=v; }); });
+  var top=niceMax(max||1), bot=min<0?-niceMax(-min):0, span=top-bot||1;
+  var y=function(v){ return padT+ih-((v-bot)/span)*ih; };
+  var g='',i,step=4;
+  for(i=0;i<=step;i++){ var gv=bot+span*i/step, gy=y(gv);
+    g+='<line x1="'+padL+'" y1="'+gy.toFixed(1)+'" x2="'+(W-padR)+'" y2="'+gy.toFixed(1)+'" stroke="'+CHART_GRID+'" stroke-width="1"/>'
+      +'<text x="'+(padL-6)+'" y="'+(gy+3.5).toFixed(1)+'" text-anchor="end" font-size="10" fill="'+CHART_TEXT+'">'+esc(fmtK(gv))+'</text>'; }
+  var n=cats.length, gw=iw/n, sc=series.length, innerPad=gw*0.18, bw=(gw-innerPad*2)/sc;
+  var bars='',labels='';
+  for(i=0;i<n;i++){ var gx=padL+gw*i;
+    for(var j=0;j<sc;j++){ var v=series[j].vals[i]||0, bx=gx+innerPad+bw*j, by=Math.min(y(v),y(0)), bh=Math.abs(y(v)-y(0));
+      bars+='<rect x="'+bx.toFixed(1)+'" y="'+by.toFixed(1)+'" width="'+(bw*0.86).toFixed(1)+'" height="'+Math.max(0,bh).toFixed(1)
+        +'" rx="2" fill="'+series[j].color+'"><title>'+esc(cats[i]+' · '+series[j].name+': '+unitFmt(v))+'</title></rect>'; }
+    labels+='<text x="'+(gx+gw/2).toFixed(1)+'" y="'+(H-padB+16)+'" text-anchor="middle" font-size="10" fill="'+CHART_TEXT+'">'+esc(cats[i])+'</text>'; }
+  var axis='<line x1="'+padL+'" y1="'+y(0).toFixed(1)+'" x2="'+(W-padR)+'" y2="'+y(0).toFixed(1)+'" stroke="'+CHART_AXIS+'" stroke-width="1.2"/>';
+  var svg='<svg viewBox="0 0 '+W+' '+H+'" role="img">'+g+axis+bars+labels+'</svg>';
+  var leg=legendRow(series.map(function(s){ var tot=0; s.vals.forEach(function(v){tot+=v;}); return {label:s.name,color:s.color,val:unitFmt(tot)}; }));
+  return chartBox(title,sub,svg,leg);
+}
+
+/* أعمدة أفقية — data:[{label,value,color?}] */
+function hBarChart(title,sub,data,unitFmt){
+  unitFmt=unitFmt||money;
+  data=(data||[]).filter(function(d){return Math.abs(d.value)>0.0001;});
+  if(!data.length) return chartBox(title,sub,emptyChart());
+  var max=0; data.forEach(function(d){ if(Math.abs(d.value)>max) max=Math.abs(d.value); });
+  var top=niceMax(max||1);
+  var W=680,rowH=30,padL=140,padR=64,padT=8,padB=8, H=padT+padB+data.length*rowH, iw=W-padL-padR;
+  var rows='';
+  data.forEach(function(d,i){ var cy=padT+rowH*i, bl=(Math.abs(d.value)/top)*iw, col=d.color||CHART_COLORS[i%CHART_COLORS.length];
+    rows+='<text x="'+(padL-8)+'" y="'+(cy+rowH/2+3.5).toFixed(1)+'" text-anchor="end" font-size="11.5" fill="'+CHART_TEXT+'">'+esc(d.label)+'</text>'
+      +'<rect x="'+padL+'" y="'+(cy+5).toFixed(1)+'" width="'+Math.max(1,bl).toFixed(1)+'" height="'+(rowH-10)+'" rx="3" fill="'+col+'"><title>'+esc(d.label+': '+unitFmt(d.value))+'</title></rect>'
+      +'<text x="'+(padL+Math.max(1,bl)+6).toFixed(1)+'" y="'+(cy+rowH/2+3.5).toFixed(1)+'" font-size="11" fill="'+CHART_TEXT+'" font-weight="700">'+esc(fmtK(d.value))+'</text>'; });
+  return chartBox(title,sub,'<svg viewBox="0 0 '+W+' '+H+'" role="img">'+rows+'</svg>');
+}
+
+/* دائري مجوّف — data:[{label,value}] */
+function donutChart(title,sub,data){
+  data=(data||[]).filter(function(d){return (Number(d.value)||0)>0.0001;}).sort(function(a,b){return b.value-a.value;});
+  if(data.length>7){ var head=data.slice(0,6), rest=data.slice(6), other=0; rest.forEach(function(d){other+=d.value;});
+    data=head.concat([{label:'أخرى',value:other}]); }
+  var total=0; data.forEach(function(d){ total+=d.value; });
+  if(total<=0) return chartBox(title,sub,emptyChart());
+  var W=260,cx=130,cy=130,r=104,rin=62,ang=-Math.PI/2,segs='';
+  data.forEach(function(d,i){ var frac=d.value/total, a2=ang+frac*Math.PI*2, col=CHART_COLORS[i%CHART_COLORS.length];
+    var large=frac>0.5?1:0;
+    var x1=cx+r*Math.cos(ang),y1=cy+r*Math.sin(ang),x2=cx+r*Math.cos(a2),y2=cy+r*Math.sin(a2);
+    var xi2=cx+rin*Math.cos(a2),yi2=cy+rin*Math.sin(a2),xi1=cx+rin*Math.cos(ang),yi1=cy+rin*Math.sin(ang);
+    segs+='<path d="M'+x1.toFixed(2)+' '+y1.toFixed(2)+' A'+r+' '+r+' 0 '+large+' 1 '+x2.toFixed(2)+' '+y2.toFixed(2)
+      +' L'+xi2.toFixed(2)+' '+yi2.toFixed(2)+' A'+rin+' '+rin+' 0 '+large+' 0 '+xi1.toFixed(2)+' '+yi1.toFixed(2)+' Z" fill="'+col+'">'
+      +'<title>'+esc(d.label+': '+money(d.value)+' ('+(frac*100).toFixed(1)+'%)')+'</title></path>';
+    ang=a2; });
+  var center='<text x="'+cx+'" y="'+(cy-4)+'" text-anchor="middle" font-size="12" fill="'+CHART_TEXT+'">الإجمالي</text>'
+    +'<text x="'+cx+'" y="'+(cy+16)+'" text-anchor="middle" font-size="16" font-weight="700" fill="'+CHART_TEXT+'">'+esc(fmtK(total))+'</text>';
+  var svg='<svg viewBox="0 0 '+W+' 260" role="img" style="max-width:260px;margin:0 auto">'+segs+center+'</svg>';
+  var leg=legendRow(data.map(function(d,i){ return {label:d.label,color:CHART_COLORS[i%CHART_COLORS.length],val:pct(d.value,total)}; }));
+  return chartBox(title,sub,svg,leg);
+}
+
+/* ==========================================================================
+   تحليل أعمار الديون (Aging) — معيار في الأنظمة الكبرى (SAP / Odoo)
+   السداد يُطبَّق على أقدم الفواتير أولاً (FIFO) لتحديد المتبقّي وعمره
+   ========================================================================== */
+function agingBuckets(kind,asOf){
+  asOf=asOf||today();
+  var parties=(kind==='client')?db.clients:db.suppliers, out=[], tot={b0:0,b1:0,b2:0,b3:0,total:0};
+  parties.forEach(function(pty){
+    var charges=[], credits=0, opening=+pty.opening||0;
+    if(Math.abs(opening)>0.009) charges.push({date:pty.openingDate||'2000-01-01',amt:opening});
+    if(kind==='client'){
+      db.sales.forEach(function(s){ if(s.clientId===pty.id){ charges.push({date:s.date,amt:docGrand(s)}); credits+=+s.recv||0; } });
+      db.sreturns.forEach(function(r){ if(r.clientId===pty.id) credits+=docGrand(r); });
+      db.payments.forEach(function(p){ if(p.type==='client'&&p.partyId===pty.id) credits+=+p.amount||0; });
+    } else {
+      db.purchases.forEach(function(p){ if(p.supplierId===pty.id){ charges.push({date:p.date,amt:docGrand(p)}); credits+=+p.paid||0; } });
+      db.preturns.forEach(function(r){ if(r.supplierId===pty.id) credits+=docGrand(r); });
+      db.payments.forEach(function(p){ if(p.type==='supplier'&&p.partyId===pty.id) credits+=+p.amount||0; });
+    }
+    charges.sort(function(a,b){ return a.date<b.date?-1:1; });
+    var rem=credits;
+    charges.forEach(function(c){ if(rem<=0||c.amt<=0) return; var d=Math.min(c.amt,rem); c.amt-=d; rem-=d; });
+    var b=[0,0,0,0],total=0;
+    charges.forEach(function(c){ if(Math.abs(c.amt)<0.009) return;
+      var age=daysBetween(c.date,asOf), idx=age<=30?0:age<=60?1:age<=90?2:3; b[idx]+=c.amt; total+=c.amt; });
+    if(rem>0.009){ b[0]-=rem; total-=rem; }   /* دفعة زائدة (رصيد لصالح الطرف) في الخانة الحالية */
+    if(Math.abs(total)>0.009){
+      out.push({name:pty.name,b0:b[0],b1:b[1],b2:b[2],b3:b[3],total:total});
+      tot.b0+=b[0];tot.b1+=b[1];tot.b2+=b[2];tot.b3+=b[3];tot.total+=total;
+    }
+  });
+  out.sort(function(a,b){ return b.total-a.total; });
+  return {rows:out,tot:tot};
+}
 function renderDash(){
   var P=pnl(),r=P.rows,T={rev:0,nrev:0,cogs:0,gp:0,exp:0,net:0,waste:0};
   db.clients.forEach(function(c){ var x=r[c.id];
@@ -2671,6 +2856,38 @@ function renderDash(){
     return '<tr><td class="name"><b>'+esc(supName(+k))+'</b></td><td>'+v.n+'</td><td>'+money(v.v)+'</td>'
       +'<td class="'+balCls(b)+'">'+money(b)+'</td></tr>'; }).join('')
     ||'<tr><td colspan="4" class="empty">لا توجد مشتريات في هذه الفترة.</td></tr>';
+  renderDashCharts(r,pay,rec);
+}
+/* رسوم لوحة الملخص: اتجاه شهري + توزيع المصروفات + أعلى العملاء ربحاً */
+function renderDashCharts(pnlRows,pay,rec){
+  var box=document.getElementById('dashCharts'); if(!box) return;
+  /* 1) اتجاه شهري: مبيعات صافية · مشتريات صافية · مجمل الربح */
+  var M={}; function mk(d){ var k=(d||'').slice(0,7); if(!k) return null; if(!M[k]) M[k]={s:0,p:0,c:0}; return M[k]; }
+  db.sales.forEach(function(s){ if(!inRg(s.date)) return; var m=mk(s.date); if(!m) return; m.s+=+s.total||0;
+    (s.lines||[]).forEach(function(l,i){ m.c+=L.cogsLine[s.id+'#'+i]||0; }); });
+  db.purchases.forEach(function(p){ if(!inRg(p.date)) return; var m=mk(p.date); if(m) m.p+=+p.total||0; });
+  var months=Object.keys(M).sort().slice(-8);
+  var trend=barChart('الاتجاه الشهري','مبيعات ومشتريات ومجمل الربح (صافي قبل الضريبة)',months,[
+    {name:'المبيعات',color:CHART_COLORS[0],vals:months.map(function(k){return M[k].s;})},
+    {name:'المشتريات',color:CHART_COLORS[1],vals:months.map(function(k){return M[k].p;})},
+    {name:'مجمل الربح',color:CHART_COLORS[2],vals:months.map(function(k){return M[k].s-M[k].c;})}
+  ]);
+  /* 2) توزيع المصروفات حسب التصنيف (حصة الفترة بعد الاستهلاك) */
+  var _rg=rg(),cats={};
+  db.expenses.forEach(function(x){ var amt=expenseAmountInRange(x,_rg.from,_rg.to); if(amt<=0.0000001) return;
+    var c=x.cat||'أخرى'; cats[c]=(cats[c]||0)+amt; });
+  var expData=Object.keys(cats).map(function(k){return {label:k,value:cats[k]};});
+  var donut=donutChart('توزيع المصروفات','حسب التصنيف خلال الفترة',expData);
+  /* 3) أعلى العملاء صافي ربح */
+  var cl=db.clients.map(function(c){ return {label:c.name,value:pnlRows[c.id]?pnlRows[c.id].net:0}; })
+    .filter(function(d){return Math.abs(d.value)>0.009;}).sort(function(a,b){return b.value-a.value;}).slice(0,6);
+  var top=hBarChart('أعلى الفروع/العملاء ربحاً','صافي الربح بعد توزيع المصروفات',cl);
+  /* 4) الذمم: مستحق للموردين مقابل مستحق من العملاء */
+  var arap=barChart('المراكز المدينة والدائنة','أرصدة قائمة حتى الآن',['الذمم'],[
+    {name:'مستحق من العملاء',color:CHART_COLORS[0],vals:[rec]},
+    {name:'مستحق للموردين',color:CHART_COLORS[3],vals:[pay]}
+  ]);
+  box.innerHTML=trend+donut+top+arap;
 }
 
 /* ==========================================================================
@@ -2753,14 +2970,53 @@ function collectDepts(){
   var d=[]; document.querySelectorAll('#deptGrid input[data-dept]').forEach(function(i){ if(i.checked) d.push(i.dataset.dept); });
   return d;
 }
+/* صلاحيات خاصة بكل قسم — تُخزَّن في user.deptPerms[deptKey] وتتجاوز الصلاحيات الأساسية في ذلك القسم */
+function renderDeptPermGrids(user){
+  var box=document.getElementById('deptPermBox'); if(!box) return;
+  var all=Object.keys(db.departments||{fruits:1}), dp=(user&&user.deptPerms)||{};
+  box.innerHTML=all.map(function(dk){
+    var has=!!dp[dk], p=dp[dk]||{};
+    var grid=PERM_KEYS.map(function(k){
+      return '<label class="perm"><input type="checkbox" data-dp="'+dk+'" data-perm="'+k[0]+'" '+(p[k[0]]?'checked':'')
+        +' onchange="document.getElementById(\'u_role\').value=\'custom\'"> '+k[1]+'</label>';
+    }).join('');
+    return '<div class="dept-perm-block">'
+      +'<label class="perm strong"><input type="checkbox" data-deptperm-toggle="'+dk+'" '+(has?'checked':'')
+      +' onchange="onDeptPermToggle(\''+dk+'\')"> صلاحيات مختلفة لقسم «'+esc(deptName(dk))+'»</label>'
+      +'<div class="perm-grid" id="dpg_'+dk+'" style="'+(has?'':'display:none')+'">'+grid+'</div></div>';
+  }).join('');
+}
+function onDeptPermToggle(dk){
+  var g=document.getElementById('dpg_'+dk), t=document.querySelector('[data-deptperm-toggle="'+dk+'"]');
+  if(!g||!t) return;
+  g.style.display=t.checked?'':'none';
+  document.getElementById('u_role').value='custom';
+  if(t.checked){   /* عند التفعيل لأول مرة: انسخ الصلاحيات الأساسية كنقطة بداية */
+    var any=false; g.querySelectorAll('input[data-perm]').forEach(function(i){ if(i.checked) any=true; });
+    if(!any){ var base=collectPerms(); g.querySelectorAll('input[data-perm]').forEach(function(i){ i.checked=!!base[i.dataset.perm]; }); }
+  }
+}
+function collectDeptPerms(){
+  var out=null, all=Object.keys(db.departments||{});
+  all.forEach(function(dk){
+    var t=document.querySelector('[data-deptperm-toggle="'+dk+'"]');
+    if(t&&t.checked){
+      var p={}; document.querySelectorAll('#dpg_'+dk+' input[data-perm]').forEach(function(i){ p[i.dataset.perm]=i.checked; });
+      if(!out) out={}; out[dk]=p;
+    }
+  });
+  return out;   /* null إن لم يُفعَّل أي قسم */
+}
 function saveUser(){
   if(!guard('users','إدارة المستخدمين تتطلب صلاحية خاصة')) return;
   var n=val('u_name').trim(), u=val('u_user').trim(), p=val('u_pass');
   if(!n||!u){ toast('أدخل الاسم واسم المستخدم'); return; }
   if(db.users.filter(function(x){return x.username.toLowerCase()===u.toLowerCase()&&x.id!==editId.u;}).length){
     toast('اسم المستخدم مستخدم بالفعل'); return; }
-  var perms=collectPerms(), depts=collectDepts();
+  var perms=collectPerms(), depts=collectDepts(), deptPerms=collectDeptPerms();
   if(!depts.length) depts=Object.keys(db.departments||{fruits:1});   /* لا اختيار = كل الأقسام */
+  if(deptPerms){ Object.keys(deptPerms).forEach(function(k){ if(depts.indexOf(k)<0) delete deptPerms[k]; });   /* تجاهل صلاحيات قسم غير متاح */
+    if(!Object.keys(deptPerms).length) deptPerms=null; }
   if(editId.u){
     var ex=byId(db.users,editId.u);
     if(ex.role==='admin'&&(val('u_role')!=='admin'||val('u_active')==='0')){
@@ -2768,16 +3024,17 @@ function saveUser(){
       if(admins<=1){ toast('لا يمكن تعطيل آخر مدير نظام'); return; }
     }
     ex.name=n; ex.username=u; ex.role=val('u_role'); ex.active=Number(val('u_active')); ex.perms=perms; ex.depts=depts;
+    if(deptPerms) ex.deptPerms=deptPerms; else delete ex.deptPerms;
     if(p) ex.pass=hash(p);
     if(ME.id===ex.id) ME=ex;
     log('edit','المستخدمون','تعديل المستخدم '+n+' — الدور: '+(ROLES[ex.role]||'مخصص')+(p?' مع تغيير كلمة المرور':''));
   } else {
     if(!p){ toast('أدخل كلمة مرور للمستخدم الجديد'); return; }
-    db.users.push({id:uid(),name:n,username:u,pass:hash(p),role:val('u_role'),active:Number(val('u_active')),perms:perms,depts:depts,lastLogin:''});
+    db.users.push({id:uid(),name:n,username:u,pass:hash(p),role:val('u_role'),active:Number(val('u_active')),perms:perms,depts:depts,deptPerms:deptPerms||undefined,lastLogin:''});
     log('add','المستخدمون','إضافة مستخدم: '+n+' ('+u+') — الدور: '+(ROLES[val('u_role')]||'مخصص'));
   }
   var savedU=editId.u?byId(db.users,editId.u):db.users[db.users.length-1];
-  cancelDoc('u'); setVal('u_role','entry'); applyRolePreset(); renderDeptGrid(null); persist(); renderUsers(); applyPerms();
+  cancelDoc('u'); setVal('u_role','entry'); applyRolePreset(); renderDeptGrid(null); renderDeptPermGrids(null); persist(); renderUsers(); applyPerms();
   if(cloudAccounts()&&savedU&&savedU.fbUid){ cloudWriteMember(savedU.fbUid,savedU).catch(function(){}); }  /* مزامنة الدور/الحالة في العضوية */
   if(cloudAccounts()&&p&&savedU){
     if(p.length<6){ toast('تم حفظ المستخدم — لكن كلمة المرور أقل من ٦ خانات فلم تُحدَّث سحابياً. اجعلها ٦ خانات على الأقل.'); return; }
@@ -2797,7 +3054,7 @@ function editUser(id){
   if(!guard('users')) return;
   var u=byId(db.users,id); if(!u) return;
   editId.u=id; setVal('u_name',u.name); setVal('u_user',u.username); setVal('u_pass','');
-  setVal('u_role',u.role); setVal('u_active',String(u.active?1:0)); renderPermGrid(u.perms); renderDeptGrid(u.depts);
+  setVal('u_role',u.role); setVal('u_active',String(u.active?1:0)); renderPermGrid(u.perms); renderDeptGrid(u.depts); renderDeptPermGrids(u);
   document.getElementById('u_editing').textContent='وضع التعديل — اترك كلمة المرور فارغة للإبقاء عليها';
   showTab('users');
 }
@@ -2825,6 +3082,7 @@ function renderUsers(){
   }).join('');
   if(!document.getElementById('permGrid').innerHTML) applyRolePreset();
   if(!document.getElementById('deptGrid').innerHTML) renderDeptGrid(null);
+  if(!document.getElementById('deptPermBox').innerHTML) renderDeptPermGrids(null);
   if(cloudAccounts()&&can('users')) renderJoinRequests();
 }
 function renderAudit(){
@@ -2853,6 +3111,7 @@ function renderSettingsForm(){
   setVal('set_vatrate',db.settings.vatRate!=null?db.settings.vatRate:15);
   var lp=document.getElementById('logoPreview');
   if(lp) lp.innerHTML=db.settings.logo?'<img src="'+db.settings.logo+'" alt="شعار المنشأة">':'🥬';
+  renderDeptImages();
 }
 function saveSettings(){
   if(!guard('settings')) return;
@@ -2952,6 +3211,56 @@ function removeLogo(){
   log('data','الإعدادات','إزالة شعار المنشأة');
   commit('تم إزالة الشعار'); renderSettingsForm(); applyLogo();
 }
+/* ---------- صور الأقسام ---------- */
+var _deptImgTarget=null;
+function renderDeptImages(){
+  var box=document.getElementById('deptImagesBox'); if(!box) return;
+  var keys=Object.keys(db.departments||{});
+  box.innerHTML=keys.map(function(k){
+    var img=db.departments[k].image;
+    var thumb=img?'<img src="'+esc(img)+'" alt="">':deptEmoji(k);
+    return '<div class="dept-img-card"><div class="thumb">'+thumb+'</div>'
+      +'<div style="flex:1;min-width:120px"><b>'+esc(deptName(k))+'</b><div class="muted" style="font-size:12px">'
+      +(img?'صورة مخصّصة':'الأيقونة الافتراضية '+deptEmoji(k))+'</div></div>'
+      +'<div class="form-foot" style="margin-top:0"><button class="btn" onclick="pickDeptImage(\''+k+'\')">'+(img?'تغيير الصورة':'رفع صورة')+'</button>'
+      +(img?'<button class="btn btn-del" onclick="removeDeptImage(\''+k+'\')">إزالة</button>':'')+'</div></div>';
+  }).join('')||'<div class="note">لا توجد أقسام.</div>';
+}
+function pickDeptImage(k){
+  if(!guard('settings')) return;
+  _deptImgTarget=k; document.getElementById('deptImgFile').click();
+}
+function uploadDeptImage(ev){
+  if(!guard('settings')){ ev.target.value=''; return; }
+  var k=_deptImgTarget, f=ev.target.files[0]; ev.target.value='';
+  if(!k||!db.departments[k]||!f) return;
+  if(!/^image\//.test(f.type)){ toast('اختر ملف صورة صالح'); return; }
+  var rd=new FileReader();
+  rd.onload=function(e){
+    var img=new Image();
+    img.onload=function(){
+      var MAX=256, w=img.width, h=img.height, scale=Math.min(1,MAX/Math.max(w,h));
+      var cw=Math.round(w*scale), ch=Math.round(h*scale);
+      var cv=document.createElement('canvas'); cv.width=cw; cv.height=ch;
+      cv.getContext('2d').drawImage(img,0,0,cw,ch);
+      var dataUrl=cv.toDataURL('image/png',0.9);
+      if(dataUrl.length>500000){ toast('الصورة كبيرة جداً حتى بعد التصغير — جرّب صورة أبسط'); return; }
+      db.departments[k].image=dataUrl;
+      log('data','الإعدادات','تحديث صورة قسم '+deptName(k));
+      commit('تم حفظ صورة القسم — ستظهر للجميع'); renderDeptImages(); updateDeptUI();
+    };
+    img.src=e.target.result;
+  };
+  rd.readAsDataURL(f);
+}
+function removeDeptImage(k){
+  if(!guard('settings')) return;
+  if(!db.departments[k]||!db.departments[k].image) return;
+  if(!confirm('إزالة صورة قسم «'+deptName(k)+'»؟')) return;
+  delete db.departments[k].image;
+  log('data','الإعدادات','إزالة صورة قسم '+deptName(k));
+  commit('تم إزالة الصورة'); renderDeptImages(); updateDeptUI();
+}
 
 /* ==========================================================================
    التقارير
@@ -2961,7 +3270,7 @@ function clearReportFilters(){ ['rp_from','rp_to','rp_item','rp_wh','rp_party'].
 function renderReport(){
   fillReportParty();
   var type=val('rp_type'),f=val('rp_from'),t=val('rp_to'),fi=val('rp_item'),fw=val('rp_wh'),fp=val('rp_party');
-  var head=[],rows=[],cards='',title='';
+  var head=[],rows=[],cards='',title='',chart='';
   var push=function(cls,cells){ rows.push({cls:cls,c:cells}); };
 
   if(type==='purchases'){
@@ -2986,6 +3295,9 @@ function renderReport(){
     });
     cards=card('إجمالي المشتريات',money(T),'خلال الفترة')+card('إجمالي الأوزان',qty(W)+' كغ','')
       +card('إجمالي الوحدات',qty(U),'')+card('عدد الأيام',String(Object.keys(days).length),'');
+    var pmk=Object.keys(days).sort(), pmv=pmk.map(function(d){ var s=0; days[d].forEach(function(r){ s+=parseFloat(r[9].replace(/,/g,''))||0; }); return s; });
+    chart=barChart('المشتريات اليومية','قيمة المشتريات لكل يوم خلال الفترة',pmk.map(function(d){return d.slice(5);}),
+      [{name:'المشتريات',color:CHART_COLORS[1],vals:pmv}]);
   }
   else if(type==='sales'){
     title='تقرير المبيعات اليومي التفصيلي';
@@ -3011,6 +3323,13 @@ function renderReport(){
     });
     cards=card('صافي الإيراد',money(R),'قبل المرتجعات')+card('تكلفة المبيعات',money(C),'')
       +card('مجمل الربح',money(R-C),'هامش '+pct(R-C,R),true)+card('الأوزان المباعة',qty(W2)+' كغ','');
+    var smk=Object.keys(days2).sort();
+    var srev=smk.map(function(d){ var s=0; days2[d].forEach(function(r){ s+=parseFloat(r[7].replace(/,/g,''))||0; }); return s; });
+    var scogs=smk.map(function(d){ var s=0; days2[d].forEach(function(r){ s+=parseFloat(r[8].replace(/,/g,''))||0; }); return s; });
+    chart=barChart('المبيعات اليومية','الإيراد ومجمل الربح لكل يوم',smk.map(function(d){return d.slice(5);}),[
+      {name:'الإيراد',color:CHART_COLORS[0],vals:srev},
+      {name:'مجمل الربح',color:CHART_COLORS[2],vals:smk.map(function(d,i){return srev[i]-scogs[i];})}
+    ]);
   }
   else if(type==='item'){
     title='كارت حركة الصنف';
@@ -3037,6 +3356,12 @@ function renderReport(){
     db.clients.forEach(function(c){ var x=P.rows[c.id];
       push('',[c.name,num(x.net_rev),num(x.cogs),num(x.gp),num(x.waste),num(x.direct),num(x.shared),num(x.net),pct(x.net,x.net_rev)]); });
     cards=card('ملاحظة','الفترة من فلترة الملخص','تقرير الربحية يتبع فترة تبويب الملخص');
+    var clNet=db.clients.map(function(c){return {label:c.name,value:P.rows[c.id].net};})
+      .filter(function(d){return Math.abs(d.value)>0.009;}).sort(function(a,b){return b.value-a.value;}).slice(0,8);
+    var clRev=db.clients.map(function(c){return {label:c.name,value:P.rows[c.id].net_rev};})
+      .filter(function(d){return d.value>0.009;});
+    chart='<div class="chart-grid">'+hBarChart('صافي الربح حسب الفرع/العميل','',clNet)
+      +donutChart('توزيع الإيرادات','حصة كل عميل من صافي المبيعات',clRev)+'</div>';
   }
   else if(type==='supplier'){
     title='تقرير المشتريات حسب المورد';
@@ -3052,6 +3377,9 @@ function renderReport(){
       var a=agg[k],v=pt[k]||{buy:0,ret:0,paid:0,opening:0};
       push('',[supName(+k),String(a.n),qty(a.u),qty(a.w),num(a.v),num(v.ret),num(v.opening),num(v.paid),num(v.buy-v.ret+v.opening-v.paid)]); });
     cards=card('عدد الموردين',String(Object.keys(agg).length),'خلال الفترة');
+    var supVal=Object.keys(agg).map(function(k){return {label:supName(+k),value:agg[k].v};})
+      .sort(function(a,b){return b.value-a.value;}).slice(0,8);
+    chart=hBarChart('قيمة المشتريات حسب المورد','خلال الفترة (صافي قبل الضريبة)',supVal);
   }
   else if(type==='vat'){
     title='ملخص ضريبة القيمة المضافة';
@@ -3070,6 +3398,11 @@ function renderReport(){
       +card('ضريبة المدخلات (مشتريات)',money(TI),'المدفوعة للموردين')
       +card('صافي الضريبة المستحقة',money(TO-TI),(TO-TI)>=-0.004?'تُسدَّد للهيئة':'رصيد لك',true)
       +card('صافي المبيعات',money(TSN),'قبل الضريبة خلال الفترة');
+    var vk=Object.keys(M).sort();
+    chart=barChart('الضريبة الشهرية','ضريبة المخرجات مقابل المدخلات',vk,[
+      {name:'ضريبة المخرجات',color:CHART_COLORS[0],vals:vk.map(function(k){return M[k].oV;})},
+      {name:'ضريبة المدخلات',color:CHART_COLORS[1],vals:vk.map(function(k){return M[k].iV;})}
+    ]);
   }
   else if(type==='branch'){
     var bid=fp?+fp:null;
@@ -3113,6 +3446,27 @@ function renderReport(){
         +card('الفرق (مبيعات − مشتريات)',money(TS-TB),(TS-TB)>=-0.004?'المبيعات أعلى':'المشتريات أعلى',true)
         +card('عدد أيام الحركة',String(Object.keys(days).length),'خلال الفترة');
     }
+  }
+  else if(type==='agingC'||type==='agingS'){
+    var kind=(type==='agingC')?'client':'supplier';
+    var asOf=t||today();
+    title=(kind==='client'?'تحليل أعمار ذمم العملاء':'تحليل أعمار مستحقات الموردين')+'  ·  كما في '+asOf;
+    head=[kind==='client'?'العميل':'المورد','۰–۳۰ يوم','۳۱–۶۰ يوم','۶۱–۹۰ يوم','أكثر من ۹۰ يوم','الإجمالي'];
+    var ag=agingBuckets(kind,asOf);
+    ag.rows.forEach(function(x){
+      push('',[x.name,num(x.b0),num(x.b1),num(x.b2),num(x.b3),num(x.total)]);
+    });
+    push('total-row',['الإجمالي',num(ag.tot.b0),num(ag.tot.b1),num(ag.tot.b2),num(ag.tot.b3),num(ag.tot.total)]);
+    var overdue=ag.tot.b1+ag.tot.b2+ag.tot.b3;
+    cards=card('إجمالي '+(kind==='client'?'المستحق':'المطلوب'),money(ag.tot.total),'كما في '+asOf,true)
+      +card('غير متأخّر (۰–۳۰ يوم)',money(ag.tot.b0),pct(ag.tot.b0,ag.tot.total))
+      +card('متأخّر',money(overdue),pct(overdue,ag.tot.total)+' من الإجمالي')
+      +card('متأخّر أكثر من ۹۰ يوم',money(ag.tot.b3),pct(ag.tot.b3,ag.tot.total));
+    chart=barChart('توزيع الأعمار','قيمة الأرصدة حسب مدة الاستحقاق',
+      ['۰–۳۰','۳۱–۶۰','۶۱–۹۰','أكثر من ۹۰'],
+      [{name:'القيمة',color:CHART_COLORS[kind==='client'?0:1],vals:[ag.tot.b0,ag.tot.b1,ag.tot.b2,ag.tot.b3]}]);
+    var topN=ag.rows.slice(0,6).map(function(x){return {label:x.name,value:x.total};});
+    chart='<div class="chart-grid">'+chart+hBarChart('أكبر الأرصدة','أعلى '+(kind==='client'?'العملاء':'الموردين')+' رصيداً',topN)+'</div>';
   }
   else if(type==='interdept'){
     title='تقرير التحويلات بين الأقسام';
@@ -3177,6 +3531,8 @@ function renderReport(){
   }
   document.getElementById('ph2').textContent=title;
   document.getElementById('rpCards').innerHTML=cards;
+  var rc=document.getElementById('rpChart');
+  if(rc) rc.innerHTML=chart?(chart.indexOf('chart-grid')>-1?chart:'<div class="chart-grid">'+chart+'</div>'):'';
   document.getElementById('rpHead').innerHTML='<tr>'+head.map(function(h){return '<th'+(h.length>8?' class="name"':'')+'>'+esc(h)+'</th>';}).join('')+'</tr>';
   document.getElementById('rpBody').innerHTML=rows.length?rows.map(function(r){
     return '<tr'+(r.cls?' class="'+r.cls+'"':'')+'>'+r.c.map(function(c,i){
