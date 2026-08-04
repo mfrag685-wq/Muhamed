@@ -297,6 +297,8 @@ tr.sub-row td{background:#f7faf6;font-weight:700;font-size:12.5px;color:var(--in
   background:rgba(255,255,255,.25);color:#fff;font-size:15px;cursor:pointer;line-height:1;z-index:2}
 .author-close:hover{background:rgba(255,255,255,.4)}
 @media print{.author-modal{display:none!important}}
+/* إخفاء الأرصدة المالية لمن لا يملك صلاحية الاطّلاع عليها (شاشة وطباعة) */
+.no-balances .balance-only{display:none!important}
 </style>
 <!-- ===== مكتبة Firebase للمزامنة السحابية (تعمل فقط عند تعبئة الإعدادات) ===== -->
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
@@ -402,7 +404,7 @@ tr.sub-row td{background:#f7faf6;font-weight:700;font-size:12.5px;color:var(--in
         <tbody id="dashItems"></tbody></table></div></div>
     <div><div class="sec-title alt">أعلى الموردين شراءً</div>
       <div class="table-scroll"><table>
-        <thead><tr><th class="name">المورد</th><th>عدد الفواتير</th><th>قيمة المشتريات</th><th>الرصيد المستحق</th></tr></thead>
+        <thead><tr><th class="name">المورد</th><th>عدد الفواتير</th><th>قيمة المشتريات</th><th class="balance-only">الرصيد المستحق</th></tr></thead>
         <tbody id="dashSuppliers"></tbody></table></div></div>
   </div>
 </section>
@@ -795,24 +797,7 @@ tr.sub-row td{background:#f7faf6;font-weight:700;font-size:12.5px;color:var(--in
   <div class="print-head"><span class="print-logo"></span><h3 id="ph2">التقارير</h3><p>إعداد محمد فرج</p></div>
   <div class="panel-title">التقارير التفصيلية <span class="hint">مجمّعة يومياً مع إجمالي لكل يوم</span></div>
   <div class="filters no-print">
-    <div class="field"><label>نوع التقرير</label><select id="rp_type" onchange="renderReport()">
-      <option value="branch">حركة فرع يومية (مبيعات ومشتريات)</option>
-      <option value="purchases">مشتريات يومية تفصيلية</option>
-      <option value="sales">مبيعات يومية تفصيلية</option>
-      <option value="item">حركة صنف (كارت الصنف)</option>
-      <option value="balClients">أرصدة العملاء (الرصيد الصافي)</option>
-      <option value="balSuppliers">أرصدة الموردين (الرصيد الصافي)</option>
-      <option value="stmtClient">كشف حساب عميل</option>
-      <option value="stmtSupplier">كشف حساب مورد</option>
-      <option value="client">ربحية العملاء</option>
-      <option value="supplier">مشتريات حسب المورد</option>
-      <option value="waste">الفاقد والمرتجعات</option>
-      <option value="vat">ملخص ضريبة القيمة المضافة</option>
-      <option value="agingC">تحليل أعمار ذمم العملاء</option>
-      <option value="agingS">تحليل أعمار مستحقات الموردين</option>
-      <option value="interdept">التحويلات بين الأقسام</option>
-      <option value="consolidated">الأرصدة المجمّعة عبر الأقسام</option>
-    </select></div>
+    <div class="field"><label>نوع التقرير</label><select id="rp_type" onchange="renderReport()"></select></div>
     <div class="field"><label>من</label><input type="date" id="rp_from" onchange="renderReport()"></div>
     <div class="field"><label>إلى</label><input type="date" id="rp_to" onchange="renderReport()"></div>
     <div class="field"><label>الصنف</label><select id="rp_item" onchange="renderReport()"></select></div>
@@ -897,7 +882,7 @@ tr.sub-row td{background:#f7faf6;font-weight:700;font-size:12.5px;color:var(--in
           <div class="field"><label>اسم المورد</label><input type="text" id="sup_name" placeholder="مؤسسة المزارع الحديثة"></div>
           <div class="field"><label>الجوال</label><input type="text" id="sup_phone" placeholder="اختياري"></div>
           <div class="field"><label>المجموعة</label><select id="sup_group"></select></div>
-          <div class="field"><label>الرصيد الافتتاحي <span class="mini">(مستحق عليك له)</span></label><input type="number" id="sup_opening" step="0.01" placeholder="0"></div>
+          <div class="field balance-only"><label>الرصيد الافتتاحي <span class="mini">(مستحق عليك له)</span></label><input type="number" id="sup_opening" step="0.01" placeholder="0"></div>
           <div class="field"><label>تاريخ الرصيد الافتتاحي</label><input type="date" id="sup_openDate"></div>
           <div class="field" style="grid-column:1/-1"><label>ملاحظات</label><input type="text" id="sup_note" placeholder="اختياري"></div>
         </div>
@@ -912,7 +897,7 @@ tr.sub-row td{background:#f7faf6;font-weight:700;font-size:12.5px;color:var(--in
         <div class="field"><label>تصفية بالمجموعة</label><select id="msSupGroup" onchange="renderMaster()"></select></div>
       </div>
       <div class="table-scroll"><table>
-        <thead><tr><th class="name">المورد</th><th class="name">المجموعة</th><th>الجوال</th><th>عدد الفواتير</th><th>إجمالي التعامل</th><th>افتتاحي</th><th>إجراء</th></tr></thead>
+        <thead><tr><th class="name">المورد</th><th class="name">المجموعة</th><th>الجوال</th><th>عدد الفواتير</th><th>إجمالي التعامل</th><th class="balance-only">افتتاحي</th><th>إجراء</th></tr></thead>
         <tbody id="tbSupMaster"></tbody></table></div>
       <div class="sec-title" style="margin-top:12px">مجموعات الموردين <span class="hint">صنّف مورديك (مثل: موردو التوريد) وتحكّم في التسمية</span></div>
       <div class="doc-box no-print">
@@ -931,7 +916,7 @@ tr.sub-row td{background:#f7faf6;font-weight:700;font-size:12.5px;color:var(--in
           <div class="field"><label>مستودع خاص للعميل</label><select id="cl_hasWh">
             <option value="yes">نعم — يُنشأ له مستودع لاستلام بضاعته</option>
             <option value="no">لا — عميل بدون مستودع</option></select></div>
-          <div class="field"><label>الرصيد الافتتاحي <span class="mini">(مستحق له لك)</span></label><input type="number" id="cl_opening" step="0.01" placeholder="0"></div>
+          <div class="field balance-only"><label>الرصيد الافتتاحي <span class="mini">(مستحق له لك)</span></label><input type="number" id="cl_opening" step="0.01" placeholder="0"></div>
           <div class="field"><label>تاريخ الرصيد الافتتاحي</label><input type="date" id="cl_openDate"></div>
           <div class="field" style="grid-column:1/-1"><label>ملاحظات</label><input type="text" id="cl_note" placeholder="اختياري"></div>
         </div>
@@ -947,7 +932,7 @@ tr.sub-row td{background:#f7faf6;font-weight:700;font-size:12.5px;color:var(--in
         <div class="field"><label>تصفية بالمجموعة</label><select id="msClGroup" onchange="renderMaster()"></select></div>
       </div>
       <div class="table-scroll"><table>
-        <thead><tr><th class="name">العميل</th><th class="name">المجموعة</th><th>الجوال</th><th>عدد الفواتير</th><th>إجمالي المبيعات</th><th>افتتاحي</th><th>إجراء</th></tr></thead>
+        <thead><tr><th class="name">العميل</th><th class="name">المجموعة</th><th>الجوال</th><th>عدد الفواتير</th><th>إجمالي المبيعات</th><th class="balance-only">افتتاحي</th><th>إجراء</th></tr></thead>
         <tbody id="tbClMaster"></tbody></table></div>
       <div class="sec-title alt" style="margin-top:12px">مجموعات العملاء <span class="hint">صنّف عملاءك (مثل: عملاء التوريد) وتحكّم في التسمية</span></div>
       <div class="doc-box no-print">
@@ -1414,6 +1399,8 @@ function effPerms(){
   return dp||ME.perms;
 }
 function can(k){ var p=effPerms(); return !!(p&&p[k]); }
+/* هل يُسمح لهذا المستخدم برؤية الأرصدة المالية للموردين/العملاء؟ */
+function canSeeBalances(){ return can('accounts')||can('accSuppliers')||can('accClients'); }
 function guard(k,msg){ if(can(k)) return true; toast(msg||'لا تملك صلاحية لهذا الإجراء'); return false; }
 function applyPerms(){
   document.querySelectorAll('.tab-btn').forEach(function(b){
@@ -1427,6 +1414,28 @@ function applyPerms(){
   ['purchaseFormBox','saleFormBox','returnFormBox','transferFormBox','wasteFormBox','expenseFormBox','paymentFormBox']
     .forEach(function(id){ var e=document.getElementById(id); if(e) e.classList.toggle('hidden',!can('canAdd')); });
   document.querySelectorAll('#master .doc-box').forEach(function(e){ e.classList.toggle('hidden',!can('canAdd')); });
+  /* إخفاء كل الأرصدة المالية (أعمدة، بطاقات، تقارير) لمن لا يملك صلاحية اطّلاع عليها */
+  var appEl=document.getElementById('app'); if(appEl) appEl.classList.toggle('no-balances',!canSeeBalances());
+  fillReportTypes();
+}
+/* أنواع التقارير — التي تكشف أرصدة الجهات (العلامة 1) تُخفى عمّن لا يملك صلاحية الأرصدة */
+var REPORT_TYPES=[
+  ['branch','حركة فرع يومية (مبيعات ومشتريات)'],['purchases','مشتريات يومية تفصيلية'],
+  ['sales','مبيعات يومية تفصيلية'],['item','حركة صنف (كارت الصنف)'],
+  ['balClients','أرصدة العملاء (الرصيد الصافي)',1],['balSuppliers','أرصدة الموردين (الرصيد الصافي)',1],
+  ['stmtClient','كشف حساب عميل',1],['stmtSupplier','كشف حساب مورد',1],
+  ['client','ربحية العملاء'],['supplier','مشتريات حسب المورد',1],
+  ['waste','الفاقد والمرتجعات'],['vat','ملخص ضريبة القيمة المضافة'],
+  ['agingC','تحليل أعمار ذمم العملاء',1],['agingS','تحليل أعمار مستحقات الموردين',1],
+  ['interdept','التحويلات بين الأقسام'],['consolidated','الأرصدة المجمّعة عبر الأقسام',1]
+];
+function fillReportTypes(){
+  var sel=document.getElementById('rp_type'); if(!sel) return;
+  var seeBal=canSeeBalances(), cur=sel.value;
+  var allowed=REPORT_TYPES.filter(function(o){ return seeBal||!o[2]; });
+  sel.innerHTML=allowed.map(function(o){ return '<option value="'+o[0]+'">'+esc(o[1])+'</option>'; }).join('');
+  var vals=allowed.map(function(o){return o[0];});
+  sel.value=(vals.indexOf(cur)>-1)?cur:vals[0];
 }
 
 /* ---------- سجل الحركات ---------- */
@@ -3052,8 +3061,8 @@ function renderDash(){
    +card('صافي الربح',money(T.net),'هامش '+pct(T.net,T.nrev),true)
    +card('المشتريات',money(purch),qty(wt)+' كغ خلال الفترة')
    +card('قيمة المخزون',money(stockVal),'رصيد حالي بكل المستودعات')
-   +card('مستحق للموردين',money(pay),'التزامات قائمة')
-   +card('مستحق من العملاء',money(rec),'ذمم لم تُحصّل');
+   +(canSeeBalances()?(card('مستحق للموردين',money(pay),'التزامات قائمة')
+   +card('مستحق من العملاء',money(rec),'ذمم لم تُحصّل')):'');
   var hb='';
   db.clients.forEach(function(c){ var x=r[c.id];
     hb+='<tr><td class="name"><b>'+esc(c.name)+'</b></td><td>'+money(x.net_rev)+'</td><td>'+money(x.cogs)+'</td>'
@@ -3076,7 +3085,7 @@ function renderDash(){
   document.getElementById('dashSuppliers').innerHTML=Object.keys(sp).sort(function(a,b){return sp[b].v-sp[a].v;}).map(function(k){
     var v=sp[k],b=pt2[k]?(pt2[k].buy-pt2[k].ret+pt2[k].opening-pt2[k].paid):0;
     return '<tr><td class="name"><b>'+esc(supName(+k))+'</b></td><td>'+v.n+'</td><td>'+money(v.v)+'</td>'
-      +'<td class="'+balCls(b)+'">'+money(b)+'</td></tr>'; }).join('')
+      +'<td class="balance-only '+balCls(b)+'">'+money(b)+'</td></tr>'; }).join('')
     ||'<tr><td colspan="4" class="empty">لا توجد مشتريات في هذه الفترة.</td></tr>';
   renderDashCharts(r,pay,rec);
 }
@@ -3104,11 +3113,11 @@ function renderDashCharts(pnlRows,pay,rec){
   var cl=db.clients.map(function(c){ return {label:c.name,value:pnlRows[c.id]?pnlRows[c.id].net:0}; })
     .filter(function(d){return Math.abs(d.value)>0.009;}).sort(function(a,b){return b.value-a.value;}).slice(0,6);
   var top=hBarChart('أعلى الفروع/العملاء ربحاً','صافي الربح بعد توزيع المصروفات',cl);
-  /* 4) الذمم: مستحق للموردين مقابل مستحق من العملاء */
-  var arap=barChart('المراكز المدينة والدائنة','أرصدة قائمة حتى الآن',['الذمم'],[
+  /* 4) الذمم: مستحق للموردين مقابل مستحق من العملاء (يظهر فقط لمن يملك صلاحية الأرصدة) */
+  var arap=canSeeBalances()?barChart('المراكز المدينة والدائنة','أرصدة قائمة حتى الآن',['الذمم'],[
     {name:'مستحق من العملاء',color:CHART_COLORS[0],vals:[rec]},
     {name:'مستحق للموردين',color:CHART_COLORS[3],vals:[pay]}
-  ]);
+  ]):'';
   box.innerHTML=trend+donut+top+arap;
 }
 
@@ -3124,7 +3133,7 @@ function renderMaster(){
     var v=t.sup[s.id], gn=groupName('sup',s.groupId);
     return '<tr><td class="name"><b>'+esc(s.name)+'</b>'+(s.note?'<br><span class="mini">'+esc(s.note)+'</span>':'')+'</td>'
       +'<td class="name">'+(gn?'<span class="pill pill-info">'+esc(gn)+'</span>':'<span class="muted">—</span>')+'</td>'
-      +'<td>'+esc(s.phone||'—')+'</td><td>'+v.n+'</td><td>'+money(v.buy)+'</td><td class="muted">'+money(v.opening)+'</td>'
+      +'<td>'+esc(s.phone||'—')+'</td><td>'+v.n+'</td><td>'+money(v.buy)+'</td><td class="muted balance-only">'+money(v.opening)+'</td>'
       +'<td>'+(can('canEdit')?'<button class="btn-sm" onclick="editSupplier('+s.id+')">تعديل</button> ':'')
       +(can('canDelete')?'<button class="btn-sm btn-del" onclick="delSupplier('+s.id+')">حذف</button>':'')+'</td></tr>';
   }).join('')||'<tr><td colspan="7" class="empty">لا يوجد موردون مطابقون.</td></tr>';
@@ -3134,7 +3143,7 @@ function renderMaster(){
     var v=t.cl[c.id], gn=groupName('cl',c.groupId);
     return '<tr><td class="name"><b>'+esc(c.name)+'</b>'+(c.note?'<br><span class="mini">'+esc(c.note)+'</span>':'')+'</td>'
       +'<td class="name">'+(gn?'<span class="pill pill-info">'+esc(gn)+'</span>':'<span class="muted">—</span>')+'</td>'
-      +'<td>'+esc(c.phone||'—')+'</td><td>'+v.n+'</td><td>'+money(v.sell)+'</td><td class="muted">'+money(v.opening)+'</td>'
+      +'<td>'+esc(c.phone||'—')+'</td><td>'+v.n+'</td><td>'+money(v.sell)+'</td><td class="muted balance-only">'+money(v.opening)+'</td>'
       +'<td>'+(can('canEdit')?'<button class="btn-sm" onclick="editClient('+c.id+')">تعديل</button> ':'')
       +(can('canDelete')?'<button class="btn-sm btn-del" onclick="delClient('+c.id+')">حذف</button>':'')+'</td></tr>';
   }).join('')||'<tr><td colspan="7" class="empty">لا يوجد عملاء مطابقون.</td></tr>';
@@ -3539,6 +3548,10 @@ function removeDeptImage(k){
 var lastReport={title:'',head:[],rows:[]};
 function clearReportFilters(){ ['rp_from','rp_to','rp_item','rp_wh','rp_group','rp_party'].forEach(function(i){setVal(i,'');}); fillReportParty(); renderReport(); }
 function renderReport(){
+  if(!val('rp_type')) fillReportTypes();
+  /* حماية: منع كشف الأرصدة عبر التقارير لمن لا يملك الصلاحية */
+  var _bal={balClients:1,balSuppliers:1,stmtClient:1,stmtSupplier:1,agingC:1,agingS:1,supplier:1,consolidated:1};
+  if(_bal[val('rp_type')]&&!canSeeBalances()){ fillReportTypes(); }
   fillReportParty();
   var type=val('rp_type'),f=val('rp_from'),t=val('rp_to'),fi=val('rp_item'),fw=val('rp_wh'),fp=val('rp_party'),fg=val('rp_group');
   var head=[],rows=[],cards='',title='',chart='';
