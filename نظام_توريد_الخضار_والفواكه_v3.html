@@ -765,6 +765,8 @@ tr.sub-row td{background:#f7faf6;font-weight:700;font-size:12.5px;color:var(--in
       <option value="purchases">مشتريات يومية تفصيلية</option>
       <option value="sales">مبيعات يومية تفصيلية</option>
       <option value="item">حركة صنف (كارت الصنف)</option>
+      <option value="balClients">أرصدة العملاء (الرصيد الصافي)</option>
+      <option value="balSuppliers">أرصدة الموردين (الرصيد الصافي)</option>
       <option value="client">ربحية العملاء</option>
       <option value="supplier">مشتريات حسب المورد</option>
       <option value="waste">الفاقد والمرتجعات</option>
@@ -1641,6 +1643,8 @@ function fillReportParty(){
   else if(t==='sales'||t==='client') h=opts(db.clients,'id',function(o){return o.name;},'كل العملاء');
   else if(t==='purchases') h=opts(db.suppliers,'id',function(o){return o.name;},'كل الموردين');
   else if(t==='branch') h=opts(db.clients,'id',function(o){return o.name;},'— اختر الفرع —');
+  else if(t==='balClients') h=opts(db.clientGroups,'id',function(o){return o.name;},'كل مجموعات العملاء');
+  else if(t==='balSuppliers') h=opts(db.supplierGroups,'id',function(o){return o.name;},'كل مجموعات الموردين');
   else h='<option value="">—</option>';
   fillSelect('rp_party',h);
 }
@@ -3495,6 +3499,50 @@ function renderReport(){
     cards=card('إجمالي الوارد',qty(inU)+' وحدة','')+card('إجمالي المنصرف',qty(outU)+' وحدة','')
       +card('صافي الحركة',qty(inU-outU)+' وحدة','')+card('عدد الحركات',String(rows.length),'');
     if(!fi) cards=card('اختر صنفاً','—','لعرض كارت صنف محدد')+cards;
+  }
+  else if(type==='balClients'){
+    var gf=fp?+fp:null;
+    title='تقرير أرصدة العملاء (الرصيد الصافي)'+(gf?('  ·  مجموعة: '+groupName('cl',gf)):'')+'  ·  حتى '+today();
+    head=['العميل','المجموعة','المبيعات','المرتجعات','صافي المستحق','رصيد افتتاحي','المحصّل','الرصيد الصافي'];
+    var tc=partyTotals().cl, Tsell=0,Tret=0,Topen=0,Trecv=0,Tbal=0,nOwed=0,nOver=0;
+    db.clients.filter(function(c){ return !gf||c.groupId===gf; })
+      .map(function(c){ var v=tc[c.id]; return {c:c,bal:v.sell-v.ret+v.opening-v.recv,v:v}; })
+      .sort(function(a,b){ return b.bal-a.bal; })
+      .forEach(function(o){ var c=o.c,v=o.v,net=v.sell-v.ret,bal=o.bal;
+        Tsell+=v.sell;Tret+=v.ret;Topen+=v.opening;Trecv+=v.recv;Tbal+=bal;
+        if(bal>0.009) nOwed++; else if(bal<-0.009) nOver++;
+        push('',[c.name,groupName('cl',c.groupId)||'—',num(v.sell),num(v.ret),num(net),num(v.opening),num(v.recv),num(bal)]); });
+    push('total-row',['الإجمالي'+(gf?' — '+groupName('cl',gf):''),'',num(Tsell),num(Tret),num(Tsell-Tret),num(Topen),num(Trecv),num(Tbal)]);
+    cards=card('إجمالي المستحق من العملاء',money(Tbal),'الرصيد الصافي القائم',true)
+      +card('عدد العملاء المدينين',String(nOwed),'عليهم رصيد لك')
+      +card('عملاء بدفعات زائدة',String(nOver),'لك عليهم رصيد سالب')
+      +card('إجمالي المحصّل',money(Trecv),'حتى الآن');
+    var topC=db.clients.filter(function(c){return !gf||c.groupId===gf;})
+      .map(function(c){ var v=tc[c.id]; return {label:c.name,value:v.sell-v.ret+v.opening-v.recv};})
+      .filter(function(d){return Math.abs(d.value)>0.009;}).sort(function(a,b){return b.value-a.value;}).slice(0,8);
+    chart=hBarChart('أعلى أرصدة العملاء','الرصيد الصافي المستحق',topC);
+  }
+  else if(type==='balSuppliers'){
+    var gfs=fp?+fp:null;
+    title='تقرير أرصدة الموردين (الرصيد الصافي)'+(gfs?('  ·  مجموعة: '+groupName('sup',gfs)):'')+'  ·  حتى '+today();
+    head=['المورد','المجموعة','المشتريات','المرتجعات','صافي المستحق','رصيد افتتاحي','المسدد','الرصيد الصافي'];
+    var ts=partyTotals().sup, Sbuy=0,Sret=0,Sopen=0,Spaid=0,Sbal=0,mOwed=0,mOver=0;
+    db.suppliers.filter(function(s){ return !gfs||s.groupId===gfs; })
+      .map(function(s){ var v=ts[s.id]; return {s:s,bal:v.buy-v.ret+v.opening-v.paid,v:v}; })
+      .sort(function(a,b){ return b.bal-a.bal; })
+      .forEach(function(o){ var s=o.s,v=o.v,net=v.buy-v.ret,bal=o.bal;
+        Sbuy+=v.buy;Sret+=v.ret;Sopen+=v.opening;Spaid+=v.paid;Sbal+=bal;
+        if(bal>0.009) mOwed++; else if(bal<-0.009) mOver++;
+        push('',[s.name,groupName('sup',s.groupId)||'—',num(v.buy),num(v.ret),num(net),num(v.opening),num(v.paid),num(bal)]); });
+    push('total-row',['الإجمالي'+(gfs?' — '+groupName('sup',gfs):''),'',num(Sbuy),num(Sret),num(Sbuy-Sret),num(Sopen),num(Spaid),num(Sbal)]);
+    cards=card('إجمالي المستحق للموردين',money(Sbal),'الرصيد الصافي القائم',true)
+      +card('عدد الموردين الدائنين',String(mOwed),'لهم رصيد عليك')
+      +card('موردون بدفعات زائدة',String(mOver),'لك عليهم رصيد سالب')
+      +card('إجمالي المسدد',money(Spaid),'حتى الآن');
+    var topS=db.suppliers.filter(function(s){return !gfs||s.groupId===gfs;})
+      .map(function(s){ var v=ts[s.id]; return {label:s.name,value:v.buy-v.ret+v.opening-v.paid};})
+      .filter(function(d){return Math.abs(d.value)>0.009;}).sort(function(a,b){return b.value-a.value;}).slice(0,8);
+    chart=hBarChart('أعلى أرصدة الموردين','الرصيد الصافي المستحق',topS);
   }
   else if(type==='client'){
     title='تقرير ربحية العملاء';
