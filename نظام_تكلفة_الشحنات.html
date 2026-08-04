@@ -389,7 +389,51 @@ html[data-theme="dark"] .vwarn{background:#2a2410;color:#e8d28a;border-color:#8a
 html[data-theme="dark"] .df-val{color:var(--text)}
 html[data-theme="dark"] .detail-field .df-label,html[data-theme="dark"] .cfg-label,html[data-theme="dark"] .fx-group-label{color:var(--accent)}
 html[data-theme="dark"] .rt td.hl{background:#2e2814;color:var(--accent)}
+
+/* ══════════════════════════════════════════
+   📱 تحسينات الجوال (RESPONSIVE)
+   ══════════════════════════════════════════ */
+@media (max-width:640px){
+  body{font-size:13px}
+  .header{padding:9px 12px;gap:6px}
+  .header h1{font-size:.98rem}
+  .header p{font-size:.68rem}
+  .header-btns{gap:5px;width:100%;justify-content:flex-start}
+  .hbtn,.profile-badge,.theme-toggle{padding:5px 9px;font-size:.72rem}
+  .tabs{padding:0 8px}
+  .tab{padding:8px 11px;font-size:.75rem}
+  .main{padding:10px 8px}
+  .form-row{gap:8px}
+  .fg input,.fg select{font-size:16px} /* يمنع تكبير iOS التلقائي */
+  .mg input,.mg select,.mg textarea{font-size:16px}
+  td input,td select{font-size:15px}
+  .modal-box{padding:16px 14px;width:96vw}
+  .row2,.row3{grid-template-columns:1fr}
+  .sum-card{min-width:calc(50% - 6px)}
+  .cost-fields-grid{grid-template-columns:1fr}
+  .arch-grid{grid-template-columns:1fr}
+  .cost-amt{width:95px}
+  .btn{padding:8px 14px}
+  #profile-cards{grid-template-columns:1fr!important}
+}
+@media (max-width:400px){
+  .sum-card{min-width:100%}
+}
+
+/* ☁️ حالة المزامنة السحابية */
+.cloud-badge{display:inline-flex;align-items:center;gap:5px;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.3);color:#fff;border-radius:7px;padding:5px 11px;font-size:.76rem;font-weight:600;cursor:pointer;white-space:nowrap}
+.cloud-badge:hover{background:rgba(255,255,255,.26)}
+.cloud-dot{width:8px;height:8px;border-radius:50%;background:#9e9e9e}
+.cloud-dot.on{background:#4caf50;box-shadow:0 0 6px #4caf50}
+.cloud-dot.sync{background:#ffc107;animation:cloudpulse 1s infinite}
+.cloud-dot.err{background:#e05a4c}
+@keyframes cloudpulse{0%,100%{opacity:1}50%{opacity:.3}}
 </style>
+<!-- ══ Firebase (يُحمَّل عند توفر إنترنت — المزامنة تعمل فقط بعد إدخال CLOUD_CONFIG) ══ -->
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
+<style>
 </head>
 <body>
 
@@ -480,6 +524,37 @@ html[data-theme="dark"] .rt td.hl{background:#2e2814;color:var(--accent)}
   </div>
 </div>
 
+<!-- ☁️ CLOUD LOGIN MODAL -->
+<div class="modal-overlay" id="cloud-modal" style="display:none" onclick="if(event.target===this)closeCloudModal()">
+  <div class="modal-box" style="width:420px">
+    <div style="text-align:center;margin-bottom:14px">
+      <div style="font-size:2.2rem">☁️</div>
+      <h2 style="margin-bottom:3px">المزامنة السحابية</h2>
+      <p id="cloud-modal-sub" style="margin-bottom:0">سجّل الدخول لمزامنة بياناتك على كل أجهزتك</p>
+    </div>
+    <div id="cloud-signed-out">
+      <div class="mg"><label>البريد الإلكتروني</label><input id="cloud-email" type="email" placeholder="you@example.com" autocomplete="username"></div>
+      <div class="mg"><label>كلمة المرور</label><input id="cloud-pass" type="password" placeholder="••••••••" autocomplete="current-password"></div>
+      <div id="cloud-msg" style="font-size:.8rem;color:var(--danger);min-height:18px;margin-bottom:6px"></div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-accent" style="flex:1" onclick="cloudLogin()">🔓 دخول</button>
+        <button class="btn btn-primary" style="flex:1" onclick="cloudSignup()">🆕 حساب جديد</button>
+      </div>
+      <button class="btn btn-outline" style="width:100%;margin-top:8px" onclick="closeCloudModal()">متابعة بدون مزامنة (محلي)</button>
+    </div>
+    <div id="cloud-signed-in" style="display:none;text-align:center">
+      <div class="alert as" style="text-align:right">✅ متصل ومتزامن باسم: <strong id="cloud-user-email"></strong></div>
+      <div style="font-size:.8rem;color:var(--muted);margin-bottom:12px">بياناتك تُحفظ سحابياً وتظهر على أي جهاز تسجّل الدخول منه.</div>
+      <button class="btn btn-danger" onclick="cloudLogout()">🚪 تسجيل الخروج</button>
+      <button class="btn btn-outline" style="margin-top:8px" onclick="closeCloudModal()">إغلاق</button>
+    </div>
+    <div id="cloud-disabled" style="display:none">
+      <div class="alert aw" style="font-size:.8rem">☁️ المزامنة السحابية غير مُفعّلة بعد. لتفعيلها: أنشئ مشروع Firebase مجاني وأدخل مفاتيحه في <code>CLOUD_CONFIG</code> داخل الملف (راجع دليل التفعيل السحابي). حتى ذلك الحين يعمل البرنامج محلياً بالكامل.</div>
+      <button class="btn btn-outline" style="width:100%" onclick="closeCloudModal()">حسناً</button>
+    </div>
+  </div>
+</div>
+
 <!-- CONFIRM MODAL -->
 <div class="modal-overlay" id="confirm-modal" style="display:none">
   <div class="modal-box" style="width:380px">
@@ -511,6 +586,7 @@ html[data-theme="dark"] .rt td.hl{background:#2e2814;color:var(--accent)}
     </div>
     <button class="profile-badge" onclick="openProfileModal()" id="active-profile-badge" title="إدارة النماذج / الشركات">🏢 ...</button>
     <button class="theme-toggle" onclick="toggleTheme()" id="theme-toggle-btn" title="تبديل الوضع الليلي / النهاري"><span id="theme-icon">🌙</span> <span id="theme-label">ليلي</span></button>
+    <button class="cloud-badge" id="cloud-badge" onclick="openCloudModal()" title="المزامنة السحابية" style="display:none"><span class="cloud-dot" id="cloud-dot"></span><span id="cloud-label">سحابي</span></button>
     <div class="save-ind"><div class="save-dot"></div><span id="save-status">جاهز</span></div>
     <button class="hbtn accent" onclick="saveShipment()">💾 حفظ الشحنة</button>
     <button class="hbtn" onclick="newShipment()">➕ شحنة جديدة</button>
@@ -2906,6 +2982,143 @@ function closeConfirm(){ document.getElementById('confirm-modal').style.display=
 document.getElementById('confirm-ok-btn').onclick=function(){ const cb=confirmCb; closeConfirm(); if(cb)cb(); };
 
 // ═══════════════════════════════════════════
+// ☁️ المزامنة السحابية (Firebase) — تعمل على الجوال وكل الأجهزة
+//    تبقى فارغة = محلي بالكامل. املأ CLOUD_CONFIG لتفعيلها.
+// ═══════════════════════════════════════════
+var CLOUD_CONFIG={
+  apiKey:"",
+  authDomain:"",
+  databaseURL:"",
+  projectId:"",
+  storageBucket:"",
+  messagingSenderId:"",
+  appId:"",
+  workspaceId:"main"
+};
+
+var _lsSet    = localStorage.setItem.bind(localStorage);
+var _lsRemove = localStorage.removeItem.bind(localStorage);
+var CLOUD_CLIENT = Math.random().toString(36).slice(2);
+var cloudRef=null, cloudReady=false, cloudApplying=false, cloudUser=null, _cloudPushT=null;
+
+function cloudEnabled(){ return !!(CLOUD_CONFIG && CLOUD_CONFIG.apiKey && typeof firebase!=='undefined'); }
+function cloudSyncable(k){
+  if(!k || k.indexOf('scs_')!==0) return false;
+  return ['scs_lastbackup_all','scs_lastbackup_at','scs_theme','scs_autobackup_pref'].indexOf(k)<0;
+}
+function scsKeys(){ return Object.keys(localStorage).filter(cloudSyncable); }
+function cloudCollect(){ var o={}; scsKeys().forEach(function(k){ o[k]=localStorage.getItem(k); }); return o; }
+
+function cloudSetDot(cls){ var d=document.getElementById('cloud-dot'); if(d) d.className='cloud-dot'+(cls?(' '+cls):''); }
+function cloudLabel(t){ var l=document.getElementById('cloud-label'); if(l) l.textContent=t; }
+
+function cloudPush(){
+  if(!cloudRef||!cloudReady) return;
+  cloudRef.set({ by:CLOUD_CLIENT, at:Date.now(), data:cloudCollect() })
+    .then(function(){ cloudSetDot('on'); })
+    .catch(function(){ cloudSetDot('err'); });
+}
+function cloudPushDebounced(){ cloudSetDot('sync'); clearTimeout(_cloudPushT); _cloudPushT=setTimeout(cloudPush,700); }
+
+function cloudApply(data){
+  cloudApplying=true;
+  try{
+    var incoming=data||{};
+    scsKeys().forEach(function(k){ if(!(k in incoming)) _lsRemove(k); });
+    Object.keys(incoming).forEach(function(k){ if(cloudSyncable(k)) _lsSet(k, incoming[k]); });
+  }catch(e){}
+  cloudApplying=false;
+  cloudReloadUI();
+}
+function cloudReloadUI(){
+  try{
+    cfgLoad(); applyTheme(); updateProfileBadge(); renderQuickSwitch();
+    var active=document.querySelector('.page.active');
+    if(active&&active.id==='page-archive')  renderArchive();
+    if(active&&active.id==='page-payments') renderPayments();
+  }catch(e){}
+}
+
+// اعتراض التخزين المحلي لدفع أي تغيير إلى السحابة تلقائياً
+localStorage.setItem=function(k,v){ _lsSet(k,v); if(cloudReady&&!cloudApplying&&cloudSyncable(k)) cloudPushDebounced(); };
+localStorage.removeItem=function(k){ _lsRemove(k); if(cloudReady&&!cloudApplying&&cloudSyncable(k)) cloudPushDebounced(); };
+
+function cloudInit(){
+  var badge=document.getElementById('cloud-badge');
+  if(!cloudEnabled()){ if(badge) badge.style.display='none'; return; }
+  if(badge) badge.style.display='';
+  cloudSetDot(''); cloudLabel('دخول');
+  try{ firebase.initializeApp(CLOUD_CONFIG); }catch(e){}
+  firebase.auth().onAuthStateChanged(function(u){
+    cloudUser=u;
+    if(u){ cloudStartSync(u); }
+    else { cloudReady=false; if(cloudRef){ cloudRef.off(); cloudRef=null; } cloudSetDot(''); cloudLabel('دخول'); }
+    cloudUpdateModal();
+  });
+  // إظهار نافذة الدخول تلقائياً أول مرة إن لم يكن مسجلاً
+  setTimeout(function(){ if(cloudEnabled() && !cloudUser) openCloudModal(); }, 600);
+}
+function cloudStartSync(u){
+  cloudRef=firebase.database().ref('users/'+u.uid+'/scs');
+  cloudSetDot('sync'); cloudLabel('مزامنة…');
+  cloudRef.once('value').then(function(snap){
+    var v=snap.val();
+    if(v&&v.data){ cloudApply(v.data); }   // السحابة فيها بيانات → اسحبها لهذا الجهاز
+    cloudReady=true;
+    if(!(v&&v.data)) cloudPush();           // السحابة فارغة → ارفع بيانات هذا الجهاز
+    cloudSetDot('on'); cloudLabel(u.email? u.email.split('@')[0] : 'متزامن');
+    cloudRef.on('value',function(s){
+      var val=s.val(); if(!val||!val.data) return;
+      if(val.by===CLOUD_CLIENT) return;     // تجاهل كتاباتنا نحن
+      cloudApply(val.data);
+      cloudSetDot('on');
+    });
+  }).catch(function(){ cloudSetDot('err'); cloudLabel('خطأ'); });
+}
+
+function openCloudModal(){ cloudUpdateModal(); document.getElementById('cloud-modal').style.display='flex'; }
+function closeCloudModal(){ document.getElementById('cloud-modal').style.display='none'; }
+function cloudUpdateModal(){
+  var so=document.getElementById('cloud-signed-out'), si=document.getElementById('cloud-signed-in'), dis=document.getElementById('cloud-disabled');
+  if(!so) return;
+  if(!cloudEnabled()){ so.style.display='none'; si.style.display='none'; dis.style.display=''; return; }
+  dis.style.display='none';
+  if(cloudUser){ so.style.display='none'; si.style.display=''; var e=document.getElementById('cloud-user-email'); if(e) e.textContent=cloudUser.email||cloudUser.uid; }
+  else { so.style.display=''; si.style.display='none'; }
+}
+function cloudMsg(t){ var e=document.getElementById('cloud-msg'); if(e) e.textContent=t||''; }
+function cloudLogin(){
+  var em=document.getElementById('cloud-email').value.trim(), pw=document.getElementById('cloud-pass').value;
+  if(!em||!pw){ cloudMsg('أدخل البريد وكلمة المرور'); return; }
+  cloudMsg('جارٍ الدخول…');
+  firebase.auth().signInWithEmailAndPassword(em,pw)
+    .then(function(){ cloudMsg(''); toast('✅ تم تسجيل الدخول'); closeCloudModal(); })
+    .catch(function(e){ cloudMsg(cloudErr(e)); });
+}
+function cloudSignup(){
+  var em=document.getElementById('cloud-email').value.trim(), pw=document.getElementById('cloud-pass').value;
+  if(!em||pw.length<6){ cloudMsg('البريد مطلوب وكلمة المرور 6 أحرف فأكثر'); return; }
+  cloudMsg('جارٍ إنشاء الحساب…');
+  firebase.auth().createUserWithEmailAndPassword(em,pw)
+    .then(function(){ cloudMsg(''); toast('✅ تم إنشاء الحساب'); closeCloudModal(); })
+    .catch(function(e){ cloudMsg(cloudErr(e)); });
+}
+function cloudLogout(){
+  if(typeof firebase==='undefined') return;
+  firebase.auth().signOut().then(function(){ toast('🚪 تم تسجيل الخروج'); cloudUpdateModal(); });
+}
+function cloudErr(e){
+  var c=(e&&e.code)||'';
+  if(c.indexOf('wrong-password')>=0||c.indexOf('invalid-credential')>=0) return 'كلمة المرور غير صحيحة';
+  if(c.indexOf('user-not-found')>=0) return 'لا يوجد حساب بهذا البريد — أنشئ حساباً جديداً';
+  if(c.indexOf('email-already-in-use')>=0) return 'البريد مستخدم — سجّل الدخول بدل الإنشاء';
+  if(c.indexOf('invalid-email')>=0) return 'صيغة البريد غير صحيحة';
+  if(c.indexOf('weak-password')>=0) return 'كلمة المرور ضعيفة (6 أحرف فأكثر)';
+  if(c.indexOf('network')>=0) return 'لا يوجد اتصال بالإنترنت';
+  return (e&&e.message)||'حدث خطأ';
+}
+
+// ═══════════════════════════════════════════
 // 💾 النسخ الاحتياطي الشامل والتلقائي عند الإغلاق
 // ═══════════════════════════════════════════
 const AUTOBK_PREF='scs_autobackup_pref';
@@ -3032,6 +3245,7 @@ function onAppClose(){
   if(_autoBkDone) return; _autoBkDone=true;
   autoSaveCurrentShipment();
   if(autoBackupEnabled()) writeAutoBackup();
+  if(cloudReady){ try{ cloudPush(); }catch(e){} }
   // إعادة السماح بنسخة جديدة لاحقاً إن بقيت الصفحة (تبديل تبويب)
   setTimeout(()=>{ _autoBkDone=false; }, 1500);
 }
@@ -3467,6 +3681,7 @@ window.onload = function() {
   applyStoredTheme();
   renderQuickSwitch();
   updateAutoBackupLabel();
+  cloudInit();
   const profiles = profilesLoad();
   const activeId = getActiveProfileId();
   const hasActive = activeId && profiles.find(p=>p.id===activeId);
