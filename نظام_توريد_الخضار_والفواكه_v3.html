@@ -1097,6 +1097,17 @@ tr.sub-row td{background:#f7faf6;font-weight:700;font-size:12.5px;color:var(--in
   </div>
   <input type="file" id="deptImgFile" accept="image/*" class="hidden" onchange="uploadDeptImage(event)">
 
+  <div class="sec-title">توحيد بيانات الأقسام <span class="hint">عند اختلاط البيانات بين قسمين</span></div>
+  <div class="note" style="border-right-color:var(--citrus)">إذا ظهرت نفس البيانات في القسمين، حدّد <b>القسم الذي يحتوي بياناتك الصحيحة الكاملة</b> ثم انقلها إلى القسم الذي تريده. يُستبدل محتوى القسم الهدف ويصبح القسم المصدر فارغاً. الجدول أدناه يبيّن عدد سجلات كل قسم لتختار بثقة. <b>نزّل نسخة احتياطية أولاً.</b></div>
+  <div id="deptCountsInfo"></div>
+  <div class="doc-box no-print" style="margin-top:10px">
+    <div class="grid-2">
+      <div class="field"><label>انقل بيانات قسم (المصدر)</label><select id="consoFrom"></select></div>
+      <div class="field"><label>إلى قسم (الهدف — يُستبدل محتواه)</label><select id="consoTo"></select></div>
+    </div>
+    <div class="form-foot"><button class="btn-del" onclick="consolidateDepts()">نقل وتوحيد البيانات</button></div>
+  </div>
+
   <div class="sec-title">البيانات والنسخ الاحتياطي</div>
   <div class="form-foot">
     <button class="btn-alt" onclick="exportBackup()">تنزيل نسخة احتياطية شاملة (JSON)</button>
@@ -3470,9 +3481,47 @@ function removeLogo(){
   log('data','الإعدادات','إزالة شعار المنشأة');
   commit('تم إزالة الشعار'); renderSettingsForm(); applyLogo();
 }
+/* ---------- توحيد بيانات الأقسام (عند اختلاطها) ---------- */
+function deptCounts(dk){ var d=db.departments[dk]||{};
+  return {clients:(d.clients||[]).length,suppliers:(d.suppliers||[]).length,items:(d.items||[]).length,
+    sales:(d.sales||[]).length,purchases:(d.purchases||[]).length}; }
+function renderDeptConsolidate(){
+  var keys=Object.keys(db.departments||{});
+  var box=document.getElementById('deptCountsInfo');
+  if(box){
+    box.innerHTML='<div class="table-scroll"><table><thead><tr><th class="name">القسم</th><th>عملاء</th><th>موردون</th><th>أصناف</th><th>فواتير بيع</th><th>فواتير شراء</th></tr></thead><tbody>'
+      +keys.map(function(k){ var c=deptCounts(k);
+        return '<tr><td class="name">'+esc(deptName(k))+(k===db.activeDept?' <span class="pill pill-info">الحالي</span>':'')+'</td><td>'+c.clients+'</td><td>'+c.suppliers+'</td><td>'+c.items+'</td><td>'+c.sales+'</td><td>'+c.purchases+'</td></tr>';
+      }).join('')+'</tbody></table></div>';
+  }
+  var optsHtml=keys.map(function(k){return {id:k,name:deptName(k)};});
+  fillSelect('consoFrom',opts(optsHtml,'id',function(o){return o.name;}));
+  fillSelect('consoTo',opts(optsHtml,'id',function(o){return o.name;}));
+}
+function consolidateDepts(){
+  if(!guard('settings')) return;
+  var src=val('consoFrom'), dst=val('consoTo');
+  if(!src||!dst||src===dst){ toast('اختر قسمين مختلفين (مصدر وهدف)'); return; }
+  if(!db.departments[src]||!db.departments[dst]){ toast('قسم غير صالح'); return; }
+  var dc=deptCounts(dst), sc=deptCounts(src);
+  if(!confirm('نقل كل بيانات «'+deptName(src)+'» ('+sc.clients+' عميل · '+sc.sales+' بيع · '+sc.purchases+' شراء) إلى «'+deptName(dst)+'».\n\n'
+    +'• سيصبح «'+deptName(src)+'» فارغاً.\n'
+    +'• سيُستبدل المحتوى الحالي لـ «'+deptName(dst)+'» ('+dc.clients+' عميل · '+dc.sales+' بيع) بالكامل.\n\n'
+    +'⚠ هذه العملية لا تُدمج بل تستبدل. نزّل نسخة احتياطية أولاً. المتابعة؟')) return;
+  var s=db.departments[src], d=db.departments[dst];
+  DEPT_BOOKS.forEach(function(k){ d[k]=Array.isArray(s[k])?s[k]:[]; s[k]=[]; });
+  s.warehouses.push({id:uid(),name:'المستودع الرئيسي',clientId:null});   /* القسم المصدر يبدأ نظيفاً بمستودع افتراضي */
+  curDept=dst; loadDept(dst);   /* انتقل للقسم الهدف ليرى المستخدم بياناته فوراً */
+  dedupeDeptRefs();
+  log('data','الإعدادات','نقل بيانات قسم '+deptName(src)+' إلى '+deptName(dst));
+  commit('تم نقل البيانات إلى قسم '+deptName(dst));
+  applyPerms(); updateDeptUI(); renderAll(); renderMaster(); renderSettingsForm();
+  alert('تم بنجاح.\nأصبحت البيانات في قسم «'+deptName(dst)+'» فقط، وقسم «'+deptName(src)+'» فارغاً.\nراجع القسمين للتأكد.');
+}
 /* ---------- إدارة الأقسام: الاسم + الصورة يدوياً + إضافة/حذف ---------- */
 var _deptImgTarget=null;
 function renderDeptImages(){
+  renderDeptConsolidate();
   var box=document.getElementById('deptImagesBox'); if(!box) return;
   var keys=Object.keys(db.departments||{}), only1=keys.length<=1;
   box.innerHTML=keys.map(function(k){
