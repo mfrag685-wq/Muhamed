@@ -383,6 +383,7 @@ tr.sub-row td{background:#f7faf6;font-weight:700;font-size:12.5px;color:var(--in
     <div class="grid">
       <div class="field"><label>التاريخ</label><input type="date" id="p_date"></div>
       <div class="field"><label>رقم فاتورة المورد</label><input type="text" id="p_no" placeholder="اختياري"></div>
+      <div class="field"><label>مجموعة المورد</label><select id="p_supplierGroup" onchange="filterInvoiceParty('p')"></select></div>
       <div class="field"><label>المورد</label>
         <div class="inline-add"><select id="p_supplier"></select><button class="btn btn-sm" onclick="quickAddSupplier()" title="مورد جديد">+</button></div></div>
       <div class="field"><label>ملاحظات</label><input type="text" id="p_note" placeholder="اختياري"></div>
@@ -456,7 +457,9 @@ tr.sub-row td{background:#f7faf6;font-weight:700;font-size:12.5px;color:var(--in
     <div class="grid">
       <div class="field"><label>التاريخ</label><input type="date" id="s_date"></div>
       <div class="field"><label>رقم الفاتورة</label><input type="text" id="s_no" placeholder="اختياري"></div>
-      <div class="field"><label>العميل / الفرع</label><select id="s_client" onchange="onSaleClient()"></select></div>
+      <div class="field"><label>مجموعة العميل</label><select id="s_clientGroup" onchange="filterInvoiceParty('s')"></select></div>
+      <div class="field"><label>العميل / الفرع</label>
+        <div class="inline-add"><select id="s_client" onchange="onSaleClient()"></select><button class="btn btn-sm" onclick="quickAddClient()" title="عميل جديد">+</button></div></div>
       <div class="field"><label>ملاحظات</label><input type="text" id="s_note" placeholder="اختياري"></div>
     </div>
     <div class="sec-title" style="margin-top:18px">أصناف الفاتورة</div>
@@ -1616,12 +1619,30 @@ function fillSelect(id,html,keep){
 }
 function activeItems(){ return db.items.filter(function(i){ return i.active!==0; }); }
 function itemLabel(i){ return i.name+(i.active===0?' (متوقف)':''); }
+/* خيارات المجموعات مع عدد الأعضاء داخل كل مجموعة */
+function groupOpts(kind,blank){
+  var arr=kind==='sup'?db.supplierGroups:db.clientGroups, parties=kind==='sup'?db.suppliers:db.clients;
+  var h=blank?'<option value="">'+esc(blank)+'</option>':'';
+  (arr||[]).forEach(function(g){ var c=parties.filter(function(p){return p.groupId===g.id;}).length;
+    h+='<option value="'+g.id+'">'+esc(g.name)+' ('+c+' '+(kind==='sup'?'مورد':'عميل')+')</option>'; });
+  return h;
+}
+function invoiceClients(){ var g=val('s_clientGroup'); return g?db.clients.filter(function(c){return c.groupId===+g;}):db.clients; }
+function invoiceSuppliers(){ var g=val('p_supplierGroup'); return g?db.suppliers.filter(function(s){return s.groupId===+g;}):db.suppliers; }
+/* تصفية قائمة العميل/المورد في الفاتورة حسب المجموعة المختارة (بحث من مستويين) */
+function filterInvoiceParty(kind){
+  var nm=function(o){return o.name;};
+  if(kind==='s'){ fillSelect('s_client',opts(invoiceClients(),'id',nm),false); onSaleClient(); }
+  else fillSelect('p_supplier',opts(invoiceSuppliers(),'id',nm),false);
+}
 function fillAllSelects(){
   var nm=function(o){return o.name;};
   var whTxt=function(w){ return w.name+(w.clientId?' — '+clientName(w.clientId):' (عام)'); };
-  fillSelect('p_supplier',opts(db.suppliers,'id',nm));
+  fillSelect('p_supplierGroup',groupOpts('sup','كل مجموعات الموردين'));
+  fillSelect('s_clientGroup',groupOpts('cl','كل مجموعات العملاء'));
+  fillSelect('p_supplier',opts(invoiceSuppliers(),'id',nm));
   fillSelect('pf_supplier',opts(db.suppliers,'id',nm,'كل الموردين'));
-  fillSelect('s_client',opts(db.clients,'id',nm));
+  fillSelect('s_client',opts(invoiceClients(),'id',nm));
   fillSelect('sf_client',opts(db.clients,'id',nm,'كل العملاء'));
   fillSelect('e_client',opts(db.clients,'id',nm));
   fillSelect('wh_client',opts(db.clients,'id',nm,'مستودع عام لكل الفروع'));
@@ -2132,8 +2153,8 @@ function renderGroupManagers(){
   fillSelect('sup_group',opts(db.supplierGroups,'id',function(g){return g.name;},'بدون مجموعة'));
   fillSelect('cl_group',opts(db.clientGroups,'id',function(g){return g.name;},'بدون مجموعة'));
   /* قوائم التصفية في جدول البيانات الأساسية */
-  fillSelect('msSupGroup',opts(db.supplierGroups,'id',function(g){return g.name;},'كل المجموعات'));
-  fillSelect('msClGroup',opts(db.clientGroups,'id',function(g){return g.name;},'كل المجموعات'));
+  fillSelect('msSupGroup',groupOpts('sup','كل المجموعات'));
+  fillSelect('msClGroup',groupOpts('cl','كل المجموعات'));
 }
 function saveSupplier(){
   if(!guard('canAdd')) return;
@@ -2253,6 +2274,17 @@ function quickAddSupplier(){
   var id=uid(); db.suppliers.push({id:id,name:n.trim(),phone:'',note:''});
   log('add','البيانات الأساسية','إضافة مورد سريع: '+n.trim());
   persist(); fillAllSelects(); setVal('p_supplier',id); renderMaster(); toast('تمت إضافة المورد');
+}
+function quickAddClient(){
+  if(!can('canAdd')){ toast('لا تملك صلاحية الإضافة'); return; }
+  var n=prompt('اسم العميل الجديد:'); if(!n||!n.trim()) return; n=n.trim();
+  if(db.clients.filter(function(c){return c.name===n;}).length){ toast('اسم العميل مستخدم'); return; }
+  var id=uid(); var g=val('s_clientGroup')?+val('s_clientGroup'):null;
+  db.clients.push({id:id,name:n,phone:'',note:'',opening:0,openingDate:'',groupId:g});
+  var wantWh=confirm('هل تريد إنشاء مستودع خاص لهذا العميل؟\n(اضغط «إلغاء» للعميل النقدي بدون مستودع)');
+  if(wantWh) db.warehouses.push({id:uid(),name:'مستودع '+n,clientId:id});
+  log('add','البيانات الأساسية','إضافة عميل سريع: '+n+(wantWh?' مع مستودع':' بدون مستودع'));
+  persist(); fillAllSelects(); setVal('s_client',id); renderMaster(); toast('تمت إضافة العميل');
 }
 function quickAddItem(p){
   if(!can('canAdd')){ toast('لا تملك صلاحية الإضافة'); return; }
@@ -2698,8 +2730,8 @@ function renderAccounts(){
   var tg=function(id,show){ var e=document.getElementById(id); if(e) e.style.display=show?'':'none'; };
   tg('paymentFormBox', full&&can('canAdd')); tg('accSupBlock',seeSup); tg('accClBlock',seeCl);
   tg('accPayTitle',full); tg('accPayBox',full);
-  fillSelect('accSupGroup',opts(db.supplierGroups,'id',function(g){return g.name;},'كل مجموعات الموردين'));
-  fillSelect('accClGroup',opts(db.clientGroups,'id',function(g){return g.name;},'كل مجموعات العملاء'));
+  fillSelect('accSupGroup',groupOpts('sup','كل مجموعات الموردين'));
+  fillSelect('accClGroup',groupOpts('cl','كل مجموعات العملاء'));
   var t=partyTotals(),h='',A=0,B=0,C=0,D=0,OA=0;
   var q=(val('accSearch')||'').trim(), sg=val('accSupGroup'), cg=val('accClGroup');
   db.suppliers.forEach(function(s){
@@ -3819,19 +3851,23 @@ var TPL={
     samples:[['20213','بطاطس كبير','صندوق','10','20','نشط'],['20211','بصل كبير','شوال','25','10','نشط'],['448660','بصل ابيض','كيس','7','5','نشط']]},
   suppliers:{name:'نموذج_الموردين',title:'الموردين',arr:'suppliers',
     cols:[{k:'name',h:'اسم المورد',alias:['اسم المورد','المورد','supplier','name'],req:1},
+          {k:'group',h:'المجموعة',alias:['المجموعة','مجموعه','مجموعة','group','category']},
           {k:'phone',h:'الجوال',alias:['جوال','هاتف','phone','mobile']},
           {k:'opening',h:'الرصيد الافتتاحي',alias:['افتتاح','رصيد','opening','balance'],num:1},
           {k:'openingDate',h:'تاريخ الرصيد الافتتاحي',alias:['تاريخ','date']},
           {k:'note',h:'ملاحظات',alias:['ملاحظ','note']}],
-    samples:[['مؤسسة المزارع الحديثة','0500000001','1500','2026-01-01','مورد خضار'],
-             ['شركة التوريدات الزراعية','0500000002','0','','']]},
+    samples:[['مؤسسة المزارع الحديثة','موردو التوريد','0500000001','1500','2026-01-01','مورد خضار'],
+             ['شركة التوريدات الزراعية','','0500000002','0','','']]},
   clients:{name:'نموذج_العملاء',title:'العملاء',arr:'clients',
     cols:[{k:'name',h:'اسم العميل',alias:['اسم العميل','العميل','الفرع','client','name'],req:1},
+          {k:'group',h:'المجموعة',alias:['المجموعة','مجموعه','مجموعة','group','category']},
+          {k:'hasWh',h:'له مستودع (نعم/لا)',alias:['له مستودع','مستودع','warehouse','مستودع خاص']},
           {k:'phone',h:'الجوال',alias:['جوال','هاتف','phone','mobile']},
           {k:'opening',h:'الرصيد الافتتاحي',alias:['افتتاح','رصيد','opening','balance'],num:1},
           {k:'openingDate',h:'تاريخ الرصيد الافتتاحي',alias:['تاريخ','date']},
           {k:'note',h:'ملاحظات',alias:['ملاحظ','note']}],
-    samples:[['الفرع أ','0500000010','800','2026-01-01',''],['الفرع ب','0500000011','0','','']]},
+    samples:[['الصالة الاقتصادية - فرع النسيم','عملاء التوريد','نعم','0500000010','800','2026-01-01',''],
+             ['محل نقدي','عملاء نقدي','لا','0500000011','0','','']]},
   openingStock:{name:'نموذج_المخزون_الافتتاحي',title:'المخزون الافتتاحي',
     cols:[{k:'date',h:'التاريخ',alias:['تاريخ','date'],req:1},
           {k:'wh',h:'المستودع',alias:['مستودع','warehouse'],req:1},
@@ -3954,6 +3990,19 @@ function matchHeader(row,t){
   return (hits>=2&&reqOK)?map:null;
 }
 function needTxt(v,label){ if(!v||!String(v).trim()) throw new Error(label+' مطلوب'); return String(v).trim(); }
+/* يجد/ينشئ مجموعة بالاسم ويعيد معرّفها (null إن كان الاسم فارغاً) */
+function findOrCreateGroup(kind,name){
+  name=(name||'').trim(); if(!name) return null;
+  var arr=kind==='sup'?db.supplierGroups:db.clientGroups;
+  var g=arr.filter(function(x){return x.name===name;})[0];
+  if(g) return g.id;
+  var ng={id:uid(),name:name}; arr.push(ng); return ng.id;
+}
+/* يفسّر خانة «له مستودع»: null غير محدد · true نعم · false لا */
+function whFlag(v){
+  var s=String(v==null?'':v).trim().toLowerCase(); if(s==='') return null;
+  return !(s==='لا'||s==='no'||s==='0'||s==='false'||s.indexOf('بدون')>-1||s==='n');
+}
 function importRow(k,v){
   if(k==='units'){
     var n=needTxt(v.name,'اسم الوحدة'), ws=parseWeights(v.weights);
@@ -3978,12 +4027,17 @@ function importRow(k,v){
   if(k==='suppliers'||k==='clients'){
     var name=needTxt(v.name,k==='suppliers'?'اسم المورد':'اسم العميل');
     var arr=k==='suppliers'?db.suppliers:db.clients;
+    var gid=findOrCreateGroup(k==='suppliers'?'sup':'cl', v.group);
+    var whf=whFlag(v.hasWh);   /* null=غير محدد · true=نعم · false=لا */
     var ex2=arr.filter(function(x){return x.name===name;})[0];
     var rec={name:name,phone:(v.phone||'').trim(),opening:v.opening||0,
-      openingDate:(v.openingDate||'').trim(),note:(v.note||'').trim()};
-    if(ex2){ ex2.phone=rec.phone; ex2.opening=rec.opening; ex2.openingDate=rec.openingDate; ex2.note=rec.note; return 'update'; }
+      openingDate:(v.openingDate||'').trim(),note:(v.note||'').trim(),groupId:gid};
+    if(ex2){ ex2.phone=rec.phone; ex2.opening=rec.opening; ex2.openingDate=rec.openingDate; ex2.note=rec.note;
+      if(gid!=null) ex2.groupId=gid;
+      if(k==='clients'&&whf===true&&!clientWhs(ex2.id).length) db.warehouses.push({id:uid(),name:'مستودع '+name,clientId:ex2.id});
+      return 'update'; }
     var nid=uid(); rec.id=nid; arr.push(rec);
-    if(k==='clients') db.warehouses.push({id:uid(),name:'مستودع '+name,clientId:nid});
+    if(k==='clients'&&whf!==false) db.warehouses.push({id:uid(),name:'مستودع '+name,clientId:nid});   /* غير محدد = نعم (كالسابق) */
     return 'add';
   }
   if(k==='openingStock'){
