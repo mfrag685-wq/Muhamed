@@ -1103,10 +1103,11 @@ tr.sub-row td{background:#f7faf6;font-weight:700;font-size:12.5px;color:var(--in
     <button class="btn" onclick="document.getElementById('importFile').click()">استعادة من نسخة</button>
     <button class="btn" onclick="exportAllExcel()">تصدير كل الجداول (Excel)</button>
     <button class="btn" onclick="repairDuplicates()">فحص وإصلاح التكرار</button>
+    <button class="btn" onclick="separateDepartments()">فصل تداخل الأقسام</button>
     <button class="btn" onclick="loadDemo()">تحميل بيانات تجريبية</button>
     <button class="btn btn-del" onclick="wipeData()">مسح جميع البيانات</button>
   </div>
-  <div class="note" style="border-right-color:var(--citrus)">زر <b>«فحص وإصلاح التكرار»</b> يدمج الموردين/العملاء/الأصناف المكرّرة بنفس الاسم (يجمع حركاتهم في حساب واحد) ويصلح أي معرّفات متكرّرة. نزّل نسخة احتياطية قبله للاحتياط.</div>
+  <div class="note" style="border-right-color:var(--citrus)">زر <b>«فحص وإصلاح التكرار»</b> يدمج الموردين/العملاء/الأصناف المكرّرة بنفس الاسم (يجمع حركاتهم في حساب واحد) ويصلح أي معرّفات متكرّرة.<br>زر <b>«فصل تداخل الأقسام»</b> يعالج ظهور موردي/عملاء قسم داخل قسم آخر: يُزيلهم من أي قسم لا توجد لهم فيه حركة، ويبقيهم في قسمهم الصحيح. نزّل نسخة احتياطية قبل أي منهما.</div>
   <div class="note" id="storageNote" style="margin-top:14px"></div>
 
   <div class="sec-title">مشاركة النظام مع الموظفين</div>
@@ -1273,6 +1274,19 @@ function desiredDept(){
   if(db.activeDept&&db.departments&&db.departments[db.activeDept]) return db.activeDept;
   return (db.departments&&Object.keys(db.departments)[0])||'fruits';
 }
+/* يضمن ألا يتشارك قسمان نفس كائن مصفوفة (يمنع تسرّب سجلات قسم إلى آخر) */
+function dedupeDeptRefs(){
+  if(!db.departments) return;
+  var seen=[];
+  Object.keys(db.departments).forEach(function(dn){
+    var d=db.departments[dn]; if(!d||typeof d!=='object') return;
+    DEPT_BOOKS.forEach(function(k){
+      if(!Array.isArray(d[k])){ d[k]=[]; return; }
+      if(seen.indexOf(d[k])>-1) d[k]=d[k].slice();   /* مرجع مشترك → انسخه لقسم مستقل */
+      seen.push(d[k]);
+    });
+  });
+}
 /* يجعل مصفوفات العمل (db.suppliers ...) تشير إلى دفاتر القسم النشط */
 function loadDept(key){
   if(!db.departments) db.departments={};
@@ -1316,6 +1330,7 @@ function ensureDbShape(){
     d.clients.forEach(function(c){ if(c.opening===undefined) c.opening=0; if(c.openingDate===undefined) c.openingDate=''; });
     d.items.forEach(function(i){ if(i.active===undefined) i.active=1; });
   });
+  dedupeDeptRefs();          /* أمان: لا يتشارك قسمان أبداً نفس مصفوفة (مرجع) */
   loadDept(desiredDept());   /* يحترم اختيار هذا الجهاز إن وُجد */
   /* الوحدات مشتركة: ترحيل الأوزان + اشتقاقها من أصناف كل الأقسام */
   db.units.forEach(function(u){ if(!Array.isArray(u.weights)) u.weights=(u.weight!=null&&u.weight!=='')?[+u.weight]:[]; delete u.weight; });
@@ -4537,6 +4552,82 @@ function importBackup(ev){
 }
 /* إصلاح البيانات المتكرّرة: دمج الموردين/العملاء/الأصناف بنفس الاسم (مع إعادة توجيه كل حركاتهم)،
    ثم إصلاح أي معرّفات متكرّرة لضمان استقلال كل حساب */
+/* ==========================================================================
+   فصل بيانات الأقسام — إزالة أي مورد/عميل مكرّر ظاهر في قسم لا حركة له فيه
+   ========================================================================== */
+function _whHasUsage(d,whId){
+  return (d.openingStock||[]).some(function(o){return o.whId===whId;})
+    ||(d.purchases||[]).some(function(p){return (p.lines||[]).some(function(l){return l.whId===whId;});})
+    ||(d.sales||[]).some(function(s){return (s.lines||[]).some(function(l){return l.whId===whId;});})
+    ||(d.transfers||[]).some(function(t){return t.from===whId||t.to===whId;})
+    ||(d.waste||[]).some(function(w){return w.whId===whId;})
+    ||(d.preturns||[]).some(function(r){return r.whId===whId;})
+    ||(d.sreturns||[]).some(function(r){return r.whId===whId;});
+}
+function _supActive(d,id){
+  var s=(d.suppliers||[]).filter(function(x){return x.id===id;})[0];
+  if(s&&Math.abs(+s.opening||0)>0.009) return true;
+  return (d.purchases||[]).some(function(p){return p.supplierId===id;})
+    ||(d.preturns||[]).some(function(r){return r.supplierId===id;})
+    ||(d.payments||[]).some(function(p){return p.type==='supplier'&&p.partyId===id;});
+}
+function _clActive(d,id){
+  var c=(d.clients||[]).filter(function(x){return x.id===id;})[0];
+  if(c&&Math.abs(+c.opening||0)>0.009) return true;
+  if((d.sales||[]).some(function(s){return s.clientId===id;})) return true;
+  if((d.sreturns||[]).some(function(r){return r.clientId===id;})) return true;
+  if((d.payments||[]).some(function(p){return p.type==='client'&&p.partyId===id;})) return true;
+  if((d.expenses||[]).some(function(e){return e.clientId===id||(e.splits&&e.splits[id]!=null);})) return true;
+  if((d.warehouses||[]).some(function(w){return w.clientId===id&&_whHasUsage(d,w.id);})) return true;
+  return false;
+}
+function scanDeptLeak(){
+  var depts=Object.keys(db.departments||{}), out={sup:0,cl:0};
+  ['sup','cl'].forEach(function(kind){
+    var arrKey=kind==='sup'?'suppliers':'clients', present={};
+    depts.forEach(function(dn){ (db.departments[dn][arrKey]||[]).forEach(function(p){ (present[p.id]=present[p.id]||[]).push(dn); }); });
+    Object.keys(present).forEach(function(idStr){
+      var id=+idStr, ds=present[idStr]; if(ds.length<2) return;
+      ds.forEach(function(dn){ var active=kind==='sup'?_supActive(db.departments[dn],id):_clActive(db.departments[dn],id);
+        if(!active) out[kind]++; });
+    });
+  });
+  return out;
+}
+function separateDepartments(){
+  if(!guard('settings')) return;
+  var depts=Object.keys(db.departments||{});
+  if(depts.length<2){ toast('يوجد قسم واحد فقط — لا حاجة للفصل'); return; }
+  var scan=scanDeptLeak();
+  if(!scan.sup&&!scan.cl){ alert('لا يوجد تداخل بين الأقسام — كل مورد/عميل يظهر في قسمه فقط.'); return; }
+  if(!confirm('تم رصد تداخل بين الأقسام:\n• موردون مكرّرون في أقسام لا حركة لهم فيها: '+scan.sup
+    +'\n• عملاء: '+scan.cl+'\n\nسيُزيلهم هذا الإجراء من الأقسام التي لا توجد لهم فيها أي حركة (فاتورة/سداد/رصيد افتتاحي/مستودع مستخدم)، ويبقيهم في قسمهم الصحيح.\n\n⚠ نزّل نسخة احتياطية أولاً. المتابعة؟')) return;
+  var removedSup=0,removedCl=0,removedWh=0;
+  ['sup','cl'].forEach(function(kind){
+    var arrKey=kind==='sup'?'suppliers':'clients', present={};
+    depts.forEach(function(dn){ (db.departments[dn][arrKey]||[]).forEach(function(p){ (present[p.id]=present[p.id]||[]).push(dn); }); });
+    Object.keys(present).forEach(function(idStr){
+      var id=+idStr, ds=present[idStr]; if(ds.length<2) return;
+      var activeIn=ds.filter(function(dn){ return kind==='sup'?_supActive(db.departments[dn],id):_clActive(db.departments[dn],id); });
+      var keep=activeIn.length?activeIn:[((curDept&&ds.indexOf(curDept)>-1)?curDept:ds[0])];
+      ds.forEach(function(dn){
+        if(keep.indexOf(dn)>-1) return;
+        var d=db.departments[dn], before=d[arrKey].length;
+        d[arrKey]=d[arrKey].filter(function(p){return p.id!==id;});
+        var rm=before-d[arrKey].length; if(kind==='sup') removedSup+=rm; else removedCl+=rm;
+        if(kind==='cl'){ var wb=d.warehouses.length;
+          d.warehouses=d.warehouses.filter(function(w){ return !(w.clientId===id&&!_whHasUsage(d,w.id)); });
+          removedWh+=wb-d.warehouses.length; }
+      });
+    });
+  });
+  loadDept(desiredDept());
+  log('data','الإعدادات','فصل الأقسام — موردون '+removedSup+'، عملاء '+removedCl+'، مستودعات '+removedWh);
+  commit('تم فصل الأقسام'); renderMaster(); updateDeptUI();
+  alert('اكتمل فصل الأقسام:\n\n• موردون أُزيلوا من أقسام لا حركة لهم فيها: '+removedSup
+    +'\n• عملاء: '+removedCl+'\n• مستودعات فارغة تابعة لهم: '+removedWh
+    +'\n\nراجع كل قسم الآن — يجب أن يظهر موردوه وعملاؤه فقط.');
+}
 function repairDuplicates(){
   if(!guard('settings')) return;
   if(!confirm('سيتم دمج الموردين/العملاء/الأصناف المكرّرة (نفس الاسم) في حساب واحد، وإصلاح المعرّفات المتكرّرة.\nيُنصح بتنزيل نسخة احتياطية أولاً.\nالمتابعة؟')) return;
