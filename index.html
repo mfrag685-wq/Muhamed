@@ -830,7 +830,7 @@ tr.sub-row td{background:#f7faf6;font-weight:700;font-size:12.5px;color:var(--in
 
   <div class="sec-title alt no-print">نماذج Excel والاستيراد</div>
   <div class="note no-print">
-    <b>طريقة الاستيراد:</b> نزّل النموذج، املأه في Excel، ثم احفظه بصيغة <b>CSV UTF-8 (محدد بفواصل)</b> واستورده.<br>
+    <b>طريقة الاستيراد:</b> نزّل النموذج (ملف <b>Excel .xlsx</b>)، املأه في Excel، ثم احفظه واستورده مباشرةً — لا حاجة للتحويل إلى CSV. (وتُقبل ملفات CSV القديمة أيضاً.)<br>
     النظام يتعرّف على الأعمدة <b>بأسمائها</b> لا بترتيبها — يمكنك تغيير ترتيب الأعمدة أو إضافة أعمدة خاصة بك دون مشكلة، المهم إبقاء صف العناوين.<br>
     الاسم المطابق لسجل موجود <b>يُحدَّث</b> بدل تكراره، والجديد يُضاف. أي سطر غير صالح يُتخطّى ويظهر لك سبب تخطّيه بالتفصيل.<br>
     زر <b>«تصدير الحالي للتعديل»</b> ينزّل بياناتك بنفس تنسيق النموذج — عدّلها في Excel وأعد استيرادها مباشرة.
@@ -855,7 +855,7 @@ tr.sub-row td{background:#f7faf6;font-weight:700;font-size:12.5px;color:var(--in
       <div class="inline-add"><button class="btn" onclick="downloadTemplate('sales')">تنزيل</button>
       <button class="btn-alt" onclick="pickImport('sales')">استيراد</button></div></div>
   </div>
-  <input type="file" id="csvFile" accept=".csv,.txt" class="hidden" onchange="handleImport(event)">
+  <input type="file" id="csvFile" accept=".xlsx,.csv,.txt" class="hidden" onchange="handleImport(event)">
 </section>
 
 <!-- ======================= قائمة الدخل ======================= -->
@@ -3888,19 +3888,194 @@ function renderReport(){
 /* ==========================================================================
    التصدير والاستيراد (Excel / CSV)
    ========================================================================== */
+/* ==========================================================================
+   محرّك Excel (xlsx) مضمّن بالكامل — كتابة وقراءة بلا مكتبات خارجية (يعمل دون إنترنت)
+   ========================================================================== */
+function _u8(str){
+  if(typeof TextEncoder!=='undefined') return new TextEncoder().encode(str);
+  var s=unescape(encodeURIComponent(str)), a=new Uint8Array(s.length);
+  for(var i=0;i<s.length;i++) a[i]=s.charCodeAt(i); return a;
+}
+function _utf8dec(bytes){
+  if(typeof TextDecoder!=='undefined') return new TextDecoder('utf-8').decode(bytes);
+  var s=''; for(var i=0;i<bytes.length;i++) s+=String.fromCharCode(bytes[i]);
+  try{ return decodeURIComponent(escape(s)); }catch(e){ return s; }
+}
+function _xmlEsc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&apos;'}[c];}); }
+function _xmlUn(s){ return String(s==null?'':s).replace(/&#(\d+);/g,function(_,n){return String.fromCharCode(+n);})
+  .replace(/&#x([0-9a-fA-F]+);/g,function(_,n){return String.fromCharCode(parseInt(n,16));})
+  .replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&apos;/g,"'").replace(/&amp;/g,'&'); }
+var _crcT=null;
+function _crc32(u8){
+  if(!_crcT){ _crcT=[]; for(var n=0;n<256;n++){ var c=n; for(var k=0;k<8;k++) c=(c&1)?(0xEDB88320^(c>>>1)):(c>>>1); _crcT[n]=c>>>0; } }
+  var crc=-1; for(var i=0;i<u8.length;i++) crc=(crc>>>8)^_crcT[(crc^u8[i])&0xFF]; return (crc^-1)>>>0;
+}
+/* ZIP بلا ضغط (stored) — يكفي لملفات نصية صغيرة */
+function _zip(files){
+  var parts=[],central=[],offset=0;
+  function u16(n){return [n&255,(n>>8)&255];}
+  function u32(n){return [n&255,(n>>8)&255,(n>>16)&255,(n>>24)&255];}
+  files.forEach(function(f){
+    var nb=_u8(f.name), data=f.data, crc=_crc32(data), sz=data.length;
+    parts.push(new Uint8Array([80,75,3,4].concat(u16(20),u16(0x0800),u16(0),u16(0),u16(0),u32(crc),u32(sz),u32(sz),u16(nb.length),u16(0))),nb,data);
+    central.push({h:new Uint8Array([80,75,1,2].concat(u16(20),u16(20),u16(0x0800),u16(0),u16(0),u16(0),u32(crc),u32(sz),u32(sz),u16(nb.length),u16(0),u16(0),u16(0),u16(0),u32(0),u32(offset))),n:nb});
+    offset+=30+nb.length+sz;
+  });
+  var cdStart=offset,cdParts=[];
+  central.forEach(function(c){ cdParts.push(c.h,c.n); offset+=c.h.length+c.n.length; });
+  var eocd=new Uint8Array([80,75,5,6].concat(u16(0),u16(0),u16(files.length),u16(files.length),u32(offset-cdStart),u32(cdStart),u16(0)));
+  return new Blob(parts.concat(cdParts,[eocd]),{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+}
+function _colL(n){ var s=''; n++; while(n>0){ var m=(n-1)%26; s=String.fromCharCode(65+m)+s; n=(n-m-1)/26|0; } return s; }
+function _colIdx(s){ var n=0; for(var i=0;i<s.length;i++) n=n*26+(s.charCodeAt(i)-64); return n-1; }
+function _isNum(v){ return typeof v==='number'&&isFinite(v); }
+function _sheetXML(aoa){
+  var body='';
+  for(var r=0;r<aoa.length;r++){
+    var row=aoa[r]||[],cells='';
+    for(var c=0;c<row.length;c++){
+      var v=row[c]; if(v==null||v==='') continue;
+      var ref=_colL(c)+(r+1);
+      if(_isNum(v)) cells+='<c r="'+ref+'"><v>'+v+'</v></c>';
+      else cells+='<c r="'+ref+'" t="inlineStr"><is><t xml:space="preserve">'+_xmlEsc(v)+'</t></is></c>';
+    }
+    body+='<row r="'+(r+1)+'">'+cells+'</row>';
+  }
+  return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView rightToLeft="1" workbookViewId="0"/></sheetViews><sheetData>'+body+'</sheetData></worksheet>';
+}
+function xlsxBlob(sheetName,aoa){
+  sheetName=(sheetName||'Sheet1').substring(0,31).replace(/[\\\/\?\*\[\]:]/g,' ')||'Sheet1';
+  return _zip([
+    {name:'[Content_Types].xml',data:_u8('<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>')},
+    {name:'_rels/.rels',data:_u8('<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>')},
+    {name:'xl/workbook.xml',data:_u8('<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="'+_xmlEsc(sheetName)+'" sheetId="1" r:id="rId1"/></sheets></workbook>')},
+    {name:'xl/_rels/workbook.xml.rels',data:_u8('<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/></Relationships>')},
+    {name:'xl/worksheets/sheet1.xml',data:_u8(_sheetXML(aoa))}
+  ]);
+}
+function saveXlsx(filename,sheetName,aoa){
+  var blob=xlsxBlob(sheetName,aoa);
+  var a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download=filename+'.xlsx'; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(function(){URL.revokeObjectURL(a.href);},1000);
+}
+/* فكّ ضغط DEFLATE الخام (نقي بلا مكتبات) — لقراءة ملفات Excel المحفوظة من المستخدم */
+function _inflateRaw(input){
+  var out=[],bitPos=0,bytePos=0;
+  function bit(){ var b=(input[bytePos]>>bitPos)&1; bitPos++; if(bitPos===8){bitPos=0;bytePos++;} return b; }
+  function bits(n){ var v=0; for(var i=0;i<n;i++) v|=bit()<<i; return v; }
+  function tree(lens){ var counts=[],offs=[],syms=[],i,MAX=15;
+    for(i=0;i<=MAX;i++) counts[i]=0;
+    for(i=0;i<lens.length;i++) counts[lens[i]]++;
+    counts[0]=0; offs[0]=0; offs[1]=0;
+    for(i=1;i<=MAX;i++) offs[i+1]=offs[i]+counts[i];
+    for(i=0;i<lens.length;i++) if(lens[i]) syms[offs[lens[i]]++]=i;
+    return {counts:counts,syms:syms}; }
+  function decode(t){ var code=0,first=0,index=0;
+    for(var len=1;len<=15;len++){ code|=bit(); var cnt=t.counts[len];
+      if(code-first<cnt) return t.syms[index+(code-first)];
+      index+=cnt; first+=cnt; first<<=1; code<<=1; }
+    return -1; }
+  var LB=[3,4,5,6,7,8,9,10,11,13,15,17,19,23,27,31,35,43,51,59,67,83,99,115,131,163,195,227,258],
+      LE=[0,0,0,0,0,0,0,0,1,1,1,1,2,2,2,2,3,3,3,3,4,4,4,4,5,5,5,5,0],
+      DB=[1,2,3,4,5,7,9,13,17,25,33,49,65,97,129,193,257,385,513,769,1025,1537,2049,3073,4097,6145,8193,12289,16385,24577],
+      DE=[0,0,0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,8,8,9,9,10,10,11,11,12,12,13,13];
+  var last;
+  do{
+    last=bit(); var type=bits(2);
+    if(type===0){
+      if(bitPos>0){ bitPos=0; bytePos++; }
+      var len=input[bytePos]|(input[bytePos+1]<<8); bytePos+=4;
+      for(var i=0;i<len;i++) out.push(input[bytePos++]);
+    } else {
+      var lit,dist;
+      if(type===1){
+        var ll=[],j; for(j=0;j<144;j++)ll.push(8); for(;j<256;j++)ll.push(9); for(;j<280;j++)ll.push(7); for(;j<288;j++)ll.push(8);
+        lit=tree(ll); var dl=[]; for(j=0;j<30;j++)dl.push(5); dist=tree(dl);
+      } else {
+        var hlit=bits(5)+257,hdist=bits(5)+1,hclen=bits(4)+4;
+        var order=[16,17,18,0,8,7,9,6,10,5,11,4,12,3,13,2,14,1,15],cl=[],k;
+        for(k=0;k<19;k++) cl[k]=0;
+        for(k=0;k<hclen;k++) cl[order[k]]=bits(3);
+        var clT=tree(cl),lens=[];
+        while(lens.length<hlit+hdist){
+          var s=decode(clT);
+          if(s<16) lens.push(s);
+          else if(s===16){ var r=bits(2)+3,pv=lens[lens.length-1]; while(r--)lens.push(pv); }
+          else if(s===17){ var r2=bits(3)+3; while(r2--)lens.push(0); }
+          else { var r3=bits(7)+11; while(r3--)lens.push(0); }
+        }
+        lit=tree(lens.slice(0,hlit)); dist=tree(lens.slice(hlit));
+      }
+      for(;;){
+        var sym=decode(lit);
+        if(sym===256) break;
+        if(sym<256) out.push(sym);
+        else { sym-=257; var length=LB[sym]+bits(LE[sym]);
+          var ds=decode(dist), d=DB[ds]+bits(DE[ds]), start=out.length-d;
+          for(var q=0;q<length;q++) out.push(out[start+q]); }
+      }
+    }
+  } while(!last);
+  return new Uint8Array(out);
+}
+function _rd16(a,o){ return a[o]|(a[o+1]<<8); }
+function _rd32(a,o){ return (a[o]|(a[o+1]<<8)|(a[o+2]<<16)|(a[o+3]<<24))>>>0; }
+function _unzip(u8){
+  var i=u8.length-22;
+  for(; i>=0; i--){ if(u8[i]===80&&u8[i+1]===75&&u8[i+2]===5&&u8[i+3]===6) break; }
+  if(i<0) throw new Error('ملف غير صالح');
+  var count=_rd16(u8,i+10), p=_rd32(u8,i+16), files={};
+  for(var n=0;n<count;n++){
+    if(!(u8[p]===80&&u8[p+1]===75&&u8[p+2]===1&&u8[p+3]===2)) break;
+    var method=_rd16(u8,p+10), compSize=_rd32(u8,p+20), nameLen=_rd16(u8,p+28),
+        extraLen=_rd16(u8,p+30), commentLen=_rd16(u8,p+32), lho=_rd32(u8,p+42);
+    var name=_utf8dec(u8.subarray(p+46,p+46+nameLen));
+    var lNameLen=_rd16(u8,lho+26), lExtraLen=_rd16(u8,lho+28), dataStart=lho+30+lNameLen+lExtraLen;
+    var comp=u8.subarray(dataStart,dataStart+compSize);
+    files[name]= method===0 ? comp.slice() : _inflateRaw(comp);
+    p+=46+nameLen+extraLen+commentLen;
+  }
+  return files;
+}
+function readXlsx(buf){
+  var files=_unzip(new Uint8Array(buf));
+  function txt(nm){ return files[nm]?_utf8dec(files[nm]):''; }
+  var shared=[], ss=txt('xl/sharedStrings.xml');
+  if(ss){ var reSi=/<si>([\s\S]*?)<\/si>/g,mm;
+    while((mm=reSi.exec(ss))){ var t='',reT=/<t[^>]*>([\s\S]*?)<\/t>/g,tm;
+      while((tm=reT.exec(mm[1]))) t+=_xmlUn(tm[1]); shared.push(t); } }
+  var sheetKey=null;
+  Object.keys(files).forEach(function(k){ if(/^xl\/worksheets\/.*\.xml$/.test(k)&&!sheetKey) sheetKey=k; });
+  var xml=sheetKey?txt(sheetKey):'', grid=[], reRow=/<row[^>]*\br="(\d+)"[^>]*>([\s\S]*?)<\/row>/g, rm;
+  while((rm=reRow.exec(xml))){
+    var rIdx=parseInt(rm[1],10)-1, inner=rm[2];
+    var reC=/<c([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g, cm;
+    while((cm=reC.exec(inner))){
+      var attrs=cm[1]||'', bodyc=cm[2]||'';
+      var refM=/r="([A-Z]+)\d+"/.exec(attrs), col=refM?_colIdx(refM[1]):0;
+      var tM=/t="([^"]+)"/.exec(attrs), type=tM?tM[1]:'', val='';
+      if(type==='inlineStr'){ var im=/<t[^>]*>([\s\S]*?)<\/t>/.exec(bodyc); val=im?_xmlUn(im[1]):''; }
+      else { var vm=/<v>([\s\S]*?)<\/v>/.exec(bodyc), raw=vm?vm[1]:'';
+        val=(type==='s')?(shared[parseInt(raw,10)]||''):_xmlUn(raw); }
+      grid[rIdx]=grid[rIdx]||[]; grid[rIdx][col]=val;
+    }
+  }
+  var rows=[];
+  for(var r=0;r<grid.length;r++){ var g=grid[r]||[],row=[]; for(var c=0;c<g.length;c++) row.push(g[c]==null?'':g[c]); rows.push(row); }
+  return rows;
+}
+function excelSerialToDate(n){ var d=new Date(Date.UTC(1899,11,30)+Math.round(n)*86400000); return d.toISOString().slice(0,10); }
+
 function csvCell(v){ v=String(v==null?'':v); return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v; }
 function downloadCSV(name,head,rows,title){
   if(!can('canExport')){ toast('لا تملك صلاحية التصدير'); return; }
   var meta=[[db.settings.company||''],[title||name],['الفترة: '+(val('f_from')||'البداية')+' إلى '+(val('f_to')||'اليوم')],
     ['إعداد: '+AUTHOR+' — جميع الحقوق محفوظة'],['تاريخ التصدير: '+nowTs()+'  |  المستخدم: '+(ME?ME.name:'')],[]];
   var all=meta.concat([head]).concat(rows);
-  var csv='\uFEFF'+all.map(function(r){ return r.map(csvCell).join(','); }).join('\r\n');
-  var blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
-  var a=document.createElement('a'); a.href=URL.createObjectURL(blob);
-  a.download=name+'_'+today()+'.csv'; document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(function(){URL.revokeObjectURL(a.href);},1000);
+  saveXlsx(name+'_'+today(), title||name, all);   /* ملف Excel حقيقي (.xlsx) */
   log('data','التصدير','تصدير '+(title||name));
-  persist(); toast('تم تنزيل الملف — افتحه بـ Excel');
+  persist(); toast('تم تنزيل ملف Excel');
 }
 function exportReport(){ downloadCSV('تقرير',lastReport.head,lastReport.rows,lastReport.title); }
 function tableData(kind){
@@ -4020,12 +4195,8 @@ var TPL={
 function downloadTemplate(k){
   var t=TPL[k];
   var rows=[t.cols.map(function(c){return c.h;})].concat(t.samples||[]);
-  var csv='\uFEFF'+rows.map(function(r){return r.map(csvCell).join(',');}).join('\r\n');
-  var blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
-  var a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=t.name+'.csv';
-  document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(function(){URL.revokeObjectURL(a.href);},1000);
-  toast('تم تنزيل النموذج — أبقِ صف العناوين كما هو واستبدل الأسطر التجريبية ببياناتك');
+  saveXlsx(t.name, t.title, rows);   /* نموذج Excel حقيقي (.xlsx) */
+  toast('تم تنزيل النموذج (Excel) — أبقِ صف العناوين كما هو واستبدل الأسطر التجريبية ببياناتك');
 }
 var importKind=null;
 function pickImport(k){ if(!guard('canAdd')) return; importKind=k; document.getElementById('csvFile').click(); }
@@ -4067,6 +4238,8 @@ function readSheet(rows,t){
       var idx=map[c.k];
       var cell=(idx===undefined)?'':String(raw[idx]==null?'':raw[idx]).trim();
       if(cell!=='') any=true;
+      /* Excel قد يخزّن التاريخ كرقم تسلسلي — نحوّله إلى سنة-شهر-يوم */
+      if((c.k==='date'||c.k==='openingDate')&&/^\d+(\.\d+)?$/.test(cell)&&+cell>=20000&&+cell<=80000) cell=excelSerialToDate(+cell);
       v[c.k]=c.num?(cell===''?null:parseFloat(String(cell).replace(/,/g,''))):cell;
     });
     if(any) out.push({n:j+1,v:v});
@@ -4204,15 +4377,9 @@ function exportForEdit(k){
     }));
   });
   if(!rows.length){ toast('لا توجد بيانات لتصديرها'); return; }
-  var csv='\uFEFF'+[t.cols.map(function(c){return c.h;})].concat(rows)
-    .map(function(r){return r.map(csvCell).join(',');}).join('\r\n');
-  var blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
-  var a=document.createElement('a'); a.href=URL.createObjectURL(blob);
-  a.download=t.title+'_للتعديل_'+today()+'.csv';
-  document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(function(){URL.revokeObjectURL(a.href);},1000);
+  saveXlsx(t.title+'_للتعديل_'+today(), t.title, [t.cols.map(function(c){return c.h;})].concat(rows));
   log('data','التصدير','تصدير '+t.title+' بصيغة قابلة لإعادة الاستيراد'); persist();
-  toast('عدّل الملف ثم استورده — الأسماء المطابقة تُحدَّث والجديدة تُضاف');
+  toast('عدّل الملف (Excel) ثم استورده — الأسماء المطابقة تُحدَّث والجديدة تُضاف');
 }
 
 function findOrCreate(arr,name,mk){
@@ -4248,10 +4415,12 @@ function resolveItem(name,code,uw){
 }
 function handleImport(ev){
   var f=ev.target.files[0]; if(!f) return;
+  var isXlsx=/\.xlsx$/i.test(f.name);
   var rd=new FileReader();
   rd.onload=function(e){
-    var k=importKind, t=TPL[k];
-    var rows=parseCSV(e.target.result);
+    var k=importKind, t=TPL[k], rows;
+    try{ rows=isXlsx?readXlsx(e.target.result):parseCSV(e.target.result); }
+    catch(rerr){ alert('تعذّر قراءة الملف:\n\n'+(rerr&&rerr.message?rerr.message:'صيغة غير مدعومة')+'\n\nجرّب حفظ الملف بصيغة Excel (.xlsx) أو CSV.'); ev.target.value=''; return; }
     var res=readSheet(rows,t);
     if(res.error){ alert('تعذّر قراءة الملف:\n\n'+res.error+'\n\nالأعمدة المتوقعة:\n'+t.cols.map(function(c){return '• '+c.h;}).join('\n')); ev.target.value=''; return; }
     importDefaultDate='';
@@ -4275,7 +4444,8 @@ function handleImport(ev){
     renderMaster(); renderSettingsForm();
     if(errs.length) alert('تم الاستيراد مع تخطّي '+errs.length+' سطر:\n\n'+errs.slice(0,15).join('\n')+(errs.length>15?'\n…':''));
   };
-  rd.readAsText(f,'UTF-8'); ev.target.value='';
+  if(isXlsx) rd.readAsArrayBuffer(f); else rd.readAsText(f,'UTF-8');
+  ev.target.value='';
 }
 
 /* ==========================================================================
