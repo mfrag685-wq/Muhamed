@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>نظام توريد الخضار والفواكه — إعداد أ/ محمد فرج</title>
+<title>نظام توريد الخضار والفواكه — إعداد محمد فرج</title>
 <!-- ===== تطبيق ويب (يُثبَّت على الجوال بأيقونة ويفتح بملء الشاشة) ===== -->
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#152420">
@@ -17,7 +17,7 @@
 <!--
   ===========================================================
    نظام إدارة توريد الخضار والفواكه — المخزون والمحاسبة
-   إعداد وتصميم: أ/ محمد فرج
+   إعداد وتصميم: محمد فرج
    جميع الحقوق محفوظة © 2026
   ===========================================================
 -->
@@ -265,6 +265,38 @@ tr.sub-row td{background:#f7faf6;font-weight:700;font-size:12.5px;color:var(--in
 .cloud-status.ok{color:#8fd6a8}.cloud-status.sync{color:#e6c65c}
 .cloud-status.err,.cloud-status.off{color:#e59c8f}.cloud-status.connecting{color:#8fb8e0}
 @media print{.cloud-status{display:none!important}}
+/* ===== توقيع معدّ النظام (احترافي، قابل للنقر) ===== */
+.author-badge{display:inline-flex;align-items:center;gap:7px;cursor:pointer;font-weight:800;
+  background:linear-gradient(90deg,var(--leaf-dark),var(--leaf));-webkit-background-clip:text;background-clip:text;
+  color:transparent;letter-spacing:.2px;transition:opacity .15s;text-decoration:none}
+.author-badge:hover{opacity:.8}
+.author-badge::before{content:"✦";color:var(--citrus);-webkit-text-fill-color:var(--citrus);font-size:.85em}
+.author-badge .en{font-weight:700;opacity:.9}
+.author-modal{position:fixed;inset:0;background:rgba(10,20,16,.55);backdrop-filter:blur(3px);
+  display:none;align-items:center;justify-content:center;z-index:9999;padding:20px}
+.author-modal.show{display:flex}
+.author-card{position:relative;width:100%;max-width:360px;background:var(--surface);border-radius:20px;
+  overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,.35);animation:authPop .18s ease-out}
+@keyframes authPop{from{transform:translateY(12px) scale(.97);opacity:0}to{transform:none;opacity:1}}
+.author-card .head{background:linear-gradient(135deg,var(--leaf-dark),var(--leaf));padding:26px 20px 18px;text-align:center;color:#fff}
+.author-card .avatar{width:78px;height:78px;border-radius:50%;margin:0 auto 12px;background:rgba(255,255,255,.16);
+  border:2px solid rgba(255,255,255,.5);display:flex;align-items:center;justify-content:center;
+  font-size:28px;font-weight:800;letter-spacing:1px}
+.author-card .name-ar{font-size:22px;font-weight:800;line-height:1.2}
+.author-card .name-en{font-size:14px;opacity:.9;margin-top:2px;letter-spacing:.5px}
+.author-card .role{font-size:12px;color:#fff;background:rgba(255,255,255,.15);display:inline-block;
+  padding:3px 12px;border-radius:20px;margin-top:10px}
+.author-card .body{padding:18px 20px 22px;text-align:center}
+.author-card .phone{display:inline-flex;align-items:center;gap:8px;font-size:18px;font-weight:800;
+  color:var(--ink);direction:ltr;font-variant-numeric:tabular-nums;text-decoration:none;letter-spacing:.5px}
+.author-card .phone-lbl{font-size:11.5px;color:var(--ink-3);margin-bottom:4px}
+.author-card .acts{display:flex;gap:10px;margin-top:16px}
+.author-card .acts a{flex:1;justify-content:center;text-decoration:none;display:inline-flex;align-items:center;gap:6px}
+.author-card .copyright{font-size:11px;color:var(--ink-3);margin-top:14px}
+.author-close{position:absolute;top:10px;left:10px;width:30px;height:30px;border-radius:50%;border:0;
+  background:rgba(255,255,255,.25);color:#fff;font-size:15px;cursor:pointer;line-height:1;z-index:2}
+.author-close:hover{background:rgba(255,255,255,.4)}
+@media print{.author-modal{display:none!important}}
 </style>
 <!-- ===== مكتبة Firebase للمزامنة السحابية (تعمل فقط عند تعبئة الإعدادات) ===== -->
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
@@ -295,7 +327,7 @@ tr.sub-row td{background:#f7faf6;font-weight:700;font-size:12.5px;color:var(--in
     </div>
     <div class="author-tag">
       <a id="joinToggle" onclick="toggleJoin()" style="cursor:pointer;color:var(--leaf-dark);font-weight:700;display:block;margin-bottom:12px">ليس لديك حساب؟ اطلب حساباً جديداً</a>
-      إعداد وتصميم <b>أ/ محمد فرج</b><br>جميع الحقوق محفوظة © 2026</div>
+      إعداد وتصميم <span class="author-badge" onclick="showAuthor()">محمد فرج <span class="en">Mohamed Farag</span></span><br>جميع الحقوق محفوظة © 2026</div>
   </form>
 </div>
 
@@ -307,7 +339,7 @@ tr.sub-row td{background:#f7faf6;font-weight:700;font-size:12.5px;color:var(--in
     <div class="mark" id="headMark" style="display:none"></div>
     <div>
       <h1 id="coTitle">نظام توريد الخضار والفواكه</h1>
-      <div class="sub">إعداد أ/ محمد فرج · مخزون بالتكلفة المتوسطة · مراكز تكلفة مستقلة لكل عميل</div>
+      <div class="sub">إعداد <span class="author-badge" onclick="showAuthor()" style="-webkit-text-fill-color:#cfe6d8;color:#cfe6d8;background:none">محمد فرج · Mohamed Farag</span> · مخزون بالتكلفة المتوسطة</div>
     </div>
   </div>
   <div class="head-actions">
@@ -345,7 +377,7 @@ tr.sub-row td{background:#f7faf6;font-weight:700;font-size:12.5px;color:var(--in
 
 <!-- ======================= الملخص ======================= -->
 <section id="dash" class="panel active">
-  <div class="print-head"><span class="print-logo"></span><h3 id="ph1">تقرير الملخص</h3><p>إعداد أ/ محمد فرج</p></div>
+  <div class="print-head"><span class="print-logo"></span><h3 id="ph1">تقرير الملخص</h3><p>إعداد محمد فرج</p></div>
   <div class="panel-title">ملخص الأداء <span class="hint" id="dashRange"></span></div>
   <div class="filters no-print">
     <div class="field"><label>من تاريخ</label><input type="date" id="f_from" onchange="renderAll()"></div>
@@ -377,7 +409,7 @@ tr.sub-row td{background:#f7faf6;font-weight:700;font-size:12.5px;color:var(--in
 
 <!-- ======================= المشتريات ======================= -->
 <section id="purchases" class="panel">
-  <div class="print-head"><span class="print-logo"></span><h3>سجل المشتريات</h3><p>إعداد أ/ محمد فرج</p></div>
+  <div class="print-head"><span class="print-logo"></span><h3>سجل المشتريات</h3><p>إعداد محمد فرج</p></div>
   <div class="panel-title">فاتورة شراء <span class="hint">يمكن توزيع أصناف الفاتورة الواحدة على أكثر من مستودع</span></div>
   <div class="doc-box no-print" id="purchaseFormBox">
     <div class="grid">
@@ -451,7 +483,7 @@ tr.sub-row td{background:#f7faf6;font-weight:700;font-size:12.5px;color:var(--in
 
 <!-- ======================= المبيعات ======================= -->
 <section id="sales" class="panel">
-  <div class="print-head"><span class="print-logo"></span><h3>سجل المبيعات</h3><p>إعداد أ/ محمد فرج</p></div>
+  <div class="print-head"><span class="print-logo"></span><h3>سجل المبيعات</h3><p>إعداد محمد فرج</p></div>
   <div class="panel-title">فاتورة بيع <span class="hint">تُخصم التكلفة من مستودع البيع بمتوسط التكلفة</span></div>
   <div class="doc-box no-print" id="saleFormBox">
     <div class="grid">
@@ -510,7 +542,7 @@ tr.sub-row td{background:#f7faf6;font-weight:700;font-size:12.5px;color:var(--in
 
 <!-- ======================= المرتجعات ======================= -->
 <section id="returns" class="panel">
-  <div class="print-head"><span class="print-logo"></span><h3>سجل المرتجعات</h3><p>إعداد أ/ محمد فرج</p></div>
+  <div class="print-head"><span class="print-logo"></span><h3>سجل المرتجعات</h3><p>إعداد محمد فرج</p></div>
   <div class="panel-title">المرتجعات <span class="hint">مرتجع الشراء يخفض المخزون ورصيد المورد · مرتجع البيع يعيد البضاعة ويخفض رصيد العميل</span></div>
   <div class="doc-box no-print" id="returnFormBox">
     <div class="grid">
@@ -558,7 +590,7 @@ tr.sub-row td{background:#f7faf6;font-weight:700;font-size:12.5px;color:var(--in
 
 <!-- ======================= المخزون ======================= -->
 <section id="stock" class="panel">
-  <div class="print-head"><span class="print-logo"></span><h3>تقرير المخزون</h3><p>إعداد أ/ محمد فرج</p></div>
+  <div class="print-head"><span class="print-logo"></span><h3>تقرير المخزون</h3><p>إعداد محمد فرج</p></div>
   <div class="panel-title">أرصدة المخزون <span class="hint">التقييم بمتوسط التكلفة المرجح لكل مستودع</span></div>
   <div id="stockWarn"></div>
   <div class="filters no-print">
@@ -657,7 +689,7 @@ tr.sub-row td{background:#f7faf6;font-weight:700;font-size:12.5px;color:var(--in
 
 <!-- ======================= المصروفات ======================= -->
 <section id="expenses" class="panel">
-  <div class="print-head"><span class="print-logo"></span><h3>سجل المصروفات</h3><p>إعداد أ/ محمد فرج</p></div>
+  <div class="print-head"><span class="print-logo"></span><h3>سجل المصروفات</h3><p>إعداد محمد فرج</p></div>
   <div class="panel-title">المصروفات ومراكز التكلفة</div>
   <div class="doc-box no-print" id="expenseFormBox">
     <div class="grid">
@@ -712,7 +744,7 @@ tr.sub-row td{background:#f7faf6;font-weight:700;font-size:12.5px;color:var(--in
 
 <!-- ======================= الحسابات والسداد ======================= -->
 <section id="accounts" class="panel">
-  <div class="print-head"><span class="print-logo"></span><h3>كشف الحسابات</h3><p>إعداد أ/ محمد فرج</p></div>
+  <div class="print-head"><span class="print-logo"></span><h3>كشف الحسابات</h3><p>إعداد محمد فرج</p></div>
   <div class="panel-title">حركات السداد والتحصيل
     <span class="no-print" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
       <input type="text" id="accSearch" oninput="renderAccounts()" placeholder="🔍 ابحث باسم المورد أو العميل" style="width:240px;max-width:100%">
@@ -760,7 +792,7 @@ tr.sub-row td{background:#f7faf6;font-weight:700;font-size:12.5px;color:var(--in
 
 <!-- ======================= التقارير ======================= -->
 <section id="reports" class="panel">
-  <div class="print-head"><span class="print-logo"></span><h3 id="ph2">التقارير</h3><p>إعداد أ/ محمد فرج</p></div>
+  <div class="print-head"><span class="print-logo"></span><h3 id="ph2">التقارير</h3><p>إعداد محمد فرج</p></div>
   <div class="panel-title">التقارير التفصيلية <span class="hint">مجمّعة يومياً مع إجمالي لكل يوم</span></div>
   <div class="filters no-print">
     <div class="field"><label>نوع التقرير</label><select id="rp_type" onchange="renderReport()">
@@ -828,7 +860,7 @@ tr.sub-row td{background:#f7faf6;font-weight:700;font-size:12.5px;color:var(--in
 
 <!-- ======================= قائمة الدخل ======================= -->
 <section id="income" class="panel">
-  <div class="print-head"><span class="print-logo"></span><h3>قائمة الدخل</h3><p>إعداد أ/ محمد فرج</p></div>
+  <div class="print-head"><span class="print-logo"></span><h3>قائمة الدخل</h3><p>إعداد محمد فرج</p></div>
   <div class="panel-title">قائمة الدخل لكل فرع <span class="hint" id="incRange"></span></div>
   <div class="note">
     صافي الربح = صافي المبيعات (بعد المرتجعات) − تكلفة البضاعة المباعة بمتوسط التكلفة − الفاقد − المصروفات المباشرة − الحصة من المصروفات المشتركة.
@@ -1098,26 +1130,48 @@ tr.sub-row td{background:#f7faf6;font-weight:700;font-size:12.5px;color:var(--in
   <div class="sec-title">حول البرنامج</div>
   <div class="note" style="border-right-color:var(--citrus)">
     <b>نظام إدارة توريد الخضار والفواكه</b> — الإصدار 3.0<br>
-    إعداد وتصميم: <b>أ/ محمد فرج</b><br>
+    إعداد وتصميم: <span class="author-badge" onclick="showAuthor()">محمد فرج <span class="en">Mohamed Farag</span></span> — <span class="muted" style="cursor:pointer" onclick="showAuthor()">اضغط الاسم لعرض بيانات التواصل</span><br>
     جميع الحقوق محفوظة © 2026. اسم المُعِد مثبّت في واجهة البرنامج وشاشة الدخول ورؤوس التقارير المطبوعة وملفات التصدير والنسخ الاحتياطية.
   </div>
 </section>
 
 <div style="text-align:center;font-size:12.5px;color:var(--ink-3);padding:10px 0 24px">
-  نظام توريد الخضار والفواكه — إعداد <b style="color:var(--leaf-dark)">أ/ محمد فرج</b> · جميع الحقوق محفوظة © 2026
+  نظام توريد الخضار والفواكه — إعداد <span class="author-badge" onclick="showAuthor()">محمد فرج <span class="en">Mohamed Farag</span></span> · جميع الحقوق محفوظة © 2026
 </div>
 </div>
 <div class="toast" id="toast"></div>
 
+<!-- بطاقة معدّ النظام -->
+<div class="author-modal" id="authorModal" onclick="if(event.target===this)closeAuthor()">
+  <div class="author-card">
+    <button class="author-close" onclick="closeAuthor()" aria-label="إغلاق">✕</button>
+    <div class="head">
+      <div class="avatar">MF</div>
+      <div class="name-ar">محمد فرج</div>
+      <div class="name-en">Mohamed Farag</div>
+      <div class="role">معدّ ومصمّم النظام · System Developer</div>
+    </div>
+    <div class="body">
+      <div class="phone-lbl">للتواصل</div>
+      <a class="phone" href="tel:+966559486547" dir="ltr">📞 00966 55 948 6547</a>
+      <div class="acts">
+        <a class="btn-main" href="tel:+966559486547">اتصال</a>
+        <a class="btn-alt" href="https://wa.me/966559486547" target="_blank" rel="noopener">واتساب</a>
+      </div>
+      <div class="copyright">جميع الحقوق محفوظة © 2026</div>
+    </div>
+  </div>
+</div>
+
 <script>
 /* ==========================================================================
    نظام إدارة توريد الخضار والفواكه — الإصدار 3.0
-   إعداد وتصميم: أ/ محمد فرج — جميع الحقوق محفوظة © 2026
+   إعداد وتصميم: محمد فرج — جميع الحقوق محفوظة © 2026
    ========================================================================== */
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='أ/ محمد فرج', APP_VERSION='3.0';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -1337,6 +1391,9 @@ function setVal(id,v){ var e=document.getElementById(id); if(e) e.value=v; }
 function fnum(id){ return Number(val(id))||0; }
 function toast(m){ var t=document.getElementById('toast'); t.textContent=m; t.classList.add('show');
   clearTimeout(t._h); t._h=setTimeout(function(){t.classList.remove('show');},2600); }
+function showAuthor(){ var m=document.getElementById('authorModal'); if(m) m.classList.add('show'); }
+function closeAuthor(){ var m=document.getElementById('authorModal'); if(m) m.classList.remove('show'); }
+document.addEventListener('keydown',function(e){ if(e.key==='Escape') closeAuthor(); });
 function byId(arr,id){ for(var i=0;i<arr.length;i++) if(arr[i].id===id) return arr[i]; return null; }
 function nameOf(arr,id,fb){ var o=byId(arr,id); return o?o.name:(fb||'—'); }
 function itemName(id){ return nameOf(db.items,id,'صنف محذوف'); }
@@ -1440,7 +1497,8 @@ function updateDeptUI(){
   }).join('');
   if(box) box.style.display=allowed.length>1?'flex':'none';   /* إخفاء المبدّل إن كان قسماً واحداً */
   var st=document.querySelector('header .sub');
-  if(st) st.textContent='قسم: '+deptName(db.activeDept)+' · دفتر حسابات مستقل · إعداد أ/ محمد فرج';
+  if(st) st.innerHTML='قسم: '+esc(deptName(db.activeDept))+' · دفتر حسابات مستقل · إعداد '
+    +'<span class="author-badge" onclick="showAuthor()" style="-webkit-text-fill-color:#cfe6d8;color:#cfe6d8;background:none">محمد فرج · Mohamed Farag</span>';
 }
 function switchDept(key){
   if(!userCanDept(key)){ toast('لا تملك صلاحية الدخول لهذا القسم'); updateDeptUI(); return; }
