@@ -297,8 +297,9 @@ tr.sub-row td{background:#f7faf6;font-weight:700;font-size:12.5px;color:var(--in
   background:rgba(255,255,255,.25);color:#fff;font-size:15px;cursor:pointer;line-height:1;z-index:2}
 .author-close:hover{background:rgba(255,255,255,.4)}
 @media print{.author-modal{display:none!important}}
-/* إخفاء الأرصدة المالية لمن لا يملك صلاحية الاطّلاع عليها (شاشة وطباعة) */
+/* إخفاء الأرصدة المالية والأرباح لمن لا يملك صلاحية الاطّلاع عليها (شاشة وطباعة) */
 .no-balances .balance-only{display:none!important}
+.no-profit .profit-only{display:none!important}
 </style>
 <!-- ===== مكتبة Firebase للمزامنة السحابية (تعمل فقط عند تعبئة الإعدادات) ===== -->
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
@@ -392,15 +393,17 @@ tr.sub-row td{background:#f7faf6;font-weight:700;font-size:12.5px;color:var(--in
   <div id="dashWarn"></div>
   <div class="cards" id="kpiCards"></div>
   <div class="chart-grid" id="dashCharts"></div>
+  <div class="profit-only">
   <div class="sec-title">أداء الفروع خلال الفترة</div>
   <div class="table-scroll"><table>
     <thead><tr><th class="name">الفرع / مركز التكلفة</th><th>المبيعات</th><th>تكلفة المبيعات</th><th>مجمل الربح</th>
       <th>الهامش</th><th>المصروفات</th><th>صافي الربح</th></tr></thead>
     <tbody id="dashBranches"></tbody></table></div>
+  </div>
   <div class="split">
-    <div><div class="sec-title">الأصناف الأكثر ربحية</div>
+    <div><div class="sec-title">أفضل الأصناف <span class="hint">حسب المبيعات</span></div>
       <div class="table-scroll"><table>
-        <thead><tr><th class="name">الصنف</th><th>الكمية</th><th>المبيعات</th><th>مجمل الربح</th><th>الهامش</th></tr></thead>
+        <thead><tr><th class="name">الصنف</th><th>الكمية</th><th>المبيعات</th><th class="profit-only">مجمل الربح</th><th class="profit-only">الهامش</th></tr></thead>
         <tbody id="dashItems"></tbody></table></div></div>
     <div><div class="sec-title alt">أعلى الموردين شراءً</div>
       <div class="table-scroll"><table>
@@ -538,7 +541,7 @@ tr.sub-row td{background:#f7faf6;font-weight:700;font-size:12.5px;color:var(--in
   </div>
   <div class="table-scroll"><table>
     <thead><tr><th>التاريخ</th><th>رقم الفاتورة</th><th class="name">العميل</th><th>عدد الأصناف</th><th>الوزن</th>
-      <th>الإيراد</th><th>التكلفة</th><th>مجمل الربح</th><th>المحصّل</th><th class="name">أدخلها</th><th>إجراء</th></tr></thead>
+      <th>الإيراد</th><th class="profit-only">التكلفة</th><th class="profit-only">مجمل الربح</th><th>المحصّل</th><th class="name">أدخلها</th><th>إجراء</th></tr></thead>
     <tbody id="tbSales"></tbody></table></div>
 </section>
 
@@ -1401,6 +1404,8 @@ function effPerms(){
 function can(k){ var p=effPerms(); return !!(p&&p[k]); }
 /* هل يُسمح لهذا المستخدم برؤية الأرصدة المالية للموردين/العملاء؟ */
 function canSeeBalances(){ return can('accounts')||can('accSuppliers')||can('accClients'); }
+/* هل يُسمح له برؤية الأرباح والتكاليف والهوامش؟ (مرتبط بصلاحية قائمة الدخل) */
+function canSeeProfit(){ return can('income'); }
 function guard(k,msg){ if(can(k)) return true; toast(msg||'لا تملك صلاحية لهذا الإجراء'); return false; }
 function applyPerms(){
   document.querySelectorAll('.tab-btn').forEach(function(b){
@@ -1415,24 +1420,24 @@ function applyPerms(){
     .forEach(function(id){ var e=document.getElementById(id); if(e) e.classList.toggle('hidden',!can('canAdd')); });
   document.querySelectorAll('#master .doc-box').forEach(function(e){ e.classList.toggle('hidden',!can('canAdd')); });
   /* إخفاء كل الأرصدة المالية (أعمدة، بطاقات، تقارير) لمن لا يملك صلاحية اطّلاع عليها */
-  var appEl=document.getElementById('app'); if(appEl) appEl.classList.toggle('no-balances',!canSeeBalances());
+  var appEl=document.getElementById('app'); if(appEl){ appEl.classList.toggle('no-balances',!canSeeBalances()); appEl.classList.toggle('no-profit',!canSeeProfit()); }
   fillReportTypes();
 }
-/* أنواع التقارير — التي تكشف أرصدة الجهات (العلامة 1) تُخفى عمّن لا يملك صلاحية الأرصدة */
+/* أنواع التقارير — العلامة b تكشف أرصدة الجهات، والعلامة p تكشف الأرباح؛ تُخفى حسب الصلاحية */
 var REPORT_TYPES=[
   ['branch','حركة فرع يومية (مبيعات ومشتريات)'],['purchases','مشتريات يومية تفصيلية'],
   ['sales','مبيعات يومية تفصيلية'],['item','حركة صنف (كارت الصنف)'],
-  ['balClients','أرصدة العملاء (الرصيد الصافي)',1],['balSuppliers','أرصدة الموردين (الرصيد الصافي)',1],
-  ['stmtClient','كشف حساب عميل',1],['stmtSupplier','كشف حساب مورد',1],
-  ['client','ربحية العملاء'],['supplier','مشتريات حسب المورد',1],
+  ['balClients','أرصدة العملاء (الرصيد الصافي)','b'],['balSuppliers','أرصدة الموردين (الرصيد الصافي)','b'],
+  ['stmtClient','كشف حساب عميل','b'],['stmtSupplier','كشف حساب مورد','b'],
+  ['client','ربحية العملاء','p'],['supplier','مشتريات حسب المورد','b'],
   ['waste','الفاقد والمرتجعات'],['vat','ملخص ضريبة القيمة المضافة'],
-  ['agingC','تحليل أعمار ذمم العملاء',1],['agingS','تحليل أعمار مستحقات الموردين',1],
-  ['interdept','التحويلات بين الأقسام'],['consolidated','الأرصدة المجمّعة عبر الأقسام',1]
+  ['agingC','تحليل أعمار ذمم العملاء','b'],['agingS','تحليل أعمار مستحقات الموردين','b'],
+  ['interdept','التحويلات بين الأقسام'],['consolidated','الأرصدة المجمّعة عبر الأقسام','b']
 ];
 function fillReportTypes(){
   var sel=document.getElementById('rp_type'); if(!sel) return;
-  var seeBal=canSeeBalances(), cur=sel.value;
-  var allowed=REPORT_TYPES.filter(function(o){ return seeBal||!o[2]; });
+  var seeBal=canSeeBalances(), seeProfit=canSeeProfit(), cur=sel.value;
+  var allowed=REPORT_TYPES.filter(function(o){ return (o[2]!=='b'||seeBal)&&(o[2]!=='p'||seeProfit); });
   sel.innerHTML=allowed.map(function(o){ return '<option value="'+o[0]+'">'+esc(o[1])+'</option>'; }).join('');
   var vals=allowed.map(function(o){return o[0];});
   sel.value=(vals.indexOf(cur)>-1)?cur:vals[0];
@@ -2668,21 +2673,21 @@ function renderSales(){
   rows.forEach(function(s){
     var cg=L.cogsDoc[s.id]||0; T+=s.total; C+=cg; R+=s.recv||0; W+=s.weight||0; Vtax+=docVat(s);
     h+='<tr><td>'+esc(s.date)+'</td><td>'+esc(s.no||'—')+'</td><td class="name">'+esc(clientName(s.clientId))+'</td>'
-      +'<td>'+(s.lines||[]).length+'</td><td>'+qty(s.weight)+'</td><td>'+money(s.total)+'</td><td>'+money(cg)+'</td>'
-      +'<td>'+sign(s.total-cg)+'</td><td>'+money(s.recv||0)+'</td>'
+      +'<td>'+(s.lines||[]).length+'</td><td>'+qty(s.weight)+'</td><td>'+money(s.total)+'</td><td class="profit-only">'+money(cg)+'</td>'
+      +'<td class="profit-only">'+sign(s.total-cg)+'</td><td>'+money(s.recv||0)+'</td>'
       +'<td class="name muted">'+esc(userName(s.uid))+'</td>'
       +'<td>'+actionBtns('sales',s.id,'editDoc(\'s\','+s.id+')')+'</td></tr>';
     (s.lines||[]).forEach(function(l,i){
       var lc=L.cogsLine[s.id+'#'+i]||0;
       h+='<tr class="sub-row"><td>↳</td><td colspan="2" class="name">'+esc(itemName(l.itemId))+'</td>'
         +'<td>'+qty(l.units)+'</td><td>'+qty(l.units*l.uw)+' كغ</td><td>'+money(l.total)+'</td>'
-        +'<td>'+money(lc)+'</td><td>'+sign(l.total-lc)+'</td><td colspan="3" class="name">'+esc(whName(l.whId))+'</td></tr>';
+        +'<td class="profit-only">'+money(lc)+'</td><td class="profit-only">'+sign(l.total-lc)+'</td><td colspan="3" class="name">'+esc(whName(l.whId))+'</td></tr>';
     });
     if(docVat(s)) h+='<tr class="sub-row"><td colspan="5" class="name">↳ ضريبة القيمة المضافة'+(s.vatRate!=null?' ('+num(s.vatRate)+'%)':'')+' — الإجمالي شامل الضريبة: '+money(docGrand(s))+'</td><td>'+money(docVat(s))+'</td><td colspan="5"></td></tr>';
   });
   if(!rows.length) h='<tr><td colspan="11" class="empty">لا توجد فواتير بيع في هذه الفترة.</td></tr>';
   else h+='<tr class="total-row"><td colspan="4">الإجمالي ('+rows.length+' فاتورة) — ضريبة مخرجات '+money(Vtax)+'</td><td>'+qty(W)+' كغ</td><td>'+money(T)+'</td>'
-    +'<td>'+money(C)+'</td><td>'+sign(T-C)+'</td><td>'+money(R)+'</td><td colspan="2"></td></tr>';
+    +'<td class="profit-only">'+money(C)+'</td><td class="profit-only">'+sign(T-C)+'</td><td>'+money(R)+'</td><td colspan="2"></td></tr>';
   document.getElementById('tbSales').innerHTML=h;
 }
 
@@ -3056,9 +3061,9 @@ function renderDash(){
   db.purchases.forEach(function(p){ if(inRg(p.date)){ purch+=p.total; wt+=p.weight||0; } });
   document.getElementById('kpiCards').innerHTML=
     card('صافي المبيعات',money(T.nrev),'بعد المرتجعات')
-   +card('تكلفة المبيعات',money(T.cogs),'بمتوسط التكلفة')
+   +(canSeeProfit()?(card('تكلفة المبيعات',money(T.cogs),'بمتوسط التكلفة')
    +card('مجمل الربح',money(T.gp),'هامش '+pct(T.gp,T.nrev))
-   +card('صافي الربح',money(T.net),'هامش '+pct(T.net,T.nrev),true)
+   +card('صافي الربح',money(T.net),'هامش '+pct(T.net,T.nrev),true)):'')
    +card('المشتريات',money(purch),qty(wt)+' كغ خلال الفترة')
    +card('قيمة المخزون',money(stockVal),'رصيد حالي بكل المستودعات')
    +(canSeeBalances()?(card('مستحق للموردين',money(pay),'التزامات قائمة')
@@ -3076,7 +3081,7 @@ function renderDash(){
   document.getElementById('dashItems').innerHTML=ik.map(function(k){
     var v=it[k],gp=v.rev-v.c;
     return '<tr><td class="name"><b>'+esc(itemName(+k))+'</b></td><td>'+qty(v.u)+'</td><td>'+money(v.rev)+'</td>'
-      +'<td>'+sign(gp)+'</td><td class="muted">'+pct(gp,v.rev)+'</td></tr>'; }).join('')
+      +'<td class="profit-only">'+sign(gp)+'</td><td class="muted profit-only">'+pct(gp,v.rev)+'</td></tr>'; }).join('')
     ||'<tr><td colspan="5" class="empty">لا توجد مبيعات في هذه الفترة.</td></tr>';
   var sp={};
   db.purchases.forEach(function(p){ if(!inRg(p.date)) return;
@@ -3097,23 +3102,25 @@ function renderDashCharts(pnlRows,pay,rec){
   db.sales.forEach(function(s){ if(!inRg(s.date)) return; var m=mk(s.date); if(!m) return; m.s+=+s.total||0;
     (s.lines||[]).forEach(function(l,i){ m.c+=L.cogsLine[s.id+'#'+i]||0; }); });
   db.purchases.forEach(function(p){ if(!inRg(p.date)) return; var m=mk(p.date); if(m) m.p+=+p.total||0; });
-  var months=Object.keys(M).sort().slice(-8);
-  var trend=barChart('الاتجاه الشهري','مبيعات ومشتريات ومجمل الربح (صافي قبل الضريبة)',months,[
+  var months=Object.keys(M).sort().slice(-8), seeProfit=canSeeProfit();
+  var trendSeries=[
     {name:'المبيعات',color:CHART_COLORS[0],vals:months.map(function(k){return M[k].s;})},
-    {name:'المشتريات',color:CHART_COLORS[1],vals:months.map(function(k){return M[k].p;})},
-    {name:'مجمل الربح',color:CHART_COLORS[2],vals:months.map(function(k){return M[k].s-M[k].c;})}
-  ]);
-  /* 2) توزيع المصروفات حسب التصنيف (حصة الفترة بعد الاستهلاك) */
-  var _rg=rg(),cats={};
-  db.expenses.forEach(function(x){ var amt=expenseAmountInRange(x,_rg.from,_rg.to); if(amt<=0.0000001) return;
-    var c=x.cat||'أخرى'; cats[c]=(cats[c]||0)+amt; });
-  var expData=Object.keys(cats).map(function(k){return {label:k,value:cats[k]};});
-  var donut=donutChart('توزيع المصروفات','حسب التصنيف خلال الفترة',expData);
-  /* 3) أعلى العملاء صافي ربح */
-  var cl=db.clients.map(function(c){ return {label:c.name,value:pnlRows[c.id]?pnlRows[c.id].net:0}; })
-    .filter(function(d){return Math.abs(d.value)>0.009;}).sort(function(a,b){return b.value-a.value;}).slice(0,6);
-  var top=hBarChart('أعلى الفروع/العملاء ربحاً','صافي الربح بعد توزيع المصروفات',cl);
-  /* 4) الذمم: مستحق للموردين مقابل مستحق من العملاء (يظهر فقط لمن يملك صلاحية الأرصدة) */
+    {name:'المشتريات',color:CHART_COLORS[1],vals:months.map(function(k){return M[k].p;})}
+  ];
+  if(seeProfit) trendSeries.push({name:'مجمل الربح',color:CHART_COLORS[2],vals:months.map(function(k){return M[k].s-M[k].c;})});
+  var trend=barChart('الاتجاه الشهري','مبيعات ومشتريات'+(seeProfit?' ومجمل الربح':'')+' (قبل الضريبة)',months,trendSeries);
+  /* 2) توزيع المصروفات + 3) أعلى العملاء ربحاً — بيانات تكلفة/ربح تُخفى عمّن لا يملك صلاحية الأرباح */
+  var donut='',top='';
+  if(seeProfit){
+    var _rg=rg(),cats={};
+    db.expenses.forEach(function(x){ var amt=expenseAmountInRange(x,_rg.from,_rg.to); if(amt<=0.0000001) return;
+      var c=x.cat||'أخرى'; cats[c]=(cats[c]||0)+amt; });
+    donut=donutChart('توزيع المصروفات','حسب التصنيف خلال الفترة',Object.keys(cats).map(function(k){return {label:k,value:cats[k]};}));
+    var cl=db.clients.map(function(c){ return {label:c.name,value:pnlRows[c.id]?pnlRows[c.id].net:0}; })
+      .filter(function(d){return Math.abs(d.value)>0.009;}).sort(function(a,b){return b.value-a.value;}).slice(0,6);
+    top=hBarChart('أعلى الفروع/العملاء ربحاً','صافي الربح بعد توزيع المصروفات',cl);
+  }
+  /* 4) الذمم: يظهر فقط لمن يملك صلاحية الأرصدة */
   var arap=canSeeBalances()?barChart('المراكز المدينة والدائنة','أرصدة قائمة حتى الآن',['الذمم'],[
     {name:'مستحق من العملاء',color:CHART_COLORS[0],vals:[rec]},
     {name:'مستحق للموردين',color:CHART_COLORS[3],vals:[pay]}
@@ -3549,9 +3556,9 @@ var lastReport={title:'',head:[],rows:[]};
 function clearReportFilters(){ ['rp_from','rp_to','rp_item','rp_wh','rp_group','rp_party'].forEach(function(i){setVal(i,'');}); fillReportParty(); renderReport(); }
 function renderReport(){
   if(!val('rp_type')) fillReportTypes();
-  /* حماية: منع كشف الأرصدة عبر التقارير لمن لا يملك الصلاحية */
+  /* حماية: منع كشف الأرصدة/الأرباح عبر التقارير لمن لا يملك الصلاحية */
   var _bal={balClients:1,balSuppliers:1,stmtClient:1,stmtSupplier:1,agingC:1,agingS:1,supplier:1,consolidated:1};
-  if(_bal[val('rp_type')]&&!canSeeBalances()){ fillReportTypes(); }
+  if((_bal[val('rp_type')]&&!canSeeBalances())||(val('rp_type')==='client'&&!canSeeProfit())){ fillReportTypes(); }
   fillReportParty();
   var type=val('rp_type'),f=val('rp_from'),t=val('rp_to'),fi=val('rp_item'),fw=val('rp_wh'),fp=val('rp_party'),fg=val('rp_group');
   var head=[],rows=[],cards='',title='',chart='';
@@ -3614,6 +3621,14 @@ function renderReport(){
       {name:'الإيراد',color:CHART_COLORS[0],vals:srev},
       {name:'مجمل الربح',color:CHART_COLORS[2],vals:smk.map(function(d,i){return srev[i]-scogs[i];})}
     ]);
+    if(!canSeeProfit()){   /* إخفاء أعمدة التكلفة ومجمل الربح والرسم والبطاقات المرتبطة بالأرباح */
+      var dropS=[8,9];
+      head=head.filter(function(_,i){return dropS.indexOf(i)<0;});
+      rows.forEach(function(r){ r.c=r.c.filter(function(_,i){return dropS.indexOf(i)<0;}); });
+      cards=card('صافي الإيراد',money(R),'قبل المرتجعات')+card('الأوزان المباعة',qty(W2)+' كغ','')+card('عدد الأيام',String(smk.length),'');
+      chart=barChart('المبيعات اليومية','الإيراد لكل يوم',smk.map(function(d){return d.slice(5);}),
+        [{name:'الإيراد',color:CHART_COLORS[0],vals:srev}]);
+    }
   }
   else if(type==='item'){
     title='كارت حركة الصنف';
