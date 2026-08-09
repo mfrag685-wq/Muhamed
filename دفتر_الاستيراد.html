@@ -4282,7 +4282,7 @@ ReactDOM.createRoot(document.getElementById("app")).render(React.createElement(A
       var info=[
         ["تعليمات تعبئة القالب"],
         ["١) كل صف = موديل واحد داخل حاوية."],
-        ["٢) الصفوف التي تحمل نفس (الشركة + رقم الشحنة + التاريخ) تُجمَّع في شحنة واحدة."],
+        ["٢) الصفوف التي تحمل نفس (الشركة + رقم الشحنة) تُجمَّع في شحنة واحدة — رقم الشحنة هو أساس التجميع."],
         ["٣) داخل الشحنة، الصفوف بنفس (رقم الحاوية) تُجمَّع في حاوية واحدة."],
         ["٤) الشركة: اكتب اسم الشركة كما هو ("+n.c1+" أو "+n.c2+") أو c1 / c2."],
         ["٥) العملة: USD للدولار أو SAR للريال (الافتراضي دولار)."],
@@ -4372,7 +4372,11 @@ ReactDOM.createRoot(document.getElementById("app")).render(React.createElement(A
       var currency=resolveCurrency(pick(row,ALIASES.currency));
       var rate=numOr(pick(row,ALIASES.rate));
       var contNo=(""+pick(row,ALIASES.container)).trim()||"1";
-      var key=co+"|"+num+"|"+date;
+      /* التجميع يعتمد أساساً على رقم الشحنة (بعد تطبيع المسافات والأرقام) — فكل الصفوف
+         التي تحمل نفس رقم الشحنة تُجمَّع في شحنة واحدة مهما اختلف تمثيل التاريخ. عند غياب
+         رقم الشحنة نعود إلى التاريخ كي لا تُدمج صفوف بلا رقم عبر تواريخ مختلفة. */
+      var numN=normDigits(num).replace(/\s+/g," ").trim().toLowerCase();
+      var key=numN?(co+"|n|"+numN):(co+"|d|"+date);
       var sh=shipMap[key];
       if(!sh){sh={id:uid(),company:co,num:num,date:date,currency:currency,rate:rate===""?"":String(rate),note:"",extras:{freight:"",customs:"",clearance:"",transport:""},allocBasis:"value",containers:[],_cmap:{}};shipMap[key]=sh;order.push(key);}
       var cont=sh._cmap[contNo];
