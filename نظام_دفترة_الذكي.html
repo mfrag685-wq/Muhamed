@@ -222,9 +222,17 @@
 
     <!-- ===== الحسابات ===== -->
     <section class="page" id="accounts">
-      <div class="head"><h2>دليل الحسابات <span style="font-weight:400;color:var(--muted);font-size:13px">— مشترك بين كل الأنظمة</span></h2><p>أضف يدوياً، الصق دفعة، أو اجلبه من دفترة عبر صفحة الاتصال.</p></div>
+      <div class="head"><h2>الدليل المحاسبي</h2><p>لكل نظام دليله المحاسبي الخاص. يظهر أعلى الصفحة النظام الذي تُضيف حساباته الآن — وهو النظام النشِط.</p></div>
+      <div class="notice">تُضاف الحسابات الآن إلى: <b id="acc-target" style="color:var(--teal)">—</b>. لتغيير النظام بدّل «النظام النشِط» من القائمة الجانبية. <br>💡 وجود دليل كل نظام يجعل نقل البيانات بينها أدق: نطابِق كود الحساب هنا بكود مقابله في النظام الآخر.</div>
+      <div class="card"><h3>استيراد / تصدير الدليل المحاسبي</h3>
+        <div class="hint">ارفع ملف CSV أو Excel لدليل حسابات النظام النشِط (أعمدة: الكود، الاسم، النوع). أو صدّر الدليل الحالي.</div>
+        <div class="row">
+          <div class="field"><label>رفع ملف دليل (للنظام النشِط)</label><input type="file" id="acc-file" accept=".csv,.xlsx,.xls" onchange="importAccountsFile(event)"></div>
+          <button onclick="exportAccounts()">⇩ تصدير دليل النظام النشِط</button>
+          <button class="btn-ghost" onclick="exportAllAccounts()">⇩ تصدير كل الأدلة</button>
+        </div></div>
       <div class="card"><h3>إضافة / تحديث حساب</h3>
-        <div class="hint">كتابة كود موجود تُحدّثه فوراً.</div>
+        <div class="hint">كتابة كود موجود ضمن نفس النظام تُحدّثه فوراً.</div>
         <div class="row">
           <div class="field" style="max-width:130px"><label>الكود</label><input id="a-code" class="num" placeholder="1101"></div>
           <div class="field"><label>اسم الحساب</label><input id="a-name" placeholder="الصندوق"></div>
@@ -232,10 +240,13 @@
           <button class="btn-primary" onclick="addAccount()">حفظ</button>
         </div></div>
       <div class="card"><h3>لصق دفعة</h3>
-        <div class="hint">أعمدة: الكود، الاسم، النوع (Tab أو فاصلة، سطر لكل حساب).</div>
+        <div class="hint">أعمدة: الكود، الاسم، النوع (Tab أو فاصلة، سطر لكل حساب). تُضاف إلى النظام النشِط.</div>
         <textarea id="a-bulk" placeholder="1101&#9;الصندوق&#9;أصول&#10;4101&#9;المبيعات&#9;إيرادات"></textarea>
         <button style="margin-top:10px" onclick="bulkAccounts()">استيراد الدفعة</button></div>
-      <div class="card"><h3>الحسابات المحفوظة</h3><div class="tbl-wrap"><table id="acc-tbl"></table></div></div>
+      <div class="card"><h3>الحسابات المحفوظة
+          <span style="font-weight:400;color:var(--muted);font-size:12px;margin-inline-start:auto">عرض:</span>
+          <select id="acc-view" onchange="renderAcc()" style="max-width:200px;padding:5px 8px;font-size:12px"></select></h3>
+        <div class="tbl-wrap"><table id="acc-tbl"></table></div></div>
     </section>
 
     <!-- ===== المطابقة ===== -->
@@ -379,7 +390,7 @@ document.querySelectorAll('.nav-item').forEach(n=>n.onclick=()=>go(n.dataset.pag
 
 /* ============ الأنظمة المحاسبية ============ */
 function activeSys(){return S.systems[S.activeSystem]||S.systems[0];}
-function setActiveSystem(i){S.activeSystem=Math.max(0,Math.min(S.systems.length-1,parseInt(i)||0));loadConnFields();render();toast('النظام النشِط: '+activeSys().name);logIt('تبديل نظام: '+activeSys().name);}
+function setActiveSystem(i){S.activeSystem=Math.max(0,Math.min(S.systems.length-1,parseInt(i)||0));const v=$('#acc-view');if(v)v.value=String(S.activeSystem);loadConnFields();render();toast('النظام النشِط: '+activeSys().name);logIt('تبديل نظام: '+activeSys().name);}
 function addSystem(){if(S.systems.length>=8)return toast('الحد الأقصى ٨ أنظمة',1);S.systems.push({name:'نظام '+(S.systems.length+1),sub:'',hdr:'APIKEY',key:''});render();toast('أُضيف نظام');}
 function delSystem(i){if(S.systems.length<=1)return toast('يجب إبقاء نظام واحد على الأقل',1);if(!confirm('حذف «'+S.systems[i].name+'»؟'))return;S.systems.splice(i,1);if(S.activeSystem>=S.systems.length)S.activeSystem=S.systems.length-1;loadConnFields();render();toast('حُذف النظام');}
 function updSystem(i,f,v){S.systems[i][f]=v;if(i===S.activeSystem&&f!=='name')loadConnFields();if(f==='name'){renderSysSwitch();$('#conn-sysname').textContent=activeSys().name;}save();updateConnDot();renderSysBadges();}
@@ -435,11 +446,28 @@ function delKey(i){S.keys.splice(i,1);render();}
 function renderKeys(){const t=$('#keys-tbl');if(!S.keys.length){t.innerHTML='<tr><td class="empty">لا جهات إضافية بعد.</td></tr>';return;}
   t.innerHTML='<thead><tr><th>التسمية</th><th>النوع</th><th>ملاحظة</th><th></th></tr></thead><tbody>'+S.keys.map((k,i)=>{const p=k.type==='src'?'<span class="pill src">مصدر</span>':k.type==='dst'?'<span class="pill dst">وجهة</span>':'<span class="pill src">مصدر</span> <span class="pill dst">وجهة</span>';return `<tr><td><b>${k.name}</b></td><td>${p}</td><td style="color:var(--muted)">${k.note||'—'}</td><td><span class="del" onclick="delKey(${i})">✕</span></td></tr>`}).join('')+'</tbody>';}
 
-/* ============ الحسابات ============ */
-function addAccount(){const c=$('#a-code').value.trim(),n=$('#a-name').value.trim();if(!c||!n)return toast('الكود والاسم مطلوبان',1);const e=S.accounts.find(a=>a.code===c);if(e){e.name=n;e.type=$('#a-type').value;toast('حُدّث '+c);}else{S.accounts.push({code:c,name:n,type:$('#a-type').value});toast('أُضيف '+c);}$('#a-code').value=$('#a-name').value='';render();}
-function bulkAccounts(){const rows=$('#a-bulk').value.trim().split('\n').filter(r=>r.trim());let cc=0;rows.forEach(r=>{const p=r.split(/\t|,/).map(x=>x.trim());if(p[0]&&p[1]){const e=S.accounts.find(a=>a.code===p[0]);if(e){e.name=p[1];e.type=p[2]||e.type;}else S.accounts.push({code:p[0],name:p[1],type:p[2]||'أصول'});cc++;}});$('#a-bulk').value='';render();toast('عولج '+cc+' حساب');}
-function delAcc(i){S.accounts.splice(i,1);render();}
-function renderAcc(){const t=$('#acc-tbl');if(!S.accounts.length){t.innerHTML='<tr><td class="empty">الدليل فارغ.</td></tr>';return;}t.innerHTML='<thead><tr><th>الكود</th><th>الاسم</th><th>النوع</th><th></th></tr></thead><tbody>'+S.accounts.map((a,i)=>`<tr><td class="mono" style="color:var(--teal)">${a.code}</td><td>${a.name}</td><td style="color:var(--muted)">${a.type}</td><td><span class="del" onclick="delAcc(${i})">✕</span></td></tr>`).join('')+'</tbody>';}
+/* ============ الحسابات (دليل محاسبي لكل نظام) ============ */
+/* كل حساب يحمل حقل sys = رقم النظام الذي ينتمي إليه. الكود يتكرر بين الأنظمة بلا تعارض. */
+function accSysName(i){return S.systems[i]?S.systems[i].name:('نظام '+(i+1));}
+function findAccIn(sys,code){return S.accounts.findIndex(a=>a.code===code&&(a.sys==null?0:a.sys)===sys);}
+function addAccount(){const c=$('#a-code').value.trim(),n=$('#a-name').value.trim();if(!c||!n)return toast('الكود والاسم مطلوبان',1);const sys=S.activeSystem;const ix=findAccIn(sys,c);if(ix>=0){S.accounts[ix].name=n;S.accounts[ix].type=$('#a-type').value;toast('حُدّث '+c+' في '+accSysName(sys));}else{S.accounts.push({code:c,name:n,type:$('#a-type').value,sys});toast('أُضيف '+c+' إلى '+accSysName(sys));}$('#a-code').value=$('#a-name').value='';render();}
+function ingestAccountRows(rows,sys){let cc=0;rows.forEach(p=>{const code=String(p[0]||'').trim(),name=String(p[1]||'').trim();if(!code||!name)return;if(/كود|code/i.test(code)&&/اسم|name/i.test(name))return;/* تخطّي صف العناوين */const type=String(p[2]||'').trim();const ix=findAccIn(sys,code);if(ix>=0){S.accounts[ix].name=name;if(type)S.accounts[ix].type=type;}else S.accounts.push({code,name,type:type||'أصول',sys});cc++;});return cc;}
+function bulkAccounts(){const rows=$('#a-bulk').value.trim().split('\n').filter(r=>r.trim()).map(r=>r.split(/\t|,/));const cc=ingestAccountRows(rows,S.activeSystem);$('#a-bulk').value='';render();toast('عولج '+cc+' حساب في '+accSysName(S.activeSystem));logIt('دليل: +'+cc+' ('+accSysName(S.activeSystem)+')');}
+function importAccountsFile(e){const f=e.target.files[0];if(!f)return;const sys=S.activeSystem;const ext=f.name.split('.').pop().toLowerCase();const rd=new FileReader();const done=rows=>{const cc=ingestAccountRows(rows,sys);render();toast('استُورد '+cc+' حساب إلى '+accSysName(sys));logIt('استيراد دليل: '+f.name+' → '+accSysName(sys));e.target.value='';};
+  if(ext==='csv'){rd.onload=()=>done(parseCSV(rd.result));rd.readAsText(f,'UTF-8');}
+  else{rd.onload=()=>{try{const wb=XLSX.read(new Uint8Array(rd.result),{type:'array'});const ws=wb.Sheets[wb.SheetNames[0]];done(XLSX.utils.sheet_to_json(ws,{header:1,raw:false}).filter(r=>r.length));}catch(err){toast('تعذّرت قراءة Excel',1);}};rd.readAsArrayBuffer(f);}}
+function exportAccounts(){const sys=S.activeSystem;const list=S.accounts.filter(a=>(a.sys==null?0:a.sys)===sys);if(!list.length)return toast('لا حسابات في هذا النظام',1);downloadCSV([['الكود','الاسم','النوع'],...list.map(a=>[a.code,a.name,a.type])],'chart_'+(S.systems[sys].sub||'sys'+(sys+1)));toast('صُدّر دليل '+accSysName(sys));}
+function exportAllAccounts(){if(!S.accounts.length)return toast('لا حسابات',1);downloadCSV([['النظام','الكود','الاسم','النوع'],...S.accounts.map(a=>[accSysName(a.sys==null?0:a.sys),a.code,a.name,a.type])],'chart_all_systems');toast('صُدّرت كل الأدلة');}
+function delAcc(gi){S.accounts.splice(gi,1);render();}
+function renderAcc(){
+  const t=$('#acc-tbl');const vsel=$('#acc-view');
+  if(vsel&&vsel.options.length!==S.systems.length+1){const cur=vsel.value;vsel.innerHTML='<option value="-1">كل الأنظمة</option>'+S.systems.map((s,i)=>`<option value="${i}">${s.name}</option>`).join('');vsel.value=(cur!==''&&cur!=null)?cur:String(S.activeSystem);}
+  const view=vsel?parseInt(vsel.value):-1;
+  const items=S.accounts.map((a,gi)=>({a,gi,sys:(a.sys==null?0:a.sys)})).filter(x=>view<0||x.sys===view);
+  if(!items.length){t.innerHTML='<tr><td class="empty">لا حسابات في هذا العرض.</td></tr>';return;}
+  const showSys=view<0;
+  t.innerHTML='<thead><tr>'+(showSys?'<th>النظام</th>':'')+'<th>الكود</th><th>الاسم</th><th>النوع</th><th></th></tr></thead><tbody>'+items.map(x=>`<tr>${showSys?`<td style="color:var(--muted)"><span class="pill">${accSysName(x.sys)}</span></td>`:''}<td class="mono" style="color:var(--teal)">${x.a.code}</td><td>${x.a.name}</td><td style="color:var(--muted)">${x.a.type}</td><td><span class="del" onclick="delAcc(${x.gi})">✕</span></td></tr>`).join('')+'</tbody>';
+}
 
 /* ============ المطابقة ============ */
 function addMatch(){const s=$('#m-src').value.trim(),d=$('#m-dst').value.trim();if(!s||!d)return toast('الاسم والكود مطلوبان',1);S.matches.push({kind:$('#m-kind').value,src:s,dst:d});$('#m-src').value=$('#m-dst').value='';render();toast('تم الربط');}
@@ -641,12 +669,15 @@ function seedDemo(){
   S.systems=[{name:'الشركة الأم — الرياض',sub:'',hdr:'APIKEY',key:''},{name:'فرع جدة',sub:'',hdr:'APIKEY',key:''},{name:'المستودع — الدمام',sub:'',hdr:'APIKEY',key:''}];
   S.activeSystem=0;
   S.keys=[{name:'سيستم المبيعات الخارجي',type:'src',note:'نقطة البيع'}];
-  S.accounts=[{code:'1101',name:'الصندوق',type:'أصول'},{code:'1102',name:'البنك الأهلي',type:'أصول'},{code:'1201',name:'العملاء - الذمم المدينة',type:'أصول'},{code:'4101',name:'المبيعات',type:'إيرادات'},{code:'2301',name:'شامل الضريبة',type:'خصوم'},{code:'5201',name:'مصروف الإيجار',type:'مصروفات'},{code:'5202',name:'الرواتب',type:'مصروفات'}];
+  S.accounts=[{code:'1101',name:'الصندوق',type:'أصول',sys:0},{code:'1102',name:'البنك الأهلي',type:'أصول',sys:0},{code:'1201',name:'العملاء - الذمم المدينة',type:'أصول',sys:0},{code:'4101',name:'المبيعات',type:'إيرادات',sys:0},{code:'2301',name:'شامل الضريبة',type:'خصوم',sys:0},{code:'5201',name:'مصروف الإيجار',type:'مصروفات',sys:0},{code:'5202',name:'الرواتب',type:'مصروفات',sys:0},
+    /* دليل فرع جدة بأكواد مختلفة — لتوضيح النقل بين الأنظمة */
+    {code:'101',name:'الصندوق',type:'أصول',sys:1},{code:'110',name:'البنك',type:'أصول',sys:1},{code:'401',name:'المبيعات',type:'إيرادات',sys:1},{code:'230',name:'ضريبة القيمة المضافة',type:'خصوم',sys:1}];
   S.matches=[{kind:'عميل',src:'Ali Store',dst:'C-1001'},{kind:'عميل',src:'Sara Co',dst:'C-1002'},{kind:'صنف',src:'منتج أ',dst:'P-A'},{kind:'صنف',src:'منتج ب',dst:'P-B'}];
   loadConnFields();render();toast('حُمّلت بيانات نموذجية (٣ أنظمة مسمّاة)');go('systems');logIt('تحميل نموذجي');}
 
 /* ============ تحديث شامل ============ */
 function render(){renderSystems();renderSysSwitch();renderSysBadges();renderKeys();renderAcc();renderMatch();renderTax();fillRoutes();updateConnDot();
+  const at=$('#acc-target');if(at)at.textContent=accSysName(S.activeSystem);
   $('#b-keys').textContent=S.keys.length;$('#b-acc').textContent=$('#s-acc').textContent=S.accounts.length;$('#b-match').textContent=$('#s-match').textContent=S.matches.length;$('#b-tax').textContent=$('#s-tax').textContent=S.tax.length;
   save();}
 
