@@ -126,6 +126,7 @@
       <b>البيانات المشتركة</b>
       <div class="nav-item" data-page="accounts"><span class="ic">▤</span> دليل الحسابات <span class="badge" id="b-acc">0</span></div>
       <div class="nav-item" data-page="match"><span class="ic">⇄</span> جدول المطابقة <span class="badge" id="b-match">0</span></div>
+      <div class="nav-item" data-page="xmap"><span class="ic">⇌</span> ربط أكواد الأنظمة <span class="badge" id="b-xmap">0</span></div>
       <div class="nav-item" data-page="tax"><span class="ic">%</span> بروفايلات الضريبة <span class="badge" id="b-tax">0</span></div>
       <div class="nav-item" data-page="keys"><span class="ic">⚿</span> جهات الربط <span class="badge" id="b-keys">0</span></div>
       <b>مسارات العمل</b>
@@ -262,6 +263,21 @@
       <div class="card"><h3>قواعد المطابقة</h3><div class="tbl-wrap"><table id="match-tbl"></table></div></div>
     </section>
 
+    <!-- ===== ربط أكواد الأنظمة ===== -->
+    <section class="page" id="xmap">
+      <div class="head"><h2>ربط أكواد الحسابات بين الأنظمة</h2><p>الحساب نفسه قد يحمل كوداً مختلفاً في كل نظام. اربطه مرة واحدة، فيُترجَم الكود تلقائياً عند نسخ الفواتير والقيود بين الأنظمة.</p></div>
+      <div class="notice">مثال: «العميل علي» كوده <b>1</b> في النظام الأول و<b>5</b> في النظام الثاني — تختار المقابل من القائمة فيُحفظ الربط للاتجاهين.</div>
+      <div class="card"><h3>اختر اتجاه الربط</h3>
+        <div class="row">
+          <div class="field"><label>من النظام</label><select id="x-from" onchange="renderXmap()"></select></div>
+          <div class="field"><label>إلى النظام</label><select id="x-to" onchange="renderXmap()"></select></div>
+          <button onclick="autoXmap()">🔗 تطابق تلقائي بالاسم</button>
+        </div>
+        <div class="hint" style="margin-top:8px">«تطابق تلقائي» يربط الحسابات المتطابقة في الاسم بين النظامين — راجعها وعدّل اليدوي عند اللزوم.</div>
+      </div>
+      <div class="card"><h3>جدول الربط</h3><div class="tbl-wrap"><table id="xmap-tbl"></table></div></div>
+    </section>
+
     <!-- ===== الضريبة ===== -->
     <section class="page" id="tax">
       <div class="head"><h2>بروفايلات الضريبة</h2><p>مرنة وديناميكية. عرِّف بروفايلات واخترها في كل طلب.</p></div>
@@ -360,6 +376,7 @@ const S={
     {name:'النظام الثالث',sub:'',hdr:'APIKEY',key:''}
   ],
   activeSystem:0,
+  xmap:{},
   keys:[],accounts:[],matches:[],tax:[
     {name:'شامل 15%',rate:15,mode:'inclusive'},{name:'مضافة 15%',rate:15,mode:'added'},{name:'معفى',rate:0,mode:'exempt'}]
 };
@@ -376,7 +393,44 @@ function migrate(){
                {name:'النظام الثالث',sub:'',hdr:'APIKEY',key:''}];
   }
   if(typeof S.activeSystem!=='number'||S.activeSystem>=S.systems.length)S.activeSystem=0;
+  if(!S.xmap||typeof S.xmap!=='object')S.xmap={};
   delete S.conn;
+}
+
+/* ============ ربط أكواد الحسابات بين الأنظمة ============ */
+function xkey(from,to){return from+'>'+to;}
+function accountsOf(sys){return S.accounts.filter(a=>(a.sys==null?0:a.sys)===sys);}
+function acctName(sys,code){const a=S.accounts.find(x=>x.code===code&&(x.sys==null?0:x.sys)===sys);return a?a.name:'';}
+/* يُرجع الكود المقابل في نظام الوجهة، أو null */
+function translateCode(from,to,code){if(from===to)return code;const m=S.xmap[xkey(from,to)];return m&&m[code]!=null?m[code]:null;}
+function setXlink(from,to,srcCode,dstCode){
+  const k=xkey(from,to),kr=xkey(to,from);
+  S.xmap[k]=S.xmap[k]||{};S.xmap[kr]=S.xmap[kr]||{};
+  /* أزل أي ربط سابق لنفس المصدر */
+  if(S.xmap[k][srcCode]!=null){const old=S.xmap[k][srcCode];if(S.xmap[kr][old]===srcCode)delete S.xmap[kr][old];}
+  if(!dstCode){delete S.xmap[k][srcCode];}
+  else{S.xmap[k][srcCode]=dstCode;S.xmap[kr][dstCode]=srcCode;/* الاتجاه المعاكس */}
+  save();renderXmap();renderSysBadges();
+}
+function xlinkCount(){let n=0;Object.keys(S.xmap).forEach(k=>{n+=Object.keys(S.xmap[k]||{}).length;});return Math.round(n/2);}
+function autoXmap(){
+  const from=+$('#x-from').value,to=+$('#x-to').value;if(from===to)return toast('اختر نظامين مختلفين',1);
+  let n=0;accountsOf(from).forEach(a=>{const match=accountsOf(to).find(b=>b.name.trim().toLowerCase()===a.name.trim().toLowerCase());if(match){setXlink(from,to,a.code,match.code);n++;}});
+  toast(n?('رُبِط تلقائياً '+n+' حساب'):'لا أسماء متطابقة',n?0:1);logIt('ربط تلقائي: '+n);
+}
+function renderXmap(){
+  const ff=$('#x-from'),tt=$('#x-to');if(!ff)return;
+  if(ff.options.length!==S.systems.length){const cf=ff.value;ff.innerHTML=S.systems.map((s,i)=>`<option value="${i}">${s.name}</option>`).join('');ff.value=cf||'0';}
+  if(tt.options.length!==S.systems.length){tt.innerHTML=S.systems.map((s,i)=>`<option value="${i}">${s.name}</option>`).join('');if(!tt.value||tt.value===ff.value)tt.value=String(S.systems.length>1?(ff.value==='0'?1:0):0);}
+  const from=+ff.value,to=+tt.value;const t=$('#xmap-tbl');
+  const src=accountsOf(from);
+  if(from===to){t.innerHTML='<tr><td class="empty">اختر نظامين مختلفين.</td></tr>';return;}
+  if(!src.length){t.innerHTML='<tr><td class="empty">لا حسابات في النظام المصدر — استورد دليله أولاً.</td></tr>';return;}
+  const dst=accountsOf(to);const map=S.xmap[xkey(from,to)]||{};
+  t.innerHTML='<thead><tr><th>كود المصدر</th><th>اسم الحساب</th><th>⇌ الكود المقابل في '+accSysName(to)+'</th></tr></thead><tbody>'+
+    src.map(a=>{const cur=map[a.code]||'';return `<tr><td class="mono" style="color:var(--teal)">${a.code}</td><td>${a.name}</td><td><select onchange="setXlink(${from},${to},'${String(a.code).replace(/'/g,"\\'")}',this.value)">`+
+      '<option value="">— بلا مقابل —</option>'+dst.map(b=>`<option value="${String(b.code).replace(/"/g,'&quot;')}" ${cur===b.code?'selected':''}>${b.code} · ${b.name}</option>`).join('')+
+      `</select></td></tr>`;}).join('')+'</tbody>';
 }
 
 /* ============ أدوات ============ */
@@ -453,9 +507,18 @@ function findAccIn(sys,code){return S.accounts.findIndex(a=>a.code===code&&(a.sy
 function addAccount(){const c=$('#a-code').value.trim(),n=$('#a-name').value.trim();if(!c||!n)return toast('الكود والاسم مطلوبان',1);const sys=S.activeSystem;const ix=findAccIn(sys,c);if(ix>=0){S.accounts[ix].name=n;S.accounts[ix].type=$('#a-type').value;toast('حُدّث '+c+' في '+accSysName(sys));}else{S.accounts.push({code:c,name:n,type:$('#a-type').value,sys});toast('أُضيف '+c+' إلى '+accSysName(sys));}$('#a-code').value=$('#a-name').value='';render();}
 function ingestAccountRows(rows,sys){let cc=0;rows.forEach(p=>{const code=String(p[0]||'').trim(),name=String(p[1]||'').trim();if(!code||!name)return;if(/كود|code/i.test(code)&&/اسم|name/i.test(name))return;/* تخطّي صف العناوين */const type=String(p[2]||'').trim();const ix=findAccIn(sys,code);if(ix>=0){S.accounts[ix].name=name;if(type)S.accounts[ix].type=type;}else S.accounts.push({code,name,type:type||'أصول',sys});cc++;});return cc;}
 function bulkAccounts(){const rows=$('#a-bulk').value.trim().split('\n').filter(r=>r.trim()).map(r=>r.split(/\t|,/));const cc=ingestAccountRows(rows,S.activeSystem);$('#a-bulk').value='';render();toast('عولج '+cc+' حساب في '+accSysName(S.activeSystem));logIt('دليل: +'+cc+' ('+accSysName(S.activeSystem)+')');}
-function importAccountsFile(e){const f=e.target.files[0];if(!f)return;const sys=S.activeSystem;const ext=f.name.split('.').pop().toLowerCase();const rd=new FileReader();const done=rows=>{const cc=ingestAccountRows(rows,sys);render();toast('استُورد '+cc+' حساب إلى '+accSysName(sys));logIt('استيراد دليل: '+f.name+' → '+accSysName(sys));e.target.value='';};
-  if(ext==='csv'){rd.onload=()=>done(parseCSV(rd.result));rd.readAsText(f,'UTF-8');}
-  else{rd.onload=()=>{try{const wb=XLSX.read(new Uint8Array(rd.result),{type:'array'});const ws=wb.Sheets[wb.SheetNames[0]];done(XLSX.utils.sheet_to_json(ws,{header:1,raw:false}).filter(r=>r.length));}catch(err){toast('تعذّرت قراءة Excel',1);}};rd.readAsArrayBuffer(f);}}
+/* يكتشف الفاصل تلقائياً: فاصلة أو فاصلة منقوطة (Excel العربي) أو Tab */
+function parseDelimited(text){
+  const firstLine=(text.split(/\r?\n/).find(l=>l.trim())||'');
+  const counts={',':(firstLine.match(/,/g)||[]).length,';':(firstLine.match(/;/g)||[]).length,'\t':(firstLine.match(/\t/g)||[]).length};
+  const delim=Object.keys(counts).reduce((a,b)=>counts[b]>counts[a]?b:a,',');
+  if(delim===',')return parseCSV(text);
+  return text.split(/\r?\n/).filter(l=>l.trim()).map(l=>l.split(delim).map(c=>c.replace(/^"|"$/g,'').trim()));
+}
+function importAccountsFile(e){const f=e.target.files[0];if(!f)return;const sys=S.activeSystem;const ext=f.name.split('.').pop().toLowerCase();const rd=new FileReader();
+  const done=rows=>{const cc=ingestAccountRows(rows,sys);const v=$('#acc-view');if(v)v.value=String(sys);render();if(cc)toast('✓ استُورد '+cc+' حساب إلى '+accSysName(sys));else toast('لم يُقرأ أي حساب — تأكد أن الأعمدة: الكود، الاسم، النوع',1);logIt('استيراد دليل: '+f.name+' → '+accSysName(sys)+' ('+cc+')');e.target.value='';};
+  if(ext==='csv'){rd.onload=()=>done(parseDelimited(rd.result));rd.readAsText(f,'UTF-8');}
+  else{rd.onload=()=>{try{const wb=XLSX.read(new Uint8Array(rd.result),{type:'array'});const ws=wb.Sheets[wb.SheetNames[0]];done(XLSX.utils.sheet_to_json(ws,{header:1,raw:false}).filter(r=>r.length));}catch(err){toast('تعذّرت قراءة Excel — جرّب حفظه CSV ثم رفعه',1);}};rd.readAsArrayBuffer(f);}}
 function exportAccounts(){const sys=S.activeSystem;const list=S.accounts.filter(a=>(a.sys==null?0:a.sys)===sys);if(!list.length)return toast('لا حسابات في هذا النظام',1);downloadCSV([['الكود','الاسم','النوع'],...list.map(a=>[a.code,a.name,a.type])],'chart_'+(S.systems[sys].sub||'sys'+(sys+1)));toast('صُدّر دليل '+accSysName(sys));}
 function exportAllAccounts(){if(!S.accounts.length)return toast('لا حسابات',1);downloadCSV([['النظام','الكود','الاسم','النوع'],...S.accounts.map(a=>[accSysName(a.sys==null?0:a.sys),a.code,a.name,a.type])],'chart_all_systems');toast('صُدّرت كل الأدلة');}
 function delAcc(gi){S.accounts.splice(gi,1);render();}
@@ -626,7 +689,16 @@ function fillRoutes(){
   if(dst){dst.innerHTML=optsDst; if(S.systems.length>1)dst.selectedIndex=1;}
 }
 function routeLabel(v){if(!v)return '';const[t,i]=v.split(':');return t==='sys'?(S.systems[i]?S.systems[i].name:'?'):(S.keys[i]?S.keys[i].name:'?');}
-function previewP2(){const s=$('#p2-src').value,d=$('#p2-dst').value,n=parseInt($('#p2-count').value)||0;if(!s||!d)return toast('عرّف مصدراً ووجهة',1);if(s===d)return toast('المصدر والوجهة متطابقان',1);const sl=routeLabel(s),dl=routeLabel(d);$('#p2-out').innerHTML=`<div class="card"><h3>ملخّص النقل</h3><div class="tag-audit">المسار: <b>${sl}</b> ⟵ <b>${dl}</b> · السجلات: <b>${n}</b> · قواعد مطابقة مشتركة: <b>${S.matches.length}</b> · حسابات مشتركة: <b>${S.accounts.length}</b></div><div class="notice warn" style="margin-top:12px">لن يُرسَل شيء حتى تضغط «نفّذ». البيانات المشتركة موحّدة بين الأنظمة.</div><button class="btn-primary" onclick="execP2('${sl.replace(/'/g,"\\'")}','${dl.replace(/'/g,"\\'")}',${n})">نفّذ</button><button class="btn-ghost" onclick="document.getElementById('p2-out').innerHTML=''">إلغاء</button></div>`;}
+function previewP2(){const s=$('#p2-src').value,d=$('#p2-dst').value,n=parseInt($('#p2-count').value)||0;if(!s||!d)return toast('عرّف مصدراً ووجهة',1);if(s===d)return toast('المصدر والوجهة متطابقان',1);const sl=routeLabel(s),dl=routeLabel(d);
+  /* إن كان الطرفان نظامين محاسبيين، اعرض حالة ترجمة أكواد الحسابات */
+  let xInfo='';
+  if(s.startsWith('sys:')&&d.startsWith('sys:')){
+    const from=+s.split(':')[1],to=+d.split(':')[1];const src=accountsOf(from);
+    const mapped=src.filter(a=>translateCode(from,to,a.code)!=null).length;
+    const missing=src.length-mapped;
+    xInfo=`<div class="notice ${missing?'warn':''}" style="margin-top:12px">ترجمة أكواد الحسابات: <b>${mapped}</b> مربوط من ${src.length}${missing?` · <b class="flag">${missing} بلا مقابل</b> — اربطها في «ربط أكواد الأنظمة» ليُترجَم كود العميل/الصنف تلقائياً (مثل كود ١ ← ٥).`:' — كل الأكواد جاهزة للترجمة ✓'}</div>`;
+  }
+  $('#p2-out').innerHTML=`<div class="card"><h3>ملخّص النقل</h3><div class="tag-audit">المسار: <b>${sl}</b> ⟵ <b>${dl}</b> · السجلات: <b>${n}</b> · قواعد مطابقة الأسماء: <b>${S.matches.length}</b> · روابط أكواد الأنظمة: <b>${xlinkCount()}</b></div>${xInfo}<div class="notice warn" style="margin-top:12px">لن يُرسَل شيء حتى تضغط «نفّذ».</div><button class="btn-primary" onclick="execP2('${sl.replace(/'/g,"\\'")}','${dl.replace(/'/g,"\\'")}',${n})">نفّذ</button><button class="btn-ghost" onclick="document.getElementById('p2-out').innerHTML=''">إلغاء</button></div>`;}
 function execP2(s,d,n){$('#p2-out').innerHTML=`<div class="card"><h3>✓ جُهّز النقل</h3><div class="tag-audit">تجهيز <b>${n}</b> سجل من «${s}» إلى «${d}». الرفع الفعلي عبر صفحة الاتصال (بعد تفعيل نظام الوجهة) أو تنزيل CSV من المسار الأول/الثالث.</div></div>`;toast('نُفّذ أمر النسخ');logIt('مسار2: '+s+'→'+d);}
 
 /* ============ المسار الثالث ============ */
@@ -661,8 +733,8 @@ function exportP3(){const d=p3lines.reduce((s,l)=>s+(+l.d||0),0),c=p3lines.reduc
 /* ============ CSV / التهيئة ============ */
 function downloadCSV(rows,name){const csv='\uFEFF'+rows.map(r=>r.map(c=>`"${String(c==null?'':c).replace(/"/g,'""')}"`).join(',')).join('\n');const b=new Blob([csv],{type:'text/csv;charset=utf-8'});const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download=name+'.csv';a.click();URL.revokeObjectURL(u);}
 function exportConfig(){const b=new Blob([JSON.stringify(S,null,2)],{type:'application/json'});const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download='daftra_config.json';a.click();URL.revokeObjectURL(u);toast('صُدّرت التهيئة');}
-function importConfig(e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const o=JSON.parse(r.result);Object.assign(S,{keys:o.keys||[],accounts:o.accounts||[],matches:o.matches||[],tax:o.tax||S.tax,systems:o.systems||null,activeSystem:o.activeSystem||0,conn:o.conn});migrate();save();loadConnFields();render();toast('استُوردت التهيئة');go('dash');}catch{toast('ملف غير صالح',1);}};r.readAsText(f);}
-function resetAll(){if(confirm('مسح كل البيانات المحفوظة؟')){S.keys=[];S.accounts=[];S.matches=[];S.systems=[{name:'النظام الأول',sub:'',hdr:'APIKEY',key:''},{name:'النظام الثاني',sub:'',hdr:'APIKEY',key:''},{name:'النظام الثالث',sub:'',hdr:'APIKEY',key:''}];S.activeSystem=0;try{localStorage.removeItem(KEY);}catch(e){}loadConnFields();render();toast('مُسح كل شيء');}}
+function importConfig(e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const o=JSON.parse(r.result);Object.assign(S,{keys:o.keys||[],accounts:o.accounts||[],matches:o.matches||[],tax:o.tax||S.tax,systems:o.systems||null,activeSystem:o.activeSystem||0,xmap:o.xmap||{},conn:o.conn});migrate();save();loadConnFields();render();toast('استُوردت التهيئة');go('dash');}catch{toast('ملف غير صالح',1);}};r.readAsText(f);}
+function resetAll(){if(confirm('مسح كل البيانات المحفوظة؟')){S.keys=[];S.accounts=[];S.matches=[];S.systems=[{name:'النظام الأول',sub:'',hdr:'APIKEY',key:''},{name:'النظام الثاني',sub:'',hdr:'APIKEY',key:''},{name:'النظام الثالث',sub:'',hdr:'APIKEY',key:''}];S.activeSystem=0;S.xmap={};try{localStorage.removeItem(KEY);}catch(e){}loadConnFields();render();toast('مُسح كل شيء');}}
 
 /* ============ نموذجية ============ */
 function seedDemo(){
@@ -676,8 +748,9 @@ function seedDemo(){
   loadConnFields();render();toast('حُمّلت بيانات نموذجية (٣ أنظمة مسمّاة)');go('systems');logIt('تحميل نموذجي');}
 
 /* ============ تحديث شامل ============ */
-function render(){renderSystems();renderSysSwitch();renderSysBadges();renderKeys();renderAcc();renderMatch();renderTax();fillRoutes();updateConnDot();
+function render(){renderSystems();renderSysSwitch();renderSysBadges();renderKeys();renderAcc();renderMatch();renderTax();renderXmap();fillRoutes();updateConnDot();
   const at=$('#acc-target');if(at)at.textContent=accSysName(S.activeSystem);
+  const bx=$('#b-xmap');if(bx)bx.textContent=xlinkCount();
   $('#b-keys').textContent=S.keys.length;$('#b-acc').textContent=$('#s-acc').textContent=S.accounts.length;$('#b-match').textContent=$('#s-match').textContent=S.matches.length;$('#b-tax').textContent=$('#s-tax').textContent=S.tax.length;
   save();}
 
