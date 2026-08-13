@@ -876,6 +876,7 @@ tr.sub-row td{background:#f7faf6;font-weight:700;font-size:12.5px;color:var(--in
   <div class="table-scroll"><table>
     <thead><tr><th class="name">البيان</th><th>القيمة</th><th>النسبة من المبيعات</th></tr></thead>
     <tbody id="tbIncomeTotal"></tbody></table></div>
+  <div class="note no-print" style="border-right-color:var(--citrus)">قائمة الدخل تُظهر <b>تكلفة البضاعة المُباعة</b> فقط (تكلفة ما بِيع فعلاً). أما <b>المخزون المتبقّي</b> فهو <b>أصل</b> يظهر في <b>«قائمة المركز المالي»</b> (تبويب التقارير ← قائمة المركز المالي)، وليس في قائمة الدخل — وهذا موافق للمعايير المحاسبية.</div>
 </section>
 
 <!-- ======================= البيانات الأساسية ======================= -->
@@ -1462,6 +1463,7 @@ var REPORT_TYPES=[
   ['balClients','أرصدة العملاء (الرصيد الصافي)','b'],['balSuppliers','أرصدة الموردين (الرصيد الصافي)','b'],
   ['stmtClient','كشف حساب عميل','b'],['stmtSupplier','كشف حساب مورد','b'],
   ['client','ربحية العملاء','p'],['supplier','مشتريات حسب المورد','b'],
+  ['balancesheet','قائمة المركز المالي (الميزانية)','b'],
   ['waste','الفاقد والمرتجعات'],['vat','ملخص ضريبة القيمة المضافة'],
   ['agingC','تحليل أعمار ذمم العملاء','b'],['agingS','تحليل أعمار مستحقات الموردين','b'],
   ['interdept','التحويلات بين الأقسام'],['consolidated','الأرصدة المجمّعة عبر الأقسام','b']
@@ -3940,6 +3942,35 @@ function renderReport(){
       [{name:'القيمة',color:CHART_COLORS[kind==='client'?0:1],vals:[ag.tot.b0,ag.tot.b1,ag.tot.b2,ag.tot.b3]}]);
     var topN=ag.rows.slice(0,6).map(function(x){return {label:x.name,value:x.total};});
     chart='<div class="chart-grid">'+chart+hBarChart('أكبر الأرصدة','أعلى '+(kind==='client'?'العملاء':'الموردين')+' رصيداً',topN)+'</div>';
+  }
+  else if(type==='balancesheet'){
+    title='قائمة المركز المالي (الميزانية العمومية) — قسم '+deptName(db.activeDept)+'  ·  كما في '+today();
+    head=['البند','القيمة'];
+    if(!L) refreshLedger();
+    var inv=0; Object.keys(L.stock).forEach(function(k){ if(Math.abs(L.stock[k].units)>0.0001) inv+=L.stock[k].cost; });
+    var pt=partyTotals(), AR=0,clOver=0,AP=0,supOver=0;
+    db.clients.forEach(function(c){ var v=pt.cl[c.id], bal=v.sell-v.ret+v.opening-v.recv; if(bal>0.009) AR+=bal; else if(bal<-0.009) clOver+=-bal; });
+    db.suppliers.forEach(function(s){ var v=pt.sup[s.id], bal=v.buy-v.ret+v.opening-v.paid; if(bal>0.009) AP+=bal; else if(bal<-0.009) supOver+=-bal; });
+    var assets=inv+AR+supOver, liab=AP+clOver, netPos=assets-liab;
+    push('day-row',['الأصول','']);
+    push('',['المخزون (بضاعة بالمستودعات — بمتوسط التكلفة)',num(inv)]);
+    push('',['ذمم مدينة — مستحق من العملاء',num(AR)]);
+    if(supOver>0.009) push('',['دفعات زائدة لدى الموردين (تُستردّ)',num(supOver)]);
+    push('sub-row',['إجمالي الأصول',num(assets)]);
+    push('day-row',['الالتزامات','']);
+    push('',['ذمم دائنة — مستحق للموردين',num(AP)]);
+    if(clOver>0.009) push('',['أرصدة دائنة لعملاء (دفعات زائدة)',num(clOver)]);
+    push('sub-row',['إجمالي الالتزامات',num(liab)]);
+    push('total-row',['صافي المركز المالي (الأصول − الالتزامات)',num(netPos)]);
+    cards=card('قيمة المخزون',money(inv),'أصل متداول',true)
+      +card('إجمالي الأصول',money(assets),'مخزون + ذمم مدينة')
+      +card('إجمالي الالتزامات',money(liab),'مستحق للموردين')
+      +card('صافي المركز المالي',money(netPos),'الأصول − الالتزامات');
+    chart=barChart('الأصول مقابل الالتزامات','المركز المالي كما في '+today(),['المركز'],[
+      {name:'المخزون',color:CHART_COLORS[0],vals:[inv]},
+      {name:'ذمم مدينة (عملاء)',color:CHART_COLORS[2],vals:[AR]},
+      {name:'ذمم دائنة (موردون)',color:CHART_COLORS[3],vals:[AP]}
+    ]);
   }
   else if(type==='interdept'){
     title='تقرير التحويلات بين الأقسام';
