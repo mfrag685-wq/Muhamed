@@ -1148,6 +1148,7 @@ tr.sub-row td{background:#f7faf6;font-weight:700;font-size:12.5px;color:var(--in
 
 <div style="text-align:center;font-size:12.5px;color:var(--ink-3);padding:10px 0 24px">
   نظام توريد الخضار والفواكه — إعداد <span class="author-badge" onclick="showAuthor()">محمد فرج <span class="en">Mohamed Farag</span></span> · جميع الحقوق محفوظة © 2026
+  <br><span id="buildTag" style="font-size:11px;opacity:.75"></span>
 </div>
 </div>
 <div class="toast" id="toast"></div>
@@ -1182,7 +1183,7 @@ tr.sub-row td{background:#f7faf6;font-weight:700;font-size:12.5px;color:var(--in
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-08-13-b';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -1366,6 +1367,7 @@ function ensureDbShape(){
   if(!db.units.length){ ['صندوق','شوال','كرتون','كيس','طبق','كيلو'].forEach(function(n){ db.units.push({id:uid(),name:n,weights:[]}); }); }
 }
 ensureDbShape();
+try{ var _bt0=document.getElementById('buildTag'); if(_bt0) _bt0.textContent='الإصدار '+APP_VERSION+' · بناء '+APP_BUILD; }catch(e){}
 if(USING_PRESET) persist(); /* أول تشغيل لنسخة مستخدم مُصدَّرة: نحفظها فوراً في تخزين هذا الجهاز لتصبح نسخته المستقلة */
 
 
@@ -2684,6 +2686,7 @@ function pnl(from,to){
    ========================================================================== */
 function renderAll(){
   refreshLedger(); fillAllSelects();
+  var bt=document.getElementById('buildTag'); if(bt) bt.textContent='الإصدار '+APP_VERSION+' · بناء '+APP_BUILD;
   document.getElementById('coTitle').textContent=db.settings.company||'نظام توريد الخضار والفواكه';
   document.title=(db.settings.company||'نظام توريد')+' — إعداد '+AUTHOR;
   document.getElementById('loginCo').textContent=db.settings.company||'نظام توريد الخضار والفواكه';
