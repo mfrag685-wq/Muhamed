@@ -479,8 +479,9 @@ tr.sub-row td{background:#f7faf6;font-weight:700;font-size:12.5px;color:var(--in
   <div class="filters no-print">
     <div class="field"><label>من</label><input type="date" id="pf_from" onchange="renderPurchases()"></div>
     <div class="field"><label>إلى</label><input type="date" id="pf_to" onchange="renderPurchases()"></div>
+    <div class="field"><label>بحث عن المورد</label><input type="text" id="pf_supplierSearch" list="dl_pfSup" autocomplete="off" oninput="filterListParty('pf')" placeholder="🔍 اكتب الاسم"><datalist id="dl_pfSup"></datalist></div>
     <div class="field"><label>المورد</label><select id="pf_supplier" onchange="renderPurchases()"></select></div>
-    <button class="btn" onclick="document.getElementById('pf_from').value='';document.getElementById('pf_to').value='';document.getElementById('pf_supplier').value='';renderPurchases()">إلغاء الفلترة</button>
+    <button class="btn" onclick="document.getElementById('pf_from').value='';document.getElementById('pf_to').value='';document.getElementById('pf_supplierSearch').value='';document.getElementById('pf_supplier').value='';filterListParty('pf')">إلغاء الفلترة</button>
     <button class="btn" onclick="exportTable('purchases')">تصدير Excel</button>
   </div>
   <div class="table-scroll"><table>
@@ -541,8 +542,9 @@ tr.sub-row td{background:#f7faf6;font-weight:700;font-size:12.5px;color:var(--in
   <div class="filters no-print">
     <div class="field"><label>من</label><input type="date" id="sf_from" onchange="renderSales()"></div>
     <div class="field"><label>إلى</label><input type="date" id="sf_to" onchange="renderSales()"></div>
+    <div class="field"><label>بحث عن العميل</label><input type="text" id="sf_clientSearch" list="dl_sfCl" autocomplete="off" oninput="filterListParty('sf')" placeholder="🔍 اكتب الاسم"><datalist id="dl_sfCl"></datalist></div>
     <div class="field"><label>العميل</label><select id="sf_client" onchange="renderSales()"></select></div>
-    <button class="btn" onclick="document.getElementById('sf_from').value='';document.getElementById('sf_to').value='';document.getElementById('sf_client').value='';renderSales()">إلغاء الفلترة</button>
+    <button class="btn" onclick="document.getElementById('sf_from').value='';document.getElementById('sf_to').value='';document.getElementById('sf_clientSearch').value='';document.getElementById('sf_client').value='';filterListParty('sf')">إلغاء الفلترة</button>
     <button class="btn" onclick="exportTable('sales')">تصدير Excel</button>
   </div>
   <div class="table-scroll"><table>
@@ -1183,7 +1185,7 @@ tr.sub-row td{background:#f7faf6;font-weight:700;font-size:12.5px;color:var(--in
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-08-13-b';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-08-13-c';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -1752,6 +1754,20 @@ function invoiceClients(){ var g=val('s_clientGroup'), q=(val('s_clientSearch')|
   return db.clients.filter(function(c){ return (!g||c.groupId===+g)&&(!q||(c.name||'').indexOf(q)>-1); }); }
 function invoiceSuppliers(){ var g=val('p_supplierGroup'), q=(val('p_supplierSearch')||'').trim();
   return db.suppliers.filter(function(s){ return (!g||s.groupId===+g)&&(!q||(s.name||'').indexOf(q)>-1); }); }
+/* بحث بالاسم في فلاتر سجلّي المشتريات (pf) والمبيعات (sf) */
+function filterListParty(kind){
+  if(kind==='pf'){
+    var q=(val('pf_supplierSearch')||'').trim();
+    var arr=q?db.suppliers.filter(function(s){return (s.name||'').indexOf(q)>-1;}):db.suppliers;
+    fillSelect('pf_supplier',opts(arr,'id',function(o){return o.name;},'كل الموردين'),false);
+    renderPurchases();
+  } else {
+    var q2=(val('sf_clientSearch')||'').trim();
+    var arr2=q2?db.clients.filter(function(c){return (c.name||'').indexOf(q2)>-1;}):db.clients;
+    fillSelect('sf_client',opts(arr2,'id',function(o){return o.name;},'كل العملاء'),false);
+    renderSales();
+  }
+}
 /* تصفية قائمة العميل/المورد في الفاتورة حسب المجموعة المختارة (بحث من مستويين) */
 function filterInvoiceParty(kind){
   var nm=function(o){return o.name;};
@@ -1764,6 +1780,7 @@ function fillAllSelects(){
   fillSelect('p_supplierGroup',groupOpts('sup','كل مجموعات الموردين'));
   fillSelect('s_clientGroup',groupOpts('cl','كل مجموعات العملاء'));
   fillDatalist('dl_pSup',db.suppliers); fillDatalist('dl_sCl',db.clients);   /* اقتراحات البحث بالاسم */
+  fillDatalist('dl_pfSup',db.suppliers); fillDatalist('dl_sfCl',db.clients);
   fillSelect('p_supplier',opts(invoiceSuppliers(),'id',nm));
   fillSelect('pf_supplier',opts(db.suppliers,'id',nm,'كل الموردين'));
   fillSelect('s_client',opts(invoiceClients(),'id',nm));
