@@ -563,6 +563,7 @@ tr.sub-row td{background:#f7faf6;font-weight:700;font-size:12.5px;color:var(--in
         <option value="purchase">مرتجع مشتريات (إلى المورد)</option>
         <option value="sale">مرتجع مبيعات (من العميل)</option></select></div>
       <div class="field"><label>التاريخ</label><input type="date" id="r_date"></div>
+      <div class="field"><label id="r_searchLbl">بحث عن المورد</label><input type="text" id="r_search" list="dl_r" autocomplete="off" oninput="filterReturnParty()" placeholder="🔍 اكتب الاسم"><datalist id="dl_r"></datalist></div>
       <div class="field"><label id="r_partyLbl">المورد</label><select id="r_party" onchange="fillReturnDocs()"></select></div>
       <div class="field"><label>الفاتورة الأصلية</label><select id="r_doc" onchange="onReturnDoc()"></select></div>
       <div class="field"><label>الصنف</label><select id="r_item" onchange="onReturnItem()"></select></div>
@@ -1185,7 +1186,7 @@ tr.sub-row td{background:#f7faf6;font-weight:700;font-size:12.5px;color:var(--in
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-08-13-c';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-08-13-d';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -1944,7 +1945,7 @@ function cancelDoc(k){
       sup:['sup_name','sup_phone','sup_note','sup_opening','sup_openDate','sup_group'],cl:['cl_name','cl_phone','cl_note','cl_opening','cl_openDate','cl_group'],
       wh:['wh_name'],it:['it_name','it_uw','it_min'],un:['un_name','un_weights'],u:['u_name','u_user','u_pass'],
       os:['os_units','os_uw','os_price','os_total']};
-    if(k==='r'){ setVal('r_doc',''); setVal('r_vatrate',vatRate()); setVal('r_vatmode','add'); onReturnDoc(true); }
+    if(k==='r'){ setVal('r_doc',''); setVal('r_search',''); setVal('r_vatrate',vatRate()); setVal('r_vatmode','add'); onReturnType(true); onReturnDoc(true); }
     if(k==='e'){ db.clients.forEach(function(c){ setVal('esp_'+c.id,''); }); setVal('e_amortUnit','none'); setVal('e_amortCount',''); onAmortChange(); }
     if(k==='u'){ setVal('u_role','entry'); applyRolePreset(); renderDeptGrid(null); renderDeptPermGrids(null); }
     if(k==='cl') setVal('cl_hasWh','yes');
@@ -2011,10 +2012,18 @@ function editDoc(k,id){
     document.getElementById('s_editing').textContent='وضع التعديل — فاتورة '+(r.no||'#'+r.id); showTab('sales'); }
   renderDraft(k);
 }
+function returnParties(){
+  var t=val('r_type'), q=(val('r_search')||'').trim();
+  var arr=(t==='purchase')?db.suppliers:db.clients;
+  return q?arr.filter(function(p){return (p.name||'').indexOf(q)>-1;}):arr;
+}
+function filterReturnParty(){ fillSelect('r_party',opts(returnParties(),'id',function(o){return o.name;}),false); fillReturnDocs(); }
 function onReturnType(silent){
   var t=val('r_type');
   document.getElementById('r_partyLbl').textContent=(t==='purchase')?'المورد':'العميل';
-  fillSelect('r_party',opts(t==='purchase'?db.suppliers:db.clients,'id',function(o){return o.name;}),false);
+  var sl=document.getElementById('r_searchLbl'); if(sl) sl.textContent=(t==='purchase')?'بحث عن المورد':'بحث عن العميل';
+  fillDatalist('dl_r', t==='purchase'?db.suppliers:db.clients);
+  fillSelect('r_party',opts(returnParties(),'id',function(o){return o.name;}),false);
   fillReturnDocs();
   if(!silent) calcLine('r');
 }
