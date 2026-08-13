@@ -1462,6 +1462,7 @@ var REPORT_TYPES=[
   ['sales','مبيعات يومية تفصيلية'],['item','حركة صنف (كارت الصنف)'],
   ['balClients','أرصدة العملاء (الرصيد الصافي)','b'],['balSuppliers','أرصدة الموردين (الرصيد الصافي)','b'],
   ['stmtClient','كشف حساب عميل','b'],['stmtSupplier','كشف حساب مورد','b'],
+  ['branchpl','قائمة دخل فرع (تفصيلية)','p'],
   ['client','ربحية العملاء','p'],['supplier','مشتريات حسب المورد','b'],
   ['balancesheet','قائمة المركز المالي (الميزانية)','b'],
   ['waste','الفاقد والمرتجعات'],['vat','ملخص ضريبة القيمة المضافة'],
@@ -1773,7 +1774,7 @@ function fillAllSelects(){
   if(document.getElementById('pl_dist')&&val('pl_dist')!=='single') renderPurchaseDist();
 }
 function reportPartyKind(t){
-  if(['sales','client','branch','balClients','stmtClient'].indexOf(t)>-1) return 'client';
+  if(['sales','client','branch','balClients','stmtClient','branchpl'].indexOf(t)>-1) return 'client';
   if(['purchases','supplier','balSuppliers','stmtSupplier'].indexOf(t)>-1) return 'supplier';
   return null;
 }
@@ -1787,8 +1788,9 @@ function fillReportParty(){
   fillSelect('rp_group',groupOpts(kind==='client'?'cl':'sup','كل المجموعات'));
   var g=val('rp_group');
   var parties=(kind==='client'?db.clients:db.suppliers).filter(function(p){ return !g||p.groupId===+g; });
-  var needsParty=(t==='stmtClient'||t==='stmtSupplier'||t==='branch');
-  var blank=needsParty?('— اختر '+(kind==='client'?'العميل':'المورد')+' —'):('كل '+(kind==='client'?'العملاء':'الموردين'));
+  if(t==='branchpl') parties=parties.filter(function(c){ return isBranch(c.id); });   /* الفروع فقط (عملاء لهم مستودع) */
+  var needsParty=(t==='stmtClient'||t==='stmtSupplier'||t==='branch'||t==='branchpl');
+  var blank=needsParty?('— اختر '+(t==='branchpl'?'الفرع':(kind==='client'?'العميل':'المورد'))+' —'):('كل '+(kind==='client'?'العملاء':'الموردين'));
   fillSelect('rp_party',opts(parties,'id',function(o){return o.name;},blank));
 }
 /* هل تندرج الجهة ضمن فلترة التقرير (مجموعة + جهة محددة)؟ */
@@ -2607,27 +2609,29 @@ function consolidatedBalances(){
   return {map:map,depts:depts};
 }
 
-function pnl(){
+/* قائمة الدخل حسب الفرع — تقبل فترة اختيارية؛ الافتراضي فترة تبويب الملخص */
+function pnl(from,to){
+  if(from===undefined) from=val('f_from'); if(to===undefined) to=val('f_to');
+  var inP=function(d){ return (!from||d>=from)&&(!to||d<=to); };
   var res={}, method=db.settings.alloc||'sales', pool=0;
   db.clients.forEach(function(c){ res[c.id]={rev:0,ret:0,cogs:0,waste:0,direct:0,shared:0,weight:0}; });
   db.sales.forEach(function(s){
-    if(!inRg(s.date)||!res[s.clientId]) return;
+    if(!inP(s.date)||!res[s.clientId]) return;
     res[s.clientId].rev+=+s.total||0;
     (s.lines||[]).forEach(function(l,i){ res[s.clientId].cogs+=L.cogsLine[s.id+'#'+i]||0;
       res[s.clientId].weight+=(+l.units||0)*(+l.uw||0); });
   });
   db.sreturns.forEach(function(r){
-    if(!inRg(r.date)||!res[r.clientId]) return;
+    if(!inP(r.date)||!res[r.clientId]) return;
     res[r.clientId].ret+=+r.total||0; res[r.clientId].cogs-=L.srCost[r.id]||0;
   });
   db.waste.forEach(function(w){
-    if(!inRg(w.date)) return;
+    if(!inP(w.date)) return;
     var c=L.wasteCost[w.id]||0, cid=whClient(w.whId);
     if(cid&&res[cid]) res[cid].waste+=c; else pool+=c;
   });
-  var _rg=rg();
   db.expenses.forEach(function(x){
-    var amt=expenseAmountInRange(x,_rg.from,_rg.to);   /* يحترم توزيع (استهلاك) المصروف على الفترة */
+    var amt=expenseAmountInRange(x,from,to);   /* يحترم توزيع (استهلاك) المصروف على الفترة */
     if(amt<=0.0000001) return;
     /* في التوزيع اليدوي بمبالغ محددة، تُقسَّم الحصص بنفس نسبة الجزء الواقع في الفترة */
     var scale=(amortInfo(x)&&(+x.amount||0)>0)?(amt/(+x.amount)):1;
@@ -3657,7 +3661,8 @@ function renderReport(){
   if(!val('rp_type')) fillReportTypes();
   /* حماية: منع كشف الأرصدة/الأرباح عبر التقارير لمن لا يملك الصلاحية */
   var _bal={balClients:1,balSuppliers:1,stmtClient:1,stmtSupplier:1,agingC:1,agingS:1,supplier:1,consolidated:1};
-  if((_bal[val('rp_type')]&&!canSeeBalances())||(val('rp_type')==='client'&&!canSeeProfit())){ fillReportTypes(); }
+  var _prof={client:1,branchpl:1};
+  if((_bal[val('rp_type')]&&!canSeeBalances())||(_prof[val('rp_type')]&&!canSeeProfit())){ fillReportTypes(); }
   fillReportParty();
   var type=val('rp_type'),f=val('rp_from'),t=val('rp_to'),fi=val('rp_item'),fw=val('rp_wh'),fp=val('rp_party'),fg=val('rp_group');
   var head=[],rows=[],cards='',title='',chart='';
@@ -3818,6 +3823,45 @@ function renderReport(){
         +card('رصيد ما قبل الفترة',money(opening),'مُرحّل')
         +card('إجمالي المدين',money(tdr),String(cnt)+' حركة خلال الفترة')
         +card('إجمالي الدائن',money(tcr),(grp&&grp.groupId?('المجموعة: '+groupName(pk==='client'?'cl':'sup',grp.groupId)):''));
+    }
+  }
+  else if(type==='branchpl'){
+    head=['البيان','القيمة','النسبة من صافي المبيعات'];
+    if(!fp){
+      title='قائمة دخل فرع (تفصيلية)';
+      cards=card('اختر الفرع','—','اختر فرعاً (عميل له مستودع) من قائمة «الجهة» أعلاه');
+    } else {
+      var bid=+fp, P=pnl(f,t), x=P.rows[bid]||{rev:0,ret:0,net_rev:0,cogs:0,gp:0,waste:0,direct:0,shared:0,exp:0,net:0};
+      title='قائمة دخل الفرع: '+clientName(bid)+'  ·  '+((f||'البداية')+' ← '+(t||'اليوم'));
+      var pctv=function(v){ return x.net_rev>0?(v/x.net_rev*100).toFixed(1)+'%':'—'; };
+      var row=function(lbl,v,cls){ push(cls||'',[lbl,num(v),pctv(v)]); };
+      row('إجمالي المبيعات',x.rev);
+      row('يُخصم: مرتجعات المبيعات',x.ret);
+      push('sub-row',['صافي المبيعات',num(x.net_rev),'100%']);
+      row('يُخصم: تكلفة البضاعة المباعة',x.cogs);
+      row('يُخصم: الفاقد والتوالف',x.waste);
+      push('sub-row',['مجمل الربح',num(x.gp),pctv(x.gp)]);
+      row('يُخصم: مصروفات مباشرة للفرع',x.direct);
+      row('يُخصم: حصة الفرع من المصروفات المشتركة',x.shared);
+      push('total-row',['صافي ربح / (خسارة) الفرع',num(x.net),pctv(x.net)]);
+      /* معلومات مساندة */
+      var invB=0; if(!L) refreshLedger();
+      clientWhs(bid).forEach(function(w){ Object.keys(L.stock).forEach(function(k){ if(L.stock[k].whId===w.id) invB+=L.stock[k].cost; }); });
+      var pt=partyTotals().cl[bid]||{sell:0,ret:0,opening:0,recv:0,n:0};
+      var bal=pt.sell-pt.ret+pt.opening-pt.recv;
+      var nInv=0,wt=0; db.sales.forEach(function(s){ if(s.clientId===bid&&inRange(s.date,f,t)){ nInv++; wt+=+s.weight||0; } });
+      cards=card('صافي ربح الفرع',money(x.net),'هامش '+pctv(x.net),true)
+        +card('مجمل الربح',money(x.gp),'هامش '+pctv(x.gp))
+        +card('صافي المبيعات',money(x.net_rev),nInv+' فاتورة · '+qty(wt)+' كغ')
+        +card('إجمالي المصروفات',money(x.exp),'مباشرة '+money(x.direct)+' + مشتركة '+money(x.shared))
+        +card('رصيد الفرع المستحق',money(bal),'ذمم لم تُحصّل')
+        +card('مخزون الفرع',money(invB),'بضاعة بمستودعات الفرع');
+      chart=barChart('مكوّنات ربح الفرع','',['الفرع'],[
+        {name:'صافي المبيعات',color:CHART_COLORS[0],vals:[x.net_rev]},
+        {name:'تكلفة المبيعات',color:CHART_COLORS[1],vals:[x.cogs]},
+        {name:'المصروفات',color:CHART_COLORS[3],vals:[x.exp+x.waste]},
+        {name:'صافي الربح',color:CHART_COLORS[2],vals:[x.net]}
+      ]);
     }
   }
   else if(type==='client'){
