@@ -421,6 +421,7 @@ tr.sub-row td{background:#f7faf6;font-weight:700;font-size:12.5px;color:var(--in
       <div class="field"><label>التاريخ</label><input type="date" id="p_date"></div>
       <div class="field"><label>رقم فاتورة المورد</label><input type="text" id="p_no" placeholder="اختياري"></div>
       <div class="field"><label>مجموعة المورد</label><select id="p_supplierGroup" onchange="filterInvoiceParty('p')"></select></div>
+      <div class="field"><label>بحث عن المورد</label><input type="text" id="p_supplierSearch" oninput="filterInvoiceParty('p')" placeholder="🔍 اكتب اسم المورد"></div>
       <div class="field"><label>المورد</label>
         <div class="inline-add"><select id="p_supplier"></select><button class="btn btn-sm" onclick="quickAddSupplier()" title="مورد جديد">+</button></div></div>
       <div class="field"><label>ملاحظات</label><input type="text" id="p_note" placeholder="اختياري"></div>
@@ -495,6 +496,7 @@ tr.sub-row td{background:#f7faf6;font-weight:700;font-size:12.5px;color:var(--in
       <div class="field"><label>التاريخ</label><input type="date" id="s_date"></div>
       <div class="field"><label>رقم الفاتورة</label><input type="text" id="s_no" placeholder="اختياري"></div>
       <div class="field"><label>مجموعة العميل</label><select id="s_clientGroup" onchange="filterInvoiceParty('s')"></select></div>
+      <div class="field"><label>بحث عن العميل</label><input type="text" id="s_clientSearch" oninput="filterInvoiceParty('s')" placeholder="🔍 اكتب اسم العميل"></div>
       <div class="field"><label>العميل / الفرع</label>
         <div class="inline-add"><select id="s_client" onchange="onSaleClient()"></select><button class="btn btn-sm" onclick="quickAddClient()" title="عميل جديد">+</button></div></div>
       <div class="field"><label>ملاحظات</label><input type="text" id="s_note" placeholder="اختياري"></div>
@@ -762,6 +764,7 @@ tr.sub-row td{background:#f7faf6;font-weight:700;font-size:12.5px;color:var(--in
       <div class="field"><label>التاريخ</label><input type="date" id="pay_date"></div>
       <div class="field"><label>نوع الحركة</label><select id="pay_type" onchange="onPayType()">
         <option value="supplier">دفعة لمورد</option><option value="client">تحصيل من عميل</option></select></div>
+      <div class="field"><label id="pay_searchLbl">بحث عن المورد</label><input type="text" id="pay_search" oninput="filterPayParty()" placeholder="🔍 اكتب الاسم"></div>
       <div class="field"><label id="pay_partyLbl">المورد</label><select id="pay_party"></select></div>
       <div class="field"><label>المبلغ</label><input type="number" id="pay_amount" step="0.01" min="0"></div>
       <div class="field"><label>طريقة الدفع</label><select id="pay_method">
@@ -1731,8 +1734,10 @@ function groupOpts(kind,blank){
     h+='<option value="'+g.id+'">'+esc(g.name)+' ('+c+' '+(kind==='sup'?'مورد':'عميل')+')</option>'; });
   return h;
 }
-function invoiceClients(){ var g=val('s_clientGroup'); return g?db.clients.filter(function(c){return c.groupId===+g;}):db.clients; }
-function invoiceSuppliers(){ var g=val('p_supplierGroup'); return g?db.suppliers.filter(function(s){return s.groupId===+g;}):db.suppliers; }
+function invoiceClients(){ var g=val('s_clientGroup'), q=(val('s_clientSearch')||'').trim();
+  return db.clients.filter(function(c){ return (!g||c.groupId===+g)&&(!q||(c.name||'').indexOf(q)>-1); }); }
+function invoiceSuppliers(){ var g=val('p_supplierGroup'), q=(val('p_supplierSearch')||'').trim();
+  return db.suppliers.filter(function(s){ return (!g||s.groupId===+g)&&(!q||(s.name||'').indexOf(q)>-1); }); }
 /* تصفية قائمة العميل/المورد في الفاتورة حسب المجموعة المختارة (بحث من مستويين) */
 function filterInvoiceParty(kind){
   var nm=function(o){return o.name;};
@@ -1898,6 +1903,7 @@ function cancelDoc(k){
     setVal(k==='p'?'p_no':'s_no',''); setVal(k==='p'?'p_note':'s_note','');
     setVal(k==='p'?'p_paid':'s_recv',0);
     setVal(k+'_vatmode','add'); setVal(k+'_vatrate',vatRate());
+    setVal(k==='p'?'p_supplierSearch':'s_clientSearch',''); filterInvoiceParty(k);   /* إعادة قائمة الجهات كاملة */
     document.getElementById(k==='p'?'p_editing':'s_editing').textContent='';
   } else {
     editId[k]=null;
@@ -1962,6 +1968,8 @@ function editDoc(k,id){
   if(!guard('canEdit')) return;
   var arr=k==='p'?db.purchases:db.sales, r=byId(arr,id); if(!r) return;
   draft[k]={lines:(r.lines||[]).slice(),editId:id};
+  /* أعِد القائمة كاملة (امسح أي بحث/تصفية) كي يظهر الجهة المطلوبة */
+  setVal(k==='p'?'p_supplierSearch':'s_clientSearch',''); setVal(k==='p'?'p_supplierGroup':'s_clientGroup',''); filterInvoiceParty(k);
   if(k==='p'){ setVal('p_date',r.date); setVal('p_no',r.no); setVal('p_supplier',r.supplierId);
     setVal('p_note',r.note); setVal('p_paid',r.paid); setVal('p_vatrate',r.vatRate!=null?r.vatRate:vatRate()); setVal('p_vatmode',r.vatMode||'add');
     document.getElementById('p_editing').textContent='وضع التعديل — فاتورة '+(r.no||'#'+r.id); showTab('purchases'); }
@@ -2191,10 +2199,17 @@ function editExpense(id){
   if(r.splits){ db.clients.forEach(function(c){ setVal('esp_'+c.id, r.splits[c.id]||''); }); updateSplitSummary(); }
   document.getElementById('e_editing').textContent='وضع التعديل'; showTab('expenses');
 }
+function payParties(){
+  var t=val('pay_type'), q=(val('pay_search')||'').trim();
+  var arr=(t==='supplier')?db.suppliers:db.clients;
+  return q?arr.filter(function(p){return (p.name||'').indexOf(q)>-1;}):arr;
+}
+function filterPayParty(){ fillSelect('pay_party',opts(payParties(),'id',function(o){return o.name;}),false); }
 function onPayType(silent){
   var t=val('pay_type');
   document.getElementById('pay_partyLbl').textContent=(t==='supplier')?'المورد':'العميل';
-  fillSelect('pay_party',opts(t==='supplier'?db.suppliers:db.clients,'id',function(o){return o.name;}),false);
+  var sl=document.getElementById('pay_searchLbl'); if(sl) sl.textContent=(t==='supplier')?'بحث عن المورد':'بحث عن العميل';
+  fillSelect('pay_party',opts(payParties(),'id',function(o){return o.name;}),false);
 }
 function savePayment(){
   if(!guard('canAdd')) return;
@@ -2213,13 +2228,13 @@ function savePayment(){
   cancelPayment(); commit('تم حفظ الحركة');
 }
 function cancelPayment(){
-  editId.pay=null; setVal('pay_amount',''); setVal('pay_note','');
+  editId.pay=null; setVal('pay_amount',''); setVal('pay_note',''); setVal('pay_search','');
   var n=document.getElementById('pay_editing'); if(n) n.textContent='';
 }
 function editPayment(id){
   if(!guard('canEdit')) return;
   var p=byId(db.payments,id); if(!p) return;
-  editId.pay=id; setVal('pay_date',p.date); setVal('pay_type',p.type); onPayType(true);
+  editId.pay=id; setVal('pay_date',p.date); setVal('pay_type',p.type); setVal('pay_search',''); onPayType(true);
   setVal('pay_party',p.partyId); setVal('pay_amount',p.amount); setVal('pay_method',p.method||''); setVal('pay_note',p.note||'');
   var n=document.getElementById('pay_editing'); if(n) n.textContent='وضع التعديل — حركة سداد/تحصيل';
   showTab('accounts');
