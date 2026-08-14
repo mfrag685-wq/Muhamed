@@ -788,6 +788,9 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
         <option>إيجار</option><option>كهرباء ومياه</option><option>رواتب وأجور</option><option>نقل وشحن</option>
         <option>تعبئة وتغليف</option><option>أجولة وعبوات</option><option>صناديق وكراتين</option><option>مستلزمات إنتاج</option>
         <option>صيانة</option><option>رسوم حكومية</option><option>تسويق</option><option>أخرى</option></select></div>
+      <div class="field"><label>بحث عن المورد <span class="hint">اختياري — اكتب لتصفية القائمة</span></label>
+        <input type="text" id="e_supplierSearch" list="dl_eSup" autocomplete="off" oninput="filterExpenseSupplier()" placeholder="🔍 اكتب اسم المورد">
+        <datalist id="dl_eSup"></datalist></div>
       <div class="field"><label>المورد المرتبط (اختياري)</label><select id="e_supplier" onchange="onExpenseSupplier()"></select></div>
       <div class="field"><label>القيمة</label><input type="number" id="e_amount" step="0.01" min="0"></div>
       <div class="field"><label>البيان</label><input type="text" id="e_desc" placeholder="فاتورة كهرباء المستودع"></div>
@@ -1268,7 +1271,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-08-14-c';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-08-14-d';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -1874,6 +1877,7 @@ function fillAllSelects(){
   fillSelect('sf_wh',opts(db.warehouses,'id',whTxt,'كل المستودعات'));
   fillSelect('e_client',opts(db.clients,'id',nm));
   fillSelect('e_supplier',opts(db.suppliers,'id',nm,'— نثرية / بدون مورد —'));
+  fillDatalist('dl_eSup',db.suppliers);
   fillSelect('ef_supplier','<option value="">كل الموردين</option><option value="__none__">— نثرية / بدون مورد —</option>'
     +db.suppliers.map(function(s){return '<option value="'+s.id+'">'+esc(s.name)+'</option>';}).join(''));
   fillSelect('wh_client',opts(db.clients,'id',nm,'مستودع عام لكل الفروع'));
@@ -2035,7 +2039,7 @@ function cancelDoc(k){
       wh:['wh_name'],it:['it_name','it_uw','it_min'],un:['un_name','un_weights'],u:['u_name','u_user','u_pass'],
       os:['os_units','os_uw','os_price','os_total']};
     if(k==='r'){ setVal('r_doc',''); setVal('r_search',''); setVal('r_vatrate',vatRate()); setVal('r_vatmode','add'); onReturnType(true); onReturnDoc(true); }
-    if(k==='e'){ db.clients.forEach(function(c){ setVal('esp_'+c.id,''); }); setVal('e_amortUnit','none'); setVal('e_amortCount',''); onAmortChange(); }
+    if(k==='e'){ db.clients.forEach(function(c){ setVal('esp_'+c.id,''); }); setVal('e_amortUnit','none'); setVal('e_amortCount',''); onAmortChange(); setVal('e_supplierSearch',''); filterExpenseSupplier(); }
     if(k==='u'){ setVal('u_role','entry'); applyRolePreset(); renderDeptGrid(null); renderDeptPermGrids(null); }
     if(k==='cl') setVal('cl_hasWh','yes');
     (ids[k]||[]).forEach(function(id){ setVal(id,''); });
@@ -2286,6 +2290,14 @@ function onExpenseSupplier(){
   if(sid){ note.textContent='هذا المصروف مرتبط بالمورد «'+supName(sid)+'» للتتبع والتقارير (لا يُضاف تلقائياً إلى رصيد المورد؛ إن كان آجلاً سجّله كفاتورة/سداد في الحسابات).'; note.style.display=''; }
   else note.style.display='none';
 }
+/* بحث سريع عن المورد في نموذج المصروف — يصفّي القائمة مع الإبقاء على خيار «بدون مورد» */
+function filterExpenseSupplier(){
+  var q=(val('e_supplierSearch')||'').trim();
+  var arr=q?db.suppliers.filter(function(s){return (s.name||'').indexOf(q)>-1;}):db.suppliers;
+  fillSelect('e_supplier','<option value="">— نثرية / بدون مورد —</option>'
+    +arr.map(function(s){return '<option value="'+s.id+'">'+esc(s.name)+'</option>';}).join(''));
+  onExpenseSupplier();
+}
 function onAmortChange(){
   var u=val('e_amortUnit'), on=(u&&u!=='none');
   document.getElementById('e_amortCountWrap').style.display=on?'flex':'none';
@@ -2332,6 +2344,7 @@ function editExpense(id){
   var r=byId(db.expenses,id); if(!r) return;
   editId.e=id; setVal('e_date',r.date); setVal('e_type',r.type);
   setVal('e_cat',r.cat); setVal('e_amount',r.amount); setVal('e_desc',r.desc);
+  setVal('e_supplierSearch',''); filterExpenseSupplier();
   setVal('e_supplier',r.supplierId||''); onExpenseSupplier();
   setVal('e_amortUnit',r.amortUnit||'none'); setVal('e_amortCount',r.amortCount||''); onAmortChange();
   onExpenseType();
