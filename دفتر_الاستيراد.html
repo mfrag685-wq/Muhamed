@@ -4625,5 +4625,126 @@ ReactDOM.createRoot(document.getElementById("app")).render(React.createElement(A
   else mount();
 })();
 </script>
+
+<!-- ══════════════════════════════════════════════════════════════
+     المزامنة السحابية (Firebase Realtime Database) — كل نموذج مستقل
+     ──────────────────────────────────────────────────────────────
+     تعمل النسخة محلياً/دون إنترنت تماماً ما دامت CLOUD_CONFIG فارغة.
+     فور لصق إعدادات مشروع Firebase تبدأ المزامنة، ويُخزَّن كل نموذج
+     (نموذج ١ / نموذج ٢) في مساحة سحابية منفصلة عن الآخر.
+     ══════════════════════════════════════════════════════════════ -->
+<script>
+(function(){
+  /* ★★★ الصق إعدادات مشروع Firebase هنا لتفعيل المزامنة (اتركها فارغة للعمل محلياً) ★★★ */
+  var CLOUD_CONFIG={
+    apiKey:"",
+    authDomain:"",
+    databaseURL:"",
+    projectId:"",
+    storageBucket:"",
+    messagingSenderId:"",
+    appId:"",
+    workspaceId:"main"   /* مساحة أساسية؛ كل نموذج يُخزَّن تحتها في فرع مستقل (p1 / p2) */
+  };
+  window.__IK_CLOUD=CLOUD_CONFIG;
+
+  var AP=(window.__AP)||"p1";
+  var rawSet=localStorage.setItem.bind(localStorage);
+  var cloudReady=false,cloudRef=null,pushTimer=null,lastPushed="";
+
+  function enabled(){return !!(CLOUD_CONFIG.apiKey&&CLOUD_CONFIG.databaseURL);}
+  function isKey(k){return typeof k==="string"&&k.indexOf(AP+"::")===0&&/^p\d+::(ships-|pays-|cfg-|log-)/.test(k);}
+  function canon(o){try{return JSON.stringify(o,Object.keys(o).sort());}catch(e){return "";}}
+  function snapshot(){
+    var o={};
+    for(var i=0;i<localStorage.length;i++){var k=localStorage.key(i);if(isKey(k))o[k]=localStorage.getItem(k);}
+    try{var pn=JSON.parse(localStorage.getItem("__profileNames"))||{};if(pn[AP])o["__pname"]=pn[AP];}catch(e){}
+    return o;
+  }
+
+  /* مؤشّر حالة صغير ثابت أعلى يسار الشاشة */
+  var chip=null;
+  function status(state){
+    if(!enabled())return;
+    if(!chip){
+      chip=document.createElement("div");
+      chip.setAttribute("dir","rtl");
+      chip.style.cssText="position:fixed;top:8px;left:8px;z-index:1600;font-family:'Tajawal','Segoe UI',sans-serif;font-size:11px;padding:4px 10px;border-radius:20px;box-shadow:0 2px 6px rgba(15,30,50,.2)";
+      document.body.appendChild(chip);
+    }
+    var map={connecting:["يتصل بالسحابة…","#8593a6","#fff"],ok:["متصل ☁","#1f7a4d","#fff"],sync:["يُزامن…","#9a5b12","#fff"],err:["تعذّر الاتصال — محفوظ محلياً","#b5341f","#fff"]};
+    var m=map[state]||map.connecting;
+    chip.textContent=m[0]+" · "+((window.__profileName&&window.__profileName(AP))||AP);
+    chip.style.background=m[1];chip.style.color=m[2];
+  }
+
+  function schedulePush(){
+    if(!cloudReady||!cloudRef)return;
+    clearTimeout(pushTimer);
+    pushTimer=setTimeout(function(){
+      var snap=snapshot();lastPushed=canon(snap);status("sync");
+      cloudRef.set({data:snap,updatedAt:firebase.database.ServerValue.TIMESTAMP})
+        .then(function(){status("ok");}).catch(function(){status("err");});
+    },700);
+  }
+
+  function applyRemote(data){
+    var del=[];
+    for(var i=0;i<localStorage.length;i++){var k=localStorage.key(i);if(isKey(k))del.push(k);}
+    del.forEach(function(k){localStorage.removeItem(k);});
+    Object.keys(data).forEach(function(k){
+      if(k==="__pname"){try{var pn=JSON.parse(localStorage.getItem("__profileNames"))||{};pn[AP]=data[k];rawSet("__profileNames",JSON.stringify(pn));}catch(e){}return;}
+      if(isKey(k))rawSet(k,data[k]);
+    });
+    location.reload();
+  }
+
+  /* اعتراض الحفظ المحلي لدفع التغييرات إلى السحابة */
+  localStorage.setItem=function(k,v){rawSet(k,v);if(cloudReady&&isKey(k))schedulePush();};
+
+  function loadFirebase(cb){
+    if(typeof firebase!=="undefined"&&firebase.database)return cb(true);
+    var base="https://www.gstatic.com/firebasejs/9.23.0/";
+    var files=["firebase-app-compat.js","firebase-auth-compat.js","firebase-database-compat.js"],i=0;
+    (function next(){
+      if(i>=files.length)return cb(typeof firebase!=="undefined"&&!!firebase.database);
+      var s=document.createElement("script");s.src=base+files[i++];
+      s.onload=next;s.onerror=function(){cb(false);};
+      document.head.appendChild(s);
+    })();
+  }
+
+  function init(){
+    if(!enabled())return; // فارغة: يعمل محلياً كما هو
+    status("connecting");
+    loadFirebase(function(ok){
+      if(!ok){status("err");return;}
+      try{firebase.initializeApp(CLOUD_CONFIG);}catch(e){}
+      firebase.auth().signInAnonymously().catch(function(){status("err");});
+      firebase.auth().onAuthStateChanged(function(user){
+        if(!user||cloudReady)return;
+        cloudRef=firebase.database().ref("import-ledger/"+(CLOUD_CONFIG.workspaceId||"main")+"/"+AP);
+        cloudRef.once("value").then(function(snap){
+          var v=snap.val();
+          if(v&&v.data&&typeof v.data==="object"&&Object.keys(v.data).length){
+            if(canon(v.data)!==canon(snapshot())){cloudReady=true;applyRemote(v.data);return;} // بيانات السحابة أحدث → تبنّيها
+            cloudReady=true;lastPushed=canon(snapshot());
+          }else{cloudReady=true;schedulePush();} // السحابة فارغة: ارفع المحلي أول مرة
+          status("ok");
+          cloudRef.on("value",function(s2){
+            var val=s2.val();if(!val||!val.data)return;
+            var rc=canon(val.data);
+            if(rc===lastPushed||rc===canon(snapshot()))return; // تجاهل صدى كتابتنا
+            applyRemote(val.data);
+          });
+        }).catch(function(){status("err");});
+      });
+    });
+  }
+
+  if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",init);
+  else init();
+})();
+</script>
 </body>
 </html>
