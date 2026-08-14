@@ -773,7 +773,9 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
       <div class="field" id="e_clientWrap"><label>الفرع المستفيد</label><select id="e_client"></select></div>
       <div class="field"><label>التصنيف</label><select id="e_cat">
         <option>إيجار</option><option>كهرباء ومياه</option><option>رواتب وأجور</option><option>نقل وشحن</option>
-        <option>تعبئة وتغليف</option><option>صيانة</option><option>رسوم حكومية</option><option>تسويق</option><option>أخرى</option></select></div>
+        <option>تعبئة وتغليف</option><option>أجولة وعبوات</option><option>صناديق وكراتين</option><option>مستلزمات إنتاج</option>
+        <option>صيانة</option><option>رسوم حكومية</option><option>تسويق</option><option>أخرى</option></select></div>
+      <div class="field"><label>المورد المرتبط (اختياري)</label><select id="e_supplier" onchange="onExpenseSupplier()"></select></div>
       <div class="field"><label>القيمة</label><input type="number" id="e_amount" step="0.01" min="0"></div>
       <div class="field"><label>البيان</label><input type="text" id="e_desc" placeholder="فاتورة كهرباء المستودع"></div>
       <div class="field"><label>توزيع المصروف على فترة</label><select id="e_amortUnit" onchange="onAmortChange()">
@@ -785,6 +787,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
         <input type="number" id="e_amortCount" step="1" min="1" placeholder="مثال: 365 يوم أو 6 شهور"></div>
     </div>
     <div class="note no-print" id="e_amortNote" style="display:none;margin-top:8px"></div>
+    <div class="note no-print" id="e_supNote" style="display:none;margin-top:8px"></div>
     <div id="e_splitBox" class="hidden" style="margin-top:12px">
       <div class="sec-title" style="margin-top:0">توزيع المصروف على الفروع</div>
       <div class="grid" id="e_splitGrid"></div>
@@ -1243,7 +1246,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-08-13-e';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-08-14-a';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -1846,6 +1849,7 @@ function fillAllSelects(){
   fillSelect('s_client',opts(invoiceClients(),'id',nm));
   fillSelect('sf_client',opts(db.clients,'id',nm,'كل العملاء'));
   fillSelect('e_client',opts(db.clients,'id',nm));
+  fillSelect('e_supplier',opts(db.suppliers,'id',nm,'— نثرية / بدون مورد —'));
   fillSelect('wh_client',opts(db.clients,'id',nm,'مستودع عام لكل الفروع'));
   /* عند الإدخال الجديد (شراء/بيع) تظهر الأصناف النشطة فقط؛ التحويل والفاقد والمرتجعات وقوائم الاستعراض تظهر الكل مع وسم المتوقف */
   ['pl_item','sl_item'].forEach(function(id){ fillSelect(id,opts(activeItems(),'id',nm)); });
@@ -2250,6 +2254,12 @@ function onExpenseType(){
   box.classList.toggle('hidden',!manual);
   if(manual) renderExpenseSplits();
 }
+function onExpenseSupplier(){
+  var sid=+val('e_supplier')||null, note=document.getElementById('e_supNote');
+  if(!note) return;
+  if(sid){ note.textContent='هذا المصروف مرتبط بالمورد «'+supName(sid)+'» للتتبع والتقارير (لا يُضاف تلقائياً إلى رصيد المورد؛ إن كان آجلاً سجّله كفاتورة/سداد في الحسابات).'; note.style.display=''; }
+  else note.style.display='none';
+}
 function onAmortChange(){
   var u=val('e_amortUnit'), on=(u&&u!=='none');
   document.getElementById('e_amortCountWrap').style.display=on?'flex':'none';
@@ -2281,11 +2291,13 @@ function saveExpense(){
     if(t==='amounts'&&Math.abs(sum-a)>0.01){ toast('مجموع المبالغ الموزّعة '+num(sum)+' لا يساوي قيمة المصروف '+num(a)); return; }
   }
   var rec={id:editId.e||uid(),date:val('e_date'),type:t,clientId:(t==='direct'?+val('e_client'):null),
+    supplierId:(+val('e_supplier')||null),
     cat:val('e_cat'),amount:a,desc:val('e_desc').trim(),splits:splits,
     amortUnit:amortUnit,amortCount:amortCount,uid:ME.id,ts:nowTs()};
   if(editId.e){ var i=db.expenses.findIndex(function(x){return x.id===editId.e;}); db.expenses[i]=rec; }
   else db.expenses.push(rec);
   log(editId.e?'edit':'add','المصروفات',expTypeLabel(t)+' — '+rec.desc+' بقيمة '+num(a)
+    +(rec.supplierId?' (مورد: '+supName(rec.supplierId)+')':'')
     +(splits?' موزّع على '+Object.keys(splits).length+' فرع':''));
   cancelDoc('e'); commit('تم حفظ المصروف');
 }
@@ -2294,6 +2306,7 @@ function editExpense(id){
   var r=byId(db.expenses,id); if(!r) return;
   editId.e=id; setVal('e_date',r.date); setVal('e_type',r.type);
   setVal('e_cat',r.cat); setVal('e_amount',r.amount); setVal('e_desc',r.desc);
+  setVal('e_supplier',r.supplierId||''); onExpenseSupplier();
   setVal('e_amortUnit',r.amortUnit||'none'); setVal('e_amortCount',r.amortCount||''); onAmortChange();
   onExpenseType();
   if(r.type==='direct') setVal('e_client',r.clientId);
@@ -2599,8 +2612,15 @@ var ENT={purchases:['المشتريات','فاتورة شراء'],sales:['الم
 function delRec(type,id){
   if(!guard('canDelete','لا تملك صلاحية الحذف')) return;
   var e=ENT[type]||['',''];
-  if(!confirm('حذف '+e[1]+'؟ ستُعاد أرصدة المخزون والتكاليف تلقائياً.')) return;
   var r=byId(db[type],id), d=e[1];
+  var confirmMsg;
+  if(type==='payments'&&r){
+    var who=(r.type==='supplier'?supName(r.partyId):clientName(r.partyId));
+    var kind=(r.type==='supplier'?'سداد لمورد':'تحصيل من عميل');
+    confirmMsg='تأكيد حذف حركة مالية:\n'+kind+' — '+who+'\nالمبلغ: '+num(r.amount)+'   التاريخ: '+r.date
+      +'\n\nسيتأثر رصيد '+(r.type==='supplier'?'المورد':'العميل')+' وسيُسجَّل الحذف في سجل النشاط. متابعة؟';
+  } else confirmMsg='حذف '+e[1]+'؟ ستُعاد أرصدة المخزون والتكاليف تلقائياً.';
+  if(!confirm(confirmMsg)) return;
   if(type==='purchases') d+=' '+(r.no||'#'+r.id)+' — '+supName(r.supplierId)+' بقيمة '+num(r.total);
   else if(type==='sales') d+=' '+(r.no||'#'+r.id)+' — '+clientName(r.clientId)+' بقيمة '+num(r.total);
   else if(type==='expenses') d+=' '+r.desc+' بقيمة '+num(r.amount);
@@ -5040,12 +5060,15 @@ function expTypeLabel(t){
   return t==='direct'?'مصروف مباشر':(t==='amounts'?'موزّع بمبالغ محددة':(t==='percents'?'موزّع بنسب مئوية':'مصروف مشترك'));
 }
 function expTargetLabel(x){
-  if(x.type==='direct') return clientName(x.clientId);
-  if(x.type==='amounts'||x.type==='percents'){
+  var base;
+  if(x.type==='direct') base=clientName(x.clientId);
+  else if(x.type==='amounts'||x.type==='percents'){
     var n=x.splits?Object.keys(x.splits).length:0;
-    return 'موزّع يدوياً على '+n+' فرع';
+    base='موزّع يدوياً على '+n+' فرع';
   }
-  return 'كل الفروع (تلقائي)';
+  else base='كل الفروع (تلقائي)';
+  if(x.supplierId) base+=' • مورد: '+supName(x.supplierId);
+  return base;
 }
 function renderExpenseSplits(){
   var t=val('e_type'), unit=(t==='percents')?'%':cur();
