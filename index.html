@@ -799,11 +799,20 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
       <span class="editing-note" id="e_editing"></span></div>
   </div>
   <div class="filters no-print">
+    <div class="field"><label>بحث</label><input type="text" id="ef_search" oninput="renderExpenses()" placeholder="🔍 البيان أو المورد أو التصنيف"></div>
     <div class="field"><label>من</label><input type="date" id="ef_from" onchange="renderExpenses()"></div>
     <div class="field"><label>إلى</label><input type="date" id="ef_to" onchange="renderExpenses()"></div>
     <div class="field"><label>النوع</label><select id="ef_type" onchange="renderExpenses()">
       <option value="">الكل</option><option value="direct">مباشر</option><option value="shared">مشترك تلقائي</option>
       <option value="amounts">موزّع بمبالغ</option><option value="percents">موزّع بنسب</option></select></div>
+    <div class="field"><label>المورد المرتبط</label><select id="ef_supplier" onchange="renderExpenses()"></select></div>
+    <div class="field"><label>التصنيف</label><select id="ef_cat" onchange="renderExpenses()">
+      <option value="">كل التصنيفات</option><option>إيجار</option><option>كهرباء ومياه</option><option>رواتب وأجور</option>
+      <option>نقل وشحن</option><option>تعبئة وتغليف</option><option>أجولة وعبوات</option><option>صناديق وكراتين</option>
+      <option>مستلزمات إنتاج</option><option>صيانة</option><option>رسوم حكومية</option><option>تسويق</option><option>أخرى</option></select></div>
+    <div class="field"><label>مبلغ من</label><input type="number" id="ef_min" step="0.01" min="0" oninput="renderExpenses()" placeholder="0"></div>
+    <div class="field"><label>مبلغ إلى</label><input type="number" id="ef_max" step="0.01" min="0" oninput="renderExpenses()" placeholder="∞"></div>
+    <button class="btn" onclick="clearExpenseFilters()">إلغاء الفلترة</button>
     <button class="btn" onclick="exportTable('expenses')">تصدير Excel</button>
   </div>
   <div class="table-scroll"><table>
@@ -1246,7 +1255,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-08-14-a';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-08-14-b';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -1850,6 +1859,8 @@ function fillAllSelects(){
   fillSelect('sf_client',opts(db.clients,'id',nm,'كل العملاء'));
   fillSelect('e_client',opts(db.clients,'id',nm));
   fillSelect('e_supplier',opts(db.suppliers,'id',nm,'— نثرية / بدون مورد —'));
+  fillSelect('ef_supplier','<option value="">كل الموردين</option><option value="__none__">— نثرية / بدون مورد —</option>'
+    +db.suppliers.map(function(s){return '<option value="'+s.id+'">'+esc(s.name)+'</option>';}).join(''));
   fillSelect('wh_client',opts(db.clients,'id',nm,'مستودع عام لكل الفروع'));
   /* عند الإدخال الجديد (شراء/بيع) تظهر الأصناف النشطة فقط؛ التحويل والفاقد والمرتجعات وقوائم الاستعراض تظهر الكل مع وسم المتوقف */
   ['pl_item','sl_item'].forEach(function(id){ fillSelect(id,opts(activeItems(),'id',nm)); });
@@ -3011,10 +3022,25 @@ function renderStock(){
     :'<tr><td colspan="8" class="empty">لا يوجد رصيد افتتاحي مسجل بعد.</td></tr>';
 }
 
+function clearExpenseFilters(){ ['ef_search','ef_from','ef_to','ef_type','ef_supplier','ef_cat','ef_min','ef_max'].forEach(function(id){setVal(id,'');}); renderExpenses(); }
+/* فلترة المصروفات — مصدر واحد للشاشة وتصدير Excel */
+function filteredExpenses(){
+  var f=val('ef_from'),t=val('ef_to'),ty=val('ef_type'),sp=val('ef_supplier'),cat=val('ef_cat');
+  var q=(val('ef_search')||'').trim();
+  var minA=val('ef_min')!==''?+val('ef_min'):null, maxA=val('ef_max')!==''?+val('ef_max'):null;
+  return db.expenses.filter(function(x){
+    if(!inRange(x.date,f,t)) return false;
+    if(ty&&x.type!==ty) return false;
+    if(cat&&(x.cat||'')!==cat) return false;
+    if(sp){ if(sp==='__none__'){ if(x.supplierId) return false; } else if(x.supplierId!==+sp) return false; }
+    if(minA!=null&&x.amount<minA-0.0001) return false;
+    if(maxA!=null&&x.amount>maxA+0.0001) return false;
+    if(q){ var hay=(x.desc||'')+' '+(x.cat||'')+' '+(x.supplierId?supName(x.supplierId):'')+' '+expTargetLabel(x); if(hay.indexOf(q)<0) return false; }
+    return true;
+  }).sort(function(a,b){return a.date<b.date?1:-1;});
+}
 function renderExpenses(){
-  var f=val('ef_from'),t=val('ef_to'),ty=val('ef_type');
-  var rows=db.expenses.filter(function(x){ return inRange(x.date,f,t)&&(!ty||x.type===ty); })
-    .sort(function(a,b){return a.date<b.date?1:-1;});
+  var rows=filteredExpenses();
   var h='',T=0,cats={};
   rows.forEach(function(x){
     T+=x.amount;
@@ -4481,9 +4507,9 @@ function tableData(kind){
       rows.push([whName(s.whId),s.whId&&whClient(s.whId)?clientName(whClient(s.whId)):'عام',itemName(s.itemId),
         s.units,s.weight,s.units>0?s.cost/s.units:0,s.cost]); }); }
   else if(kind==='expenses'){ title='المصروفات';
-    head=['التاريخ','النوع','الجهة','التصنيف','القيمة','البيان','أدخلها'];
-    db.expenses.forEach(function(x){ rows.push([x.date,expTypeLabel(x.type),
-      expTargetLabel(x),x.cat||'',x.amount,x.desc,userName(x.uid)]); }); }
+    head=['التاريخ','النوع','الجهة','المورد المرتبط','التصنيف','القيمة','البيان','أدخلها'];
+    filteredExpenses().forEach(function(x){ rows.push([x.date,expTypeLabel(x.type),
+      expTargetLabel(x),(x.supplierId?supName(x.supplierId):'—'),x.cat||'',x.amount,x.desc,userName(x.uid)]); }); }
   else if(kind==='income'){ title='قائمة الدخل';
     head=['الفرع','المبيعات','المرتجعات','صافي المبيعات','تكلفة المبيعات','مجمل الربح','الفاقد','مصروفات مباشرة','حصة المشتركة','صافي الربح'];
     var P=pnl(); db.clients.forEach(function(c){ var x=P.rows[c.id];
