@@ -1291,7 +1291,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-08-14-e';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-08-14-f';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -3904,7 +3904,7 @@ function _lineToKg(l){
 function mergeItems(){
   if(!guard('settings')) return;
   var srcIds=[]; document.querySelectorAll('.mergeSrc:checked').forEach(function(c){ srcIds.push(+c.value); });
-  if(srcIds.length<2){ toast('حدّد صنفين على الأقل للدمج'); return; }
+  if(srcIds.length<1){ toast('حدّد صنفاً واحداً على الأقل'); return; }
   var toKg=!!document.getElementById('mergeToKg').checked;
   var tgtSel=val('mergeTarget'), target;
   var first=byId(db.items,srcIds[0])||{};
@@ -3918,9 +3918,12 @@ function mergeItems(){
     if(srcIds.indexOf(target.id)<0) srcIds.push(target.id);   /* الهدف يُحوَّل أيضاً ليتّسق */
     if(toKg) target.byKg=1;
   }
-  var srcNames=srcIds.map(function(id){return itemName(id);}).join('، ');
-  if(!confirm('دمج الأصناف: '+srcNames+'\nفي صنف واحد «'+target.name+'»'+(toKg?' مع تحويل كل الحركات إلى الكيلو':'')
-    +'.\n\n⚠ العملية لا تُلغى. هل نزّلت نسخة احتياطية؟ المتابعة؟')) return;
+  var others=srcIds.filter(function(id){return id!==target.id;});
+  if(!others.length&&!toKg){ toast('لا يوجد تغيير — حدّد أصنافاً أخرى للدمج أو فعّل التحويل للكيلو'); return; }
+  var msg=others.length
+    ? 'دمج الأصناف: '+others.map(function(id){return itemName(id);}).join('، ')+'\nفي صنف واحد «'+target.name+'»'+(toKg?' مع تحويل كل الحركات إلى الكيلو':'')
+    : 'تحويل الصنف «'+target.name+'» إلى التتبّع بالكيلو مع تحويل كل حركاته السابقة إلى الكيلو';
+  if(!confirm(msg+'.\n\n⚠ العملية لا تُلغى. هل نزّلت نسخة احتياطية؟ المتابعة؟')) return;
   var srcSet={}; srcIds.forEach(function(id){ srcSet[id]=1; });
   var moved=0;
   function fixLine(l){ if(l&&srcSet[l.itemId]){ l.itemId=target.id; if(toKg) _lineToKg(l); moved++; } }
@@ -3933,9 +3936,9 @@ function mergeItems(){
   });
   /* حذف الأصناف المصدر (عدا الهدف) */
   db.items=db.items.filter(function(i){ return i.id===target.id||!srcSet[i.id]; });
-  log('edit','البيانات الأساسية','دمج '+srcIds.length+' صنف في «'+target.name+'»'+(toKg?' وتحويلها للكيلو':'')+' ('+moved+' حركة)');
-  refreshLedger(); commit('تم دمج الأصناف'); fillAllSelects(); renderMaster(); renderMergeItemsUI();
-  toast('تم الدمج وتحديث '+moved+' حركة');
+  log('edit','البيانات الأساسية',(others.length?('دمج '+(others.length+1)+' صنف في «'+target.name+'»'):('تحويل «'+target.name+'» للكيلو'))+(toKg?' وتحويل الحركات للكيلو':'')+' ('+moved+' حركة)');
+  refreshLedger(); commit(others.length?'تم دمج الأصناف':'تم تحويل الصنف للكيلو'); fillAllSelects(); renderMaster(); renderMergeItemsUI();
+  toast('تم تحديث '+moved+' حركة');
 }
 function consolidateDepts(){
   if(!guard('settings')) return;
