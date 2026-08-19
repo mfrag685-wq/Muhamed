@@ -569,7 +569,8 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
       <div class="field"><label>المستودع المصدر</label><select id="sl_wh" onchange="showAvail()"></select></div>
       <div class="field"><label>الرصيد المتاح</label><input type="text" id="sl_avail" readonly></div>
       <div class="field"><label id="lbl_sl_units">عدد الوحدات</label><input type="number" id="sl_units" step="0.01" min="0" oninput="calcLine('sl')"></div>
-      <div class="field"><label id="lbl_sl_uw">وزن الوحدة (كغ)</label><input type="number" id="sl_uw" step="0.01" min="0" oninput="calcLine('sl')"></div>
+      <div class="field"><label id="lbl_sl_uw">وزن الوحدة (كغ)</label><input type="number" id="sl_uw" step="0.01" min="0" oninput="calcLine('sl')" list="dl_sl_uw">
+        <datalist id="dl_sl_uw"></datalist><span class="mini" id="sl_uwHint"></span></div>
       <div class="field"><label>الوزن الإجمالي</label><input type="text" id="sl_tw" readonly></div>
       <div class="field"><label>أساس السعر</label><select id="sl_basis" onchange="calcLine('sl')">
         <option value="unit">سعر الوحدة</option><option value="kg">سعر الكيلو</option></select></div>
@@ -1224,7 +1225,8 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
       </div>
     </div>
     <div class="form-foot"><button class="btn-del" onclick="mergeItems()">دمج الأصناف المحدّدة</button>
-      <span class="mini">حدّد صنفين على الأقل، واختر الهدف (أو «➕ صنف جديد» مع كتابة الاسم).</span></div>
+      <button class="btn" onclick="repairKgTracking()">🔍 مراجعة وإصلاح تتبّع الكيلو</button>
+      <span class="mini">للتحويل المفرد: حدّد صنفاً واحداً واختره كهدف. زر المراجعة يتأكد أن كل أصناف الكيلو متّسقة.</span></div>
   </div>
 
   <div class="sec-title">البيانات والنسخ الاحتياطي</div>
@@ -1291,7 +1293,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-08-14-f';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-08-14-g';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -1959,12 +1961,28 @@ function onPickItem(p){
   if(p==='sl') showAvail();
   calcLine(p);
 }
-/* يعيد تسمية حقول السطر حسب طريقة تتبّع الصنف (وحدة/كيلو) */
+/* أوزان الصناديق التي استُخدمت فعلاً لهذا الصنف (من الحركات) + أوزان وحدته — لاقتراحها في الإدخال */
+function itemBoxWeights(itemId){
+  var set={}, add=function(w){ w=+w; if(w>0) set[w]=1; };
+  db.purchases.forEach(function(p){(p.lines||[]).forEach(function(l){ if(l.itemId===itemId&&l.boxW) add(l.boxW); });});
+  db.sales.forEach(function(s){(s.lines||[]).forEach(function(l){ if(l.itemId===itemId&&l.boxW) add(l.boxW); });});
+  [db.preturns,db.sreturns,db.transfers,db.waste,db.openingStock].forEach(function(arr){(arr||[]).forEach(function(r){ if(r.itemId===itemId&&r.boxW) add(r.boxW); });});
+  var it=byId(db.items,itemId); if(it) unitWeights(it.unit).forEach(add);
+  return Object.keys(set).map(Number).sort(function(a,b){return a-b;});
+}
+/* يعيد تسمية حقول السطر حسب طريقة تتبّع الصنف (وحدة/كيلو) + استعادة أوزان الصناديق المقترحة */
 function applyItemTracking(p,it){
   var byKg=!!(it&&it.byKg);
   var uL=document.getElementById('lbl_'+p+'_units'), wL=document.getElementById('lbl_'+p+'_uw');
   if(uL) uL.textContent=byKg?'عدد الصناديق':'عدد الوحدات';
   if(wL) wL.textContent=byKg?'وزن الصندوق (كغ)':(p==='pl'?'معامل التحويل — وزن الوحدة (كغ)':'وزن الوحدة (كغ)');
+  if(byKg){
+    var ws=itemBoxWeights(it.id), dl=document.getElementById('dl_'+p+'_uw');
+    if(dl) dl.innerHTML=ws.map(function(w){return '<option value="'+w+'">'+w+' كغ</option>';}).join('');
+    var hint=document.getElementById(p+'_uwHint');
+    if(hint) hint.textContent=ws.length?('أوزان الصناديق المستخدمة: '+ws.join(' / ')+' كغ — أو اكتب وزناً آخر'):'اكتب وزن الصندوق بالكيلو';
+    if(ws.length) setVal(p+'_uw',ws[0]);
+  }
 }
 function showAvail(){
   var w=+val('sl_wh'), i=+val('sl_item'), it=byId(db.items,i);
@@ -2913,7 +2931,7 @@ function purchaseRegistryRows(){
       var net=+l.total||0, vat=(p.total>0)?round2(docVat(p)*(net/p.total)):0, grand=round2(net+vat);
       invSet[p.id]=1;
       out.push({date:p.date,no:p.no||'—',sup:supName(p.supplierId),item:itemName(l.itemId),
-        units:+l.units||0,unit:l.unit||'',weight:(+l.units||0)*(+l.uw||0),wh:whName(l.whId),
+        units:+l.units||0,unit:l.unit||'',weight:(+l.units||0)*(+l.uw||0),wh:whName(l.whId),boxes:+l.boxes||0,boxW:+l.boxW||0,
         price:+l.price||0,basis:l.basis,net:net,vat:vat,grand:grand,note:p.note||'',pid:p.id});
     });
   });
@@ -2939,7 +2957,7 @@ function renderPurchases(){
       if(detailed){
         body+='<tr><td class="num">'+esc(r.date)+'</td><td class="txt"><span class="pill-inv">'+esc(r.no)+'</span></td>'
           +'<td class="txt">'+esc(r.sup)+'</td><td class="txt">'+esc(r.item)+'</td>'
-          +'<td class="num">'+qty(r.units)+' '+esc(r.unit)+'</td><td class="num">'+qty(r.weight)+'</td>'
+          +'<td class="num">'+qty(r.units)+' '+esc(r.unit)+(r.boxes?' <span style="color:#94a3b8">('+qty(r.boxes)+'×'+qty(r.boxW)+')</span>':'')+'</td><td class="num">'+qty(r.weight)+'</td>'
           +'<td class="txt">'+esc(r.wh)+'</td><td class="num">'+num(r.price)+(r.basis==='kg'?' /كغ':' /و')+'</td>'
           +'<td class="num">'+num(r.net)+'</td><td class="num">'+num(r.vat)+'</td><td class="num grand">'+num(r.grand)+'</td>'
           +'<td class="txt" style="color:#64748b">'+esc(r.note)+'</td><td class="txt">'+actCell(r.pid)+'</td></tr>';
@@ -3000,7 +3018,7 @@ function salesRegistryRows(){
       var cost=L.cogsLine[s.id+'#'+i]||0;
       invSet[s.id]=1;
       out.push({date:s.date,no:s.no||'—',cl:clientName(s.clientId),item:itemName(l.itemId),
-        units:+l.units||0,unit:l.unit||'',weight:(+l.units||0)*(+l.uw||0),wh:whName(l.whId),
+        units:+l.units||0,unit:l.unit||'',weight:(+l.units||0)*(+l.uw||0),wh:whName(l.whId),boxes:+l.boxes||0,boxW:+l.boxW||0,
         price:+l.price||0,basis:l.basis,net:net,vat:vat,grand:grand,cost:cost,gp:round2(net-cost),note:s.note||'',sid:s.id});
     });
   });
@@ -3022,7 +3040,7 @@ function renderSales(){
       {h:'رقم الفاتورة',f:function(r){return '<span class="pill-inv">'+esc(r.no)+'</span>';}},
       {h:'العميل',f:function(r){return esc(r.cl);}},
       {h:'الصنف',f:function(r){return esc(r.item);}},
-      {h:'الكمية',num:1,f:function(r){return qty(r.units);}},
+      {h:'الكمية',num:1,f:function(r){return qty(r.units)+(r.boxes?' <span style="color:#94a3b8">('+qty(r.boxes)+'×'+qty(r.boxW)+')</span>':'');}},
       {h:'الوزن (كغ)',num:1,tot:'weight',f:function(r){return qty(r.weight);}},
       {h:'المستودع',f:function(r){return esc(r.wh);}},
       {h:'سعر الوحدة',num:1,f:function(r){return num(r.price)+(r.basis==='kg'?' /كغ':' /و');}},
@@ -3577,7 +3595,8 @@ function renderMaster(){
   document.getElementById('tbItMaster').innerHTML=db.items.map(function(i){
     var u=0; Object.keys(L.stock).forEach(function(k){ if(L.stock[k].itemId===i.id) u+=L.stock[k].units; });
     var isActive=i.active!==0;
-    return '<tr><td class="name"><b>'+esc(i.name)+'</b>'+(i.code?' <span class="mini">('+esc(i.code)+')</span>':'')+(i.byKg?' <span class="pill pill-info">كيلو</span>':'')+'</td><td>'+esc(i.unit)+'</td><td>'+qty(i.uw)+' كغ</td>'
+    var bw=i.byKg?itemBoxWeights(i.id):[];
+    return '<tr><td class="name"><b>'+esc(i.name)+'</b>'+(i.code?' <span class="mini">('+esc(i.code)+')</span>':'')+(i.byKg?' <span class="pill pill-info">كيلو</span>':'')+'</td><td>'+(i.byKg?'كيلو':esc(i.unit))+'</td><td>'+(i.byKg?(bw.length?'صناديق '+bw.join('/')+' كغ':'بالكيلو'):(qty(i.uw)+' كغ'))+'</td>'
       +'<td>'+qty(i.min||0)+'</td><td>'+qty(u)+(i.min>0&&u<i.min?' <span class="pill pill-warn">تحت الحد</span>':'')+'</td>'
       +'<td><span class="pill '+(isActive?'pill-ok':'pill-bad')+'">'+(isActive?'نشط':'متوقف')+'</span></td>'
       +'<td>'+(can('canEdit')?'<button class="btn-sm" onclick="editItem('+i.id+')">تعديل</button> '
@@ -3939,6 +3958,22 @@ function mergeItems(){
   log('edit','البيانات الأساسية',(others.length?('دمج '+(others.length+1)+' صنف في «'+target.name+'»'):('تحويل «'+target.name+'» للكيلو'))+(toKg?' وتحويل الحركات للكيلو':'')+' ('+moved+' حركة)');
   refreshLedger(); commit(others.length?'تم دمج الأصناف':'تم تحويل الصنف للكيلو'); fillAllSelects(); renderMaster(); renderMergeItemsUI();
   toast('تم تحديث '+moved+' حركة');
+}
+/* مراجعة اتساق أصناف الكيلو: أي حركة لصنف «بالكيلو» ما زالت بالوحدة (uw≠1) تُحوَّل للكيلو لمنع اختلاط القياس */
+function repairKgTracking(){
+  if(!guard('settings')) return;
+  var byKgSet={}; db.items.forEach(function(i){ if(i.byKg) byKgSet[i.id]=1; });
+  if(!Object.keys(byKgSet).length){ alert('لا توجد أصناف بالكيلو بعد. فعّل «تتبّع بالكيلو» أو استخدم أداة الدمج.'); return; }
+  var fixed=0;
+  function fix(l){ if(l&&byKgSet[l.itemId]&&Math.abs((+l.uw||0)-1)>0.0001){ _lineToKg(l); fixed++; } }
+  db.purchases.forEach(function(p){(p.lines||[]).forEach(fix);});
+  db.sales.forEach(function(s){(s.lines||[]).forEach(fix);});
+  [db.preturns,db.sreturns,db.transfers,db.waste,db.openingStock].forEach(function(arr){(arr||[]).forEach(fix);});
+  (db.interTransfers||[]).forEach(function(x){
+    if(byKgSet[x.fromItemId]&&Math.abs((+x.uw||0)-1)>0.0001){ var u=+x.units||0,w=+x.uw||0,kg=u*w; if(kg>0){ x.units=kg; x.uw=1; fixed++; } }
+  });
+  if(fixed){ refreshLedger(); commit('تم إصلاح تتبّع الكيلو'); fillAllSelects(); renderMaster(); }
+  alert('مراجعة تتبّع الكيلو:\n\n• عدد أصناف الكيلو: '+Object.keys(byKgSet).length+'\n• حركات كانت بالوحدة وحُوِّلت للكيلو: '+fixed+'\n\n'+(fixed?'تم التصحيح — راجع المخزون والتكاليف الآن.':'كل حركات أصناف الكيلو متّسقة — لا أخطاء. ✅'));
 }
 function consolidateDepts(){
   if(!guard('settings')) return;
