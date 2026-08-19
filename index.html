@@ -695,10 +695,13 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
       <div class="doc-box no-print" id="transferFormBox">
         <div class="grid-2">
           <div class="field"><label>التاريخ</label><input type="date" id="t_date"></div>
-          <div class="field"><label>الصنف</label><select id="t_item"></select></div>
-          <div class="field"><label>من مستودع</label><select id="t_from"></select></div>
+          <div class="field"><label>الصنف</label><select id="t_item" onchange="onTransferItem()"></select></div>
+          <div class="field"><label>من مستودع</label><select id="t_from" onchange="showXferAvail()"></select></div>
           <div class="field"><label>إلى مستودع</label><select id="t_to"></select></div>
-          <div class="field"><label>عدد الوحدات</label><input type="number" id="t_units" step="0.01" min="0"></div>
+          <div class="field"><label id="lbl_t_units">عدد الوحدات</label><input type="number" id="t_units" step="0.01" min="0">
+            <span class="mini" id="t_availHint"></span></div>
+          <div class="field" id="t_uwWrap" style="display:none"><label>وزن الصندوق (كغ)</label>
+            <input type="number" id="t_uw" step="0.01" min="0" list="dl_t_uw"><datalist id="dl_t_uw"></datalist></div>
           <div class="field"><label>ملاحظة</label><input type="text" id="t_note" placeholder="اختياري"></div>
         </div>
         <div class="form-foot"><button class="btn-main" onclick="saveTransfer()">تنفيذ التحويل</button></div>
@@ -713,9 +716,12 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
       <div class="doc-box no-print" id="wasteFormBox">
         <div class="grid-2">
           <div class="field"><label>التاريخ</label><input type="date" id="w_date"></div>
-          <div class="field"><label>المستودع</label><select id="w_wh"></select></div>
-          <div class="field"><label>الصنف</label><select id="w_item"></select></div>
-          <div class="field"><label>عدد الوحدات</label><input type="number" id="w_units" step="0.01" min="0"></div>
+          <div class="field"><label>المستودع</label><select id="w_wh" onchange="showWasteAvail()"></select></div>
+          <div class="field"><label>الصنف</label><select id="w_item" onchange="onWasteItem()"></select></div>
+          <div class="field"><label id="lbl_w_units">عدد الوحدات</label><input type="number" id="w_units" step="0.01" min="0">
+            <span class="mini" id="w_availHint"></span></div>
+          <div class="field" id="w_uwWrap" style="display:none"><label>وزن الصندوق (كغ)</label>
+            <input type="number" id="w_uw" step="0.01" min="0" list="dl_w_uw"><datalist id="dl_w_uw"></datalist></div>
           <div class="field" style="grid-column:1/-1"><label>السبب</label><input type="text" id="w_reason" placeholder="تلف أثناء التخزين"></div>
         </div>
         <div class="form-foot"><button class="btn-main" onclick="saveWaste()">حفظ الفاقد</button></div>
@@ -1226,7 +1232,8 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
     </div>
     <div class="form-foot"><button class="btn-del" onclick="mergeItems()">دمج الأصناف المحدّدة</button>
       <button class="btn" onclick="repairKgTracking()">🔍 مراجعة وإصلاح تتبّع الكيلو</button>
-      <span class="mini">للتحويل المفرد: حدّد صنفاً واحداً واختره كهدف. زر المراجعة يتأكد أن كل أصناف الكيلو متّسقة.</span></div>
+      <button class="btn" onclick="recoverOrphanedItems()">♻ استعادة حركات مفقودة</button>
+      <span class="mini">بجانب كل صنف عدد حركاته — للتأكد أين توجد الكميات قبل الدمج. «استعادة حركات مفقودة» تُرجع أي حركة فقدت صنفها.</span></div>
   </div>
 
   <div class="sec-title">البيانات والنسخ الاحتياطي</div>
@@ -1293,7 +1300,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-08-14-g';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-08-14-h';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -1916,6 +1923,8 @@ function fillAllSelects(){
   fillSelect('rp_wh',opts(db.warehouses,'id',whTxt,'كل المستودعات'));
   fillSelect('au_user',opts(db.users,'id',nm,'كل المستخدمين'));
   onReturnType(true); onPayType(true); fillReportParty(); fillInterDeptTargets();
+  if(document.getElementById('t_item')) onTransferItem();
+  if(document.getElementById('w_item')) onWasteItem();
   if(document.getElementById('pl_dist')&&val('pl_dist')!=='single') renderPurchaseDist();
 }
 function reportPartyKind(t){
@@ -2226,15 +2235,37 @@ function editReturn(kind,id){
   document.getElementById('r_editing').textContent='وضع التعديل';
   showTab('returns');
 }
+/* تفعيل الوزن للأصناف بالكيلو في التحويل/الفاقد: تُدخَل الصناديق × وزن الصندوق → كيلو */
+function itemByKg(id){ var it=byId(db.items,id); return !!(it&&it.byKg); }
+function applyKgFields(pfx,itemId){
+  var byKg=itemByKg(itemId);
+  var lbl=document.getElementById('lbl_'+pfx+'_units'), wrap=document.getElementById(pfx+'_uwWrap');
+  if(lbl) lbl.textContent=byKg?'عدد الصناديق':'عدد الوحدات';
+  if(wrap) wrap.style.display=byKg?'':'none';
+  if(byKg){ var ws=itemBoxWeights(itemId), dl=document.getElementById('dl_'+pfx+'_uw');
+    if(dl) dl.innerHTML=ws.map(function(w){return '<option value="'+w+'">'+w+' كغ</option>';}).join('');
+    if(ws.length&&!fnum(pfx+'_uw')) setVal(pfx+'_uw',ws[0]); }
+}
+function xferKg(pfx){ /* الكمية بالكيلو المطلوبة من الحقول */
+  var u=fnum(pfx+'_units'); return itemByKg(+val(pfx+'_item'))?u*fnum(pfx+'_uw'):u; }
+function showXferAvail(){ var i=+val('t_item'), w=+val('t_from'), el=document.getElementById('t_availHint');
+  if(el) el.textContent=(i&&w)?('المتاح: '+qty(availUnits(w,i))+' '+(itemByKg(i)?'كغ':'وحدة')):''; }
+function showWasteAvail(){ var i=+val('w_item'), w=+val('w_wh'), el=document.getElementById('w_availHint');
+  if(el) el.textContent=(i&&w)?('المتاح: '+qty(availUnits(w,i))+' '+(itemByKg(i)?'كغ':'وحدة')):''; }
+function onTransferItem(){ applyKgFields('t',+val('t_item')); showXferAvail(); }
+function onWasteItem(){ applyKgFields('w',+val('w_item')); showWasteAvail(); }
 function saveTransfer(){
   if(!guard('canAdd')) return;
-  var f=+val('t_from'), t=+val('t_to'), u=fnum('t_units'), i=+val('t_item');
+  var f=+val('t_from'), t=+val('t_to'), i=+val('t_item'), byKg=itemByKg(i);
   if(!i||!f||!t){ toast('أكمل بيانات التحويل'); return; }
   if(f===t){ toast('اختر مستودعين مختلفين'); return; }
+  if(byKg&&fnum('t_uw')<=0){ toast('أدخل وزن الصندوق (كغ)'); return; }
+  var u=xferKg('t');   /* بالكيلو للأصناف بالكيلو */
   if(u<=0){ toast('أدخل الكمية'); return; }
-  db.transfers.push({id:uid(),date:val('t_date'),itemId:i,from:f,to:t,units:u,note:val('t_note').trim(),uid:ME.id,ts:nowTs()});
-  log('add','المخزون','تحويل '+qty(u)+' وحدة '+itemName(i)+' من '+whName(f)+' إلى '+whName(t));
-  setVal('t_units',''); setVal('t_note',''); commit('تم تنفيذ التحويل');
+  var boxes=byKg?fnum('t_units'):0, boxW=byKg?fnum('t_uw'):0;
+  db.transfers.push({id:uid(),date:val('t_date'),itemId:i,from:f,to:t,units:u,boxes:boxes,boxW:boxW,note:val('t_note').trim(),uid:ME.id,ts:nowTs()});
+  log('add','المخزون','تحويل '+qty(u)+' '+(byKg?'كغ':'وحدة')+' '+itemName(i)+' من '+whName(f)+' إلى '+whName(t));
+  setVal('t_units',''); setVal('t_note',''); commit('تم تنفيذ التحويل'); showXferAvail();
 }
 /* ---------- التحويل بين الأقسام ---------- */
 function otherDepts(){ return Object.keys(db.departments).filter(function(k){return k!==db.activeDept;}); }
@@ -2302,11 +2333,14 @@ function renderInterTransfers(){
 }
 function saveWaste(){
   if(!guard('canAdd')) return;
-  var w=+val('w_wh'), i=+val('w_item'), u=fnum('w_units');
+  var w=+val('w_wh'), i=+val('w_item'), byKg=itemByKg(i);
+  if(byKg&&fnum('w_uw')<=0){ toast('أدخل وزن الصندوق (كغ)'); return; }
+  var u=xferKg('w');
   if(!w||!i||u<=0){ toast('أكمل بيانات الفاقد'); return; }
-  db.waste.push({id:uid(),date:val('w_date'),whId:w,itemId:i,units:u,reason:val('w_reason').trim()||'غير محدد',uid:ME.id,ts:nowTs()});
-  log('add','المخزون','فاقد '+qty(u)+' وحدة '+itemName(i)+' من '+whName(w));
-  setVal('w_units',''); setVal('w_reason',''); commit('تم تسجيل الفاقد');
+  var boxes=byKg?fnum('w_units'):0, boxW=byKg?fnum('w_uw'):0;
+  db.waste.push({id:uid(),date:val('w_date'),whId:w,itemId:i,units:u,boxes:boxes,boxW:boxW,reason:val('w_reason').trim()||'غير محدد',uid:ME.id,ts:nowTs()});
+  log('add','المخزون','فاقد '+qty(u)+' '+(byKg?'كغ':'وحدة')+' '+itemName(i)+' من '+whName(w));
+  setVal('w_units',''); setVal('w_reason',''); commit('تم تسجيل الفاقد'); showWasteAvail();
 }
 function saveOpeningStock(){
   if(!guard('canAdd')) return;
@@ -3156,7 +3190,7 @@ function renderStock(){
 
   var th=db.transfers.slice().sort(function(a,b){return a.date<b.date?1:-1;}).map(function(t){
     return '<tr><td>'+esc(t.date)+'</td><td class="name">'+esc(itemName(t.itemId))+'</td><td class="name">'+esc(whName(t.from))+'</td>'
-      +'<td class="name">'+esc(whName(t.to))+'</td><td>'+qty(t.units)+'</td><td class="name muted">'+esc(userName(t.uid))+'</td>'
+      +'<td class="name">'+esc(whName(t.to))+'</td><td>'+qty(t.units)+(itemByKg(t.itemId)?' كغ':'')+(t.boxes?' <span class="mini">('+qty(t.boxes)+'×'+qty(t.boxW)+')</span>':'')+'</td><td class="name muted">'+esc(userName(t.uid))+'</td>'
       +'<td>'+actionBtns('transfers',t.id)+'</td></tr>'; }).join('');
   document.getElementById('tbTransfers').innerHTML=th||'<tr><td colspan="7" class="empty">لا توجد تحويلات.</td></tr>';
 
@@ -3164,7 +3198,7 @@ function renderStock(){
   db.waste.slice().sort(function(a,b){return a.date<b.date?1:-1;}).forEach(function(x){
     var c=L.wasteCost[x.id]||0; WT+=c;
     wh+='<tr><td>'+esc(x.date)+'</td><td class="name">'+esc(whName(x.whId))+'</td><td class="name">'+esc(itemName(x.itemId))+'</td>'
-      +'<td>'+qty(x.units)+'</td><td>'+money(c)+'</td><td class="name">'+esc(x.reason||'')+'</td>'
+      +'<td>'+qty(x.units)+(itemByKg(x.itemId)?' كغ':'')+(x.boxes?' <span class="mini">('+qty(x.boxes)+'×'+qty(x.boxW)+')</span>':'')+'</td><td>'+money(c)+'</td><td class="name">'+esc(x.reason||'')+'</td>'
       +'<td>'+actionBtns('waste',x.id)+'</td></tr>'; });
   document.getElementById('tbWaste').innerHTML=wh?wh+'<tr class="total-row"><td colspan="4">إجمالي تكلفة الفاقد</td><td>'+money(WT)+'</td><td colspan="2"></td></tr>'
     :'<tr><td colspan="7" class="empty">لا يوجد فاقد مسجل.</td></tr>';
@@ -3902,15 +3936,44 @@ function renderDeptConsolidate(){
   fillSelect('consoTo',opts(optsHtml,'id',function(o){return o.name;}));
 }
 /* ---------- دمج الأصناف وتوحيدها بالكيلو ---------- */
+/* عدد الحركات المرتبطة بصنف — للعرض في قائمة الدمج ولتشخيص الحركات */
+function itemMoveCount(id){
+  var n=0;
+  db.purchases.forEach(function(p){(p.lines||[]).forEach(function(l){ if(l.itemId===id) n++; });});
+  db.sales.forEach(function(s){(s.lines||[]).forEach(function(l){ if(l.itemId===id) n++; });});
+  [db.preturns,db.sreturns,db.transfers,db.waste,db.openingStock].forEach(function(arr){(arr||[]).forEach(function(r){ if(r.itemId===id) n++; });});
+  (db.interTransfers||[]).forEach(function(x){ if(x.fromItemId===id||x.toItemId===id) n++; });
+  return n;
+}
 function renderMergeItemsUI(){
   var box=document.getElementById('mergeSrcBox'); if(!box) return;
-  box.innerHTML=db.items.map(function(i){
+  box.innerHTML=db.items.map(function(i){ var mc=itemMoveCount(i.id);
     return '<label style="display:flex;gap:8px;align-items:center;padding:3px 0;font-size:14px">'
       +'<input type="checkbox" class="mergeSrc" value="'+i.id+'" style="width:auto">'
-      +esc(i.name)+' <span class="mini">('+(i.byKg?'كيلو':(esc(i.unit||'')+' '+qty(i.uw||0)+'كغ'))+')</span></label>';
+      +esc(i.name)+' <span class="mini">('+(i.byKg?'كيلو':(esc(i.unit||'')+' '+qty(i.uw||0)+'كغ'))+' · '+mc+' حركة)</span></label>';
   }).join('')||'<span class="empty">لا توجد أصناف.</span>';
   fillSelect('mergeTarget','<option value="__new__">➕ صنف جديد (اكتب الاسم)</option>'
     +db.items.map(function(i){return '<option value="'+i.id+'">'+esc(i.name)+'</option>';}).join(''));
+}
+/* استعادة الحركات المعلّقة: أي حركة تشير إلى صنف محذوف — يُعاد إنشاء صنف بنفس المعرّف لتظهر حركاته */
+function recoverOrphanedItems(){
+  if(!guard('settings')) return;
+  var have={}; db.items.forEach(function(i){ have[i.id]=1; });
+  var orphan={};
+  function scan(id){ if(id!=null&&!have[id]) orphan[id]=(orphan[id]||0)+1; }
+  db.purchases.forEach(function(p){(p.lines||[]).forEach(function(l){scan(l.itemId);});});
+  db.sales.forEach(function(s){(s.lines||[]).forEach(function(l){scan(l.itemId);});});
+  [db.preturns,db.sreturns,db.transfers,db.waste,db.openingStock].forEach(function(arr){(arr||[]).forEach(function(r){scan(r.itemId);});});
+  (db.interTransfers||[]).forEach(function(x){scan(x.fromItemId);scan(x.toItemId);});
+  var ids=Object.keys(orphan);
+  if(!ids.length){ alert('لا توجد حركات معلّقة — كل الحركات مرتبطة بأصناف موجودة. ✅\n\nإن كنت تفتقد كميات صنف بعد الدمج، فالأرجح أنها ما زالت تحت صنفه الأصلي — راجع قائمة الدمج (عدد الحركات بجانب كل صنف).'); return; }
+  var summary=ids.map(function(idStr){ return '• معرّف '+idStr+' — '+orphan[idStr]+' حركة'; }).join('\n');
+  if(!confirm('عُثر على حركات مرتبطة بأصناف محذوفة:\n'+summary+'\n\nسيُعاد إنشاء صنف لكل معرّف لاستعادة حركاته (يمكنك بعدها إعادة تسميته أو دمجه). المتابعة؟')) return;
+  ids.forEach(function(idStr){ var id=+idStr;
+    if(!byId(db.items,id)) db.items.push({id:id,name:'صنف مُستعاد #'+id,unit:'كيلو',uw:1,min:0,active:1,byKg:0}); });
+  log('data','البيانات الأساسية','استعادة '+ids.length+' صنف معلّق وحركاته');
+  refreshLedger(); commit('تم استعادة الأصناف المعلّقة'); fillAllSelects(); renderMaster(); renderMergeItemsUI();
+  alert('تمت استعادة '+ids.length+' صنف وحركاتها. افتح «البيانات الأساسية» لإعادة تسميتها، ثم ادمجها في الصنف الصحيح إن لزم.');
 }
 /* يحوّل سطر/سجل حركة إلى الكيلو مع حفظ القيمة المالية */
 function _lineToKg(l){
