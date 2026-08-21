@@ -4723,7 +4723,7 @@ ReactDOM.createRoot(document.getElementById("app")).render(React.createElement(A
       firebase.auth().signInAnonymously().catch(function(){status("err");});
       firebase.auth().onAuthStateChanged(function(user){
         if(!user||cloudReady)return;
-        cloudRef=firebase.database().ref("import-ledger/"+(CLOUD_CONFIG.workspaceId||"main")+"/"+AP);
+        cloudRef=firebase.database().ref("workspaces/"+(CLOUD_CONFIG.workspaceId||"main")+"__ilg__"+AP);
         cloudRef.once("value").then(function(snap){
           var v=snap.val();
           if(v&&v.data&&typeof v.data==="object"&&Object.keys(v.data).length){
