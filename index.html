@@ -4880,7 +4880,7 @@ ReactDOM.createRoot(document.getElementById("app")).render(React.createElement(A
       '<input id="ik-lg-user" placeholder="اسم المستخدم" style="width:100%;padding:11px;border:1px solid #d2dad8;border-radius:9px;font-family:inherit;font-size:14px;box-sizing:border-box;margin-bottom:10px;text-align:right">'+
       '<input id="ik-lg-pass" type="password" placeholder="كلمة المرور" style="width:100%;padding:11px;border:1px solid #d2dad8;border-radius:9px;font-family:inherit;font-size:14px;box-sizing:border-box;margin-bottom:14px;text-align:right">'+
       '<button id="ik-lg-btn" style="width:100%;border:none;background:'+NAVY+';color:#fff;border-radius:9px;padding:12px;font-size:15px;font-weight:600;cursor:pointer;font-family:inherit">دخول</button>'+
-      '<div style="font-size:11px;color:#9db;margin-top:14px">أول مرة؟ الدخول الافتراضي: admin / admin123</div>';
+      (loadAuth().users.some(function(x){return x.username==="admin"&&x.mustChange;})||!loadAuth().users.length?'<div style="font-size:11px;color:#9db;margin-top:14px">أول مرة؟ الدخول الافتراضي: admin / admin123</div>':'');
     ov.appendChild(card);document.body.appendChild(ov);
     var errBox=card.querySelector("#ik-login-err");
     function err(m){errBox.textContent=m;errBox.style.display="block";}
