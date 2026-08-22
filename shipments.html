@@ -439,6 +439,57 @@ html[data-theme="dark"] .rt td.hl{background:#2e2814;color:var(--accent)}
 <!-- TOAST -->
 <div class="toast" id="toast"></div>
 
+<!-- ══ LOGIN OVERLAY ══ -->
+<div class="modal-overlay" id="login-overlay" style="display:none;z-index:10001">
+  <div class="modal-box" style="width:400px">
+    <div style="text-align:center;margin-bottom:14px">
+      <div style="font-size:2.4rem">🔐</div>
+      <h2 id="login-title" style="margin-bottom:3px">تسجيل الدخول</h2>
+      <p id="login-sub" style="margin-bottom:0">أدخل اسم المستخدم وكلمة المرور</p>
+    </div>
+    <div class="mg" id="lg-name-w" style="display:none"><label>الاسم الكامل</label><input id="lg-name" placeholder="مثال: محمد فرج"></div>
+    <div class="mg"><label>اسم المستخدم</label><input id="lg-user" autocomplete="username" placeholder="admin"></div>
+    <div class="mg"><label>كلمة المرور</label><input id="lg-pass" type="password" autocomplete="current-password" placeholder="••••••••" onkeydown="if(event.key==='Enter')document.getElementById('lg-btn').click()"></div>
+    <div class="mg" id="lg-pass2-w" style="display:none"><label>تأكيد كلمة المرور</label><input id="lg-pass2" type="password" placeholder="••••••••"></div>
+    <div id="lg-msg" style="color:var(--danger);font-size:.82rem;min-height:18px;margin-bottom:6px"></div>
+    <button class="btn btn-accent" style="width:100%" id="lg-btn" onclick="submitLogin()">🔓 دخول</button>
+  </div>
+</div>
+
+<!-- ══ USERS MANAGEMENT MODAL ══ -->
+<div class="modal-overlay" id="users-modal" style="display:none" onclick="if(event.target===this)closeUsers()">
+  <div class="modal-box" style="width:660px;max-height:92vh;overflow-y:auto">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <h2 style="margin:0">👥 إدارة المستخدمين والصلاحيات</h2>
+      <button onclick="closeUsers()" style="background:none;border:none;font-size:1.4rem;cursor:pointer;color:var(--muted)">✕</button>
+    </div>
+    <div id="users-list" style="margin-bottom:14px"></div>
+    <div style="border-top:1px solid var(--border);padding-top:12px">
+      <div style="font-weight:700;color:var(--primary);margin-bottom:8px" id="u-form-title">➕ إضافة مستخدم جديد</div>
+      <div class="row2">
+        <div class="mg"><label>الاسم</label><input id="u-name" placeholder="الاسم الكامل"></div>
+        <div class="mg"><label>اسم المستخدم (للدخول)</label><input id="u-user" placeholder="user1"></div>
+      </div>
+      <div class="row2">
+        <div class="mg" id="u-pass-w"><label>كلمة المرور</label><input id="u-pass" type="password" placeholder="4 أحرف على الأقل"></div>
+        <div class="mg"><label>الحالة</label><select id="u-active"><option value="1">نشط</option><option value="0">موقوف</option></select></div>
+      </div>
+      <div class="mg"><label>الدور</label>
+        <select id="u-role" onchange="onRolePreset()">
+          <option value="admin">مدير النظام (كل الصلاحيات)</option>
+          <option value="manager">مدير (كل شيء عدا إدارة المستخدمين)</option>
+          <option value="entry" selected>مدخل بيانات</option>
+          <option value="viewer">مشاهد (سجل الشحنات فقط)</option>
+          <option value="custom">مخصص (حدّد الصلاحيات يدوياً)</option>
+        </select>
+      </div>
+      <label style="font-size:.76rem;font-weight:700;color:var(--muted)">الصلاحيات</label>
+      <div id="u-perms" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:6px 0 12px" onclick="document.getElementById('u-role').value='custom'"></div>
+      <button class="btn btn-accent" onclick="saveUser()">💾 حفظ المستخدم</button>
+    </div>
+  </div>
+</div>
+
 <!-- ══ PROFILE SELECTOR MODAL (shown first) ══ -->
 <div class="modal-overlay" id="profile-modal">
   <div class="modal-box" style="width:560px">
@@ -589,7 +640,10 @@ html[data-theme="dark"] .rt td.hl{background:#2e2814;color:var(--accent)}
     <div class="save-ind"><div class="save-dot"></div><span id="save-status">جاهز</span></div>
     <button class="hbtn accent" onclick="saveShipment()">💾 حفظ الشحنة</button>
     <button class="hbtn" onclick="newShipment()">➕ شحنة جديدة</button>
-    <button class="hbtn" onclick="openSetup()">⚙️ إعدادات</button>
+    <button class="hbtn" id="btn-settings" onclick="openSetup()">⚙️ إعدادات</button>
+    <button class="hbtn" id="btn-users" onclick="openUsers()">👥 المستخدمون</button>
+    <span id="current-user-name" style="font-size:.72rem;color:rgba(255,255,255,.75);white-space:nowrap"></span>
+    <button class="hbtn" onclick="logout()" title="تسجيل الخروج">🚪 خروج</button>
   </div>
 </div>
 
@@ -1199,6 +1253,7 @@ function renderProfileCards() {
 }
 
 function createProfile() {
+  if(!can('companies')){ toast('لا تملك صلاحية إدارة الشركات',true); return; }
   const name = document.getElementById('new-profile-name').value.trim();
   if (!name) { toast('⚠️ أدخل اسم الشركة',true); return; }
   const icon = document.getElementById('new-profile-icon').value;
@@ -1277,6 +1332,7 @@ function editProfile(id) {
 }
 
 function deleteProfile(id) {
+  if(!can('companies')){ toast('لا تملك صلاحية إدارة الشركات',true); return; }
   const profiles = profilesLoad();
   const p = profiles.find(x=>x.id===id);
   if (!p) return;
@@ -1349,6 +1405,7 @@ function applySetup() {
 }
 
 function openSetup() {
+  if(!can('settings')){ toast('لا تملك صلاحية الإعدادات',true); return; }
   const pid = getActiveProfileId();
   const profiles = profilesLoad();
   const p = profiles.find(x=>x.id===pid);
@@ -1523,6 +1580,7 @@ function loadShipment(id) {
 }
 
 function deleteShipment(id) {
+  if(!can('delete')){ toast('لا تملك صلاحية الحذف',true); return; }
   confirm2('هل تريد حذف هذه الشحنة؟ لا يمكن التراجع.', ()=>{
     const db = dbLoad().filter(x=>x.id!==id);
     dbSave(db);
@@ -1829,6 +1887,7 @@ function importBackup(){
 }
 
 function clearAllData(){
+  if(!can('delete')){ toast('لا تملك صلاحية الحذف',true); return; }
   const pid=getActiveProfileId();
   const profiles=profilesLoad();
   const pName=profiles.find(p=>p.id===pid)?.name||'';
@@ -3253,6 +3312,205 @@ window.addEventListener('pagehide',    onAppClose);
 document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='hidden') onAppClose(); });
 
 // ═══════════════════════════════════════════
+// 👥 المستخدمون والدخول والصلاحيات
+// ═══════════════════════════════════════════
+const USERS_KEY='scs_users';       // يُزامَن سحابياً (بادئة scs_)
+const SESSION_KEY='sess_current';  // محلي لكل جهاز (لا يُزامَن)
+const PERMS=[
+  ['ops','بيانات الشحنة والمصاريف والتكاليف'],
+  ['pricing','احتساب أسعار البيع'],
+  ['payments','الدفعات المسددة'],
+  ['archive','سجل الشحنات'],
+  ['companies','إدارة الشركات (تبديل/إنشاء/حذف)'],
+  ['settings','الإعدادات'],
+  ['delete','الحذف'],
+  ['users','إدارة المستخدمين']
+];
+const ROLE_NAMES={admin:'مدير النظام',manager:'مدير',entry:'مدخل بيانات',viewer:'مشاهد',custom:'مخصص'};
+function permAll(v){ const o={}; PERMS.forEach(p=>o[p[0]]=v); return o; }
+function rolePreset(role){
+  if(role==='admin')   return permAll(true);
+  if(role==='manager'){ const o=permAll(true); o.users=false; return o; }
+  if(role==='entry')   return {ops:true,pricing:true,payments:true,archive:true,companies:false,settings:false,delete:false,users:false};
+  if(role==='viewer')  return {ops:false,pricing:false,payments:false,archive:true,companies:false,settings:false,delete:false,users:false};
+  return permAll(false);
+}
+function hashPw(s){ s=String(s); let h=5381; for(let i=0;i<s.length;i++){ h=((h<<5)+h)+s.charCodeAt(i); h|=0; } return 'h'+(h>>>0).toString(16); }
+function usersLoad(){ try{ return JSON.parse(localStorage.getItem(USERS_KEY)||'[]'); }catch(e){ return []; } }
+function usersSave(arr){ try{ localStorage.setItem(USERS_KEY,JSON.stringify(arr)); return true; }catch(e){ toast('⚠️ فشل حفظ المستخدمين',true); return false; } }
+function currentUser(){
+  const un=localStorage.getItem(SESSION_KEY); if(!un) return null;
+  return usersLoad().find(u=>u.username===un)||null;
+}
+function can(perm){ const u=currentUser(); if(!u||u.active===0) return false; if(u.role==='admin') return true; return !!(u.perms&&u.perms[perm]); }
+
+// ── بوابة الدخول ──
+function authGate(){
+  const users=usersLoad();
+  if(!users.length){ showFirstRun(); return; }
+  const u=currentUser();
+  if(u && u.active!==0){ document.getElementById('login-overlay').style.display='none'; initApp(); return; }
+  localStorage.removeItem(SESSION_KEY);
+  showLogin();
+}
+function showLogin(){
+  const o=document.getElementById('login-overlay'); o.style.display='flex';
+  document.getElementById('login-title').textContent='تسجيل الدخول';
+  document.getElementById('login-sub').textContent='أدخل اسم المستخدم وكلمة المرور';
+  document.getElementById('lg-name-w').style.display='none';
+  document.getElementById('lg-pass2-w').style.display='none';
+  document.getElementById('lg-btn').textContent='🔓 دخول';
+  document.getElementById('lg-btn').setAttribute('onclick','submitLogin()');
+  document.getElementById('lg-msg').textContent='';
+  document.getElementById('lg-user').value=''; document.getElementById('lg-pass').value='';
+  setTimeout(()=>document.getElementById('lg-user').focus(),100);
+}
+function showFirstRun(){
+  const o=document.getElementById('login-overlay'); o.style.display='flex';
+  document.getElementById('login-title').textContent='إنشاء حساب المدير';
+  document.getElementById('login-sub').textContent='أول تشغيل — أنشئ حساب المدير للتحكم بالمستخدمين والصلاحيات';
+  document.getElementById('lg-name-w').style.display='';
+  document.getElementById('lg-pass2-w').style.display='';
+  document.getElementById('lg-btn').textContent='🆕 إنشاء المدير والدخول';
+  document.getElementById('lg-btn').setAttribute('onclick','createFirstAdmin()');
+  document.getElementById('lg-msg').textContent='';
+  ['lg-name','lg-user','lg-pass','lg-pass2'].forEach(id=>document.getElementById(id).value='');
+}
+function lgMsg(t){ document.getElementById('lg-msg').textContent=t||''; }
+function submitLogin(){
+  const un=document.getElementById('lg-user').value.trim();
+  const pw=document.getElementById('lg-pass').value;
+  if(!un||!pw){ lgMsg('أدخل اسم المستخدم وكلمة المرور'); return; }
+  const u=usersLoad().find(x=>x.username.toLowerCase()===un.toLowerCase());
+  if(!u){ lgMsg('اسم المستخدم غير موجود'); return; }
+  if(u.active===0){ lgMsg('هذا الحساب موقوف — راجع المدير'); return; }
+  if(u.pass!==hashPw(pw)){ lgMsg('كلمة المرور غير صحيحة'); return; }
+  localStorage.setItem(SESSION_KEY,u.username);
+  document.getElementById('login-overlay').style.display='none';
+  initApp();
+  toast('👋 مرحباً '+ (u.name||u.username));
+}
+function createFirstAdmin(){
+  const name=document.getElementById('lg-name').value.trim();
+  const un=document.getElementById('lg-user').value.trim();
+  const pw=document.getElementById('lg-pass').value;
+  const pw2=document.getElementById('lg-pass2').value;
+  if(!name||!un||!pw){ lgMsg('أكمل كل الحقول'); return; }
+  if(pw.length<4){ lgMsg('كلمة المرور 4 أحرف على الأقل'); return; }
+  if(pw!==pw2){ lgMsg('كلمتا المرور غير متطابقتين'); return; }
+  const users=usersLoad();
+  users.push({id:Date.now(),name:name,username:un,pass:hashPw(pw),role:'admin',perms:permAll(true),active:1});
+  usersSave(users);
+  localStorage.setItem(SESSION_KEY,un);
+  document.getElementById('login-overlay').style.display='none';
+  initApp();
+  toast('✅ تم إنشاء حساب المدير');
+}
+function logout(){
+  confirm2('تسجيل الخروج؟', ()=>{ localStorage.removeItem(SESSION_KEY); location.reload(); });
+}
+
+// ── تطبيق الصلاحيات على الواجهة ──
+function applyPermsUI(){
+  const u=currentUser();
+  // اسم المستخدم في الرأس
+  const nm=document.getElementById('current-user-name'); if(nm) nm.textContent = u?(u.name||u.username)+' · '+(ROLE_NAMES[u.role]||''):'';
+  // إظهار/إخفاء التبويبات حسب الصلاحية
+  const tabPerm={'page-shipment':'ops','page-costs':'ops','page-results':'ops','page-pricing':'pricing','page-archive':'archive','page-payments':'payments'};
+  document.querySelectorAll('.tabs .tab').forEach(t=>{
+    const oc=t.getAttribute('onclick')||''; const m=oc.match(/'(page-[a-z]+)'/);
+    if(m){ t.style.display = can(tabPerm[m[1]]||'ops') ? '' : 'none'; }
+  });
+  // أزرار الرأس
+  const showIf=(id,perm)=>{ const e=document.getElementById(id); if(e) e.style.display=can(perm)?'':'none'; };
+  showIf('btn-users', 'users');
+  showIf('btn-settings','settings');
+  // زر إدارة الشركات (badge + quick switch)
+  const comp=can('companies');
+  ['active-profile-badge'].forEach(id=>{ const e=document.getElementById(id); if(e) e.style.display=comp?'':'none'; });
+  const qs=document.getElementById('quick-profile-switch'); if(qs&&qs.parentElement) qs.parentElement.style.display=comp?'':'none';
+  // فتح أول تبويب مسموح إن كان الحالي مخفياً
+  const active=document.querySelector('.tabs .tab.active');
+  if(active && active.style.display==='none'){
+    const first=[...document.querySelectorAll('.tabs .tab')].find(t=>t.style.display!=='none');
+    if(first) first.click();
+  }
+}
+
+// ── إدارة المستخدمين ──
+let editUserId=null;
+function openUsers(){ if(!can('users')){ toast('لا تملك صلاحية إدارة المستخدمين',true); return; } editUserId=null; renderUsersModal(); document.getElementById('users-modal').style.display='flex'; }
+function closeUsers(){ document.getElementById('users-modal').style.display='none'; }
+function renderUsersModal(){
+  const users=usersLoad();
+  document.getElementById('users-list').innerHTML=users.map(u=>`
+    <div style="display:flex;align-items:center;gap:8px;justify-content:space-between;border:1px solid var(--border);border-radius:8px;padding:8px 11px;margin-bottom:6px;flex-wrap:wrap">
+      <div><strong>${escH(u.name||u.username)}</strong> <span style="color:var(--muted);font-size:.8rem">(${escH(u.username)})</span>
+        <span class="tag ${u.role==='admin'?'tag-con':'tag-inv'}" style="margin-right:6px">${ROLE_NAMES[u.role]||u.role}</span>
+        ${u.active===0?'<span class="tag" style="background:#fdecea;color:#c0392b">موقوف</span>':''}</div>
+      <div style="display:flex;gap:5px;flex-wrap:wrap">
+        <button class="btn btn-outline btn-sm" onclick="editUser(${u.id})">تعديل</button>
+        <button class="btn btn-outline btn-sm" onclick="resetUserPass(${u.id})">كلمة المرور</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteUser(${u.id})">حذف</button>
+      </div>
+    </div>`).join('')||'<div style="color:var(--muted);text-align:center;padding:14px">لا يوجد مستخدمون</div>';
+  // نموذج الإضافة/التعديل
+  const u=editUserId?usersLoad().find(x=>x.id===editUserId):null;
+  document.getElementById('u-form-title').textContent=u?('تعديل: '+(u.name||u.username)):'➕ إضافة مستخدم جديد';
+  document.getElementById('u-name').value=u?(u.name||''):'';
+  document.getElementById('u-user').value=u?u.username:'';
+  document.getElementById('u-pass').value='';
+  document.getElementById('u-pass-w').style.display=u?'none':'';
+  document.getElementById('u-role').value=u?u.role:'entry';
+  document.getElementById('u-active').value=u?String(u.active===0?0:1):'1';
+  renderPermGrid(u?u.perms:rolePreset('entry'));
+}
+function renderPermGrid(perms){
+  perms=perms||{};
+  document.getElementById('u-perms').innerHTML=PERMS.map(p=>`
+    <label style="display:flex;align-items:center;gap:6px;font-size:.82rem;padding:4px 6px;border:1px solid var(--border);border-radius:6px">
+      <input type="checkbox" data-perm="${p[0]}" ${perms[p[0]]?'checked':''} style="width:auto"> ${p[1]}
+    </label>`).join('');
+}
+function onRolePreset(){ const r=document.getElementById('u-role').value; if(r!=='custom') renderPermGrid(rolePreset(r)); }
+function collectPerms(){ const o={}; document.querySelectorAll('#u-perms input[data-perm]').forEach(c=>o[c.getAttribute('data-perm')]=c.checked); return o; }
+function editUser(id){ editUserId=id; renderUsersModal(); }
+function saveUser(){
+  const name=document.getElementById('u-name').value.trim();
+  const un=document.getElementById('u-user').value.trim();
+  const role=document.getElementById('u-role').value;
+  const active=Number(document.getElementById('u-active').value);
+  const perms=collectPerms();
+  if(!un){ toast('أدخل اسم المستخدم',true); return; }
+  const users=usersLoad();
+  const dup=users.find(x=>x.username.toLowerCase()===un.toLowerCase() && x.id!==editUserId);
+  if(dup){ toast('اسم المستخدم مستخدم بالفعل',true); return; }
+  if(editUserId){
+    const u=users.find(x=>x.id===editUserId); if(!u) return;
+    // منع إيقاف/تنزيل آخر مدير
+    if(u.role==='admin' && (role!=='admin'||active===0) && users.filter(x=>x.role==='admin'&&x.active!==0).length<=1){ toast('لا يمكن إيقاف آخر مدير',true); return; }
+    u.name=name; u.username=un; u.role=role; u.active=active; u.perms=role==='admin'?permAll(true):perms;
+  } else {
+    const pw=document.getElementById('u-pass').value;
+    if(pw.length<4){ toast('كلمة المرور 4 أحرف على الأقل',true); return; }
+    users.push({id:Date.now(),name:name,username:un,pass:hashPw(pw),role:role,perms:role==='admin'?permAll(true):perms,active:active});
+  }
+  usersSave(users); editUserId=null; renderUsersModal(); applyPermsUI(); toast('✅ تم حفظ المستخدم');
+}
+function resetUserPass(id){
+  const u=usersLoad().find(x=>x.id===id); if(!u) return;
+  const pw=window.prompt('كلمة مرور جديدة للمستخدم "'+(u.name||u.username)+'":','');
+  if(pw===null) return; if(pw.length<4){ toast('كلمة المرور 4 أحرف على الأقل',true); return; }
+  const users=usersLoad(); const t=users.find(x=>x.id===id); t.pass=hashPw(pw); usersSave(users); toast('✅ تم تغيير كلمة المرور');
+}
+function deleteUser(id){
+  const users=usersLoad(); const u=users.find(x=>x.id===id); if(!u) return;
+  if(u.role==='admin' && users.filter(x=>x.role==='admin'&&x.active!==0).length<=1){ toast('لا يمكن حذف آخر مدير',true); return; }
+  if(currentUser() && currentUser().id===id){ toast('لا يمكنك حذف حسابك أثناء استخدامه',true); return; }
+  confirm2('حذف المستخدم "'+(u.name||u.username)+'"؟', ()=>{ usersSave(users.filter(x=>x.id!==id)); renderUsersModal(); toast('🗑️ تم حذف المستخدم'); });
+}
+
+// ═══════════════════════════════════════════
 // THEME — الوضع الليلي / النهاري
 // ═══════════════════════════════════════════
 const THEME_KEY='scs_theme';
@@ -3549,6 +3807,7 @@ function deletePayment(id){
   const list=payLoad().filter(p=>p.id!==id); paySave(list); renderPayments(); toast('🗑️ تم حذف الدفعة');
 }
 function clearAllPayments(){
+  if(!can('delete')){ toast('لا تملك صلاحية الحذف',true); return; }
   const pname=profilesLoad().find(p=>p.id===getActiveProfileId())?.name||'';
   confirm2(`حذف كل دفعات شركة "${pname}" نهائياً؟`, ()=>{ paySave([]); renderPayments(); toast('🗑️ تم حذف الدفعات'); });
 }
@@ -3676,11 +3935,11 @@ function exportPaymentsExcel(){
 // ═══════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════
-window.onload = function() {
-  applyStoredTheme();
+function initApp() {
   renderQuickSwitch();
   updateAutoBackupLabel();
   cloudInit();
+  applyPermsUI();
   const profiles = profilesLoad();
   const activeId = getActiveProfileId();
   const hasActive = activeId && profiles.find(p=>p.id===activeId);
@@ -3709,6 +3968,11 @@ window.onload = function() {
       editProfile(activeId);
     }
   }
+}
+
+window.onload = function() {
+  applyStoredTheme();
+  authGate();
 };
 </script>
 </body>
