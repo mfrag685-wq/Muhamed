@@ -36,6 +36,16 @@
   window.__APPTITLE=(t&&(""+t).trim())||"دفتر الاستيراد";
   try{document.title=window.__APPTITLE;}catch(e){}
 
+  // أيقونة النشاط القابلة للتعديل (تظهر في الترويسة وتبويب المتصفح)
+  var ic=window.__cfgGet("cfg-icon");
+  window.__APPICON=(ic&&(""+ic).trim())||"🛏️";
+  try{
+    var svg='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><text x="4" y="50" font-size="50">'+window.__APPICON+'</text></svg>';
+    var link=document.querySelector('link[rel="icon"]')||document.createElement("link");
+    link.rel="icon"; link.type="image/svg+xml"; link.href="data:image/svg+xml,"+encodeURIComponent(svg);
+    document.head.appendChild(link);
+  }catch(e){}
+
   // تطبيق الثيم المحفوظ (نهاري/ليلي) قبل الرسم لتفادي الوميض
   var th=localStorage.getItem("__theme");
   if(th==="light"||th==="dark")document.documentElement.setAttribute("data-theme",th);
@@ -1043,7 +1053,7 @@ function App() {
       alignItems: "center",
       justifyContent: "center"
     }
-  }, "\u26C1"), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+  }, (typeof window !== "undefined" && window.__APPICON) || "\uD83D\uDECF\uFE0F"), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     style: {
       fontWeight: 700,
       fontSize: 16,
@@ -4530,6 +4540,7 @@ ReactDOM.createRoot(document.getElementById("app")).render(React.createElement(A
       field("اسم هذا النموذج (يظهر في محدّد النماذج)",profileLabel(AP,curIdx),"pname")+
       '<div style="height:1px;background:var(--border);margin:12px 0"></div>'+
       field("اسم التطبيق (يظهر في الترويسة)",appTitle(),"title")+
+      field("أيقونة النشاط — إيموجي (مثال: 🛏️ 🛋️ 🪑 🚪 🛒 🏭)",((window.__APPICON)||"🛏️"),"icon")+
       '<div style="height:1px;background:var(--border);margin:12px 0"></div>'+
       field("اسم الشركة الأولى",c1.label||"الشركة الأولى","c1label")+
       field("الاختصار (يظهر في الجداول)",c1.short||"ش١","c1short")+
@@ -4546,6 +4557,7 @@ ReactDOM.createRoot(document.getElementById("app")).render(React.createElement(A
       var vals={};box.querySelectorAll(".ikset").forEach(function(inp){vals[inp.getAttribute("data-k")]=inp.value.trim();});
       setProfileName(AP,vals.pname);
       window.__cfgSet&&window.__cfgSet("cfg-title",vals.title||"دفتر الاستيراد");
+      window.__cfgSet&&window.__cfgSet("cfg-icon",vals.icon||"🛏️");
       window.__cfgSet&&window.__cfgSet("cfg-names",{
         c1:{label:vals.c1label||"الشركة الأولى",short:vals.c1short||"ش١"},
         c2:{label:vals.c2label||"الشركة الثانية",short:vals.c2short||"ش٢"}
