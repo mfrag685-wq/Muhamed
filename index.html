@@ -4911,21 +4911,42 @@ ReactDOM.createRoot(document.getElementById("app")).render(React.createElement(A
     return true;
   }
 
-  /* ── شريط المستخدم (أعلى اليمين): الاسم + خروج + (المستخدمون للمدير) ── */
+  /* ── زر الحساب داخل شريط الأدوات السفلي + قائمة منسدلة أنيقة ── */
+  function esc(s){return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
   function mountUserBar(){
-    if(document.getElementById("ik-user-bar"))return;
-    var bar=el("div","position:fixed;top:8px;right:8px;z-index:1650;display:flex;gap:6px;align-items:center;font-family:'Tajawal','Segoe UI',sans-serif;flex-wrap:wrap;justify-content:flex-end;max-width:calc(100vw - 16px)");
-    bar.id="ik-user-bar";bar.setAttribute("dir","rtl");
-    var chip=el("div","background:var(--surface-2,#fff);color:var(--text-primary,#1c2733);border:0.5px solid var(--border-strong,#c3ccd8);border-radius:20px;padding:5px 11px;font-size:11px;box-shadow:0 2px 6px rgba(15,30,50,.15)","👤 "+(window.__AUTH_USER||"")+(window.__AUTH_ROLE==="admin"?" · مدير":""));
-    bar.appendChild(chip);
-    if(window.__AUTH_ROLE==="admin"){
-      var ub=el("button","border:none;background:var(--surface-2,#fff);color:var(--text-primary,#1c2733);border:0.5px solid var(--border-strong,#c3ccd8);border-radius:8px;padding:6px 10px;font-size:12px;cursor:pointer;font-family:inherit;box-shadow:0 2px 6px rgba(15,30,50,.15)","👥 المستخدمون");
-      ub.onclick=openUsers;bar.appendChild(ub);
+    function attach(){
+      var bar=document.getElementById("ik-tools-bar");
+      if(!bar){setTimeout(attach,300);return;}
+      if(document.getElementById("ik-acct-btn"))return;
+      var name=(window.__AUTH_USER||"").trim();
+      var initial=(name[0]||"👤");
+      var btn=el("button","display:inline-flex;align-items:center;gap:6px;border:0.5px solid var(--border-strong,#c3ccd8);background:var(--surface-2,#fff);color:var(--text-primary,#1c2733);border-radius:8px;padding:4px 10px 4px 6px;font-size:12px;cursor:pointer;font-family:'Tajawal','Segoe UI',sans-serif;box-shadow:0 2px 6px rgba(15,30,50,.2);white-space:nowrap");
+      btn.id="ik-acct-btn";
+      btn.innerHTML='<span style="width:22px;height:22px;border-radius:50%;background:'+NAVY+';color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:700">'+esc(initial)+'</span><span>'+esc(name)+'</span><span style="color:var(--text-muted,#8593a6);font-size:10px">▾</span>';
+      btn.onclick=function(ev){ev.stopPropagation();toggleAcctMenu();};
+      bar.insertBefore(btn,bar.firstChild);
     }
-    var lo=el("button","border:none;background:#b5341f;color:#fff;border-radius:8px;padding:6px 10px;font-size:12px;cursor:pointer;font-family:inherit;box-shadow:0 2px 6px rgba(15,30,50,.15)","خروج");
-    lo.onclick=function(){if(confirm("تسجيل الخروج؟"))logout();};
-    bar.appendChild(lo);
-    document.body.appendChild(bar);
+    attach();
+  }
+  function toggleAcctMenu(){
+    var ex=document.getElementById("ik-acct-menu");if(ex){ex.remove();return;}
+    var itemCss="display:block;width:100%;text-align:right;border:none;background:transparent;padding:11px 14px;font-size:13px;cursor:pointer;font-family:'Tajawal','Segoe UI',sans-serif;color:var(--text-primary,#1c2733)";
+    var m=el("div","position:fixed;bottom:54px;right:14px;z-index:1700;background:var(--surface-2,#fff);color:var(--text-primary,#1c2733);border:0.5px solid var(--border,#dbe2ea);border-radius:12px;box-shadow:0 14px 36px rgba(15,30,50,.3);min-width:210px;overflow:hidden");
+    m.id="ik-acct-menu";m.setAttribute("dir","rtl");
+    var role=window.__AUTH_ROLE==="admin"?"مدير":"موظف";
+    var html='<div style="padding:12px 14px;border-bottom:0.5px solid var(--border,#dbe2ea);display:flex;align-items:center;gap:9px">'+
+      '<span style="width:30px;height:30px;border-radius:50%;background:'+NAVY+';color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:13px;font-weight:700">'+esc(((window.__AUTH_USER||"").trim()[0])||"👤")+'</span>'+
+      '<div><div style="font-weight:700;font-size:13px">'+esc(window.__AUTH_USER||"")+'</div><div style="font-size:11px;color:var(--text-muted,#8593a6)">'+role+'</div></div></div>';
+    if(window.__AUTH_ROLE==="admin")html+='<button class="ik-acct-item" data-a="users" style="'+itemCss+'">👥 إدارة المستخدمين</button>';
+    html+='<button class="ik-acct-item" data-a="logout" style="'+itemCss+';color:#b5341f;border-top:0.5px solid var(--border,#dbe2ea)">🚪 تسجيل الخروج</button>';
+    m.innerHTML=html;
+    document.body.appendChild(m);
+    m.querySelectorAll(".ik-acct-item").forEach(function(b){
+      b.onmouseover=function(){b.style.background="var(--surface-1,#eef2f6)";};
+      b.onmouseout=function(){b.style.background="transparent";};
+      b.onclick=function(){var a=b.getAttribute("data-a");m.remove();if(a==="users")openUsers();else if(a==="logout"){if(confirm("تسجيل الخروج؟"))logout();}};
+    });
+    setTimeout(function(){document.addEventListener("click",function h(e){var mm=document.getElementById("ik-acct-menu");if(mm&&!mm.contains(e.target)&&e.target.id!=="ik-acct-btn"){mm.remove();}document.removeEventListener("click",h);});},0);
   }
 
   /* ── لوحة إدارة المستخدمين (للمدير) ── */
