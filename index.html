@@ -4664,17 +4664,17 @@ ReactDOM.createRoot(document.getElementById("app")).render(React.createElement(A
 
   /* مؤشّر حالة صغير ثابت أعلى يسار الشاشة */
   var chip=null;
-  function status(state){
+  function status(state,detail){
     if(!enabled())return;
     if(!chip){
       chip=document.createElement("div");
       chip.setAttribute("dir","rtl");
-      chip.style.cssText="position:fixed;top:8px;left:8px;z-index:1600;font-family:'Tajawal','Segoe UI',sans-serif;font-size:11px;padding:4px 10px;border-radius:20px;box-shadow:0 2px 6px rgba(15,30,50,.2)";
+      chip.style.cssText="position:fixed;top:8px;left:8px;z-index:1600;font-family:'Tajawal','Segoe UI',sans-serif;font-size:11px;padding:4px 10px;border-radius:20px;box-shadow:0 2px 6px rgba(15,30,50,.2);max-width:calc(100vw - 16px);white-space:normal;line-height:1.4";
       document.body.appendChild(chip);
     }
-    var map={connecting:["يتصل بالسحابة…","#8593a6","#fff"],ok:["متصل ☁","#1f7a4d","#fff"],sync:["يُزامن…","#9a5b12","#fff"],err:["تعذّر الاتصال — محفوظ محلياً","#b5341f","#fff"]};
+    var map={connecting:["يتصل بالسحابة…","#8593a6","#fff"],ok:["متصل ☁","#1f7a4d","#fff"],sync:["يُزامن…","#9a5b12","#fff"],err:["تعذّر الاتصال","#b5341f","#fff"]};
     var m=map[state]||map.connecting;
-    chip.textContent=m[0]+" · "+((window.__profileName&&window.__profileName(AP))||AP);
+    chip.textContent=m[0]+(detail?(" — "+detail):(state==="err"?" — محفوظ محلياً":""))+" · "+((window.__profileName&&window.__profileName(AP))||AP);
     chip.style.background=m[1];chip.style.color=m[2];
   }
 
@@ -4684,7 +4684,7 @@ ReactDOM.createRoot(document.getElementById("app")).render(React.createElement(A
     pushTimer=setTimeout(function(){
       var snap=snapshot();lastPushed=canon(snap);status("sync");
       cloudRef.set({data:snap,updatedAt:firebase.database.ServerValue.TIMESTAMP})
-        .then(function(){status("ok");}).catch(function(){status("err");});
+        .then(function(){status("ok");}).catch(function(e){status("err",(e&&e.code)||(e&&e.message)||"رُفضت الكتابة");});
     },700);
   }
 
@@ -4718,9 +4718,9 @@ ReactDOM.createRoot(document.getElementById("app")).render(React.createElement(A
     if(!enabled())return; // فارغة: يعمل محلياً كما هو
     status("connecting");
     loadFirebase(function(ok){
-      if(!ok){status("err");return;}
+      if(!ok){status("err","تعذّر تحميل Firebase (تحقّق من الإنترنت)");return;}
       try{firebase.initializeApp(CLOUD_CONFIG);}catch(e){}
-      firebase.auth().signInAnonymously().catch(function(){status("err");});
+      firebase.auth().signInAnonymously().catch(function(e){status("err",(e&&e.code)||(e&&e.message)||"فشل الدخول");});
       firebase.auth().onAuthStateChanged(function(user){
         if(!user||cloudReady)return;
         cloudRef=firebase.database().ref("import-ledger/"+(CLOUD_CONFIG.workspaceId||"main")+"/"+AP);
@@ -4737,7 +4737,7 @@ ReactDOM.createRoot(document.getElementById("app")).render(React.createElement(A
             if(rc===lastPushed||rc===canon(snapshot()))return; // تجاهل صدى كتابتنا
             applyRemote(val.data);
           });
-        }).catch(function(){status("err");});
+        }).catch(function(e){status("err",(e&&e.code)||(e&&e.message)||"رُفضت القراءة");});
       });
     });
   }
