@@ -49,6 +49,22 @@
   // تطبيق الثيم المحفوظ (نهاري/ليلي) قبل الرسم لتفادي الوميض
   var th=localStorage.getItem("__theme");
   if(th==="light"||th==="dark")document.documentElement.setAttribute("data-theme",th);
+
+  // قراءة جلسة الدخول مبكراً وضبط الصلاحيات قبل رسم التطبيق
+  try{
+    var sess=sessionStorage.getItem("__auth_session");
+    var auth=JSON.parse(localStorage.getItem("__auth_v1")||"null");
+    if(sess&&auth&&auth.users){
+      var u=auth.users.filter(function(x){return x.id===sess&&x.active;})[0];
+      if(u){
+        window.__AUTH_UID=u.id;
+        window.__AUTH_USER=u.name||u.username;
+        window.__AUTH_ROLE=u.role;
+        window.__canEdit=(u.role==="admin")||!!u.edit;
+        window.__ALLOWED_TABS=(u.role==="admin")?null:((u.tabs&&u.tabs.length)?u.tabs:["ships"]);
+      }
+    }
+  }catch(e){}
 })();
 </script>
 </head>
@@ -898,7 +914,7 @@ const newShip = (co, n) => ({
 
 /* ── التطبيق ─────────────────────────────────────────── */
 function App() {
-  const [tab, setTab] = useState("ships");
+  const [tab, setTab] = useState(() => (typeof window !== "undefined" && window.__ALLOWED_TABS && window.__ALLOWED_TABS[0]) || "ships");
   const [ships, setShips] = useState([]);
   const [pays, setPays] = useState([]);
   const [rate, setRate] = useState(3.75);
@@ -971,12 +987,14 @@ function App() {
     }));
   }, [rate, ready]);
   const addLog = useCallback((action, detail, co) => {
+    const _u = (typeof window !== "undefined" && window.__AUTH_USER) || null;
     const e = {
       id: uid(),
       ...stamp(),
       action,
-      detail,
-      company: co || null
+      detail: detail + (_u ? " — بواسطة " + _u : ""),
+      company: co || null,
+      user: _u
     };
     setLog(prev => {
       const next = [e, ...prev].slice(0, LOG_MAX);
@@ -1013,7 +1031,7 @@ function App() {
   }, {
     id: "log",
     lb: "🕐 سجل النشاط"
-  }];
+  }].filter(t => (typeof window === "undefined") || !window.__ALLOWED_TABS || window.__ALLOWED_TABS.indexOf(t.id) >= 0);
   if (!ready) return /*#__PURE__*/React.createElement("div", {
     style: {
       padding: 40,
@@ -4774,5 +4792,277 @@ ReactDOM.createRoot(document.getElementById("app")).render(React.createElement(A
   else init();
 })();
 </script>
+
+<!-- ══════════════════════════════════════════════════════════════
+     نظام الدخول والمستخدمين والصلاحيات (شاشة دخول واحدة لكل البرنامج)
+     ══════════════════════════════════════════════════════════════ -->
+<script>
+(function(){
+  var NAVY="#1a3a5c";
+  var AUTH_KEY="__auth_v1", SESSION_KEY="__auth_session";
+  var TAB_DEFS=[["ships","الشحنات"],["pays","الدفعات"],["reports","التقارير"],["statement","كشف الحساب"],["compare","المقارنة"],["log","سجل النشاط"]];
+  var uid=function(){return Math.random().toString(36).slice(2,9)+Date.now().toString(36);};
+  function loadAuth(){try{return JSON.parse(localStorage.getItem(AUTH_KEY))||{users:[]};}catch(e){return {users:[]};}}
+  function saveAuth(d,skipCloud){try{localStorage.setItem(AUTH_KEY,JSON.stringify(d));}catch(e){} if(!skipCloud)pushUsersCloud(d);}
+  function appTitle(){return (window.__APPTITLE)||"دفتر الاستيراد";}
+  function appIcon(){return (window.__APPICON)||"🛏️";}
+
+  async function sha(s){
+    try{
+      var buf=await crypto.subtle.digest("SHA-256",new TextEncoder().encode("ik:"+s));
+      return Array.prototype.map.call(new Uint8Array(buf),function(b){return ("0"+b.toString(16)).slice(-2);}).join("");
+    }catch(e){var h=5381;for(var i=0;i<s.length;i++){h=((h<<5)+h+s.charCodeAt(i))>>>0;}return "f"+h.toString(16);}
+  }
+
+  /* ── مزامنة المستخدمين عبر السحابة (مساحة مشتركة لكل البرنامج) ── */
+  var usersRef=null, lastPushedUsers="";
+  function myPermsSig(u){return u?[u.role,(u.tabs||[]).join(","),!!u.edit,!!u.active].join("|"):"";}
+  function pushUsersCloud(d){try{ if(!usersRef)return; var s=JSON.stringify(d.users); if(s===lastPushedUsers)return; lastPushedUsers=s; usersRef.set({users:d.users,updatedAt:Date.now()}); }catch(e){}}
+  function attachUsersCloud(){
+    try{
+      var C=window.__IK_CLOUD;
+      if(!C||!C.apiKey||typeof firebase==="undefined"||!firebase.database)return false;
+      usersRef=firebase.database().ref("import-ledger/"+(C.workspaceId||"main")+"/_auth");
+      usersRef.on("value",function(snap){
+        var v=snap.val();
+        if(!v||!Array.isArray(v.users))return;
+        var s=JSON.stringify(v.users);
+        if(s===lastPushedUsers)return;
+        var cur=loadAuth(); if(JSON.stringify(cur.users)===s){lastPushedUsers=s;return;}
+        lastPushedUsers=s;
+        saveAuth({users:v.users},true);
+        var sess=sessionStorage.getItem(SESSION_KEY);
+        if(sess){
+          var me=v.users.filter(function(x){return x.id===sess;})[0];
+          if(!me||!me.active){logout();return;}
+          var newSig=myPermsSig(me), oldSig=window.__MY_SIG;
+          if(oldSig&&newSig!==oldSig){location.reload();}
+        }
+        if(window.__pendingUsers){window.__pendingUsers(v.users);}
+      });
+      return true;
+    }catch(e){return false;}
+  }
+  function waitFirebase(cb,tries){
+    tries=tries||0;
+    if(attachUsersCloud())return cb(true);
+    if(tries>20)return cb(false);
+    setTimeout(function(){waitFirebase(cb,tries+1);},400);
+  }
+
+  /* ── الجلسة والخروج ── */
+  function logout(){try{sessionStorage.removeItem(SESSION_KEY);}catch(e){} location.reload();}
+
+  /* ── إنشاء المدير الافتراضي عند أول تشغيل ── */
+  async function ensureDefaultAdmin(){
+    var d=loadAuth();
+    if(d.users&&d.users.length)return d;
+    var h=await sha("admin123");
+    d={users:[{id:uid(),username:"admin",name:"المدير",pass:h,role:"admin",tabs:["ships","pays","reports","statement","compare","log"],edit:true,active:true,mustChange:true}]};
+    saveAuth(d);
+    return d;
+  }
+
+  /* ── واجهة عامة صغيرة ── */
+  function el(tag,css,txt){var e=document.createElement(tag);if(css)e.style.cssText=css;if(txt!=null)e.textContent=txt;return e;}
+  function flash(msg,err){var t=el("div","position:fixed;bottom:60px;left:50%;transform:translateX(-50%);background:"+(err?"#c0402a":NAVY)+";color:#fff;padding:8px 20px;border-radius:20px;font-size:12px;z-index:5000;font-family:'Tajawal','Segoe UI',sans-serif;box-shadow:0 4px 12px rgba(15,30,50,.25)",msg);document.body.appendChild(t);setTimeout(function(){t.remove();},2600);}
+
+  /* ── شاشة الدخول ── */
+  function showLogin(){
+    if(document.getElementById("ik-login"))return;
+    var ov=el("div","position:fixed;inset:0;z-index:4000;background:linear-gradient(160deg,#0f2033,#1a3a5c 70%,#25507a);display:flex;align-items:center;justify-content:center;padding:18px;font-family:'Tajawal','Segoe UI',sans-serif");
+    ov.id="ik-login";ov.setAttribute("dir","rtl");
+    var card=el("div","background:#fff;color:#1c2733;border-radius:16px;padding:26px 22px;width:100%;max-width:360px;box-shadow:0 24px 60px rgba(0,0,0,.4);text-align:center");
+    card.innerHTML='<div style="font-size:34px;margin-bottom:6px">'+appIcon()+'</div>'+
+      '<div style="font-weight:700;font-size:18px;margin-bottom:2px">'+appTitle()+'</div>'+
+      '<div style="font-size:12px;color:#6b7d8c;margin-bottom:18px">تسجيل الدخول للمتابعة</div>'+
+      '<div id="ik-login-err" style="display:none;background:#fbeae6;color:#c0402a;border-radius:8px;padding:8px;font-size:12px;margin-bottom:10px"></div>'+
+      '<input id="ik-lg-user" placeholder="اسم المستخدم" style="width:100%;padding:11px;border:1px solid #d2dad8;border-radius:9px;font-family:inherit;font-size:14px;box-sizing:border-box;margin-bottom:10px;text-align:right">'+
+      '<input id="ik-lg-pass" type="password" placeholder="كلمة المرور" style="width:100%;padding:11px;border:1px solid #d2dad8;border-radius:9px;font-family:inherit;font-size:14px;box-sizing:border-box;margin-bottom:14px;text-align:right">'+
+      '<button id="ik-lg-btn" style="width:100%;border:none;background:'+NAVY+';color:#fff;border-radius:9px;padding:12px;font-size:15px;font-weight:600;cursor:pointer;font-family:inherit">دخول</button>'+
+      '<div style="font-size:11px;color:#9db;margin-top:14px">أول مرة؟ الدخول الافتراضي: admin / admin123</div>';
+    ov.appendChild(card);document.body.appendChild(ov);
+    var errBox=card.querySelector("#ik-login-err");
+    function err(m){errBox.textContent=m;errBox.style.display="block";}
+    async function doLogin(){
+      var un=(card.querySelector("#ik-lg-user").value||"").trim().toLowerCase();
+      var pw=card.querySelector("#ik-lg-pass").value||"";
+      if(!un||!pw){err("أدخل اسم المستخدم وكلمة المرور");return;}
+      var d=loadAuth();
+      var u=d.users.filter(function(x){return (x.username||"").toLowerCase()===un;})[0];
+      if(!u||!u.active){err("اسم المستخدم غير موجود أو معطّل");return;}
+      var h=await sha(pw);
+      if(h!==u.pass){err("كلمة المرور غير صحيحة");return;}
+      if(u.mustChange){ if(!(await changePassFlow(u,d)))return; }
+      try{sessionStorage.setItem(SESSION_KEY,u.id);}catch(e){}
+      location.reload();
+    }
+    card.querySelector("#ik-lg-btn").onclick=doLogin;
+    card.querySelector("#ik-lg-pass").addEventListener("keydown",function(e){if(e.key==="Enter")doLogin();});
+    setTimeout(function(){card.querySelector("#ik-lg-user").focus();},150);
+  }
+  async function changePassFlow(u,d){
+    var np=prompt("أول دخول للمدير — اختر كلمة مرور جديدة (٤ أحرف على الأقل):");
+    if(np==null)return false;
+    np=(""+np).trim();
+    if(np.length<4){alert("كلمة المرور قصيرة");return false;}
+    u.pass=await sha(np); u.mustChange=false;
+    saveAuth(d);
+    return true;
+  }
+
+  /* ── شريط المستخدم (أعلى اليمين): الاسم + خروج + (المستخدمون للمدير) ── */
+  function mountUserBar(){
+    if(document.getElementById("ik-user-bar"))return;
+    var bar=el("div","position:fixed;top:8px;right:8px;z-index:1650;display:flex;gap:6px;align-items:center;font-family:'Tajawal','Segoe UI',sans-serif;flex-wrap:wrap;justify-content:flex-end;max-width:calc(100vw - 16px)");
+    bar.id="ik-user-bar";bar.setAttribute("dir","rtl");
+    var chip=el("div","background:var(--surface-2,#fff);color:var(--text-primary,#1c2733);border:0.5px solid var(--border-strong,#c3ccd8);border-radius:20px;padding:5px 11px;font-size:11px;box-shadow:0 2px 6px rgba(15,30,50,.15)","👤 "+(window.__AUTH_USER||"")+(window.__AUTH_ROLE==="admin"?" · مدير":""));
+    bar.appendChild(chip);
+    if(window.__AUTH_ROLE==="admin"){
+      var ub=el("button","border:none;background:var(--surface-2,#fff);color:var(--text-primary,#1c2733);border:0.5px solid var(--border-strong,#c3ccd8);border-radius:8px;padding:6px 10px;font-size:12px;cursor:pointer;font-family:inherit;box-shadow:0 2px 6px rgba(15,30,50,.15)","👥 المستخدمون");
+      ub.onclick=openUsers;bar.appendChild(ub);
+    }
+    var lo=el("button","border:none;background:#b5341f;color:#fff;border-radius:8px;padding:6px 10px;font-size:12px;cursor:pointer;font-family:inherit;box-shadow:0 2px 6px rgba(15,30,50,.15)","خروج");
+    lo.onclick=function(){if(confirm("تسجيل الخروج؟"))logout();};
+    bar.appendChild(lo);
+    document.body.appendChild(bar);
+  }
+
+  /* ── لوحة إدارة المستخدمين (للمدير) ── */
+  function openUsers(){
+    if(document.getElementById("ik-users-ov"))return;
+    var d=loadAuth();
+    var ov=el("div","position:fixed;inset:0;background:rgba(10,18,28,.55);z-index:5000;display:flex;align-items:center;justify-content:center;padding:16px;font-family:'Tajawal','Segoe UI',sans-serif");
+    ov.id="ik-users-ov";ov.setAttribute("dir","rtl");
+    var box=el("div","background:var(--surface-2,#fff);color:var(--text-primary,#1c2733);border:0.5px solid var(--border,#dbe2ea);border-radius:14px;padding:18px;width:100%;max-width:520px;max-height:85vh;overflow:auto;box-shadow:0 20px 50px rgba(0,0,0,.4)");
+    function render(){
+      var rows=d.users.map(function(u){
+        return '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;border:0.5px solid var(--border,#dbe2ea);border-radius:9px;padding:8px 10px;margin-bottom:6px;flex-wrap:wrap">'+
+          '<div><b style="font-size:13px">'+(u.name||u.username)+'</b> <span style="font-size:11px;color:var(--text-muted,#8593a6)">('+u.username+')</span> '+
+          '<span style="font-size:10px;padding:1px 7px;border-radius:20px;background:'+(u.role==="admin"?"#e8f0f8":"#e7f4ec")+';color:'+(u.role==="admin"?"#1a3a5c":"#1f7a4d")+'">'+(u.role==="admin"?"مدير":"موظف")+'</span>'+
+          (u.active?"":' <span style="font-size:10px;color:#b5341f">معطّل</span>')+'</div>'+
+          '<div style="display:flex;gap:8px"><button data-edit="'+u.id+'" style="border:none;background:transparent;color:var(--text-accent,#1a3a5c);cursor:pointer;font-size:12px;font-family:inherit">تعديل</button>'+
+          (u.role==="admin"&&d.users.filter(function(x){return x.role==="admin"&&x.active;}).length<=1?"":'<button data-del="'+u.id+'" style="border:none;background:transparent;color:#b5341f;cursor:pointer;font-size:12px;font-family:inherit">حذف</button>')+'</div></div>';
+      }).join("");
+      box.innerHTML='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><div style="font-weight:700;font-size:15px;color:var(--text-accent,#1a3a5c)">👥 المستخدمون</div>'+
+        '<button id="ik-u-add" style="border:none;background:'+NAVY+';color:#fff;border-radius:8px;padding:6px 12px;font-size:12px;cursor:pointer;font-family:inherit">+ مستخدم</button></div>'+
+        rows+
+        '<div style="display:flex;justify-content:flex-end;margin-top:12px"><button id="ik-u-close" style="border:0.5px solid var(--border-strong,#c3ccd8);background:var(--surface-2,#fff);color:var(--text-secondary,#48566a);border-radius:8px;padding:7px 16px;cursor:pointer;font-family:inherit;font-size:12px">إغلاق</button></div>';
+      box.querySelector("#ik-u-close").onclick=function(){ov.remove();};
+      box.querySelector("#ik-u-add").onclick=function(){editUser(null);};
+      box.querySelectorAll("[data-edit]").forEach(function(b){b.onclick=function(){editUser(b.getAttribute("data-edit"));};});
+      box.querySelectorAll("[data-del]").forEach(function(b){b.onclick=function(){var id=b.getAttribute("data-del");if(confirm("حذف هذا المستخدم؟")){d.users=d.users.filter(function(x){return x.id!==id;});saveAuth(d);render();}};});
+    }
+    function editUser(id){
+      var u=id?d.users.filter(function(x){return x.id===id;})[0]:{id:uid(),username:"",name:"",role:"employee",tabs:["ships"],edit:false,active:true};
+      var isNew=!id;
+      var tabsHtml=TAB_DEFS.map(function(t){var on=(u.role==="admin")||(u.tabs||[]).indexOf(t[0])>=0;return '<label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;margin:2px 8px 2px 0"><input type="checkbox" class="ik-tab" value="'+t[0]+'" '+(on?"checked":"")+'> '+t[1]+'</label>';}).join("");
+      box.innerHTML='<div style="font-weight:700;font-size:15px;color:var(--text-accent,#1a3a5c);margin-bottom:12px">'+(isNew?"مستخدم جديد":"تعديل مستخدم")+'</div>'+
+        fld("الاسم","ik-f-name",u.name||"")+
+        fld("اسم المستخدم (للدخول)","ik-f-user",u.username||"")+
+        fld(isNew?"كلمة المرور":"كلمة مرور جديدة (اتركها فارغة للإبقاء)","ik-f-pass","","password")+
+        '<label style="display:block;margin-bottom:8px"><span style="display:block;font-size:11px;color:var(--text-secondary,#48566a);margin-bottom:3px">الدور</span>'+
+        '<select id="ik-f-role" style="width:100%;padding:8px 10px;border:0.5px solid var(--border-strong,#c3ccd8);border-radius:8px;background:var(--surface-0,#f4f6f9);color:var(--text-primary,#1c2733);font-family:inherit;font-size:13px"><option value="employee"'+(u.role!=="admin"?" selected":"")+'>موظف</option><option value="admin"'+(u.role==="admin"?" selected":"")+'>مدير (كل الصلاحيات)</option></select></label>'+
+        '<div id="ik-emp-perms" style="border:0.5px dashed var(--border,#dbe2ea);border-radius:9px;padding:10px;margin-bottom:8px">'+
+          '<div style="font-size:11px;color:var(--text-secondary,#48566a);margin-bottom:6px">التبويبات المسموح بها:</div><div>'+tabsHtml+'</div>'+
+          '<label style="display:inline-flex;align-items:center;gap:6px;font-size:12px;margin-top:8px"><input type="checkbox" id="ik-f-edit" '+(u.edit?"checked":"")+'> يستطيع الإضافة والتعديل والحذف (وإلا: اطّلاع فقط)</label>'+
+        '</div>'+
+        '<label style="display:inline-flex;align-items:center;gap:6px;font-size:12px;margin-bottom:12px"><input type="checkbox" id="ik-f-active" '+(u.active!==false?"checked":"")+'> الحساب مُفعّل</label>'+
+        '<div style="display:flex;justify-content:flex-end;gap:8px"><button id="ik-f-cancel" style="border:0.5px solid var(--border-strong,#c3ccd8);background:var(--surface-2,#fff);color:var(--text-secondary,#48566a);border-radius:8px;padding:7px 16px;cursor:pointer;font-family:inherit;font-size:12px">رجوع</button>'+
+        '<button id="ik-f-save" style="border:none;background:'+NAVY+';color:#fff;border-radius:8px;padding:7px 18px;cursor:pointer;font-family:inherit;font-size:13px;font-weight:500">حفظ</button></div>';
+      function syncRole(){var r=box.querySelector("#ik-f-role").value;box.querySelector("#ik-emp-perms").style.display=(r==="admin")?"none":"block";}
+      box.querySelector("#ik-f-role").onchange=syncRole;syncRole();
+      box.querySelector("#ik-f-cancel").onclick=render;
+      box.querySelector("#ik-f-save").onclick=async function(){
+        var name=box.querySelector("#ik-f-name").value.trim();
+        var un=box.querySelector("#ik-f-user").value.trim();
+        var pw=box.querySelector("#ik-f-pass").value;
+        var role=box.querySelector("#ik-f-role").value;
+        if(!un){alert("أدخل اسم المستخدم");return;}
+        if(d.users.filter(function(x){return x.id!==u.id&&(x.username||"").toLowerCase()===un.toLowerCase();}).length){alert("اسم المستخدم مستخدم بالفعل");return;}
+        if(isNew&&!pw){alert("أدخل كلمة المرور");return;}
+        var tabs=Array.prototype.slice.call(box.querySelectorAll(".ik-tab:checked")).map(function(c){return c.value;});
+        var nu={id:u.id,username:un,name:name||un,role:role,tabs:role==="admin"?["ships","pays","reports","statement","compare","log"]:(tabs.length?tabs:["ships"]),edit:role==="admin"?true:box.querySelector("#ik-f-edit").checked,active:box.querySelector("#ik-f-active").checked,mustChange:u.mustChange&&isNew?false:!!u.mustChange};
+        nu.pass=pw?await sha(pw):(u.pass||await sha("admin123"));
+        if(isNew){d.users.push(nu);}else{d.users=d.users.map(function(x){return x.id===u.id?nu:x;});}
+        saveAuth(d);
+        if(!isNew&&u.id===window.__AUTH_UID){flash("تم الحفظ — جارٍ إعادة التحميل…");setTimeout(function(){location.reload();},600);return;}
+        render();
+      };
+    }
+    function fld(label,id,val,type){return '<label style="display:block;margin-bottom:8px"><span style="display:block;font-size:11px;color:var(--text-secondary,#48566a);margin-bottom:3px">'+label+'</span><input id="'+id+'" type="'+(type||"text")+'" value="'+String(val||"").replace(/"/g,"&quot;")+'" style="width:100%;padding:8px 10px;border:0.5px solid var(--border-strong,#c3ccd8);border-radius:8px;background:var(--surface-0,#f4f6f9);color:var(--text-primary,#1c2733);font-family:inherit;font-size:13px;box-sizing:border-box"></label>';}
+    ov.appendChild(box);document.body.appendChild(ov);
+    ov.addEventListener("click",function(e){if(e.target===ov)ov.remove();});
+    render();
+  }
+
+  /* ── فرض الصلاحيات: إخفاء أزرار الكتابة للاطّلاع فقط + إخفاء الإعدادات لغير المدير ── */
+  function applyRestrictions(){
+    // إخفاء زر الإعدادات ⚙️ لغير المدير + إخفاء الاستيراد لمن لا يعدّل
+    function gateToolbar(){
+      var bar=document.getElementById("ik-tools-bar");if(!bar)return;
+      Array.prototype.forEach.call(bar.querySelectorAll("button"),function(b){
+        var t=b.textContent||"";
+        if(window.__AUTH_ROLE!=="admin"&&t.indexOf("⚙️")>=0)b.style.display="none";
+        if(!window.__canEdit&&(t.indexOf("استيراد إكسل")>=0))b.style.display="none";
+      });
+    }
+    gateToolbar();setTimeout(gateToolbar,800);setTimeout(gateToolbar,1600);
+    if(window.__canEdit)return; // المحرّرون لا قيود إضافية
+    var WRITE=["شحنة جديدة","دفعة جديدة","✏️ تعديل","🗑 حذف","نسخ إلى","استيراد إكسل"];
+    function hideWrites(){
+      var app=document.getElementById("app");if(!app)return;
+      Array.prototype.forEach.call(app.querySelectorAll("button"),function(b){
+        var t=(b.textContent||"").trim();
+        for(var i=0;i<WRITE.length;i++){if(t.indexOf(WRITE[i])>=0){b.style.display="none";return;}}
+      });
+    }
+    hideWrites();
+    var pend=null;
+    var mo=new MutationObserver(function(){if(pend)return;pend=setTimeout(function(){pend=null;hideWrites();},120);});
+    try{mo.observe(document.getElementById("app"),{childList:true,subtree:true});}catch(e){}
+  }
+
+  /* ── الإقلاع ── */
+  async function boot(){
+    window.__MY_SIG=(function(){ // توقيع صلاحياتي الحالية لكشف تغييرها لاحقاً
+      try{var d=loadAuth();var me=d.users.filter(function(x){return x.id===window.__AUTH_UID;})[0];return myPermsSig(me);}catch(e){return "";}
+    })();
+    if(window.__AUTH_UID){
+      // مُسجَّل الدخول: أظهر شريط المستخدم وطبّق القيود واربط السحابة
+      mountUserBar();
+      applyRestrictions();
+      waitFirebase(function(){});
+      return;
+    }
+    // غير مُسجَّل: جهّز المستخدمين ثم اعرض شاشة الدخول
+    var C=window.__IK_CLOUD, cloudOn=!!(C&&C.apiKey&&C.databaseURL);
+    var d=loadAuth();
+    if(d.users&&d.users.length){ showLogin(); return; }
+    if(cloudOn){
+      // انتظر مستخدمي السحابة قليلاً قبل إنشاء مدير افتراضي
+      var done=false;
+      window.__pendingUsers=function(us){ if(done)return; if(us&&us.length){done=true;window.__pendingUsers=null;showLogin();} };
+      waitFirebase(function(ok){
+        setTimeout(async function(){
+          if(done)return;
+          var d2=loadAuth();
+          if(d2.users&&d2.users.length){done=true;showLogin();return;}
+          await ensureDefaultAdmin(); done=true; showLogin();
+        },ok?3500:200);
+      });
+      // شاشة انتظار بسيطة
+      var w=el("div","position:fixed;inset:0;z-index:4000;background:#0f2033;color:#cfe0f0;display:flex;align-items:center;justify-content:center;font-family:'Tajawal','Segoe UI',sans-serif;font-size:14px","جارٍ تحميل المستخدمين…");
+      w.id="ik-login-wait";document.body.appendChild(w);
+      var iv=setInterval(function(){if(document.getElementById("ik-login")){clearInterval(iv);var ww=document.getElementById("ik-login-wait");if(ww)ww.remove();}},200);
+    }else{
+      await ensureDefaultAdmin(); showLogin();
+    }
+  }
+  if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",boot);
+  else boot();
+})();
+</script>
+
 </body>
 </html>
