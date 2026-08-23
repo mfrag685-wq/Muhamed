@@ -453,6 +453,7 @@ html[data-theme="dark"] .rt td.hl{background:#2e2814;color:var(--accent)}
     <div class="mg" id="lg-pass2-w" style="display:none"><label>تأكيد كلمة المرور</label><input id="lg-pass2" type="password" placeholder="••••••••"></div>
     <div id="lg-msg" style="color:var(--danger);font-size:.82rem;min-height:18px;margin-bottom:6px"></div>
     <button class="btn btn-accent" style="width:100%" id="lg-btn" onclick="submitLogin()">🔓 دخول</button>
+    <div id="lg-toggle" style="text-align:center;margin-top:10px;font-size:.82rem"></div>
   </div>
 </div>
 
@@ -3095,11 +3096,13 @@ function cloudReloadUI(){
 localStorage.setItem=function(k,v){ _lsSet(k,v); if(cloudReady&&!cloudApplying&&cloudSyncable(k)) cloudPushDebounced(); };
 localStorage.removeItem=function(k){ _lsRemove(k); if(cloudReady&&!cloudApplying&&cloudSyncable(k)) cloudPushDebounced(); };
 
+var _cloudInited=false;
+function cloudEnsureInit(){ if(_cloudInited||!cloudEnabled()) return; try{ firebase.initializeApp(CLOUD_CONFIG); }catch(e){} _cloudInited=true; }
 function cloudInit(){
   var badge=document.getElementById('cloud-badge');
   if(!cloudEnabled()){ if(badge) badge.style.display='none'; return; }
   if(badge) badge.style.display='';
-  try{ firebase.initializeApp(CLOUD_CONFIG); }catch(e){}
+  cloudEnsureInit();
   cloudSetDot(''); cloudLabel('غير متصل');
   // جلسة مستعادة: Firebase يحفظ الدخول، فنتصل تلقائياً بلا كلمة مرور
   firebase.auth().onAuthStateChanged(function(u){
@@ -3128,6 +3131,7 @@ function cloudAttach(cb){
 // تسجيل الدخول السحابي باسم المستخدم (يُستدعى بعد دخول التطبيق)
 function cloudSignIn(username,password){
   if(!cloudEnabled()) return;
+  cloudEnsureInit();
   var email=synthEmail(username);
   cloudSetDot('sync'); cloudLabel('اتصال…');
   firebase.auth().signInWithEmailAndPassword(email,password)
@@ -3147,6 +3151,7 @@ function cloudSignIn(username,password){
 // دخول من جهاز جديد ليس فيه مستخدمون: نتحقق عبر السحابة ونسحب المستخدمين
 function cloudRemoteLogin(username,password,cb){
   if(!cloudEnabled()){ cb(false); return; }
+  cloudEnsureInit();
   var email=synthEmail(username);
   firebase.auth().signInWithEmailAndPassword(email,password).then(function(){
     var r=firebase.database().ref('workspaces/'+cloudWid()+'/root');
@@ -3346,12 +3351,12 @@ function can(perm){ const u=currentUser(); if(!u||u.active===0) return false; if
 
 // ── بوابة الدخول ──
 function authGate(){
-  const users=usersLoad();
-  if(!users.length){ showFirstRun(); return; }
   const u=currentUser();
   if(u && u.active!==0){ document.getElementById('login-overlay').style.display='none'; initApp(); return; }
   localStorage.removeItem(SESSION_KEY);
-  showLogin();
+  // جهاز فيه مستخدمون محليون، أو السحابة مفعّلة → اعرض الدخول (يمكن سحب الحساب من السحابة).
+  // لا مستخدمين ولا سحابة → أنشئ المدير أول مرة.
+  if(usersLoad().length || cloudEnabled()){ showLogin(); } else { showFirstRun(); }
 }
 function showLogin(){
   const o=document.getElementById('login-overlay'); o.style.display='flex';
@@ -3363,6 +3368,7 @@ function showLogin(){
   document.getElementById('lg-btn').setAttribute('onclick','submitLogin()');
   document.getElementById('lg-msg').textContent='';
   document.getElementById('lg-user').value=''; document.getElementById('lg-pass').value='';
+  var tg=document.getElementById('lg-toggle'); if(tg) tg.innerHTML='<a href="#" onclick="showFirstRun();return false" style="color:var(--accent);text-decoration:none">🆕 أول استخدام؟ أنشئ حساب المدير</a>';
   setTimeout(()=>document.getElementById('lg-user').focus(),100);
 }
 function showFirstRun(){
@@ -3375,6 +3381,7 @@ function showFirstRun(){
   document.getElementById('lg-btn').setAttribute('onclick','createFirstAdmin()');
   document.getElementById('lg-msg').textContent='';
   ['lg-name','lg-user','lg-pass','lg-pass2'].forEach(id=>document.getElementById(id).value='');
+  var tg=document.getElementById('lg-toggle'); if(tg) tg.innerHTML='<a href="#" onclick="showLogin();return false" style="color:var(--accent);text-decoration:none">🔓 لديك حساب بالفعل؟ سجّل الدخول</a>';
 }
 function lgMsg(t){ document.getElementById('lg-msg').textContent=t||''; }
 function submitLogin(){
@@ -3984,6 +3991,7 @@ function initApp() {
 
 window.onload = function() {
   applyStoredTheme();
+  cloudEnsureInit();
   authGate();
 };
 </script>
