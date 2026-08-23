@@ -583,6 +583,9 @@ html[data-theme="dark"] .rt td.hl{background:#2e2814;color:var(--accent)}
       <p id="cloud-modal-sub" style="margin-bottom:0">سجّل الدخول لمزامنة بياناتك على كل أجهزتك</p>
     </div>
     <div id="cloud-signed-out">
+      <button class="btn" style="width:100%;background:#fff;color:#3c4043;border:1px solid #dadce0;font-weight:700;margin-bottom:7px" onclick="cloudProviderLogin('google')">🔵 الدخول بحساب Google</button>
+      <button class="btn" style="width:100%;background:#24292e;color:#fff;font-weight:700;margin-bottom:10px" onclick="cloudProviderLogin('github')">🐙 الدخول بحساب GitHub</button>
+      <div style="text-align:center;color:var(--muted);font-size:.74rem;margin:2px 0 8px">— أو بالبريد وكلمة المرور —</div>
       <div class="mg"><label>البريد الإلكتروني</label><input id="cloud-email" type="email" placeholder="you@example.com" autocomplete="username"></div>
       <div class="mg"><label>كلمة المرور</label><input id="cloud-pass" type="password" placeholder="••••••••" autocomplete="current-password"></div>
       <div id="cloud-msg" style="font-size:.8rem;color:var(--danger);min-height:18px;margin-bottom:6px"></div>
@@ -3145,6 +3148,14 @@ function cloudUpdateModal(){
   else { so.style.display=''; si.style.display='none'; }
 }
 function cloudMsg(t){ var e=document.getElementById('cloud-msg'); if(e) e.textContent=t||''; }
+function cloudProviderLogin(which){
+  if(typeof firebase==='undefined'){ cloudMsg('السحابة غير مُهيّأة'); return; }
+  var provider = which==='github' ? new firebase.auth.GithubAuthProvider() : new firebase.auth.GoogleAuthProvider();
+  cloudMsg('جارٍ فتح نافذة الدخول…');
+  firebase.auth().signInWithPopup(provider)
+    .then(function(){ cloudMsg(''); toast('✅ تم تسجيل الدخول'); closeCloudModal(); })
+    .catch(function(e){ cloudMsg(cloudErr(e)); });
+}
 function cloudLogin(){
   var em=document.getElementById('cloud-email').value.trim(), pw=document.getElementById('cloud-pass').value;
   if(!em||!pw){ cloudMsg('أدخل البريد وكلمة المرور'); return; }
@@ -3172,6 +3183,11 @@ function cloudErr(e){
   if(c.indexOf('email-already-in-use')>=0) return 'البريد مستخدم — سجّل الدخول بدل الإنشاء';
   if(c.indexOf('invalid-email')>=0) return 'صيغة البريد غير صحيحة';
   if(c.indexOf('weak-password')>=0) return 'كلمة المرور ضعيفة (6 أحرف فأكثر)';
+  if(c.indexOf('unauthorized-domain')>=0) return 'أضف نطاق الموقع mfrag685-wq.github.io في Firebase ← Authentication ← Settings ← Authorized domains';
+  if(c.indexOf('operation-not-allowed')>=0) return 'فعّل هذا المزوّد (Google/GitHub) في Firebase ← Authentication ← Sign-in method';
+  if(c.indexOf('popup-closed')>=0||c.indexOf('cancelled-popup')>=0) return 'أُغلقت نافذة الدخول قبل الإكمال';
+  if(c.indexOf('popup-blocked')>=0) return 'المتصفح منع النافذة المنبثقة — اسمح بها ثم أعد المحاولة';
+  if(c.indexOf('account-exists-with-different-credential')>=0) return 'هذا البريد مسجّل بمزوّد آخر — جرّب طريقة الدخول الأخرى';
   if(c.indexOf('network')>=0) return 'لا يوجد اتصال بالإنترنت';
   return (e&&e.message)||'حدث خطأ';
 }
