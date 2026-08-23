@@ -457,6 +457,24 @@ html[data-theme="dark"] .rt td.hl{background:#2e2814;color:var(--accent)}
   </div>
 </div>
 
+<!-- ══ ACTIVITY LOG MODAL ══ -->
+<div class="modal-overlay" id="log-modal" style="display:none" onclick="if(event.target===this)closeLog()">
+  <div class="modal-box" style="width:780px;max-height:92vh;overflow-y:auto">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+      <h2 style="margin:0">📋 سجل نشاط الموظفين <span class="badge" id="log-count">0</span></h2>
+      <div style="display:flex;gap:7px;align-items:center;flex-wrap:wrap">
+        <div class="search-box" style="min-width:170px"><input id="log-search" placeholder="بحث: موظف، إجراء…" oninput="renderLog()"></div>
+        <button class="btn btn-danger btn-sm" onclick="clearLog()">🗑️ مسح السجل</button>
+        <button onclick="closeLog()" style="background:none;border:none;font-size:1.3rem;cursor:pointer;color:var(--muted)">✕</button>
+      </div>
+    </div>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>التاريخ والوقت</th><th>الموظف</th><th>الإجراء</th><th>التفاصيل</th></tr></thead>
+      <tbody id="log-tbody"></tbody>
+    </table></div>
+  </div>
+</div>
+
 <!-- ══ USERS MANAGEMENT MODAL ══ -->
 <div class="modal-overlay" id="users-modal" style="display:none" onclick="if(event.target===this)closeUsers()">
   <div class="modal-box" style="width:660px;max-height:92vh;overflow-y:auto">
@@ -643,6 +661,7 @@ html[data-theme="dark"] .rt td.hl{background:#2e2814;color:var(--accent)}
     <button class="hbtn" onclick="newShipment()">➕ شحنة جديدة</button>
     <button class="hbtn" id="btn-settings" onclick="openSetup()">⚙️ إعدادات</button>
     <button class="hbtn" id="btn-users" onclick="openUsers()">👥 المستخدمون</button>
+    <button class="hbtn" id="btn-log" onclick="openLog()">📋 السجل</button>
     <span id="current-user-name" style="font-size:.72rem;color:rgba(255,255,255,.75);white-space:nowrap"></span>
     <button class="hbtn" onclick="logout()" title="تسجيل الخروج">🚪 خروج</button>
   </div>
@@ -1346,6 +1365,7 @@ function deleteProfile(id) {
     // If was active, clear active
     if (getActiveProfileId()===id) localStorage.removeItem(ACTIVE_KEY);
     renderProfileCards();
+    logAction('حذف شركة', p.name);
     toast('🗑️ تم حذف الشركة: ' + p.name);
   });
 }
@@ -1503,6 +1523,7 @@ function saveShipment() {
   if(dbSave(db)){
     document.getElementById('save-status').textContent = 'محفوظ ' + new Date().toLocaleTimeString('ar');
     toast('✅ تم حفظ الشحنة: ' + no);
+    logAction('حفظ شحنة', no);
   }
 }
 
@@ -1586,6 +1607,7 @@ function deleteShipment(id) {
     const db = dbLoad().filter(x=>x.id!==id);
     dbSave(db);
     if(S.currentId===id){ S.currentId=null; }
+    logAction('حذف شحنة', (dbLoad().find(function(x){return x.id===id;})||{}).shipmentNo||id);
     renderArchive();
     toast('🗑️ تم حذف الشحنة');
   });
@@ -1896,6 +1918,7 @@ function clearAllData(){
     localStorage.removeItem(getDbKey());
     S.currentId=null;
     renderArchive();
+    logAction('حذف كل الشحنات', pName);
     toast('🗑️ تم حذف جميع شحنات: '+pName);
   });
 }
@@ -3073,7 +3096,7 @@ function cloudPush(){
   cloudRef.set({by:CLOUD_CLIENT,at:Date.now(),data:cloudCollect()})
     .then(function(){ cloudSetDot('on'); }).catch(function(){ cloudSetDot('err'); });
 }
-function cloudPushDebounced(){ cloudSetDot('sync'); clearTimeout(_cloudPushT); _cloudPushT=setTimeout(cloudPush,700); }
+function cloudPushDebounced(){ cloudSetDot('sync'); clearTimeout(_cloudPushT); _cloudPushT=setTimeout(cloudPush,300); }
 function cloudApply(data){
   cloudApplying=true;
   try{
@@ -3314,7 +3337,7 @@ function onAppClose(){
 }
 window.addEventListener('beforeunload', onAppClose);
 window.addEventListener('pagehide',    onAppClose);
-document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='hidden') onAppClose(); });
+/* أُزيل الدفع عند تبديل التبويب لمنع رفع بيانات قديمة تُلغي الحذف */
 
 // ═══════════════════════════════════════════
 // 👥 المستخدمون والدخول والصلاحيات
@@ -3396,6 +3419,7 @@ function submitLogin(){
     document.getElementById('login-overlay').style.display='none';
     initApp();
     cloudSignIn(u.username,pw);
+    logAction('تسجيل دخول','');
     toast('👋 مرحباً '+ (u.name||u.username));
     return;
   }
@@ -3403,7 +3427,7 @@ function submitLogin(){
   if(cloudEnabled()){
     lgMsg('جارٍ التحقق من السحابة…');
     cloudRemoteLogin(un,pw,function(ok){
-      if(ok){ document.getElementById('login-overlay').style.display='none'; initApp(); toast('👋 مرحباً'); }
+      if(ok){ document.getElementById('login-overlay').style.display='none'; initApp(); logAction('تسجيل دخول (سحابي)',''); toast('👋 مرحباً'); }
       else { lgMsg('اسم المستخدم أو كلمة المرور غير صحيحة'); }
     });
   } else { lgMsg('اسم المستخدم غير موجود'); }
@@ -3423,10 +3447,11 @@ function createFirstAdmin(){
   document.getElementById('login-overlay').style.display='none';
   initApp();
   cloudSignIn(un,pw);
+  logAction('إنشاء حساب المدير', un);
   toast('✅ تم إنشاء حساب المدير');
 }
 function logout(){
-  confirm2('تسجيل الخروج؟', ()=>{ cloudLogout(); localStorage.removeItem(SESSION_KEY); location.reload(); });
+  confirm2('تسجيل الخروج؟', ()=>{ logAction('تسجيل خروج',''); cloudLogout(); localStorage.removeItem(SESSION_KEY); location.reload(); });
 }
 
 // ── تطبيق الصلاحيات على الواجهة ──
@@ -3443,6 +3468,7 @@ function applyPermsUI(){
   // أزرار الرأس
   const showIf=(id,perm)=>{ const e=document.getElementById(id); if(e) e.style.display=can(perm)?'':'none'; };
   showIf('btn-users', 'users');
+  showIf('btn-log', 'users');
   showIf('btn-settings','settings');
   // زر إدارة الشركات (badge + quick switch)
   const comp=can('companies');
@@ -3514,19 +3540,55 @@ function saveUser(){
     if(pw.length<6){ toast('كلمة المرور 6 أحرف على الأقل',true); return; }
     users.push({id:Date.now(),name:name,username:un,pass:hashPw(pw),role:role,perms:role==='admin'?permAll(true):perms,active:active});
   }
-  usersSave(users); editUserId=null; renderUsersModal(); applyPermsUI(); toast('✅ تم حفظ المستخدم');
+  usersSave(users); editUserId=null; renderUsersModal(); applyPermsUI(); logAction('حفظ مستخدم', un); toast('✅ تم حفظ المستخدم');
 }
 function resetUserPass(id){
   const u=usersLoad().find(x=>x.id===id); if(!u) return;
   const pw=window.prompt('كلمة مرور جديدة للمستخدم "'+(u.name||u.username)+'":','');
   if(pw===null) return; if(pw.length<6){ toast('كلمة المرور 6 أحرف على الأقل',true); return; }
-  const users=usersLoad(); const t=users.find(x=>x.id===id); t.pass=hashPw(pw); usersSave(users); toast('✅ تم تغيير كلمة المرور');
+  const users=usersLoad(); const t=users.find(x=>x.id===id); t.pass=hashPw(pw); usersSave(users); logAction('تغيير كلمة مرور', t.name||t.username); toast('✅ تم تغيير كلمة المرور');
 }
 function deleteUser(id){
   const users=usersLoad(); const u=users.find(x=>x.id===id); if(!u) return;
   if(u.role==='admin' && users.filter(x=>x.role==='admin'&&x.active!==0).length<=1){ toast('لا يمكن حذف آخر مدير',true); return; }
   if(currentUser() && currentUser().id===id){ toast('لا يمكنك حذف حسابك أثناء استخدامه',true); return; }
-  confirm2('حذف المستخدم "'+(u.name||u.username)+'"؟', ()=>{ usersSave(users.filter(x=>x.id!==id)); renderUsersModal(); toast('🗑️ تم حذف المستخدم'); });
+  confirm2('حذف المستخدم "'+(u.name||u.username)+'"؟', ()=>{ usersSave(users.filter(x=>x.id!==id)); logAction('حذف مستخدم', u.name||u.username); renderUsersModal(); toast('🗑️ تم حذف المستخدم'); });
+}
+
+
+// ═══════════════════════════════════════════
+// 📋 سجل نشاط الموظفين
+// ═══════════════════════════════════════════
+const LOG_KEY='scs_log';
+function logLoad(){ try{ return JSON.parse(localStorage.getItem(LOG_KEY)||'[]'); }catch(e){ return []; } }
+function logSaveArr(a){ try{ localStorage.setItem(LOG_KEY, JSON.stringify(a.slice(-800))); }catch(e){} }
+function logAction(action, details){
+  try{
+    var u=currentUser();
+    var arr=logLoad();
+    arr.push({ id:Date.now()+'_'+Math.random().toString(36).slice(2,6), at:new Date().toISOString(),
+      user:(u?(u.name||u.username):'—'), action:action||'', details:(details==null?'':String(details)) });
+    logSaveArr(arr);
+  }catch(e){}
+}
+function openLog(){ if(!can('users')){ toast('لا تملك صلاحية عرض السجل',true); return; } renderLog(); document.getElementById('log-modal').style.display='flex'; }
+function closeLog(){ document.getElementById('log-modal').style.display='none'; }
+function renderLog(){
+  var q=(document.getElementById('log-search')?document.getElementById('log-search').value:'').trim().toLowerCase();
+  var all=logLoad();
+  var rows=all.slice().reverse();
+  if(q) rows=rows.filter(function(r){ return [r.user,r.action,r.details,(r.at||'').slice(0,10)].join(' ').toLowerCase().indexOf(q)>=0; });
+  var cnt=document.getElementById('log-count'); if(cnt) cnt.textContent=all.length;
+  var tb=document.getElementById('log-tbody'); if(!tb) return;
+  if(!rows.length){ tb.innerHTML='<tr><td colspan="4" style="padding:18px;color:var(--muted);text-align:center">لا توجد أحداث مسجّلة</td></tr>'; return; }
+  tb.innerHTML=rows.slice(0,600).map(function(r){
+    var d=new Date(r.at); var dt=isNaN(d.getTime())?escH(r.at):d.toLocaleString('ar');
+    return '<tr><td style="white-space:nowrap;font-size:.75rem">'+dt+'</td><td>'+escH(r.user)+'</td><td><strong>'+escH(r.action)+'</strong></td><td style="text-align:right">'+escH(r.details)+'</td></tr>';
+  }).join('');
+}
+function clearLog(){
+  if(!can('users')){ toast('لا تملك صلاحية',true); return; }
+  confirm2('مسح كل سجل النشاط نهائياً؟ لا يمكن التراجع.', function(){ logSaveArr([]); logAction('مسح السجل',''); renderLog(); toast('🗑️ تم مسح السجل'); });
 }
 
 // ═══════════════════════════════════════════
@@ -3736,6 +3798,7 @@ function applyImportedRows(aoa,fname){
   if(st) st.innerHTML=`✅ تم استيراد <strong>${nItem}</strong> صنف ضمن <strong>${nInv}</strong> فاتورة و<strong>${nCon}</strong> حاوية`
     + (shipNo?` — الشحنة <strong>${escH(shipNo)}</strong>`:'') + ` — من الملف: ${escH(fname)}`;
   showPage('page-shipment');
+  logAction('استيراد بيانات', nItem+' صنف / '+nCon+' حاوية');
   toast('✅ تم استيراد البيانات بنجاح ('+nCon+' حاوية)');
 }
 
@@ -3820,15 +3883,16 @@ function addPaymentManual(){
   const list=payLoad(); list.push(p); paySave(list);
   ['pay-amount','pay-ref','pay-notes','pay-bank'].forEach(id=>{ const e=document.getElementById(id); if(e)e.value=''; });
   renderPayments();
+  logAction('إضافة دفعة', p.amount+' '+p.cur);
   toast('✅ تمت إضافة الدفعة');
 }
 function deletePayment(id){
-  const list=payLoad().filter(p=>p.id!==id); paySave(list); renderPayments(); toast('🗑️ تم حذف الدفعة');
+  const list=payLoad().filter(p=>p.id!==id); paySave(list); renderPayments(); logAction('حذف دفعة',''); toast('🗑️ تم حذف الدفعة');
 }
 function clearAllPayments(){
   if(!can('delete')){ toast('لا تملك صلاحية الحذف',true); return; }
   const pname=profilesLoad().find(p=>p.id===getActiveProfileId())?.name||'';
-  confirm2(`حذف كل دفعات شركة "${pname}" نهائياً؟`, ()=>{ paySave([]); renderPayments(); toast('🗑️ تم حذف الدفعات'); });
+  confirm2(`حذف كل دفعات شركة "${pname}" نهائياً؟`, ()=>{ paySave([]); logAction('حذف كل الدفعات', pname); renderPayments(); toast('🗑️ تم حذف الدفعات'); });
 }
 
 function downloadPaymentTemplate(){
@@ -3936,6 +4000,7 @@ function applyPaymentRows(aoa,fname){
   renderPayments();
   const st=document.getElementById('pay-import-status');
   if(st) st.innerHTML=`✅ استُوردت الدفعات: ${escH(summary.join('، '))} — من الملف: ${escH(fname)}`;
+  logAction('استيراد دفعات', count+' دفعة');
   toast('✅ تم استيراد الدفعات ('+count+')');
 }
 
