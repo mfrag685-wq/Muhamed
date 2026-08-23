@@ -3133,15 +3133,15 @@ function cloudSignIn(username,password){
   cloudSetDot('sync'); cloudLabel('اتصال…');
   firebase.auth().signInWithEmailAndPassword(email,password)
     .then(function(){ cloudAttach(); })
-    .catch(function(e){
-      var c=(e&&e.code)||'';
-      if(c.indexOf('user-not-found')>=0){
-        firebase.auth().createUserWithEmailAndPassword(email,password)
-          .then(function(){ cloudAttach(); })
-          .catch(function(e2){ cloudSetDot('err'); cloudLabel('تعذّر'); toast('⚠️ السحابة: '+cloudErr(e2),true); });
-      } else if(c.indexOf('wrong-password')>=0||c.indexOf('invalid-credential')>=0){
-        cloudSetDot('err'); cloudLabel('كلمة السحابة مختلفة');
-      } else { cloudSetDot('err'); cloudLabel('تعذّر'); toast('⚠️ السحابة: '+cloudErr(e),true); }
+    .catch(function(){
+      // فشل الدخول قد يعني أن الحساب غير موجود (أو invalid-credential بسبب حماية التعداد) → جرّب الإنشاء
+      firebase.auth().createUserWithEmailAndPassword(email,password)
+        .then(function(){ cloudAttach(); })
+        .catch(function(e2){
+          var c2=(e2&&e2.code)||'';
+          if(c2.indexOf('email-already-in-use')>=0){ cloudSetDot('err'); cloudLabel('كلمة السحابة مختلفة'); }
+          else { cloudSetDot('err'); cloudLabel('تعذّر'); toast('⚠️ السحابة: '+cloudErr(e2),true); }
+        });
     });
 }
 
