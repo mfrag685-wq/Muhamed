@@ -471,7 +471,7 @@ html[data-theme="dark"] .rt td.hl{background:#2e2814;color:var(--accent)}
         <div class="mg"><label>اسم المستخدم (للدخول)</label><input id="u-user" placeholder="user1"></div>
       </div>
       <div class="row2">
-        <div class="mg" id="u-pass-w"><label>كلمة المرور</label><input id="u-pass" type="password" placeholder="4 أحرف على الأقل"></div>
+        <div class="mg" id="u-pass-w"><label>كلمة المرور</label><input id="u-pass" type="password" placeholder="6 أحرف على الأقل"></div>
         <div class="mg"><label>الحالة</label><select id="u-active"><option value="1">نشط</option><option value="0">موقوف</option></select></div>
       </div>
       <div class="mg"><label>الدور</label>
@@ -3408,7 +3408,7 @@ function createFirstAdmin(){
   const pw=document.getElementById('lg-pass').value;
   const pw2=document.getElementById('lg-pass2').value;
   if(!name||!un||!pw){ lgMsg('أكمل كل الحقول'); return; }
-  if(pw.length<4){ lgMsg('كلمة المرور 4 أحرف على الأقل'); return; }
+  if(pw.length<6){ lgMsg('كلمة المرور 6 أحرف على الأقل'); return; }
   if(pw!==pw2){ lgMsg('كلمتا المرور غير متطابقتين'); return; }
   const users=usersLoad();
   users.push({id:Date.now(),name:name,username:un,pass:hashPw(pw),role:'admin',perms:permAll(true),active:1});
@@ -3505,7 +3505,7 @@ function saveUser(){
     u.name=name; u.username=un; u.role=role; u.active=active; u.perms=role==='admin'?permAll(true):perms;
   } else {
     const pw=document.getElementById('u-pass').value;
-    if(pw.length<4){ toast('كلمة المرور 4 أحرف على الأقل',true); return; }
+    if(pw.length<6){ toast('كلمة المرور 6 أحرف على الأقل',true); return; }
     users.push({id:Date.now(),name:name,username:un,pass:hashPw(pw),role:role,perms:role==='admin'?permAll(true):perms,active:active});
   }
   usersSave(users); editUserId=null; renderUsersModal(); applyPermsUI(); toast('✅ تم حفظ المستخدم');
@@ -3513,7 +3513,7 @@ function saveUser(){
 function resetUserPass(id){
   const u=usersLoad().find(x=>x.id===id); if(!u) return;
   const pw=window.prompt('كلمة مرور جديدة للمستخدم "'+(u.name||u.username)+'":','');
-  if(pw===null) return; if(pw.length<4){ toast('كلمة المرور 4 أحرف على الأقل',true); return; }
+  if(pw===null) return; if(pw.length<6){ toast('كلمة المرور 6 أحرف على الأقل',true); return; }
   const users=usersLoad(); const t=users.find(x=>x.id===id); t.pass=hashPw(pw); usersSave(users); toast('✅ تم تغيير كلمة المرور');
 }
 function deleteUser(id){
