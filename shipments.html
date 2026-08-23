@@ -3057,47 +3057,42 @@ var CLOUD_CONFIG={
 var _lsSet    = localStorage.setItem.bind(localStorage);
 var _lsRemove = localStorage.removeItem.bind(localStorage);
 var CLOUD_CLIENT = Math.random().toString(36).slice(2);
-var cloudRef=null, cloudReady=false, cloudApplying=false, cloudUser=null, _cloudPushT=null;
+var cloudRef=null, cloudReady=false, cloudApplying=false, cloudAttaching=false, _cloudPushT=null;
 
 function cloudEnabled(){ return !!(CLOUD_CONFIG && CLOUD_CONFIG.apiKey && typeof firebase!=='undefined'); }
-function cloudSyncable(k){
-  if(!k || k.indexOf('scs_')!==0) return false;
-  return ['scs_lastbackup_all','scs_lastbackup_at','scs_theme','scs_autobackup_pref'].indexOf(k)<0;
-}
+function cloudWid(){ return (CLOUD_CONFIG&&CLOUD_CONFIG.workspaceId)||'main'; }
+// بريد Firebase مُشتق من اسم المستخدم (المستخدم لا يرى بريداً إطلاقاً)
+function synthEmail(username){ return 'u'+hashPw(String(username||'').toLowerCase()).replace(/[^a-z0-9]/g,'')+'@'+cloudWid()+'.shiperp.app'; }
+function cloudSyncable(k){ if(!k||k.indexOf('scs_')!==0) return false; return ['scs_lastbackup_all','scs_lastbackup_at','scs_theme','scs_autobackup_pref'].indexOf(k)<0; }
 function scsKeys(){ return Object.keys(localStorage).filter(cloudSyncable); }
 function cloudCollect(){ var o={}; scsKeys().forEach(function(k){ o[k]=localStorage.getItem(k); }); return o; }
-
-function cloudSetDot(cls){ var d=document.getElementById('cloud-dot'); if(d) d.className='cloud-dot'+(cls?(' '+cls):''); }
+function cloudSetDot(c){ var d=document.getElementById('cloud-dot'); if(d) d.className='cloud-dot'+(c?(' '+c):''); }
 function cloudLabel(t){ var l=document.getElementById('cloud-label'); if(l) l.textContent=t; }
 
 function cloudPush(){
   if(!cloudRef||!cloudReady) return;
-  cloudRef.set({ by:CLOUD_CLIENT, at:Date.now(), data:cloudCollect() })
-    .then(function(){ cloudSetDot('on'); })
-    .catch(function(){ cloudSetDot('err'); });
+  cloudSetDot('sync');
+  cloudRef.set({by:CLOUD_CLIENT,at:Date.now(),data:cloudCollect()})
+    .then(function(){ cloudSetDot('on'); }).catch(function(){ cloudSetDot('err'); });
 }
 function cloudPushDebounced(){ cloudSetDot('sync'); clearTimeout(_cloudPushT); _cloudPushT=setTimeout(cloudPush,700); }
-
 function cloudApply(data){
   cloudApplying=true;
   try{
-    var incoming=data||{};
-    scsKeys().forEach(function(k){ if(!(k in incoming)) _lsRemove(k); });
-    Object.keys(incoming).forEach(function(k){ if(cloudSyncable(k)) _lsSet(k, incoming[k]); });
+    var inc=data||{};
+    scsKeys().forEach(function(k){ if(!(k in inc)) _lsRemove(k); });
+    Object.keys(inc).forEach(function(k){ if(cloudSyncable(k)) _lsSet(k, inc[k]); });
   }catch(e){}
   cloudApplying=false;
   cloudReloadUI();
 }
 function cloudReloadUI(){
-  try{
-    cfgLoad(); applyTheme(); updateProfileBadge(); renderQuickSwitch();
-    var active=document.querySelector('.page.active');
-    if(active&&active.id==='page-archive')  renderArchive();
-    if(active&&active.id==='page-payments') renderPayments();
+  try{ applyPermsUI(); cfgLoad(); applyTheme(); updateProfileBadge(); renderQuickSwitch();
+    var a=document.querySelector('.page.active'); if(a&&a.id==='page-archive') renderArchive(); if(a&&a.id==='page-payments') renderPayments();
   }catch(e){}
 }
 
-// اعتراض التخزين المحلي لدفع أي تغيير إلى السحابة تلقائياً
+// اعتراض التخزين المحلي لدفع أي تغيير للسحابة تلقائياً
 localStorage.setItem=function(k,v){ _lsSet(k,v); if(cloudReady&&!cloudApplying&&cloudSyncable(k)) cloudPushDebounced(); };
 localStorage.removeItem=function(k){ _lsRemove(k); if(cloudReady&&!cloudApplying&&cloudSyncable(k)) cloudPushDebounced(); };
 
@@ -3105,87 +3100,80 @@ function cloudInit(){
   var badge=document.getElementById('cloud-badge');
   if(!cloudEnabled()){ if(badge) badge.style.display='none'; return; }
   if(badge) badge.style.display='';
-  cloudSetDot(''); cloudLabel('دخول');
   try{ firebase.initializeApp(CLOUD_CONFIG); }catch(e){}
+  cloudSetDot(''); cloudLabel('غير متصل');
+  // جلسة مستعادة: Firebase يحفظ الدخول، فنتصل تلقائياً بلا كلمة مرور
   firebase.auth().onAuthStateChanged(function(u){
-    cloudUser=u;
-    if(u){ cloudStartSync(u); }
-    else { cloudReady=false; if(cloudRef){ cloudRef.off(); cloudRef=null; } cloudSetDot(''); cloudLabel('دخول'); }
-    cloudUpdateModal();
+    if(u && currentUser() && !cloudReady && !cloudAttaching){ cloudAttach(); }
+    else if(!u){ cloudReady=false; if(cloudRef){ cloudRef.off(); cloudRef=null; } cloudSetDot(''); cloudLabel('غير متصل'); }
   });
-  // إظهار نافذة الدخول تلقائياً أول مرة إن لم يكن مسجلاً
-  setTimeout(function(){ if(cloudEnabled() && !cloudUser) openCloudModal(); }, 600);
 }
-function cloudStartSync(u){
-  cloudRef=firebase.database().ref('users/'+u.uid+'/scs');
+
+// اتصال بمساحة العمل المشتركة (كل الموظفين نفس البيانات)
+function cloudAttach(cb){
+  if(cloudAttaching||cloudReady){ if(cb)cb(true); return; }
+  cloudAttaching=true;
+  cloudRef=firebase.database().ref('workspaces/'+cloudWid()+'/root');
   cloudSetDot('sync'); cloudLabel('مزامنة…');
   cloudRef.once('value').then(function(snap){
     var v=snap.val();
-    if(v&&v.data){ cloudApply(v.data); }   // السحابة فيها بيانات → اسحبها لهذا الجهاز
-    cloudReady=true;
-    if(!(v&&v.data)) cloudPush();           // السحابة فارغة → ارفع بيانات هذا الجهاز
-    cloudSetDot('on'); cloudLabel(u.email? u.email.split('@')[0] : 'متزامن');
-    cloudRef.on('value',function(s){
-      var val=s.val(); if(!val||!val.data) return;
-      if(val.by===CLOUD_CLIENT) return;     // تجاهل كتاباتنا نحن
-      cloudApply(val.data);
-      cloudSetDot('on');
-    });
-  }).catch(function(){ cloudSetDot('err'); cloudLabel('خطأ'); });
+    if(v&&v.data){ cloudApply(v.data); }
+    cloudReady=true; cloudAttaching=false;
+    if(!(v&&v.data)) cloudPush();
+    cloudSetDot('on'); cloudLabel('متزامن ☁');
+    cloudRef.on('value',function(s){ var val=s.val(); if(!val||!val.data) return; if(val.by===CLOUD_CLIENT) return; cloudApply(val.data); cloudSetDot('on'); });
+    if(cb) cb(true);
+  }).catch(function(){ cloudAttaching=false; cloudSetDot('err'); cloudLabel('تعذّر'); if(cb) cb(false); });
 }
 
-function openCloudModal(){ cloudUpdateModal(); document.getElementById('cloud-modal').style.display='flex'; }
-function closeCloudModal(){ document.getElementById('cloud-modal').style.display='none'; }
-function cloudUpdateModal(){
-  var so=document.getElementById('cloud-signed-out'), si=document.getElementById('cloud-signed-in'), dis=document.getElementById('cloud-disabled');
-  if(!so) return;
-  if(!cloudEnabled()){ so.style.display='none'; si.style.display='none'; dis.style.display=''; return; }
-  dis.style.display='none';
-  if(cloudUser){ so.style.display='none'; si.style.display=''; var e=document.getElementById('cloud-user-email'); if(e) e.textContent=cloudUser.email||cloudUser.uid; }
-  else { so.style.display=''; si.style.display='none'; }
+// تسجيل الدخول السحابي باسم المستخدم (يُستدعى بعد دخول التطبيق)
+function cloudSignIn(username,password){
+  if(!cloudEnabled()) return;
+  var email=synthEmail(username);
+  cloudSetDot('sync'); cloudLabel('اتصال…');
+  firebase.auth().signInWithEmailAndPassword(email,password)
+    .then(function(){ cloudAttach(); })
+    .catch(function(e){
+      var c=(e&&e.code)||'';
+      if(c.indexOf('user-not-found')>=0){
+        firebase.auth().createUserWithEmailAndPassword(email,password)
+          .then(function(){ cloudAttach(); })
+          .catch(function(e2){ cloudSetDot('err'); cloudLabel('تعذّر'); toast('⚠️ السحابة: '+cloudErr(e2),true); });
+      } else if(c.indexOf('wrong-password')>=0||c.indexOf('invalid-credential')>=0){
+        cloudSetDot('err'); cloudLabel('كلمة السحابة مختلفة');
+      } else { cloudSetDot('err'); cloudLabel('تعذّر'); toast('⚠️ السحابة: '+cloudErr(e),true); }
+    });
 }
-function cloudMsg(t){ var e=document.getElementById('cloud-msg'); if(e) e.textContent=t||''; }
-function cloudProviderLogin(which){
-  if(typeof firebase==='undefined'){ cloudMsg('السحابة غير مُهيّأة'); return; }
-  var provider = which==='github' ? new firebase.auth.GithubAuthProvider() : new firebase.auth.GoogleAuthProvider();
-  cloudMsg('جارٍ فتح نافذة الدخول…');
-  firebase.auth().signInWithPopup(provider)
-    .then(function(){ cloudMsg(''); toast('✅ تم تسجيل الدخول'); closeCloudModal(); })
-    .catch(function(e){ cloudMsg(cloudErr(e)); });
+
+// دخول من جهاز جديد ليس فيه مستخدمون: نتحقق عبر السحابة ونسحب المستخدمين
+function cloudRemoteLogin(username,password,cb){
+  if(!cloudEnabled()){ cb(false); return; }
+  var email=synthEmail(username);
+  firebase.auth().signInWithEmailAndPassword(email,password).then(function(){
+    var r=firebase.database().ref('workspaces/'+cloudWid()+'/root');
+    return r.once('value').then(function(snap){
+      var v=snap.val();
+      if(v&&v.data){ cloudApply(v.data); }
+      var u=usersLoad().find(function(x){ return x.username.toLowerCase()===username.toLowerCase(); });
+      if(u && u.pass===hashPw(password) && u.active!==0){
+        localStorage.setItem(SESSION_KEY,u.username);
+        cloudRef=r; cloudReady=true; cloudSetDot('on'); cloudLabel('متزامن ☁');
+        r.on('value',function(s){ var val=s.val(); if(!val||!val.data) return; if(val.by===CLOUD_CLIENT) return; cloudApply(val.data); });
+        cb(true);
+      } else { cb(false); }
+    });
+  }).catch(function(){ cb(false); });
 }
-function cloudLogin(){
-  var em=document.getElementById('cloud-email').value.trim(), pw=document.getElementById('cloud-pass').value;
-  if(!em||!pw){ cloudMsg('أدخل البريد وكلمة المرور'); return; }
-  cloudMsg('جارٍ الدخول…');
-  firebase.auth().signInWithEmailAndPassword(em,pw)
-    .then(function(){ cloudMsg(''); toast('✅ تم تسجيل الدخول'); closeCloudModal(); })
-    .catch(function(e){ cloudMsg(cloudErr(e)); });
-}
-function cloudSignup(){
-  var em=document.getElementById('cloud-email').value.trim(), pw=document.getElementById('cloud-pass').value;
-  if(!em||pw.length<6){ cloudMsg('البريد مطلوب وكلمة المرور 6 أحرف فأكثر'); return; }
-  cloudMsg('جارٍ إنشاء الحساب…');
-  firebase.auth().createUserWithEmailAndPassword(em,pw)
-    .then(function(){ cloudMsg(''); toast('✅ تم إنشاء الحساب'); closeCloudModal(); })
-    .catch(function(e){ cloudMsg(cloudErr(e)); });
-}
-function cloudLogout(){
-  if(typeof firebase==='undefined') return;
-  firebase.auth().signOut().then(function(){ toast('🚪 تم تسجيل الخروج'); cloudUpdateModal(); });
-}
+
+function cloudLogout(){ try{ if(cloudEnabled()&&firebase.auth().currentUser) firebase.auth().signOut(); }catch(e){} cloudReady=false; if(cloudRef){ cloudRef.off(); cloudRef=null; } }
+function openCloudModal(){ toast(cloudReady?'☁ متزامن — بياناتك محفوظة على كل الأجهزة':(cloudEnabled()?'المزامنة تبدأ بعد تسجيل الدخول':'المزامنة السحابية غير مفعّلة')); }
 function cloudErr(e){
   var c=(e&&e.code)||'';
-  if(c.indexOf('wrong-password')>=0||c.indexOf('invalid-credential')>=0) return 'كلمة المرور غير صحيحة';
-  if(c.indexOf('user-not-found')>=0) return 'لا يوجد حساب بهذا البريد — أنشئ حساباً جديداً';
-  if(c.indexOf('email-already-in-use')>=0) return 'البريد مستخدم — سجّل الدخول بدل الإنشاء';
-  if(c.indexOf('invalid-email')>=0) return 'صيغة البريد غير صحيحة';
-  if(c.indexOf('weak-password')>=0) return 'كلمة المرور ضعيفة (6 أحرف فأكثر)';
-  if(c.indexOf('unauthorized-domain')>=0) return 'أضف نطاق الموقع mfrag685-wq.github.io في Firebase ← Authentication ← Settings ← Authorized domains';
-  if(c.indexOf('operation-not-allowed')>=0) return 'فعّل هذا المزوّد (Google/GitHub) في Firebase ← Authentication ← Sign-in method';
-  if(c.indexOf('popup-closed')>=0||c.indexOf('cancelled-popup')>=0) return 'أُغلقت نافذة الدخول قبل الإكمال';
-  if(c.indexOf('popup-blocked')>=0) return 'المتصفح منع النافذة المنبثقة — اسمح بها ثم أعد المحاولة';
-  if(c.indexOf('account-exists-with-different-credential')>=0) return 'هذا البريد مسجّل بمزوّد آخر — جرّب طريقة الدخول الأخرى';
+  if(c.indexOf('wrong-password')>=0||c.indexOf('invalid-credential')>=0) return 'كلمة المرور غير متطابقة مع السحابة';
+  if(c.indexOf('operation-not-allowed')>=0) return 'فعّل Email/Password في Firebase ← Authentication ← Sign-in method';
+  if(c.indexOf('permission')>=0||c.indexOf('PERMISSION')>=0) return 'حدّث قواعد الأمان (workspaces) في Firebase';
   if(c.indexOf('network')>=0) return 'لا يوجد اتصال بالإنترنت';
+  if(c.indexOf('too-many-requests')>=0) return 'محاولات كثيرة — انتظر قليلاً';
   return (e&&e.message)||'حدث خطأ';
 }
 
@@ -3395,13 +3383,24 @@ function submitLogin(){
   const pw=document.getElementById('lg-pass').value;
   if(!un||!pw){ lgMsg('أدخل اسم المستخدم وكلمة المرور'); return; }
   const u=usersLoad().find(x=>x.username.toLowerCase()===un.toLowerCase());
-  if(!u){ lgMsg('اسم المستخدم غير موجود'); return; }
-  if(u.active===0){ lgMsg('هذا الحساب موقوف — راجع المدير'); return; }
-  if(u.pass!==hashPw(pw)){ lgMsg('كلمة المرور غير صحيحة'); return; }
-  localStorage.setItem(SESSION_KEY,u.username);
-  document.getElementById('login-overlay').style.display='none';
-  initApp();
-  toast('👋 مرحباً '+ (u.name||u.username));
+  if(u){
+    if(u.active===0){ lgMsg('هذا الحساب موقوف — راجع المدير'); return; }
+    if(u.pass!==hashPw(pw)){ lgMsg('كلمة المرور غير صحيحة'); return; }
+    localStorage.setItem(SESSION_KEY,u.username);
+    document.getElementById('login-overlay').style.display='none';
+    initApp();
+    cloudSignIn(u.username,pw);
+    toast('👋 مرحباً '+ (u.name||u.username));
+    return;
+  }
+  // غير موجود على هذا الجهاز — جرّب السحابة (جهاز جديد بنفس الحساب)
+  if(cloudEnabled()){
+    lgMsg('جارٍ التحقق من السحابة…');
+    cloudRemoteLogin(un,pw,function(ok){
+      if(ok){ document.getElementById('login-overlay').style.display='none'; initApp(); toast('👋 مرحباً'); }
+      else { lgMsg('اسم المستخدم أو كلمة المرور غير صحيحة'); }
+    });
+  } else { lgMsg('اسم المستخدم غير موجود'); }
 }
 function createFirstAdmin(){
   const name=document.getElementById('lg-name').value.trim();
@@ -3417,10 +3416,11 @@ function createFirstAdmin(){
   localStorage.setItem(SESSION_KEY,un);
   document.getElementById('login-overlay').style.display='none';
   initApp();
+  cloudSignIn(un,pw);
   toast('✅ تم إنشاء حساب المدير');
 }
 function logout(){
-  confirm2('تسجيل الخروج؟', ()=>{ localStorage.removeItem(SESSION_KEY); location.reload(); });
+  confirm2('تسجيل الخروج؟', ()=>{ cloudLogout(); localStorage.removeItem(SESSION_KEY); location.reload(); });
 }
 
 // ── تطبيق الصلاحيات على الواجهة ──
