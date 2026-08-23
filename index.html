@@ -4802,8 +4802,10 @@ ReactDOM.createRoot(document.getElementById("app")).render(React.createElement(A
   var AUTH_KEY="__auth_v1", SESSION_KEY="__auth_session";
   var TAB_DEFS=[["ships","الشحنات"],["pays","الدفعات"],["reports","التقارير"],["statement","كشف الحساب"],["compare","المقارنة"],["log","سجل النشاط"]];
   var uid=function(){return Math.random().toString(36).slice(2,9)+Date.now().toString(36);};
-  function loadAuth(){try{return JSON.parse(localStorage.getItem(AUTH_KEY))||{users:[]};}catch(e){return {users:[]};}}
-  function saveAuth(d,skipCloud){try{localStorage.setItem(AUTH_KEY,JSON.stringify(d));}catch(e){} if(!skipCloud)pushUsersCloud(d);}
+  function loadAuth(){try{var d=JSON.parse(localStorage.getItem(AUTH_KEY))||{users:[]};if(!d.rev)d.rev=0;return d;}catch(e){return {users:[],rev:0};}}
+  function writeLocal(d){try{localStorage.setItem(AUTH_KEY,JSON.stringify({users:d.users,rev:d.rev||0}));}catch(e){}}
+  /* أي تعديل محلي يرفع رقم المراجعة فيصبح الأحدث دائماً ويُرفع للسحابة */
+  function saveAuth(d){d.rev=Math.max((loadAuth().rev||0)+1,Date.now());writeLocal(d);pushUsersCloud(d);}
   function appTitle(){return (window.__APPTITLE)||"دفتر الاستيراد";}
   function appIcon(){return (window.__APPICON)||"🛏️";}
 
@@ -4815,30 +4817,53 @@ ReactDOM.createRoot(document.getElementById("app")).render(React.createElement(A
   }
 
   /* ── مزامنة المستخدمين عبر السحابة (مساحة مشتركة لكل البرنامج) ── */
-  var usersRef=null, lastPushedUsers="";
-  function myPermsSig(u){return u?[u.role,(u.tabs||[]).join(","),!!u.edit,!!u.active].join("|"):"";}
-  function pushUsersCloud(d){try{ if(!usersRef)return; var s=JSON.stringify(d.users); if(s===lastPushedUsers)return; lastPushedUsers=s; usersRef.set({users:d.users,updatedAt:Date.now()}); }catch(e){}}
+  var usersRef=null, lastPushed="";
+  function myPermsSig(u){return u?[u.role,(u.tabs||[]).join(","),!!u.edit,!!u.active,u.pass].join("|"):"";}
+  function pushUsersCloud(d){
+    try{
+      if(!usersRef)return;
+      var payload={users:d.users,rev:d.rev||0};
+      var s=JSON.stringify(payload);
+      if(s===lastPushed)return;
+      lastPushed=s; usersRef.set(payload);
+    }catch(e){}
+  }
+  function onCloudUsers(v){
+    v=v||{};
+    var cUsers=Array.isArray(v.users)?v.users:null, cRev=v.rev||0;
+    var local=loadAuth(), lRev=local.rev||0;
+    if(cUsers&&cRev>lRev){
+      // السحابة أحدث → نتبنّاها
+      writeLocal({users:cUsers,rev:cRev});
+      lastPushed=JSON.stringify({users:cUsers,rev:cRev});
+      var sess=sessionStorage.getItem(SESSION_KEY);
+      if(sess){
+        var me=cUsers.filter(function(x){return x.id===sess;})[0];
+        if(!me||!me.active){logout();return;}
+        if(window.__MY_SIG&&myPermsSig(me)!==window.__MY_SIG&&!window.__permReload){window.__permReload=true;location.reload();return;}
+      }
+      if(window.__pendingUsers)window.__pendingUsers(cUsers);
+    }else if(lRev>cRev){
+      // المحلي أحدث → نرفعه للسحابة (تصحيح بيانات قديمة في السحابة)
+      pushUsersCloud(local);
+      if(window.__pendingUsers&&local.users&&local.users.length)window.__pendingUsers(local.users);
+    }else{
+      if(cUsers&&window.__pendingUsers)window.__pendingUsers(cUsers);
+    }
+  }
   function attachUsersCloud(){
     try{
       var C=window.__IK_CLOUD;
-      if(!C||!C.apiKey||typeof firebase==="undefined"||!firebase.database)return false;
-      usersRef=firebase.database().ref("import-ledger/"+(C.workspaceId||"main")+"/_auth");
-      usersRef.on("value",function(snap){
-        var v=snap.val();
-        if(!v||!Array.isArray(v.users))return;
-        var s=JSON.stringify(v.users);
-        if(s===lastPushedUsers)return;
-        var cur=loadAuth(); if(JSON.stringify(cur.users)===s){lastPushedUsers=s;return;}
-        lastPushedUsers=s;
-        saveAuth({users:v.users},true);
-        var sess=sessionStorage.getItem(SESSION_KEY);
-        if(sess){
-          var me=v.users.filter(function(x){return x.id===sess;})[0];
-          if(!me||!me.active){logout();return;}
-          var newSig=myPermsSig(me), oldSig=window.__MY_SIG;
-          if(oldSig&&newSig!==oldSig){location.reload();}
-        }
-        if(window.__pendingUsers){window.__pendingUsers(v.users);}
+      if(!C||!C.apiKey||typeof firebase==="undefined"||!firebase.database||!firebase.auth)return false;
+      if(usersRef)return true;
+      var ref=firebase.database().ref("import-ledger/"+(C.workspaceId||"main")+"/_auth");
+      // نربط فقط بعد اكتمال المصادقة المجهولة حتى لا تُرفض القراءة/الكتابة
+      firebase.auth().onAuthStateChanged(function(user){
+        if(!user||usersRef)return;
+        usersRef=ref;
+        // ادفع المحلي أولاً إن كان أحدث، ثم استمع
+        var local=loadAuth(); if((local.rev||0)>0)pushUsersCloud(local);
+        usersRef.on("value",function(snap){onCloudUsers(snap.val());});
       });
       return true;
     }catch(e){return false;}
@@ -4846,7 +4871,7 @@ ReactDOM.createRoot(document.getElementById("app")).render(React.createElement(A
   function waitFirebase(cb,tries){
     tries=tries||0;
     if(attachUsersCloud())return cb(true);
-    if(tries>20)return cb(false);
+    if(tries>25)return cb(false);
     setTimeout(function(){waitFirebase(cb,tries+1);},400);
   }
 
