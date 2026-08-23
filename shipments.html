@@ -3097,14 +3097,29 @@ function cloudPush(){
     .then(function(){ cloudSetDot('on'); }).catch(function(){ cloudSetDot('err'); });
 }
 function cloudPushDebounced(){ cloudSetDot('sync'); clearTimeout(_cloudPushT); _cloudPushT=setTimeout(cloudPush,300); }
+function cloudMergeLog(localStr, remoteStr){
+  try{
+    var a=JSON.parse(localStr||'[]'), b=JSON.parse(remoteStr||'[]');
+    if(!Array.isArray(a)) a=[]; if(!Array.isArray(b)) b=[];
+    var seen={}, out=[];
+    a.concat(b).forEach(function(e){ if(e&&e.id&&!seen[e.id]){ seen[e.id]=1; out.push(e); } });
+    out.sort(function(x,y){ return (x.at||'')<(y.at||'')?-1:((x.at||'')>(y.at||'')?1:0); });
+    if(out.length>800) out=out.slice(-800);
+    return JSON.stringify(out);
+  }catch(e){ return remoteStr||localStr||'[]'; }
+}
 function cloudApply(data){
   cloudApplying=true;
   try{
     var inc=data||{};
-    // لا نمسح قائمة المستخدمين ولا الشركة النشطة محلياً إن غابت عن السحابة (حماية الجلسة)
-    var PROTECT={scs_users:1, scs_active:1};
+    // حماية من المسح: المستخدمون، الشركة النشطة، والسجل لا تُحذف محلياً إن غابت عن السحابة
+    var PROTECT={scs_users:1, scs_active:1, scs_log:1};
     scsKeys().forEach(function(k){ if(!(k in inc) && !PROTECT[k]) _lsRemove(k); });
-    Object.keys(inc).forEach(function(k){ if(cloudSyncable(k)) _lsSet(k, inc[k]); });
+    Object.keys(inc).forEach(function(k){
+      if(!cloudSyncable(k)) return;
+      if(k==='scs_log'){ _lsSet(k, cloudMergeLog(localStorage.getItem(k), inc[k])); } // دمج السجل (اتحاد كل الأجهزة)
+      else { _lsSet(k, inc[k]); }
+    });
   }catch(e){}
   cloudApplying=false;
   cloudReloadUI();
