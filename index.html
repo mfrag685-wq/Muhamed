@@ -4697,19 +4697,21 @@ ReactDOM.createRoot(document.getElementById("app")).render(React.createElement(A
   var AP=(window.__AP)||"p1";
   var rawSet=localStorage.setItem.bind(localStorage);
   var cloudReady=false,cloudRef=null,pushTimer=null;
-  var pushedCanons=[];                       // بصمات آخر دفعاتنا (لكشف الصدى بدل الاعتماد على واحدة)
-  function markPushed(c){pushedCanons.push(c);if(pushedCanons.length>15)pushedCanons.shift();}
-  function isEcho(c){return c===canon(snapshot())||pushedCanons.indexOf(c)>=0;}
-  /* قاطع دورة: يمنع حلقة إعادة التحميل اللانهائية إن حدث تعارض متكرر */
+  /* رقم مراجعة حتمي للبيانات (يُخزَّن محلياً): يميّز كتابتنا عن كتابة جهاز آخر
+     دون الاعتماد على مقارنة المحتوى المتأثّرة بالتطبيع عند التحميل */
+  function myRev(){try{return parseInt(localStorage.getItem(AP+"::__dataRev")||"0",10)||0;}catch(e){return 0;}}
+  function setMyRev(r){try{localStorage.setItem(AP+"::__dataRev",String(r));}catch(e){}}
+  /* قاطع أمان: على الأكثر إعادة تحميل سحابية واحدة كل ١٢ث (يمنع أي حلقة) */
   function reloadAllowed(){
     try{
       var now=Date.now();
-      var hist=(JSON.parse(sessionStorage.getItem("__ik_rlHist")||"[]")||[]).filter(function(t){return now-t<10000;});
-      if(hist.length>=3)return false;      // 3 إعادات تحميل خلال 10ث → أوقفها لكسر الحلقة
-      hist.push(now);sessionStorage.setItem("__ik_rlHist",JSON.stringify(hist));
+      var last=parseInt(localStorage.getItem("__ik_lastCloudReload")||"0",10)||0;
+      if(now-last<12000)return false;
+      localStorage.setItem("__ik_lastCloudReload",String(now));
       return true;
     }catch(e){return true;}
   }
+  window.__ikReloadGuard=reloadAllowed;
 
   function enabled(){return !!(CLOUD_CONFIG.apiKey&&CLOUD_CONFIG.databaseURL);}
   function isKey(k){return typeof k==="string"&&k.indexOf(AP+"::")===0&&/^p\d+::(ships-|pays-|cfg-|log-)/.test(k);}
@@ -4737,20 +4739,21 @@ ReactDOM.createRoot(document.getElementById("app")).render(React.createElement(A
     chip.style.background=m[1];chip.style.color=m[2];
   }
 
+  var lastPushedCanon="";
   function schedulePush(){
     if(!cloudReady||!cloudRef)return;
     clearTimeout(pushTimer);
     pushTimer=setTimeout(function(){
       var snap=snapshot();var c=canon(snap);
-      if(isEcho(c)&&pushedCanons.indexOf(c)>=0)return; // لا تُعد دفع نفس المحتوى
-      markPushed(c);status("sync");
-      cloudRef.set({data:snap,updatedAt:firebase.database.ServerValue.TIMESTAMP})
+      if(c===lastPushedCanon)return; // لا شيء تغيّر فعلياً → لا تدفع
+      lastPushedCanon=c;
+      var rev=Date.now();setMyRev(rev);status("sync");
+      cloudRef.set({data:snap,rev:rev,updatedAt:firebase.database.ServerValue.TIMESTAMP})
         .then(function(){status("ok");}).catch(function(e){status("err",(e&&e.code)||(e&&e.message)||"رُفضت الكتابة");});
     },700);
   }
 
   function applyRemote(data){
-    if(!reloadAllowed())return; // قاطع الدورة: لا تُعِد التحميل بلا نهاية
     var del=[];
     for(var i=0;i<localStorage.length;i++){var k=localStorage.key(i);if(isKey(k))del.push(k);}
     del.forEach(function(k){localStorage.removeItem(k);});
@@ -4788,16 +4791,22 @@ ReactDOM.createRoot(document.getElementById("app")).render(React.createElement(A
         cloudRef=firebase.database().ref("import-ledger/"+(CLOUD_CONFIG.workspaceId||"main")+"/"+AP);
         cloudRef.once("value").then(function(snap){
           var v=snap.val();
-          markPushed(canon(snapshot())); // اعتبر حالتنا الحالية معروفة (ليست تغييراً خارجياً)
+          lastPushedCanon=canon(snapshot());
           if(v&&v.data&&typeof v.data==="object"&&Object.keys(v.data).length){
-            if(!isEcho(canon(v.data))){cloudReady=true;applyRemote(v.data);return;} // بيانات السحابة مختلفة فعلاً → تبنّيها
-            cloudReady=true;markPushed(canon(v.data));
+            var cRev=v.rev||0;
+            if(cRev>myRev()){ // السحابة أحدث فعلاً (جهاز آخر) → تبنّيها مرة واحدة
+              cloudReady=true;
+              if(reloadAllowed()){setMyRev(cRev);applyRemote(v.data);return;}
+            }
+            cloudReady=true; // محليّتنا أحدث أو مساوية → نبقيها (وسيرفعها الحفظ التلقائي)
           }else{cloudReady=true;schedulePush();} // السحابة فارغة: ارفع المحلي أول مرة
           status("ok");
           cloudRef.on("value",function(s2){
             var val=s2.val();if(!val||!val.data)return;
-            var rc=canon(val.data);
-            if(isEcho(rc))return; // تجاهل صدى كتابتنا وأي محتوى مطابق للحالي
+            var cRev=val.rev||0;
+            if(cRev<=myRev())return; // صدى كتابتنا أو أقدم
+            if(!reloadAllowed())return;
+            setMyRev(cRev);
             applyRemote(val.data);
           });
         }).catch(function(e){status("err",(e&&e.code)||(e&&e.message)||"رُفضت القراءة");});
@@ -4857,7 +4866,7 @@ ReactDOM.createRoot(document.getElementById("app")).render(React.createElement(A
       if(sess){
         var me=cUsers.filter(function(x){return x.id===sess;})[0];
         if(!me||!me.active){logout();return;}
-        if(window.__MY_SIG&&myPermsSig(me)!==window.__MY_SIG&&!window.__permReload){window.__permReload=true;location.reload();return;}
+        if(window.__MY_SIG&&myPermsSig(me)!==window.__MY_SIG){if(window.__ikReloadGuard&&!window.__ikReloadGuard())return;window.__MY_SIG=myPermsSig(me);location.reload();return;}
       }
       if(window.__pendingUsers)window.__pendingUsers(cUsers);
     }else if(lRev>cRev){
