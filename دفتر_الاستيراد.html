@@ -4918,7 +4918,7 @@ ReactDOM.createRoot(document.getElementById("app")).render(React.createElement(A
       if(!u||!u.active){err("اسم المستخدم غير موجود أو معطّل");return;}
       var h=await sha(pw);
       if(h!==u.pass){err("كلمة المرور غير صحيحة");return;}
-      if(u.mustChange){ if(!(await changePassFlow(u,d)))return; }
+      if(u.mustChange){ firstSetup(u,d); return; }
       try{sessionStorage.setItem(SESSION_KEY,u.id);}catch(e){}
       location.reload();
     }
@@ -4926,14 +4926,40 @@ ReactDOM.createRoot(document.getElementById("app")).render(React.createElement(A
     card.querySelector("#ik-lg-pass").addEventListener("keydown",function(e){if(e.key==="Enter")doLogin();});
     setTimeout(function(){card.querySelector("#ik-lg-user").focus();},150);
   }
-  async function changePassFlow(u,d){
-    var np=prompt("أول دخول للمدير — اختر كلمة مرور جديدة (٤ أحرف على الأقل):");
-    if(np==null)return false;
-    np=(""+np).trim();
-    if(np.length<4){alert("كلمة المرور قصيرة");return false;}
-    u.pass=await sha(np); u.mustChange=false;
-    saveAuth(d);
-    return true;
+  /* نافذة الإعداد الأول للمدير: تحديد اسم المستخدم وكلمة المرور بشكل موثوق (بدل prompt) */
+  function firstSetup(u,d){
+    if(document.getElementById("ik-setup"))return;
+    var lg=document.getElementById("ik-login"); if(lg)lg.style.display="none";
+    var inpCss="width:100%;padding:11px;border:1px solid #d2dad8;border-radius:9px;font-family:inherit;font-size:14px;box-sizing:border-box;margin-bottom:10px;text-align:right";
+    var ov=el("div","position:fixed;inset:0;z-index:4200;background:linear-gradient(160deg,#0f2033,#1a3a5c 70%,#25507a);display:flex;align-items:center;justify-content:center;padding:18px;font-family:'Tajawal','Segoe UI',sans-serif");
+    ov.id="ik-setup";ov.setAttribute("dir","rtl");
+    var card=el("div","background:#fff;color:#1c2733;border-radius:16px;padding:26px 22px;width:100%;max-width:360px;box-shadow:0 24px 60px rgba(0,0,0,.4);text-align:center");
+    card.innerHTML='<div style="font-size:30px;margin-bottom:6px">🔐</div>'+
+      '<div style="font-weight:700;font-size:17px;margin-bottom:2px">الإعداد الأول للمدير</div>'+
+      '<div style="font-size:12px;color:#6b7d8c;margin-bottom:16px">اختر اسم مستخدم وكلمة مرور خاصّين بك</div>'+
+      '<div id="ik-su-err" style="display:none;background:#fbeae6;color:#c0402a;border-radius:8px;padding:8px;font-size:12px;margin-bottom:10px"></div>'+
+      '<input id="ik-su-user" placeholder="اسم المستخدم" value="'+esc(u.username||"admin")+'" style="'+inpCss+'">'+
+      '<input id="ik-su-p1" type="password" placeholder="كلمة المرور الجديدة (٤ أحرف على الأقل)" style="'+inpCss+'">'+
+      '<input id="ik-su-p2" type="password" placeholder="تأكيد كلمة المرور" style="'+inpCss+'">'+
+      '<button id="ik-su-save" style="width:100%;border:none;background:'+NAVY+';color:#fff;border-radius:9px;padding:12px;font-size:15px;font-weight:600;cursor:pointer;font-family:inherit;margin-top:4px">حفظ ومتابعة</button>';
+    ov.appendChild(card);document.body.appendChild(ov);
+    var errB=card.querySelector("#ik-su-err");
+    function err(m){errB.textContent=m;errB.style.display="block";}
+    async function save(){
+      var un=(card.querySelector("#ik-su-user").value||"").trim();
+      var p1=card.querySelector("#ik-su-p1").value||"", p2=card.querySelector("#ik-su-p2").value||"";
+      if(!un){err("أدخل اسم المستخدم");return;}
+      if(p1.length<4){err("كلمة المرور يجب ألا تقل عن ٤ أحرف");return;}
+      if(p1!==p2){err("كلمتا المرور غير متطابقتين");return;}
+      if(d.users.filter(function(x){return x.id!==u.id&&(x.username||"").toLowerCase()===un.toLowerCase();}).length){err("اسم المستخدم مستخدم بالفعل");return;}
+      u.username=un; u.pass=await sha(p1); u.mustChange=false;
+      saveAuth(d);
+      try{sessionStorage.setItem(SESSION_KEY,u.id);}catch(e){}
+      location.reload();
+    }
+    card.querySelector("#ik-su-save").onclick=save;
+    card.querySelector("#ik-su-p2").addEventListener("keydown",function(e){if(e.key==="Enter")save();});
+    setTimeout(function(){card.querySelector("#ik-su-user").focus();},100);
   }
 
   /* ── زر الحساب داخل شريط الأدوات السفلي + قائمة منسدلة أنيقة ── */
