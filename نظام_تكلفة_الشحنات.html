@@ -334,6 +334,11 @@ body,.card,.modal-box,input,select,textarea,th,td,.card-body{transition:backgrou
 .theme-toggle{background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.3);color:#fff;border-radius:7px;padding:5px 13px;cursor:pointer;font-size:.82rem;font-weight:600;white-space:nowrap;display:inline-flex;align-items:center;gap:5px}
 .theme-toggle:hover{background:rgba(255,255,255,.26)}
 #quick-profile-switch option{color:#1a1a1a;background:#fff}
+/* شاشة دخول معتمة تمنع رؤية النظام قبل الدخول */
+#login-overlay{background:linear-gradient(135deg,#0d2136,#1a3a5c)!important}
+html[data-theme="dark"] #login-overlay{background:linear-gradient(135deg,#0a1622,#12263a)!important}
+/* وضع القراءة فقط: إخفاء أدوات التعديل */
+body.ro [onclick*="saveShipment"],body.ro [onclick*="newShipment"],body.ro [onclick*="addShipCost"],body.ro [onclick*="addConCost"],body.ro [onclick*="addInvoice"],body.ro [onclick*="addItem"],body.ro [onclick*="addPaymentManual"],body.ro [onclick*="clearAll"],body.ro [onclick*="Import"],body.ro [onclick*="import"],body.ro [onclick*="deleteShipment"],body.ro [onclick*="deleteProfile"],body.ro [onclick*="duplicateShipment"],body.ro .del-btn,body.ro .add-btn,body.ro .add-btn-sm,body.ro .import-card{display:none!important}
 
 html[data-theme="dark"]{
   --primary:#3d6c9c;--accent:#d8bd82;--accent-light:#2e2814;
@@ -492,6 +497,7 @@ html[data-theme="dark"] .rt td.hl{background:#2e2814;color:var(--accent)}
       <div class="row2">
         <div class="mg" id="u-pass-w"><label>كلمة المرور</label><input id="u-pass" type="password" placeholder="6 أحرف على الأقل"></div>
         <div class="mg"><label>الحالة</label><select id="u-active"><option value="1">نشط</option><option value="0">موقوف</option></select></div>
+        <div class="mg"><label>وضع القراءة فقط</label><select id="u-readonly"><option value="0">لا (يستطيع التعديل)</option><option value="1">نعم (عرض فقط)</option></select></div>
       </div>
       <div class="mg"><label>الدور</label>
         <select id="u-role" onchange="onRolePreset()">
@@ -663,6 +669,7 @@ html[data-theme="dark"] .rt td.hl{background:#2e2814;color:var(--accent)}
     <button class="hbtn" id="btn-users" onclick="openUsers()">👥 المستخدمون</button>
     <button class="hbtn" id="btn-log" onclick="openLog()">📋 السجل</button>
     <span id="current-user-name" style="font-size:.72rem;color:rgba(255,255,255,.75);white-space:nowrap"></span>
+    <button class="hbtn" onclick="changeMyPassword()" title="تغيير كلمة مروري">🔑 كلمتي</button>
     <button class="hbtn" onclick="logout()" title="تسجيل الخروج">🚪 خروج</button>
   </div>
 </div>
@@ -1502,6 +1509,7 @@ function updateFxBadge() {
 // SAVE SHIPMENT
 // ═══════════════════════════════════════════
 function saveShipment() {
+  if(isReadonly()){ toast('👁 وضع القراءة فقط — لا يمكن الحفظ',true); return; }
   syncCostsFromDOM();
   const no = document.getElementById('shipment-no').value.trim();
   if(!no){ toast('⚠️ أدخل رقم الشحنة أولاً',true); return; }
@@ -1602,7 +1610,7 @@ function loadShipment(id) {
 }
 
 function deleteShipment(id) {
-  if(!can('delete')){ toast('لا تملك صلاحية الحذف',true); return; }
+  if(isReadonly()||!can('delete')){ toast('لا تملك صلاحية الحذف',true); return; }
   confirm2('هل تريد حذف هذه الشحنة؟ لا يمكن التراجع.', ()=>{
     const db = dbLoad().filter(x=>x.id!==id);
     dbSave(db);
@@ -3360,7 +3368,9 @@ window.addEventListener('pagehide',    onAppClose);
 const USERS_KEY='scs_users';       // يُزامَن سحابياً (بادئة scs_)
 const SESSION_KEY='sess_current';  // محلي لكل جهاز (لا يُزامَن)
 const PERMS=[
-  ['ops','بيانات الشحنة والمصاريف والتكاليف'],
+  ['shipment','بيانات الشحنة'],
+  ['costs','المصاريف'],
+  ['results','تقرير التكاليف'],
   ['pricing','احتساب أسعار البيع'],
   ['payments','الدفعات المسددة'],
   ['archive','سجل الشحنات'],
@@ -3374,8 +3384,8 @@ function permAll(v){ const o={}; PERMS.forEach(p=>o[p[0]]=v); return o; }
 function rolePreset(role){
   if(role==='admin')   return permAll(true);
   if(role==='manager'){ const o=permAll(true); o.users=false; return o; }
-  if(role==='entry')   return {ops:true,pricing:true,payments:true,archive:true,companies:false,settings:false,delete:false,users:false};
-  if(role==='viewer')  return {ops:false,pricing:false,payments:false,archive:true,companies:false,settings:false,delete:false,users:false};
+  if(role==='entry')   return {shipment:true,costs:true,results:true,pricing:true,payments:true,archive:true,companies:false,settings:false,delete:false,users:false};
+  if(role==='viewer')  return {shipment:false,costs:false,results:true,pricing:false,payments:false,archive:true,companies:false,settings:false,delete:false,users:false};
   return permAll(false);
 }
 function hashPw(s){ s=String(s); let h=5381; for(let i=0;i<s.length;i++){ h=((h<<5)+h)+s.charCodeAt(i); h|=0; } return 'h'+(h>>>0).toString(16); }
@@ -3385,7 +3395,10 @@ function currentUser(){
   const un=localStorage.getItem(SESSION_KEY); if(!un) return null;
   return usersLoad().find(u=>u.username===un)||null;
 }
-function can(perm){ const u=currentUser(); if(!u||u.active===0) return false; if(u.role==='admin') return true; return !!(u.perms&&u.perms[perm]); }
+function can(perm){ const u=currentUser(); if(!u||u.active===0) return false; if(u.role==='admin') return true;
+  if(u.perms){ if(u.perms[perm]!==undefined) return !!u.perms[perm]; if((perm==='shipment'||perm==='costs'||perm==='results')&&u.perms.ops!==undefined) return !!u.perms.ops; } return false; }
+function isReadonly(){ const u=currentUser(); if(!u) return false; if(u.role==='admin') return false; return !!u.readonly || u.role==='viewer'; }
+function adminExists(){ return usersLoad().some(function(u){ return u.role==='admin'; }); }
 
 // ── بوابة الدخول ──
 function authGate(){
@@ -3406,7 +3419,7 @@ function showLogin(){
   document.getElementById('lg-btn').setAttribute('onclick','submitLogin()');
   document.getElementById('lg-msg').textContent='';
   document.getElementById('lg-user').value=''; document.getElementById('lg-pass').value='';
-  var tg=document.getElementById('lg-toggle'); if(tg) tg.innerHTML='<a href="#" onclick="showFirstRun();return false" style="color:var(--accent);text-decoration:none">🆕 أول استخدام؟ أنشئ حساب المدير</a>';
+  var tg=document.getElementById('lg-toggle'); if(tg) tg.innerHTML=(usersLoad().length===0 && !adminExists())?'<a href="#" onclick="showFirstRun();return false" style="color:var(--accent);text-decoration:none">🆕 أول استخدام؟ أنشئ حساب المدير</a>':'';
   setTimeout(()=>document.getElementById('lg-user').focus(),100);
 }
 function showFirstRun(){
@@ -3448,6 +3461,7 @@ function submitLogin(){
   } else { lgMsg('اسم المستخدم غير موجود'); }
 }
 function createFirstAdmin(){
+  if(adminExists()){ lgMsg('يوجد حساب مدير بالفعل — استخدم تسجيل الدخول'); showLogin(); return; }
   const name=document.getElementById('lg-name').value.trim();
   const un=document.getElementById('lg-user').value.trim();
   const pw=document.getElementById('lg-pass').value;
@@ -3468,17 +3482,31 @@ function createFirstAdmin(){
 function logout(){
   confirm2('تسجيل الخروج؟', ()=>{ logAction('تسجيل خروج',''); cloudLogout(); localStorage.removeItem(SESSION_KEY); location.reload(); });
 }
+function changeMyPassword(){
+  var u=currentUser(); if(!u){ return; }
+  var pw=window.prompt('كلمة مرور جديدة لحسابك (6 أحرف فأكثر):',''); if(pw===null) return;
+  if(String(pw).length<6){ toast('كلمة المرور 6 أحرف على الأقل',true); return; }
+  var users=usersLoad(); var t=users.find(function(x){return x.id===u.id;}); if(!t) return;
+  t.pass=hashPw(pw); usersSave(users); logAction('تغيير كلمة المرور (ذاتي)','');
+  toast('✅ تم تغيير كلمة مرورك');
+  if(cloudEnabled()){ toast('ℹ️ للمزامنة: سجّل الخروج ثم الدخول بالكلمة الجديدة',false); }
+}
+// ── قفل تلقائي عند الخمول (أمان) ──
+var _idleTimer=null, IDLE_MS=30*60*1000;
+function resetIdle(){ if(!currentUser()) return; clearTimeout(_idleTimer); _idleTimer=setTimeout(function(){ try{ logAction('خروج تلقائي (خمول)',''); cloudLogout(); }catch(e){} localStorage.removeItem(SESSION_KEY); location.reload(); }, IDLE_MS); }
+['click','keydown','mousemove','touchstart'].forEach(function(ev){ try{ document.addEventListener(ev, resetIdle, {passive:true}); }catch(e){} });
 
 // ── تطبيق الصلاحيات على الواجهة ──
 function applyPermsUI(){
   const u=currentUser();
   // اسم المستخدم في الرأس
-  const nm=document.getElementById('current-user-name'); if(nm) nm.textContent = u?(u.name||u.username)+' · '+(ROLE_NAMES[u.role]||''):'';
-  // إظهار/إخفاء التبويبات حسب الصلاحية
-  const tabPerm={'page-shipment':'ops','page-costs':'ops','page-results':'ops','page-pricing':'pricing','page-archive':'archive','page-payments':'payments'};
+  const nm=document.getElementById('current-user-name'); if(nm) nm.textContent = u?(u.name||u.username)+' · '+(ROLE_NAMES[u.role]||'')+(isReadonly()?' · 👁 قراءة فقط':''):'';
+  document.body.classList.toggle('ro', isReadonly());
+  // إظهار/إخفاء التبويبات حسب الصلاحية (كل تقرير/شاشة على حدة)
+  const tabPerm={'page-shipment':'shipment','page-costs':'costs','page-results':'results','page-pricing':'pricing','page-archive':'archive','page-payments':'payments'};
   document.querySelectorAll('.tabs .tab').forEach(t=>{
     const oc=t.getAttribute('onclick')||''; const m=oc.match(/'(page-[a-z]+)'/);
-    if(m){ t.style.display = can(tabPerm[m[1]]||'ops') ? '' : 'none'; }
+    if(m){ t.style.display = can(tabPerm[m[1]]||'shipment') ? '' : 'none'; }
   });
   // أزرار الرأس
   const showIf=(id,perm)=>{ const e=document.getElementById(id); if(e) e.style.display=can(perm)?'':'none'; };
@@ -3495,6 +3523,7 @@ function applyPermsUI(){
     const first=[...document.querySelectorAll('.tabs .tab')].find(t=>t.style.display!=='none');
     if(first) first.click();
   }
+  if(typeof resetIdle==='function') resetIdle();
 }
 
 // ── إدارة المستخدمين ──
@@ -3523,6 +3552,7 @@ function renderUsersModal(){
   document.getElementById('u-pass-w').style.display=u?'none':'';
   document.getElementById('u-role').value=u?u.role:'entry';
   document.getElementById('u-active').value=u?String(u.active===0?0:1):'1';
+  var roEl=document.getElementById('u-readonly'); if(roEl) roEl.value=u?String(u.readonly?1:0):'0';
   renderPermGrid(u?u.perms:rolePreset('entry'));
 }
 function renderPermGrid(perms){
@@ -3540,6 +3570,7 @@ function saveUser(){
   const un=document.getElementById('u-user').value.trim();
   const role=document.getElementById('u-role').value;
   const active=Number(document.getElementById('u-active').value);
+  const readonly=Number((document.getElementById('u-readonly')||{}).value||0)===1;
   const perms=collectPerms();
   if(!un){ toast('أدخل اسم المستخدم',true); return; }
   const users=usersLoad();
@@ -3549,11 +3580,11 @@ function saveUser(){
     const u=users.find(x=>x.id===editUserId); if(!u) return;
     // منع إيقاف/تنزيل آخر مدير
     if(u.role==='admin' && (role!=='admin'||active===0) && users.filter(x=>x.role==='admin'&&x.active!==0).length<=1){ toast('لا يمكن إيقاف آخر مدير',true); return; }
-    u.name=name; u.username=un; u.role=role; u.active=active; u.perms=role==='admin'?permAll(true):perms;
+    u.name=name; u.username=un; u.role=role; u.active=active; u.readonly=readonly; u.perms=role==='admin'?permAll(true):perms;
   } else {
     const pw=document.getElementById('u-pass').value;
     if(pw.length<6){ toast('كلمة المرور 6 أحرف على الأقل',true); return; }
-    users.push({id:Date.now(),name:name,username:un,pass:hashPw(pw),role:role,perms:role==='admin'?permAll(true):perms,active:active});
+    users.push({id:Date.now(),name:name,username:un,pass:hashPw(pw),role:role,perms:role==='admin'?permAll(true):perms,active:active,readonly:readonly});
   }
   usersSave(users); editUserId=null; renderUsersModal(); applyPermsUI(); logAction('حفظ مستخدم', un); toast('✅ تم حفظ المستخدم');
 }
@@ -3883,6 +3914,7 @@ function renderPayments(){
 }
 
 function addPaymentManual(){
+  if(isReadonly()){ toast('👁 وضع القراءة فقط',true); return; }
   const amount=parseFloat(document.getElementById('pay-amount').value)||0;
   if(amount<=0){ toast('⚠️ أدخل مبلغاً صحيحاً',true); return; }
   const p={
