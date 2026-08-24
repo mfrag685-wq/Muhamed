@@ -457,6 +457,7 @@ html[data-theme="dark"] .rt td.hl{background:#2e2814;color:var(--accent)}
     <div class="mg"><label>كلمة المرور</label><input id="lg-pass" type="password" autocomplete="current-password" placeholder="••••••••" onkeydown="if(event.key==='Enter')document.getElementById('lg-btn').click()"></div>
     <div class="mg" id="lg-pass2-w" style="display:none"><label>تأكيد كلمة المرور</label><input id="lg-pass2" type="password" placeholder="••••••••"></div>
     <div id="lg-msg" style="color:var(--danger);font-size:.82rem;min-height:18px;margin-bottom:6px"></div>
+    <div id="lg-ok" style="display:none;color:#1e8e4e;background:#e9f8ef;border:1px solid #b7e6c9;border-radius:8px;padding:9px 11px;font-size:.82rem;margin-bottom:8px"></div>
     <button class="btn btn-accent" style="width:100%" id="lg-btn" onclick="submitLogin()">🔓 دخول</button>
     <div id="lg-toggle" style="text-align:center;margin-top:10px;font-size:.82rem"></div>
   </div>
@@ -488,6 +489,13 @@ html[data-theme="dark"] .rt td.hl{background:#2e2814;color:var(--accent)}
       <button onclick="closeUsers()" style="background:none;border:none;font-size:1.4rem;cursor:pointer;color:var(--muted)">✕</button>
     </div>
     <div id="users-list" style="margin-bottom:14px"></div>
+    <div id="join-req-section" style="display:none;border:1px solid #f0c36d;background:#fff8e6;border-radius:10px;padding:10px 12px;margin-bottom:14px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <div style="font-weight:800;color:#a9791a">⏳ طلبات انضمام معلّقة</div>
+        <button class="btn btn-outline btn-sm" onclick="renderJoinRequests()">🔄 تحديث</button>
+      </div>
+      <div id="join-req-list"></div>
+    </div>
     <div style="border-top:1px solid var(--border);padding-top:12px">
       <div style="font-weight:700;color:var(--primary);margin-bottom:8px" id="u-form-title">➕ إضافة مستخدم جديد</div>
       <div class="row2">
@@ -3272,8 +3280,10 @@ function cloudRemoteLogin(username,password,cb){
     return r.once('value').then(function(snap){
       var v=snap.val();
       if(v&&v.data){ cloudApply(v.data); }
-      var u=usersLoad().find(function(x){ return x.username.toLowerCase()===username.toLowerCase(); });
-      if(u && u.pass===hashPw(password) && u.active!==0){
+      // نطابق بالمعرّف السحابي أولاً (لحسابات الانضمام المعتمدة) ثم بالاسم. Firebase تحقّق من كلمة المرور فعلاً.
+      var list=usersLoad();
+      var u=list.find(function(x){ return x.fbUid===uid; }) || list.find(function(x){ return x.username.toLowerCase()===username.toLowerCase(); });
+      if(u && u.active!==0){
         localStorage.setItem(SESSION_KEY,u.username);
         setFbUid(u.id,uid);
         cloudRef=r; cloudReady=true; cloudSetDot('on'); cloudLabel('متزامن ☁');
@@ -3479,6 +3489,9 @@ function authGate(){
   // لا مستخدمين ولا سحابة → أنشئ المدير أول مرة.
   if(usersLoad().length || cloudEnabled()){ showLogin(); } else { showFirstRun(); }
 }
+// وضع التهيئة (للمالك فقط): يظهر خيار إنشاء المدير عبر الرابط ?setup=1 — الموظفون لا يرونه إطلاقاً
+function isSetupMode(){ try{ return /[?&]setup=1/.test(location.search); }catch(e){ return false; } }
+function lgOk(t){ var e=document.getElementById('lg-ok'); if(!e) return; if(t){ e.innerHTML=t; e.style.display='block'; } else { e.style.display='none'; e.innerHTML=''; } }
 function showLogin(){
   const o=document.getElementById('login-overlay'); o.style.display='flex';
   document.getElementById('login-title').textContent='تسجيل الدخول';
@@ -3487,22 +3500,77 @@ function showLogin(){
   document.getElementById('lg-pass2-w').style.display='none';
   document.getElementById('lg-btn').textContent='🔓 دخول';
   document.getElementById('lg-btn').setAttribute('onclick','submitLogin()');
-  document.getElementById('lg-msg').textContent='';
+  document.getElementById('lg-msg').textContent=''; lgOk('');
   document.getElementById('lg-user').value=''; document.getElementById('lg-pass').value='';
-  var tg=document.getElementById('lg-toggle'); if(tg) tg.innerHTML=(usersLoad().length===0 && !adminExists())?'<a href="#" onclick="showFirstRun();return false" style="color:var(--accent);text-decoration:none">🆕 أول استخدام؟ أنشئ حساب المدير</a>':'';
+  // روابط أسفل النموذج:
+  //  - سحابة مفعّلة → «اطلب حساباً جديداً» (طلب انضمام ينتظر موافقة المدير). لا يظهر خيار إنشاء مدير للموظفين.
+  //  - بدون سحابة وبدون مستخدمين → إنشاء المدير محلياً (أول تشغيل).
+  //  - وضع التهيئة (?setup=1) → يظهر رابط إنشاء المدير للمالك حتى مع السحابة (لتهيئة منشأة جديدة).
+  var tg=document.getElementById('lg-toggle'); var links=[];
+  if(cloudEnabled()){ links.push('<a href="#" onclick="showJoin();return false" style="color:var(--accent);text-decoration:none;font-weight:700">🙋 ليس لديك حساب؟ اطلب حساباً جديداً</a>'); }
+  if((!cloudEnabled() && usersLoad().length===0 && !adminExists()) || isSetupMode()){
+    links.push('<a href="#" onclick="showFirstRun();return false" style="color:var(--muted);text-decoration:none;font-size:.78rem">🆕 تهيئة حساب المدير</a>');
+  }
+  if(tg) tg.innerHTML=links.join('<br>');
   setTimeout(()=>document.getElementById('lg-user').focus(),100);
 }
+// شاشة طلب انضمام: الموظف ينشئ بيانات دخوله وينتظر اعتماد المدير
+function showJoin(){
+  if(!cloudEnabled()){ showLogin(); return; }
+  const o=document.getElementById('login-overlay'); o.style.display='flex';
+  document.getElementById('login-title').textContent='طلب حساب جديد';
+  document.getElementById('login-sub').textContent='أنشئ بيانات دخولك ثم انتظر اعتماد المدير';
+  document.getElementById('lg-name-w').style.display='';
+  document.getElementById('lg-pass2-w').style.display='';
+  document.getElementById('lg-btn').textContent='📨 إرسال طلب الانضمام';
+  document.getElementById('lg-btn').setAttribute('onclick','submitJoinRequest()');
+  document.getElementById('lg-msg').textContent=''; lgOk('');
+  ['lg-name','lg-user','lg-pass','lg-pass2'].forEach(id=>document.getElementById(id).value='');
+  var tg=document.getElementById('lg-toggle'); if(tg) tg.innerHTML='<a href="#" onclick="showLogin();return false" style="color:var(--accent);text-decoration:none">🔓 لديك حساب بالفعل؟ سجّل الدخول</a>';
+  setTimeout(()=>document.getElementById('lg-name').focus(),100);
+}
 function showFirstRun(){
+  // مع تفعيل السحابة، لا يُسمح بإنشاء المدير إلا في وضع التهيئة (للمالك) — حماية من إنشاء مدير ثانٍ
+  if(cloudEnabled() && !isSetupMode() && adminExistsCloudSafe()){ showLogin(); return; }
   const o=document.getElementById('login-overlay'); o.style.display='flex';
   document.getElementById('login-title').textContent='إنشاء حساب المدير';
-  document.getElementById('login-sub').textContent='أول تشغيل — أنشئ حساب المدير للتحكم بالمستخدمين والصلاحيات';
+  document.getElementById('login-sub').textContent='تهيئة أول تشغيل — أنشئ حساب المدير للتحكم بالمستخدمين والصلاحيات';
   document.getElementById('lg-name-w').style.display='';
   document.getElementById('lg-pass2-w').style.display='';
   document.getElementById('lg-btn').textContent='🆕 إنشاء المدير والدخول';
   document.getElementById('lg-btn').setAttribute('onclick','createFirstAdmin()');
-  document.getElementById('lg-msg').textContent='';
+  document.getElementById('lg-msg').textContent=''; lgOk('');
   ['lg-name','lg-user','lg-pass','lg-pass2'].forEach(id=>document.getElementById(id).value='');
   var tg=document.getElementById('lg-toggle'); if(tg) tg.innerHTML='<a href="#" onclick="showLogin();return false" style="color:var(--accent);text-decoration:none">🔓 لديك حساب بالفعل؟ سجّل الدخول</a>';
+}
+// لا نستطيع قراءة أعضاء السحابة قبل الدخول؛ لذا نعتبر أن مديراً موجوداً ما دامت السحابة مفعّلة (إلا في وضع التهيئة)
+function adminExistsCloudSafe(){ return adminExists() || cloudEnabled(); }
+// إرسال طلب انضمام: إنشاء حساب Firebase وكتابة الطلب في requests ثم الخروج بانتظار الموافقة
+function submitJoinRequest(){
+  if(!cloudEnabled()){ lgMsg('طلب الحساب متاح في النسخة السحابية فقط'); return; }
+  cloudEnsureInit();
+  const name=document.getElementById('lg-name').value.trim();
+  const un=document.getElementById('lg-user').value.trim();
+  const pw=document.getElementById('lg-pass').value;
+  const pw2=document.getElementById('lg-pass2').value;
+  if(!name||!un){ lgMsg('أدخل الاسم واسم المستخدم'); return; }
+  if(pw.length<6){ lgMsg('كلمة المرور 6 أحرف على الأقل'); return; }
+  if(pw!==pw2){ lgMsg('كلمتا المرور غير متطابقتين'); return; }
+  lgMsg('جارٍ إرسال الطلب…');
+  var email=synthEmail(un);
+  firebase.auth().createUserWithEmailAndPassword(email,pw).then(function(cred){
+    return firebase.database().ref('workspaces/'+cloudWid()+'/requests/'+cred.user.uid)
+      .set({name:name,username:un,ts:new Date().toISOString(),uid:cred.user.uid})
+      .then(function(){ return firebase.auth().signOut(); });
+  }).then(function(){
+    lgMsg(''); showLogin();
+    lgOk('تم إرسال طلبك بنجاح ✅<br>بانتظار اعتماد المدير. بعد الاعتماد سجّل الدخول باسم المستخدم وكلمة المرور اللذين أدخلتهما.');
+  }).catch(function(e){
+    var c=(e&&e.code)||'';
+    if(c.indexOf('email-already-in-use')>=0) lgMsg('اسم المستخدم مستخدم بالفعل — اختر اسماً آخر أو سجّل الدخول');
+    else if(c.indexOf('weak-password')>=0) lgMsg('كلمة المرور ضعيفة — 6 أحرف على الأقل');
+    else lgMsg('تعذّر إرسال الطلب: '+cloudErr(e));
+  });
 }
 function lgMsg(t){ document.getElementById('lg-msg').textContent=t||''; }
 function submitLogin(){
@@ -3532,6 +3600,8 @@ function submitLogin(){
 }
 function createFirstAdmin(){
   if(adminExists()){ lgMsg('يوجد حساب مدير بالفعل — استخدم تسجيل الدخول'); showLogin(); return; }
+  // حماية: مع تفعيل السحابة لا يُنشأ مدير إلا في وضع التهيئة (?setup=1) — يمنع إنشاء مدير ثانٍ من جهاز فارغ
+  if(cloudEnabled() && !isSetupMode()){ lgMsg('إنشاء حساب المدير غير متاح. إن لم يكن لديك حساب فاطلب حساباً جديداً.'); showLogin(); return; }
   const name=document.getElementById('lg-name').value.trim();
   const un=document.getElementById('lg-user').value.trim();
   const pw=document.getElementById('lg-pass').value;
@@ -3598,7 +3668,7 @@ function applyPermsUI(){
 
 // ── إدارة المستخدمين ──
 let editUserId=null;
-function openUsers(){ if(!can('users')){ toast('لا تملك صلاحية إدارة المستخدمين',true); return; } editUserId=null; renderUsersModal(); document.getElementById('users-modal').style.display='flex'; }
+function openUsers(){ if(!can('users')){ toast('لا تملك صلاحية إدارة المستخدمين',true); return; } editUserId=null; renderUsersModal(); renderJoinRequests(); document.getElementById('users-modal').style.display='flex'; }
 function closeUsers(){ document.getElementById('users-modal').style.display='none'; }
 function renderUsersModal(){
   const users=usersLoad();
@@ -3679,6 +3749,51 @@ function deleteUser(id){
   if(u.role==='admin' && users.filter(x=>x.role==='admin'&&x.active!==0).length<=1){ toast('لا يمكن حذف آخر مدير',true); return; }
   if(currentUser() && currentUser().id===id){ toast('لا يمكنك حذف حسابك أثناء استخدامه',true); return; }
   confirm2('حذف المستخدم "'+(u.name||u.username)+'"؟', ()=>{ if(cloudAccounts()&&u.fbUid) cloudRemoveMember(u.fbUid); usersSave(users.filter(x=>x.id!==id)); logAction('حذف مستخدم', u.name||u.username); renderUsersModal(); toast('🗑️ تم حذف المستخدم'); });
+}
+
+// ── طلبات الانضمام (اعتماد المدير) ──
+var _joinReqCache={};
+function renderJoinRequests(){
+  var sec=document.getElementById('join-req-section'); if(!sec) return;
+  if(!cloudAccounts()||!can('users')){ sec.style.display='none'; return; }
+  firebase.database().ref('workspaces/'+cloudWid()+'/requests').once('value').then(function(snap){
+    var v=snap.val()||{}; _joinReqCache=v; var keys=Object.keys(v);
+    if(!keys.length){ sec.style.display='none'; document.getElementById('join-req-list').innerHTML=''; return; }
+    sec.style.display='';
+    document.getElementById('join-req-list').innerHTML=keys.map(function(ruid){
+      var r=v[ruid]||{};
+      return '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;border:1px solid #f0c36d;background:#fff;border-radius:8px;padding:7px 10px;margin-bottom:6px;flex-wrap:wrap">'
+        +'<div><strong>'+escH(r.name||'')+'</strong> <span style="color:var(--muted);font-size:.8rem">('+escH(r.username||'')+')</span></div>'
+        +'<div style="display:flex;gap:5px">'
+        +'<button class="btn btn-accent btn-sm" onclick="approveJoinRequest(\''+ruid+'\')">✔ اعتماد</button>'
+        +'<button class="btn btn-danger btn-sm" onclick="rejectJoinRequest(\''+ruid+'\')">✕ رفض</button>'
+        +'</div></div>';
+    }).join('');
+  }).catch(function(){ sec.style.display='none'; });
+}
+function approveJoinRequest(ruid){
+  if(!can('users')){ toast('صلاحية غير كافية',true); return; }
+  var r=_joinReqCache[ruid]; if(!r){ toast('حدّث القائمة ثم أعد المحاولة',true); return; }
+  var users=usersLoad();
+  if(users.some(function(x){ return x.username.toLowerCase()===String(r.username).toLowerCase(); })){
+    toast('اسم المستخدم "'+r.username+'" مستخدم بالفعل — ارفض الطلب أو اطلب اسماً آخر',true); return; }
+  // سجل مستخدم محلي بكلمة مرور نائبة (التحقق الحقيقي يتم عبر Firebase بكلمة المرور التي أدخلها الموظف)
+  users.push({id:Date.now(),name:r.name||r.username,username:r.username,pass:hashPw('cloud-'+ruid),
+    role:'entry',perms:rolePreset('entry'),active:1,readonly:false,fbUid:ruid});
+  usersSave(users);
+  cloudWriteMember(ruid,{username:r.username,role:'entry',active:1}).catch(function(){});
+  firebase.database().ref('workspaces/'+cloudWid()+'/requests/'+ruid).remove().catch(function(){});
+  logAction('اعتماد طلب انضمام', (r.name||r.username)+' ('+r.username+')');
+  renderUsersModal(); renderJoinRequests();
+  toast('✅ تم اعتماد '+(r.name||r.username)+' — عدّل دوره وصلاحياته من الأعلى');
+}
+function rejectJoinRequest(ruid){
+  if(!can('users')){ toast('صلاحية غير كافية',true); return; }
+  var r=_joinReqCache[ruid];
+  confirm2('رفض طلب "'+((r&&(r.name||r.username))||'')+'" وحذفه؟', function(){
+    firebase.database().ref('workspaces/'+cloudWid()+'/requests/'+ruid).remove().catch(function(){});
+    logAction('رفض طلب انضمام', r?(r.name||r.username):''); renderJoinRequests(); toast('تم رفض الطلب');
+  });
 }
 
 
