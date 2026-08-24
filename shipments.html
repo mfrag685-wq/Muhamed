@@ -3087,6 +3087,7 @@ var _lsSet    = localStorage.setItem.bind(localStorage);
 var _lsRemove = localStorage.removeItem.bind(localStorage);
 var CLOUD_CLIENT = Math.random().toString(36).slice(2);
 var cloudRef=null, cloudReady=false, cloudApplying=false, cloudAttaching=false, _cloudPushT=null;
+var cloudSecondary=null, cloudAuthBusy=false;
 
 function cloudEnabled(){ return !!(CLOUD_CONFIG && CLOUD_CONFIG.apiKey && typeof firebase!=='undefined'); }
 function cloudWid(){ return (CLOUD_CONFIG&&CLOUD_CONFIG.workspaceId)||'main'; }
@@ -3174,18 +3175,84 @@ function cloudAttach(cb){
   }).catch(function(){ cloudAttaching=false; cloudSetDot('err'); cloudLabel('تعذّر'); if(cb) cb(false); });
 }
 
-// تسجيل الدخول السحابي باسم المستخدم (يُستدعى بعد دخول التطبيق)
+// ── وضع الحسابات: قائمة الأعضاء المعتمدين (نفس آلية نظام التوريد) ──
+// لا يمكن قراءة/كتابة بيانات المنشأة إلا لمن اعتمده المدير في workspaces/<wid>/members
+function cloudAccounts(){ return cloudEnabled(); }
+function cloudSecondaryApp(){
+  if(!cloudSecondary){ try{ cloudSecondary=firebase.initializeApp(CLOUD_CONFIG,'provision'); }catch(e){ try{ cloudSecondary=firebase.app('provision'); }catch(x){} } }
+  return cloudSecondary;
+}
+function cloudWriteMember(uid,u){
+  return firebase.database().ref('workspaces/'+cloudWid()+'/members/'+uid)
+    .set({username:u.username, role:u.role, active:Number(u.active)===0?0:1});
+}
+function cloudRemoveMember(uid){ if(!uid) return; try{ firebase.database().ref('workspaces/'+cloudWid()+'/members/'+uid).remove().catch(function(){}); }catch(e){} }
+function setFbUid(userId,uid){ var arr=usersLoad(); var t=arr.find(function(x){return x.id===userId;}); if(t){ t.fbUid=uid; usersSave(arr); } }
+
+// إنشاء/ربط حساب Firebase لمستخدم عبر تطبيق ثانوي كي لا تتأثر جلسة المدير الحالية
+function cloudProvisionUser(u,plainPass,done){
+  if(!cloudAccounts()){ if(done) done('cloud-off'); return; }
+  cloudEnsureInit();
+  var sec=cloudSecondaryApp(); if(!sec){ if(done) done('no-secondary'); return; }
+  var email=synthEmail(u.username);
+  function finish(uid){ setFbUid(u.id,uid); u.fbUid=uid;
+    return cloudWriteMember(uid,u).then(function(){ return sec.auth().signOut(); }).then(function(){ if(done) done(null,uid); }); }
+  sec.auth().createUserWithEmailAndPassword(email,plainPass)
+    .then(function(cred){ return finish(cred.user.uid); })
+    .catch(function(e){
+      var c=(e&&e.code)||'';
+      if(c.indexOf('email-already-in-use')>=0){
+        sec.auth().signInWithEmailAndPassword(email,plainPass)
+          .then(function(cred){ return finish(cred.user.uid); })
+          .catch(function(){ try{sec.auth().signOut();}catch(x){} if(done) done('exists-diff-pass'); });
+      } else { try{sec.auth().signOut();}catch(x){} if(done) done((e&&e.message)||'error'); }
+    });
+}
+// تغيير كلمة مرور المستخدم الحالي (نفسه) في Firebase — مع إعادة توثيق عند الحاجة
+function cloudChangeOwnPassword(newPass,done){
+  if(!cloudAccounts()){ if(done) done(null); return; }
+  cloudEnsureInit();
+  var u=firebase.auth().currentUser; if(!u){ if(done) done('no-user'); return; }
+  u.updatePassword(newPass).then(function(){ if(done) done(null); })
+    .catch(function(e){
+      if(e&&e.code&&e.code.indexOf('requires-recent-login')>=0){
+        var cp=window.prompt('لأمانك، أدخل كلمة المرور الحالية لتأكيد التغيير:'); if(cp===null){ if(done) done('cancel'); return; }
+        var cred=firebase.auth.EmailAuthProvider.credential(u.email,cp);
+        u.reauthenticateWithCredential(cred).then(function(){ return u.updatePassword(newPass); })
+          .then(function(){ if(done) done(null); }).catch(function(){ if(done) done('reauth-failed'); });
+      } else { if(done) done((e&&e.code)||'error'); }
+    });
+}
+function cloudPending(){ cloudReady=false; cloudSetDot('err'); cloudLabel('قيد المراجعة'); try{ firebase.auth().signOut(); }catch(e){}
+  toast('⏳ حسابك قيد المراجعة — لم تتم موافقة المدير على انضمامك بعد',true); }
+
+// بعد نجاح توثيق Firebase: نربط بمساحة العمل (تتطلب أن يكون عضواً معتمداً)
+function cloudAfterAuth(fbUser,username){
+  if(cloudAuthBusy) return; cloudAuthBusy=true;
+  var localU=usersLoad().find(function(x){ return x.username.toLowerCase()===String(username).toLowerCase(); });
+  if(localU && fbUser){ setFbUid(localU.id, fbUser.uid); }
+  cloudAttach(function(ok){
+    cloudAuthBusy=false;
+    if(ok){ if(localU&&fbUser) cloudWriteMember(fbUser.uid, localU).catch(function(){}); return; }
+    // تعذّر الوصول → ليس عضواً معتمداً بعد. المدير الأول يسجّل نفسه كأول عضو (تسمح به القواعد فقط عند خلو القائمة).
+    if(localU && localU.role==='admin' && fbUser){
+      cloudWriteMember(fbUser.uid, localU).then(function(){ cloudReady=false; cloudAttaching=false; cloudAttach(); }).catch(function(){ cloudPending(); });
+    } else { cloudPending(); }
+  });
+}
+
+// تسجيل الدخول السحابي باسم المستخدم (يُستدعى بعد دخول التطبيق محلياً)
 function cloudSignIn(username,password){
   if(!cloudEnabled()) return;
   cloudEnsureInit();
   var email=synthEmail(username);
   cloudSetDot('sync'); cloudLabel('اتصال…');
   firebase.auth().signInWithEmailAndPassword(email,password)
-    .then(function(){ cloudAttach(); })
+    .then(function(cred){ cloudAfterAuth(cred.user,username); })
     .catch(function(){
-      // فشل الدخول قد يعني أن الحساب غير موجود (أو invalid-credential بسبب حماية التعداد) → جرّب الإنشاء
+      // الحساب غير موجود سحابياً بعد (أو invalid-credential بحماية التعداد) → أنشئه ثم اربط
       firebase.auth().createUserWithEmailAndPassword(email,password)
-        .then(function(){ cloudAttach(); })
+        .then(function(cred){ cloudAfterAuth(cred.user,username); })
         .catch(function(e2){
           var c2=(e2&&e2.code)||'';
           if(c2.indexOf('email-already-in-use')>=0){ cloudSetDot('err'); cloudLabel('كلمة السحابة مختلفة'); }
@@ -3194,12 +3261,13 @@ function cloudSignIn(username,password){
     });
 }
 
-// دخول من جهاز جديد ليس فيه مستخدمون: نتحقق عبر السحابة ونسحب المستخدمين
+// دخول من جهاز جديد ليس فيه مستخدمون محليون: نتحقق عبر السحابة ونسحب البيانات (يتطلب عضوية معتمدة)
 function cloudRemoteLogin(username,password,cb){
   if(!cloudEnabled()){ cb(false); return; }
   cloudEnsureInit();
   var email=synthEmail(username);
-  firebase.auth().signInWithEmailAndPassword(email,password).then(function(){
+  firebase.auth().signInWithEmailAndPassword(email,password).then(function(cred){
+    var uid=cred.user.uid;
     var r=firebase.database().ref('workspaces/'+cloudWid()+'/root');
     return r.once('value').then(function(snap){
       var v=snap.val();
@@ -3207,7 +3275,9 @@ function cloudRemoteLogin(username,password,cb){
       var u=usersLoad().find(function(x){ return x.username.toLowerCase()===username.toLowerCase(); });
       if(u && u.pass===hashPw(password) && u.active!==0){
         localStorage.setItem(SESSION_KEY,u.username);
+        setFbUid(u.id,uid);
         cloudRef=r; cloudReady=true; cloudSetDot('on'); cloudLabel('متزامن ☁');
+        cloudWriteMember(uid,u).catch(function(){});
         r.on('value',function(s){ var val=s.val(); if(!val||!val.data) return; if(val.by===CLOUD_CLIENT) return; cloudApply(val.data); });
         cb(true);
       } else { cb(false); }
@@ -3488,8 +3558,8 @@ function changeMyPassword(){
   if(String(pw).length<6){ toast('كلمة المرور 6 أحرف على الأقل',true); return; }
   var users=usersLoad(); var t=users.find(function(x){return x.id===u.id;}); if(!t) return;
   t.pass=hashPw(pw); usersSave(users); logAction('تغيير كلمة المرور (ذاتي)','');
-  toast('✅ تم تغيير كلمة مرورك');
-  if(cloudEnabled()){ toast('ℹ️ للمزامنة: سجّل الخروج ثم الدخول بالكلمة الجديدة',false); }
+  if(cloudAccounts()){ cloudChangeOwnPassword(pw,function(err){ if(err&&err!=='cancel') toast('⚠️ تم التغيير محلياً لكن تعذّر تحديث كلمة السحابة: '+err,true); else if(!err) toast('✅ تم تغيير كلمة مرورك (محلياً وسحابياً)'); }); }
+  else { toast('✅ تم تغيير كلمة مرورك'); }
 }
 // ── قفل تلقائي عند الخمول (أمان) ──
 var _idleTimer=null, IDLE_MS=30*60*1000;
@@ -3581,24 +3651,34 @@ function saveUser(){
     // منع إيقاف/تنزيل آخر مدير
     if(u.role==='admin' && (role!=='admin'||active===0) && users.filter(x=>x.role==='admin'&&x.active!==0).length<=1){ toast('لا يمكن إيقاف آخر مدير',true); return; }
     u.name=name; u.username=un; u.role=role; u.active=active; u.readonly=readonly; u.perms=role==='admin'?permAll(true):perms;
+    usersSave(users); editUserId=null; renderUsersModal(); applyPermsUI(); logAction('حفظ مستخدم', un); toast('✅ تم حفظ المستخدم');
+    // مزامنة العضوية السحابية: إيقاف الحساب = سحب الوصول، تفعيله = تحديث بياناته
+    if(cloudAccounts() && u.fbUid){ if(active===0) cloudRemoveMember(u.fbUid); else cloudWriteMember(u.fbUid,u).catch(function(){}); }
   } else {
     const pw=document.getElementById('u-pass').value;
     if(pw.length<6){ toast('كلمة المرور 6 أحرف على الأقل',true); return; }
-    users.push({id:Date.now(),name:name,username:un,pass:hashPw(pw),role:role,perms:role==='admin'?permAll(true):perms,active:active,readonly:readonly});
+    var nu={id:Date.now(),name:name,username:un,pass:hashPw(pw),role:role,perms:role==='admin'?permAll(true):perms,active:active,readonly:readonly};
+    users.push(nu);
+    usersSave(users); editUserId=null; renderUsersModal(); applyPermsUI(); logAction('حفظ مستخدم', un); toast('✅ تم حفظ المستخدم');
+    // اعتماد الحساب سحابياً (إنشاء حساب Firebase + تسجيله عضواً) كي يتمكن من الدخول من أي جهاز
+    if(cloudAccounts() && active!==0){ toast('☁ جارٍ اعتماد الحساب في السحابة…');
+      cloudProvisionUser(nu,pw,function(err){ if(err){ toast('⚠️ تعذّر اعتماد الحساب سحابياً'+(err==='exists-diff-pass'?' (الاسم مستخدم بكلمة مختلفة)':''),true); } else { toast('☁ تم اعتماد '+un+' — يمكنه الدخول الآن'); } });
+    }
   }
-  usersSave(users); editUserId=null; renderUsersModal(); applyPermsUI(); logAction('حفظ مستخدم', un); toast('✅ تم حفظ المستخدم');
 }
 function resetUserPass(id){
   const u=usersLoad().find(x=>x.id===id); if(!u) return;
   const pw=window.prompt('كلمة مرور جديدة للمستخدم "'+(u.name||u.username)+'":','');
   if(pw===null) return; if(pw.length<6){ toast('كلمة المرور 6 أحرف على الأقل',true); return; }
   const users=usersLoad(); const t=users.find(x=>x.id===id); t.pass=hashPw(pw); usersSave(users); logAction('تغيير كلمة مرور', t.name||t.username); toast('✅ تم تغيير كلمة المرور');
+  // محاولة اعتماد سحابي بالكلمة الجديدة (تنجح إن لم يكن للمستخدم حساب سحابي بعد)
+  if(cloudAccounts() && t.active!==0){ cloudProvisionUser(t,pw,function(err){ if(err==='exists-diff-pass'){ toast('ℹ️ للسحابة: لا يمكن تغيير كلمة حساب قائم من هنا — يغيّرها المستخدم بنفسه من «تغيير كلمة مروري»',true); } }); }
 }
 function deleteUser(id){
   const users=usersLoad(); const u=users.find(x=>x.id===id); if(!u) return;
   if(u.role==='admin' && users.filter(x=>x.role==='admin'&&x.active!==0).length<=1){ toast('لا يمكن حذف آخر مدير',true); return; }
   if(currentUser() && currentUser().id===id){ toast('لا يمكنك حذف حسابك أثناء استخدامه',true); return; }
-  confirm2('حذف المستخدم "'+(u.name||u.username)+'"؟', ()=>{ usersSave(users.filter(x=>x.id!==id)); logAction('حذف مستخدم', u.name||u.username); renderUsersModal(); toast('🗑️ تم حذف المستخدم'); });
+  confirm2('حذف المستخدم "'+(u.name||u.username)+'"؟', ()=>{ if(cloudAccounts()&&u.fbUid) cloudRemoveMember(u.fbUid); usersSave(users.filter(x=>x.id!==id)); logAction('حذف مستخدم', u.name||u.username); renderUsersModal(); toast('🗑️ تم حذف المستخدم'); });
 }
 
 
