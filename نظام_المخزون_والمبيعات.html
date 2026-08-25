@@ -4,6 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 <title>نظام إدارة المخزون والمبيعات وحركة الأصناف</title>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
 <style>
 :root{--bg:#f1f5f9;--card:#fff;--ink:#0f172a;--muted:#64748b;--line:#e2e8f0;
   --brand:#0d9488;--brand-d:#0f766e;--blue:#2563eb;--green:#16a34a;--amber:#d97706;--red:#dc2626;--sky:#0284c7;
@@ -100,6 +103,10 @@ tr:hover td{background:#f8fafc}
 .balbox .b{font-size:26px;font-weight:800;color:var(--sky)}
 .details-toggle{background:none;border:0;color:var(--blue);font-weight:600;font-size:13px;padding:4px 0;cursor:pointer}
 @media print{.sidebar,.topbar,.backdrop,.pagehead .btn,.navbtn,.no-print{display:none!important}.main{margin:0!important}}
+.cloud-status{font-size:12px;padding:4px 10px;border-radius:20px;font-weight:700;display:inline-block;text-align:center}
+.cloud-status.off{background:#e2e8f0;color:#475569}.cloud-status.connecting{background:#fef9c3;color:#854d0e}
+.cloud-status.ok{background:#dcfce7;color:#166534}.cloud-status.sync{background:#dbeafe;color:#1e40af}.cloud-status.err{background:#fee2e2;color:#991b1b}
+.loginerr{background:#fee2e2;color:#991b1b;padding:10px;border-radius:9px;margin-bottom:12px;font-size:13px;font-weight:600;display:none}
 </style>
 </head>
 <body>
@@ -108,11 +115,15 @@ tr:hover td{background:#f8fafc}
 <div id="login">
   <div class="box">
     <h1>📦 نظام الوارد والمنصرف</h1>
-    <p>اختر المستخدم للدخول ومتابعة العمليات باسمه</p>
-    <label>المستخدم</label>
-    <select id="loginUser"></select>
+    <p id="loginLead">سجّل الدخول للمتابعة</p>
+    <div class="loginerr" id="loginErr"></div>
+    <label>اسم المستخدم</label>
+    <input id="lg_user" autocomplete="username" placeholder="admin" onkeydown="if(event.key==='Enter')doLogin()">
+    <label style="margin-top:12px">كلمة المرور</label>
+    <input id="lg_pass" type="password" autocomplete="current-password" placeholder="••••••" onkeydown="if(event.key==='Enter')doLogin()">
     <button class="btn block" style="margin-top:16px" onclick="doLogin()">دخول</button>
-    <p style="margin-top:14px;font-size:12px">تُدار المستخدمون والصلاحيات من شاشة «الموظفون» بعد الدخول.</p>
+    <div style="margin-top:14px;text-align:center"><span class="cloud-status off" id="cloudStatus">غير مفعّل</span></div>
+    <p style="margin-top:12px;font-size:12px">أول دخول: <b>admin / admin123</b> — ثم غيّر كلمة المرور من شاشة «الموظفون».</p>
   </div>
 </div>
 
@@ -134,6 +145,7 @@ tr:hover td{background:#f8fafc}
     <button class="navbtn" data-page="employees">👥 الموظفون</button>
     <div class="foot">
       <b id="who"></b>
+      <div style="margin-bottom:6px"><span class="cloud-status off" id="cloudStatus2">غير مفعّل</span></div>
       <button class="btn gray sm block" onclick="backup()">⬇ نسخة احتياطية</button>
       <button class="btn ghost sm block" onclick="restore()">⬆ استرجاع</button>
       <button class="btn red sm block" onclick="logout()">خروج</button>
@@ -160,10 +172,14 @@ const typeAr=t=>({inbound:"وارد",outbound:"منصرف",adjustment:"تسوي�
 const isManager=()=>["admin","manager"].includes(ME.role);
 const isIn=t=>t==="inbound"||t==="adjustment";
 const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+function hash(str){let h=5381;str=String(str);for(let i=0;i<str.length;i++)h=((h<<5)+h+str.charCodeAt(i))>>>0;return "h"+h.toString(36);}
 
 /* ---------- Storage ---------- */
 function seed(){return{
-  users:[{id:1,name:"المدير العام",role:"admin"},{id:2,name:"موظف المخزن",role:"employee"}],
+  users:[
+    {id:1,name:"المدير العام",username:"admin",pass:hash("admin123"),role:"admin",active:1,fbUid:"",lastLogin:""},
+    {id:2,name:"موظف المخزن",username:"store",pass:hash("store123"),role:"employee",active:1,fbUid:"",lastLogin:""}
+  ],
   suppliers:[{id:1,name:"مورد الرياض للأثاث",phone:"0500000000",contact:"أبو أحمد"}],
   shipments:[],
   items:[
@@ -175,23 +191,210 @@ function seed(){return{
   movements:[],activity:[],
   seq:{user:2,supplier:1,shipment:0,item:4,movement:0,activity:0},
 };}
-function load(){const r=localStorage.getItem(KEY);DB=r?JSON.parse(r):seed();if(!r)save();}
-function save(){localStorage.setItem(KEY,JSON.stringify(DB));}
+function ensureShape(){
+  DB.users=DB.users||[];DB.items=DB.items||[];DB.movements=DB.movements||[];
+  DB.suppliers=DB.suppliers||[];DB.shipments=DB.shipments||[];DB.activity=DB.activity||[];
+  DB.seq=DB.seq||{user:0,supplier:0,shipment:0,item:0,movement:0,activity:0};
+  DB.users.forEach(u=>{if(u.active===undefined)u.active=1;if(u.username===undefined)u.username="";if(u.fbUid===undefined)u.fbUid="";});
+}
+function load(){const r=localStorage.getItem(KEY);DB=r?JSON.parse(r):seed();ensureShape();if(!r)save();}
+function save(){localStorage.setItem(KEY,JSON.stringify(DB));cloudPush();}
 function nid(k){DB.seq[k]=(DB.seq[k]||0)+1;return DB.seq[k];}
-function logAct(action,detail){DB.activity.unshift({id:nid("activity"),userName:ME.name,action,detail,at:new Date().toISOString()});save();}
+function logAct(action,detail){DB.activity.unshift({id:nid("activity"),userName:ME?ME.name:"",action,detail,at:new Date().toISOString()});save();}
 
 /* ---------- Login ---------- */
-function initLogin(){
-  $("#loginUser").innerHTML=DB.users.map(u=>`<option value="${u.id}">${esc(u.name)} — ${roleAr(u.role)}</option>`).join("");
-}
+let CURRENT_PAGE="move";
+function loginErr(m){const e=$("#loginErr");if(e){e.textContent=m;e.style.display=m?"block":"none";}}
+function initLogin(){/* الدخول أصبح بالاسم وكلمة المرور */}
 function doLogin(){
-  ME=DB.users.find(u=>u.id===+$("#loginUser").value);
+  const u=($("#lg_user").value||"").trim(),p=$("#lg_pass").value||"";
+  loginErr("");
+  if(!u){loginErr("أدخل اسم المستخدم.");return;}
+  if(cloudAccounts()){cloudLogin(u,p);return;}
+  const usr=DB.users.find(x=>(x.username||"").toLowerCase()===u.toLowerCase());
+  if(usr&&usr.pass===hash(p)&&Number(usr.active)!==0){usr.lastLogin=new Date().toISOString();ME=usr;save();startApp();}
+  else loginErr("اسم المستخدم أو كلمة المرور غير صحيحة.");
+}
+function startApp(){
   $("#login").style.display="none";$("#app").style.display="block";
   $("#who").textContent=`${ME.name} · ${roleAr(ME.role)}`;
   document.querySelectorAll(".navbtn").forEach(b=>b.onclick=()=>go(b.dataset.page));
   go("move");
 }
-function logout(){location.reload();}
+function logout(){if(cloudEnabled()){try{firebase.auth().signOut();}catch(e){}}location.reload();}
+
+/* ==========================================================================
+   المزامنة السحابية (Firebase Realtime Database) — وضع الحسابات
+   اترك apiKey فارغاً ليعمل محلياً فقط. القيم الحالية تفعّل السحابة مباشرة.
+   دليل التفعيل الكامل: دليل_التفعيل_السحابي.md
+   ========================================================================== */
+var CLOUD_CONFIG={
+  apiKey:"AIzaSyDMZoozjFw9PTF-pluoALw3NKqeGDjbdtI",
+  authDomain:"mohamed-farag-fruits.firebaseapp.com",
+  databaseURL:"https://mohamed-farag-fruits-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId:"mohamed-farag-fruits",
+  storageBucket:"mohamed-farag-fruits.firebasestorage.app",
+  messagingSenderId:"493790542156",
+  appId:"1:493790542156:web:fc80dccb52c699d67e77e9",
+  workspaceId:"inventory"   /* مساحة عمل مستقلة لنظام المخزون */
+};
+var CLOUD_AUTH_MODE="accounts";
+var cloudReady=false,cloudRef=null,cloudPushTimer=null,cloudLastPushed="",cloudSecondary=null,cloudInteractive=false,cloudAuthBusy=false;
+function setCloudStatus(state){
+  const map={off:["غير مفعّل","off"],auth:["بانتظار الدخول","connecting"],connecting:["يتصل…","connecting"],
+    ok:["متصل ☁","ok"],sync:["يُزامن…","sync"],err:["تعذّر الاتصال","err"]};
+  const m=map[state]||map.off;
+  ["cloudStatus","cloudStatus2"].forEach(id=>{const el=document.getElementById(id);if(el){el.textContent=m[0];el.className="cloud-status "+m[1];}});
+}
+function cloudEnabled(){return !!(CLOUD_CONFIG&&CLOUD_CONFIG.apiKey&&typeof firebase!=="undefined");}
+function cloudAccounts(){return cloudEnabled()&&CLOUD_AUTH_MODE==="accounts";}
+function cloudWid(){return CLOUD_CONFIG.workspaceId||"main";}
+function synthEmail(username){return "u"+hash(String(username||"").toLowerCase())+"@"+cloudWid()+".inverp.app";}
+function emailForUser(u){return (u&&u.email)?u.email:synthEmail(u?u.username:"");}
+function cloudPush(){
+  if(!cloudReady||!cloudRef)return;
+  const s=JSON.stringify(DB);
+  clearTimeout(cloudPushTimer);
+  cloudPushTimer=setTimeout(function(){
+    let data;try{data=JSON.parse(s);}catch(e){return;}
+    cloudLastPushed=s;setCloudStatus("sync");
+    cloudRef.set({data:data,updatedAt:firebase.database.ServerValue.TIMESTAMP,updatedBy:(ME?ME.name:"")})
+      .then(()=>setCloudStatus("ok")).catch(()=>setCloudStatus("err"));
+  },500);
+}
+function cloudApplyRemote(remote){
+  if(!remote||typeof remote!=="object"||!Array.isArray(remote.users))return;
+  DB=remote;ensureShape();
+  const s=JSON.stringify(DB);localStorage.setItem(KEY,s);cloudLastPushed=s;
+  if(ME){const me=DB.users.find(x=>x.id===ME.id);if(me)ME=me;go(CURRENT_PAGE);}
+}
+function cloudAttach(cb){
+  if(cloudReady){if(cb)cb();return;}
+  cloudRef=firebase.database().ref("workspaces/"+cloudWid()+"/root");
+  cloudRef.once("value").then(function(snap){
+    const v=snap.val();
+    if(v&&v.data&&Array.isArray(v.data.users)){cloudApplyRemote(v.data);cloudReady=true;}
+    else{cloudReady=true;cloudPush();}
+    setCloudStatus("ok");
+    cloudRef.on("value",function(s2){
+      const val=s2.val();if(!val||!val.data||!Array.isArray(val.data.users))return;
+      const rs=JSON.stringify(val.data);
+      if(rs===cloudLastPushed||rs===JSON.stringify(DB))return;
+      cloudApplyRemote(val.data);
+    });
+    if(cb)cb();
+  }).catch(function(err){setCloudStatus("err");if(cb)cb(err||true);});
+}
+function cloudWriteMember(uid,u){
+  return firebase.database().ref("workspaces/"+cloudWid()+"/members/"+uid)
+    .set({username:u.username,role:u.role,active:Number(u.active)?1:0});
+}
+function cloudSecondaryApp(){if(!cloudSecondary)cloudSecondary=firebase.initializeApp(CLOUD_CONFIG,"provision");return cloudSecondary;}
+function cloudProvisionUser(u,plainPass,done){
+  if(!cloudAccounts()){if(done)done("cloud-off");return;}
+  const sec=cloudSecondaryApp(),email=emailForUser(u);
+  function finish(uid){u.fbUid=uid;return cloudWriteMember(uid,u).then(()=>sec.auth().signOut()).then(()=>{save();if(done)done(null,uid);});}
+  sec.auth().createUserWithEmailAndPassword(email,plainPass)
+    .then(cred=>finish(cred.user.uid))
+    .catch(function(e){
+      if(e&&e.code==="auth/email-already-in-use"){
+        sec.auth().signInWithEmailAndPassword(email,plainPass).then(cred=>finish(cred.user.uid))
+          .catch(()=>{if(done)done("exists-diff-pass");});
+      }else{try{sec.auth().signOut();}catch(x){}if(done)done((e&&e.message)||"error");}
+    });
+}
+function cloudChangeOwnPassword(newPass,done){
+  const u=firebase.auth&&firebase.auth().currentUser;
+  if(!u){if(done)done("no-user");return;}
+  u.updatePassword(newPass).then(()=>done&&done(null)).catch(function(e){
+    if(e&&e.code==="auth/requires-recent-login"){
+      const cp=prompt("لأمانك، أدخل كلمة المرور الحالية لتأكيد التغيير:");
+      if(!cp){if(done)done("cancel");return;}
+      const cred=firebase.auth.EmailAuthProvider.credential(u.email,cp);
+      u.reauthenticateWithCredential(cred).then(()=>u.updatePassword(newPass)).then(()=>done&&done(null))
+        .catch(()=>done&&done("reauth-failed"));
+    }else if(done)done((e&&e.code)||"error");
+  });
+}
+function cloudBootstrapAdmin(u,password,fail){
+  const email=emailForUser(u);
+  firebase.auth().createUserWithEmailAndPassword(email,password).then(function(cred){
+    u.fbUid=cred.user.uid;
+    return cloudWriteMember(cred.user.uid,u).then(()=>afterCloudAuth(cred.user,u.username));
+  }).catch(function(e){
+    if(e&&e.code==="auth/email-already-in-use"){
+      firebase.auth().signInWithEmailAndPassword(email,password).then(cred=>afterCloudAuth(cred.user,u.username))
+        .catch(()=>fail("تعذّر تجهيز حساب المدير — قد تختلف كلمة المرور عن الحساب الموجود في Firebase."));
+    }else fail("تعذّر تجهيز حساب المدير السحابي: "+((e&&e.message)||""));
+  });
+}
+function afterCloudAuth(user,username){
+  if(cloudAuthBusy)return;cloudAuthBusy=true;
+  cloudAttach(function(err){
+    cloudAuthBusy=false;
+    if(err){loginErr("حسابك قيد المراجعة — لم تتم موافقة المدير على انضمامك بعد.");
+      cloudReady=false;try{firebase.auth().signOut();}catch(e){}setCloudStatus("auth");return;}
+    let u=DB.users.find(x=>x.fbUid===user.uid)||DB.users.find(x=>(x.username||"").toLowerCase()===String(username).toLowerCase());
+    if(!u){loginErr("لا يوجد سجل مستخدم مطابق في بيانات المنشأة.");return;}
+    if(!Number(u.active)){loginErr("هذا الحساب موقوف. راجع مدير النظام.");return;}
+    if(u.fbUid!==user.uid)u.fbUid=user.uid;
+    u.lastLogin=new Date().toISOString();ME=u;
+    cloudWriteMember(user.uid,u).catch(()=>{});
+    logAct("تسجيل دخول","دخول سحابي");save();
+    loginErr("");startApp();
+  });
+}
+function cloudLogin(username,password){
+  function fail(m){loginErr(m);setCloudStatus("auth");}
+  cloudInteractive=true;setCloudStatus("connecting");
+  const appu=DB.users.find(x=>(x.username||"").toLowerCase()===String(username).toLowerCase());
+  const email=appu?emailForUser(appu):synthEmail(username);
+  firebase.auth().signInWithEmailAndPassword(email,password)
+    .then(cred=>afterCloudAuth(cred.user,username))
+    .catch(function(e){
+      const code=e&&e.code;
+      if(code==="auth/wrong-password"){fail("كلمة المرور غير صحيحة");return;}
+      if(code==="auth/user-not-found"||code==="auth/invalid-credential"||code==="auth/invalid-login-credentials"){
+        if(appu&&appu.pass===hash(password)&&Number(appu.active)){
+          if(appu.role==="admin")cloudBootstrapAdmin(appu,password,fail);
+          else fail("حسابك السحابي غير مُفعّل بعد — اطلب من المدير تفعيله من شاشة «الموظفون».");
+        }else fail("اسم المستخدم أو كلمة المرور غير صحيحة");
+        return;
+      }
+      fail("تعذّر تسجيل الدخول السحابي: "+((e&&e.message)||""));
+    });
+}
+function provisionUserAccount(id){
+  if(ME.role!=="admin"){alert("للمدير فقط.");return;}
+  if(!cloudAccounts()){alert("المزامنة السحابية غير مفعّلة.");return;}
+  const u=DB.users.find(x=>x.id===id);if(!u)return;
+  const p=prompt('كلمة مرور الدخول السحابي للمستخدم "'+u.name+'" (٦ أحرف/أرقام على الأقل):');
+  if(p===null)return;
+  if(p.length<6){alert("كلمة المرور يجب ألا تقل عن ٦ خانات");return;}
+  u.pass=hash(p);setCloudStatus("sync");
+  const cb=function(err){
+    if(err==="exists-diff-pass")alert("يوجد حساب سحابي بهذا الاسم بكلمة مرور مختلفة — احذفه من Firebase Authentication ثم أعد المحاولة");
+    else if(err==="reauth-failed")alert("كلمة المرور الحالية غير صحيحة — لم تتغيّر");
+    else if(err&&err!=="cancel")alert("تعذّر تحديث الحساب السحابي");
+    else if(!err){logAct("حساب سحابي","تحديث حساب "+u.name);alert("تم تحديث الحساب السحابي لـ "+u.name);}
+    save();setCloudStatus("ok");pEmployees();
+  };
+  if(ME&&id===ME.id)cloudChangeOwnPassword(p,cb);else cloudProvisionUser(u,p,cb);
+}
+function cloudInit(){
+  if(!cloudEnabled()){setCloudStatus("off");return;}
+  try{firebase.initializeApp(CLOUD_CONFIG);}catch(e){}
+  if(cloudAccounts()){
+    setCloudStatus("auth");
+    firebase.auth().onAuthStateChanged(function(user){
+      if(user&&!ME&&!cloudReady&&!cloudInteractive&&user.uid)afterCloudAuth(user,"");
+    });
+  }else{
+    setCloudStatus("connecting");
+    firebase.auth().signInAnonymously().catch(()=>setCloudStatus("err"));
+    firebase.auth().onAuthStateChanged(function(user){if(user&&!cloudReady)cloudAttach();});
+  }
+}
 
 /* ---------- Mobile nav ---------- */
 function toggleNav(){$("#sidebar").classList.toggle("open");$("#backdrop").classList.toggle("open");}
@@ -199,7 +402,7 @@ function closeNav(){$("#sidebar").classList.remove("open");$("#backdrop").classL
 
 /* ---------- Router ---------- */
 function go(page){
-  closeNav();
+  closeNav();CURRENT_PAGE=page;
   document.querySelectorAll(".navbtn").forEach(b=>b.classList.toggle("active",b.dataset.page===page));
   ({move:pMove,dashboard:pDashboard,report:pReport,ledger:pLedger,items:pItems,import:pImport,employees:pEmployees}[page])();
 }
@@ -564,12 +767,16 @@ function pEmployees(){
     ${canManage?`<button class="btn" onclick="userForm(0)">+ إضافة مستخدم</button>`:""}</div>
   <div class="grid-2">
     <div class="card"><div class="card-title">قائمة المستخدمين</div>
-      <table><thead><tr><th>الاسم</th><th>الصلاحية</th>${canManage?"<th></th>":""}</tr></thead>
-      <tbody>${DB.users.map(u=>`<tr><td>${esc(u.name)}</td><td><span class="badge-role">${roleAr(u.role)}</span></td>
+      <div class="table-wrap"><table><thead><tr><th>الاسم</th><th>اسم المستخدم</th><th>الصلاحية</th><th>الحالة</th>${canManage?"<th></th>":""}</tr></thead>
+      <tbody>${DB.users.map(u=>`<tr><td>${esc(u.name)}</td><td style="font-family:monospace">${esc(u.username||"—")}</td>
+        <td><span class="badge-role">${roleAr(u.role)}</span></td>
+        <td>${Number(u.active)!==0?'<span class="tag inbound">نشط</span>':'<span class="tag outbound">موقوف</span>'}${u.fbUid?' ☁':''}</td>
         ${canManage?`<td style="white-space:nowrap"><button class="btn blue sm" onclick="userForm(${u.id})">تعديل</button>
-          ${u.id!==ME.id?`<button class="btn red sm" onclick="delUser(${u.id})">حذف</button>`:""}</td>`:""}</tr>`).join("")}</tbody></table>
+          <button class="btn amber sm" onclick="provisionUserAccount(${u.id})">${u.fbUid?"كلمة مرور":"حساب سحابي"}</button>
+          ${u.id!==ME.id?`<button class="btn red sm" onclick="delUser(${u.id})">حذف</button>`:""}</td>`:""}</tr>`).join("")}</tbody></table></div>
       <p style="font-size:12px;color:var(--muted);margin-top:12px">
-        <b>مدير:</b> كل الصلاحيات · <b>مشرف:</b> تعديل/حذف الأصناف · <b>موظف:</b> تسجيل الحركات فقط.</p></div>
+        <b>مدير:</b> كل الصلاحيات · <b>مشرف:</b> تعديل/حذف الأصناف · <b>موظف:</b> تسجيل الحركات فقط.<br>
+        زر <b>«حساب سحابي»</b> يفعّل دخول الموظف من أي جهاز بكلمة المرور التي تحددها له.</p></div>
     <div class="card"><div class="card-title">📝 سجل نشاط الموظفين</div>
       <div class="table-wrap"><table><thead><tr><th>الوقت</th><th>الموظف</th><th>العملية</th><th>التفاصيل</th></tr></thead>
       <tbody>${DB.activity.slice(0,120).map(a=>`<tr><td>${fmt(a.at)}</td><td>${esc(a.userName)}</td><td>${esc(a.action)}</td><td>${esc(a.detail||"")}</td></tr>`).join("")||`<tr><td colspan="4" class="empty">—</td></tr>`}</tbody></table></div></div>
@@ -579,21 +786,34 @@ function userForm(id){
   const u=id?DB.users.find(x=>x.id===id):{};
   const m=document.createElement("div");m.className="modal";
   m.innerHTML=`<div class="box"><h3>${id?"تعديل مستخدم":"إضافة مستخدم"}</h3>
-    <div class="field" style="margin-bottom:12px"><label>الاسم *</label><input id="u_name" value="${esc(u.name||"")}"></div>
-    <div class="field" style="margin-bottom:12px"><label>الصلاحية</label>
+    <div class="row"><div class="field"><label>الاسم *</label><input id="u_name" value="${esc(u.name||"")}"></div>
+      <div class="field"><label>اسم المستخدم * (للدخول)</label><input id="u_user" value="${esc(u.username||"")}" style="font-family:monospace"></div></div>
+    <div class="row"><div class="field"><label>الصلاحية</label>
       <select id="u_role"><option value="employee" ${u.role==="employee"?"selected":""}>موظف</option>
         <option value="manager" ${u.role==="manager"?"selected":""}>مشرف</option>
         <option value="admin" ${u.role==="admin"?"selected":""}>مدير</option></select></div>
+      <div class="field"><label>الحالة</label>
+        <select id="u_active"><option value="1" ${Number(u.active)!==0?"selected":""}>نشط</option>
+          <option value="0" ${Number(u.active)===0?"selected":""}>موقوف</option></select></div></div>
+    <div class="field" style="margin-bottom:12px"><label>${id?"كلمة مرور جديدة (اتركها فارغة لإبقائها)":"كلمة المرور *"}</label>
+      <input id="u_pass" type="text" placeholder="٦ خانات على الأقل"></div>
     <div id="u_msg" style="color:var(--red);font-size:13px;margin-bottom:8px"></div>
     <div style="display:flex;gap:8px"><button class="btn green" onclick="saveUser(${id||0})">حفظ</button>
-      <button class="btn gray" onclick="this.closest('.modal').remove()">إلغاء</button></div></div>`;
+      <button class="btn gray" onclick="this.closest('.modal').remove()">إلغاء</button></div>
+    <p style="font-size:12px;color:var(--muted);margin-top:10px">في النظام السحابي: بعد الحفظ فعّل الدخول من زر «حساب سحابي» أمام الموظف.</p></div>`;
   document.body.appendChild(m);
 }
 function saveUser(id){
-  const name=$("#u_name").value.trim(),role=$("#u_role").value;
+  const name=$("#u_name").value.trim(),role=$("#u_role").value,
+        username=$("#u_user").value.trim(),active=+$("#u_active").value,pass=$("#u_pass").value;
   if(!name){$("#u_msg").textContent="الاسم مطلوب.";return;}
-  if(id){const u=DB.users.find(x=>x.id===id);u.name=name;u.role=role;logAct("تعديل مستخدم",name);}
-  else{DB.users.push({id:nid("user"),name,role});logAct("إضافة مستخدم",name);}
+  if(!username){$("#u_msg").textContent="اسم المستخدم مطلوب.";return;}
+  if(DB.users.some(x=>(x.username||"").toLowerCase()===username.toLowerCase()&&x.id!==id)){$("#u_msg").textContent="اسم المستخدم مستخدم مسبقاً.";return;}
+  if(!id&&(!pass||pass.length<6)){$("#u_msg").textContent="كلمة المرور مطلوبة (٦ خانات على الأقل).";return;}
+  if(pass&&pass.length<6){$("#u_msg").textContent="كلمة المرور يجب ألا تقل عن ٦ خانات.";return;}
+  if(id){const u=DB.users.find(x=>x.id===id);u.name=name;u.role=role;u.username=username;u.active=active;
+    if(pass)u.pass=hash(pass);logAct("تعديل مستخدم",name);}
+  else{DB.users.push({id:nid("user"),name,username,pass:hash(pass),role,active,fbUid:"",lastLogin:""});logAct("إضافة مستخدم",name);}
   save();document.querySelector(".modal").remove();pEmployees();
 }
 function delUser(id){
@@ -613,7 +833,7 @@ $("#restoreFile").onchange=e=>{const f=e.target.files[0];if(!f)return;const r=ne
   r.onload=()=>{try{DB=JSON.parse(r.result);save();alert("تم الاسترجاع بنجاح.");go("dashboard");}catch{alert("ملف غير صالح.");}};r.readAsText(f);};
 
 /* ---------- Start ---------- */
-load();initLogin();
+load();initLogin();cloudInit();
 </script>
 </body>
 </html>
