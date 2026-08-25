@@ -247,8 +247,8 @@ function seed(){return{
   companies:[{id:1,name:"غرف النوم والأثاث",logo:"",icon:"🛏️"}],
   settings:{company:"غرف النوم والأثاث",logo:""},
   users:[
-    {id:1,name:"المدير العام",username:"admin",pass:hash("admin123"),role:"admin",active:1,perms:preset("admin"),fbUid:"",lastLogin:""},
-    {id:2,name:"موظف المخزن",username:"store",pass:hash("store123"),role:"employee",active:1,perms:preset("employee"),fbUid:"",lastLogin:""}
+    {id:1,name:"المدير العام",username:"admin",pass:hash("admin123"),role:"admin",active:1,perms:preset("admin"),pwTemp:1,fbUid:"",lastLogin:""},
+    {id:2,name:"موظف المخزن",username:"store",pass:hash("store123"),role:"employee",active:1,perms:preset("employee"),pwTemp:1,fbUid:"",lastLogin:""}
   ],
   suppliers:[{id:1,companyId:1,name:"مورد الرياض للأثاث",phone:"0500000000",contact:"أبو أحمد"}],
   shipments:[],
@@ -278,6 +278,7 @@ function ensureShape(){
   DB.suppliers.forEach(s=>{if(s.companyId===undefined)s.companyId=firstCo;});
   if(!DB.companies.some(c=>c.id===CO))CO=DB.companies[0].id;
   DB.users.forEach(u=>{if(u.active===undefined)u.active=1;if(u.username===undefined)u.username="";if(u.fbUid===undefined)u.fbUid="";
+    if(u.pwTemp===undefined)u.pwTemp=(u.pass===hash("admin123")||u.pass===hash("store123"))?1:0;
     if(!u.perms){u.perms=preset(u.role);}else{PERM_KEYS.forEach(k=>{if(u.perms[k[0]]===undefined)u.perms[k[0]]=preset(u.role)[k[0]];});}});
 }
 function applyBrand(){
@@ -336,6 +337,29 @@ function startApp(){
   document.querySelectorAll(".navbtn").forEach(b=>b.onclick=()=>go(b.dataset.page));
   const first=(PERM_KEYS.map(k=>k[0]).find(k=>["move","dashboard","report","ledger","items","import","employees","settings"].includes(k)&&can(k)))||"move";
   go(can("move")?"move":first);
+  if(Number(ME.pwTemp))forceChangePassword();
+}
+/* إلزام تغيير كلمة المرور بعد أول دخول (تُبطَل الكلمة الافتراضية) */
+function forceChangePassword(){
+  const old=$("#forcePw");if(old)old.remove();
+  const m=document.createElement("div");m.className="modal";m.id="forcePw";
+  m.innerHTML=`<div class="box" style="max-width:380px"><h3>🔒 تعيين كلمة مرور جديدة</h3>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:12px">لأمان حسابك، يجب تغيير كلمة المرور الافتراضية الآن. لن تعمل الكلمة الافتراضية بعد ذلك.</p>
+    <div class="field" style="margin-bottom:10px"><label>كلمة المرور الجديدة (٦ خانات على الأقل)</label><input id="fp_p1" type="password"></div>
+    <div class="field" style="margin-bottom:10px"><label>تأكيد كلمة المرور</label><input id="fp_p2" type="password"></div>
+    <div id="fp_msg" style="color:var(--red);font-size:13px;margin-bottom:8px"></div>
+    <button class="btn green block" onclick="submitForcePw()">حفظ ومتابعة</button></div>`;
+  document.body.appendChild(m);
+}
+function submitForcePw(){
+  const p1=$("#fp_p1").value||"",p2=$("#fp_p2").value||"",msg=$("#fp_msg");
+  if(p1.length<6){msg.textContent="٦ خانات على الأقل.";return;}
+  if(p1!==p2){msg.textContent="الكلمتان غير متطابقتين.";return;}
+  const finish=()=>{const u=DB.users.find(x=>x.id===ME.id);u.pass=hash(p1);u.pwTemp=0;ME=u;save();
+    const fp=$("#forcePw");if(fp)fp.remove();toast("تم تعيين كلمة المرور الجديدة");};
+  if(cloudAccounts()){msg.textContent="جارٍ الحفظ…";cloudChangeOwnPassword(p1,function(err){
+    if(err&&err!=="cancel"){msg.textContent="تعذّر التحديث السحابي، حاول مجدداً.";return;}finish();});}
+  else finish();
 }
 function logout(){if(cloudEnabled()){try{firebase.auth().signOut();}catch(e){}}location.reload();}
 
@@ -1148,7 +1172,7 @@ function delCompany(id){
 function changeMyPassword(){
   const p=prompt("كلمة المرور الجديدة (٦ خانات على الأقل):");
   if(p===null)return;if(p.length<6){toast("٦ خانات على الأقل");return;}
-  const u=DB.users.find(x=>x.id===ME.id);u.pass=hash(p);
+  const u=DB.users.find(x=>x.id===ME.id);u.pass=hash(p);u.pwTemp=0;
   if(cloudAccounts()){cloudChangeOwnPassword(p,function(err){
     if(err&&err!=="cancel")toast("تعذّر تحديث كلمة المرور سحابياً");else if(!err){save();toast("تم تغيير كلمة المرور");}
   });}else{save();toast("تم تغيير كلمة المرور");}
