@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>نظام إدارة المخزون والمبيعات وحركة الأصناف</title>
+<style>
+:root{--bg:#f1f5f9;--card:#fff;--ink:#0f172a;--muted:#64748b;--line:#e2e8f0;
+  --brand:#0d9488;--brand-d:#0f766e;--blue:#2563eb;--green:#16a34a;--amber:#d97706;--red:#dc2626;--sky:#0284c7;
+  --shadow:0 1px 3px rgba(0,0,0,.08)}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{font-family:"Segoe UI",Tahoma,system-ui,sans-serif;background:var(--bg);color:var(--ink);font-size:15px}
+button{font-family:inherit;cursor:pointer}input,select{font-family:inherit}
+
+#login{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
+  background:linear-gradient(135deg,#0d9488,#0f766e);z-index:100;padding:16px}
+#login .box{background:#fff;border-radius:18px;padding:30px;width:100%;max-width:360px;box-shadow:0 20px 50px rgba(0,0,0,.3)}
+#login h1{font-size:20px;margin-bottom:4px}#login p{color:var(--muted);margin-bottom:18px;font-size:13px}
+
+#app{display:none;min-height:100vh}
+.topbar{display:none;position:sticky;top:0;z-index:40;background:#0f172a;color:#fff;align-items:center;gap:12px;padding:12px 16px}
+.topbar h2{font-size:16px;flex:1}
+.menu-btn{background:#1e293b;border:0;color:#fff;width:42px;height:42px;border-radius:9px;font-size:20px}
+.backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:44}
+.sidebar{position:fixed;inset-inline-start:0;top:0;bottom:0;width:235px;background:#0f172a;color:#cbd5e1;
+  padding:16px;display:flex;flex-direction:column;gap:4px;z-index:45;overflow-y:auto}
+.sidebar h2{color:#fff;font-size:17px;margin-bottom:14px;padding:0 6px}
+.navbtn{background:transparent;border:0;color:#cbd5e1;text-align:right;padding:13px 12px;border-radius:9px;
+  font-size:15px;display:flex;align-items:center;gap:9px}
+.navbtn:hover{background:#1e293b;color:#fff}.navbtn.active{background:var(--brand);color:#fff;font-weight:600}
+.sidebar .foot{margin-top:auto;border-top:1px solid #1e293b;padding-top:12px;font-size:12px;color:#94a3b8;display:flex;flex-direction:column;gap:6px}
+.sidebar .foot b{color:#fff;display:block;margin-bottom:4px}
+.main{margin-inline-start:235px;padding:20px}
+@media(max-width:860px){
+  .topbar{display:flex}
+  .sidebar{transform:translateX(115%);transition:transform .25s;width:255px}
+  .sidebar.open{transform:translateX(0)}
+  .backdrop.open{display:block}
+  .main{margin-inline-start:0;padding:14px}
+}
+
+.pagehead{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px}
+.pagehead h1{font-size:19px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;box-shadow:var(--shadow)}
+.card-title{font-weight:700;margin-bottom:13px;font-size:15px}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+@media(max-width:860px){.grid-2,.grid-3{grid-template-columns:1fr}.grid-4{grid-template-columns:1fr 1fr}}
+.row{display:flex;gap:12px;margin-bottom:12px;flex-wrap:wrap}
+.field{flex:1;min-width:135px}
+label{display:block;font-size:12px;color:var(--muted);margin-bottom:5px;font-weight:600}
+input,select{width:100%;padding:11px;border:1px solid var(--line);border-radius:9px;background:#fff;font-size:15px;color:var(--ink)}
+input:focus,select:focus{outline:2px solid var(--brand);border-color:var(--brand)}
+input[readonly]{background:#f8fafc;color:var(--muted)}
+.btn{background:var(--brand);color:#fff;border:0;padding:12px 18px;border-radius:9px;font-weight:600;font-size:15px}
+.btn:hover{background:var(--brand-d)}.btn.blue{background:var(--blue)}.btn.green{background:var(--green)}
+.btn.red{background:var(--red)}.btn.gray{background:#64748b}.btn.ghost{background:#f1f5f9;color:var(--ink)}
+.btn.sm{padding:8px 12px;font-size:13px}.btn.block{width:100%}
+.table-wrap{overflow:auto;-webkit-overflow-scrolling:touch}
+table{width:100%;border-collapse:collapse;font-size:13.5px;min-width:480px}
+th{text-align:right;color:var(--muted);font-weight:600;padding:10px 8px;border-bottom:2px solid var(--line);white-space:nowrap}
+td{padding:11px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+tr:hover td{background:#f8fafc}
+.tag{padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;color:#fff;display:inline-block}
+.tag.inbound{background:var(--green)}.tag.sale{background:var(--sky)}.tag.outbound{background:var(--amber)}.tag.adjustment{background:#64748b}
+.badge-role{padding:2px 9px;border-radius:6px;font-size:11px;background:#e0e7ff;color:#3730a3;font-weight:700}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:15px;box-shadow:var(--shadow)}
+.stat .lbl{color:var(--muted);font-size:13px;margin-bottom:6px}.stat .val{font-size:24px;font-weight:800}.stat .val.sm{font-size:18px}
+.msg{padding:11px 14px;border-radius:9px;margin-bottom:12px;font-size:14px;font-weight:600}
+.msg.ok{background:#dcfce7;color:#166534}.msg.err{background:#fee2e2;color:#991b1b}
+.ac-wrap{position:relative}
+.ac-list{position:absolute;top:100%;inset-inline:0;background:#fff;border:1px solid var(--line);border-radius:9px;
+  margin-top:4px;box-shadow:0 8px 24px rgba(0,0,0,.12);max-height:240px;overflow:auto;z-index:20;display:none}
+.ac-item{padding:12px;cursor:pointer;font-size:14px;border-bottom:1px solid #f1f5f9}
+.ac-item:hover{background:#f0fdfa}.ac-item b{color:var(--brand-d)}
+.modal{position:fixed;inset:0;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;z-index:60;padding:14px}
+.modal .box{background:#fff;border-radius:16px;padding:22px;width:100%;max-width:520px;max-height:92vh;overflow:auto}
+.modal h3{margin-bottom:16px}
+.bar{height:9px;background:#e2e8f0;border-radius:6px;overflow:hidden;margin-top:5px}.bar>span{display:block;height:100%;background:var(--brand)}
+.pill{display:inline-flex;gap:6px;align-items:center;background:#f1f5f9;padding:5px 10px;border-radius:20px;font-size:12px}
+.empty{color:var(--muted);text-align:center;padding:22px;font-size:14px}
+
+/* ===== لمسة: شريط إدخال مضغوط "كل شيء في سطر واحد" ===== */
+.formgrid{display:grid;grid-template-columns:repeat(12,1fr);gap:10px}
+.formgrid .cell{min-width:0}
+.formgrid .cell.c2{grid-column:span 2}
+.formgrid .cell.c3{grid-column:span 3}
+.formgrid .cell.c4{grid-column:span 4}
+.formgrid .cell.c6{grid-column:span 6}
+.formgrid .cell.c12{grid-column:span 12}
+.formgrid input,.formgrid select{padding:9px}
+.formgrid label{margin-bottom:3px}
+@media(max-width:860px){.formgrid .cell{grid-column:span 6 !important}.formgrid .cell.c12{grid-column:span 12 !important}}
+@media print{.sidebar,.topbar,.backdrop,.pagehead .btn,.navbtn{display:none!important}.main{margin:0!important}}
+</style>
+</head>
+<body>
+
+<!-- ===== LOGIN ===== -->
+<div id="login">
+  <div class="box">
+    <h1>📦 نظام إدارة المخزون</h1>
+    <p>اختر المستخدم للدخول ومتابعة العمليات باسمه</p>
+    <label>المستخدم</label>
+    <select id="loginUser"></select>
+    <button class="btn block" style="margin-top:16px" onclick="doLogin()">دخول</button>
+    <p style="margin-top:14px;font-size:12px">تُدار المستخدمون والصلاحيات من شاشة «الموظفون» بعد الدخول.</p>
+  </div>
+</div>
+
+<!-- ===== APP ===== -->
+<div id="app">
+  <div class="topbar">
+    <button class="menu-btn" onclick="toggleNav()">☰</button>
+    <h2>نظام المخزون</h2>
+  </div>
+  <div class="backdrop" id="backdrop" onclick="toggleNav()"></div>
+  <aside class="sidebar" id="sidebar">
+    <h2>📦 المخزون</h2>
+    <button class="navbtn" data-page="dashboard">📊 لوحة التحكم</button>
+    <button class="navbtn" data-page="move">🛒 حركة / بيع</button>
+    <button class="navbtn" data-page="items">🏷️ الأصناف</button>
+    <button class="navbtn" data-page="import">🚚 التوريد والاستيراد</button>
+    <button class="navbtn" data-page="ledger">📜 سجل حركة الصنف</button>
+    <button class="navbtn" data-page="employees">👥 الموظفون والصلاحيات</button>
+    <div class="foot">
+      <b id="who"></b>
+      <button class="btn gray sm block" onclick="backup()">⬇ نسخة احتياطية</button>
+      <button class="btn ghost sm block" onclick="restore()">⬆ استرجاع</button>
+      <button class="btn red sm block" onclick="logout()">خروج</button>
+    </div>
+  </aside>
+  <main class="main"><div id="view"></div></main>
+</div>
+<input type="file" id="restoreFile" accept="application/json" style="display:none">
+
+<script>
+/* ============================================================
+   نظام إدارة المخزون والمبيعات وحركة الأصناف
+   ملف واحد جاهز للعمل — يحفظ البيانات في متصفح الجهاز (localStorage)
+   ============================================================ */
+const KEY="inv_system_v2";
+let DB,ME;
+const $=s=>document.querySelector(s);
+const money=n=>Number(n||0).toLocaleString("ar-EG",{minimumFractionDigits:2,maximumFractionDigits:2});
+const today=()=>new Date().toISOString().slice(0,10);
+const fmt=d=>new Date(d).toLocaleString("ar-EG",{dateStyle:"short",timeStyle:"short"});
+const roleAr=r=>({admin:"مدير",manager:"مشرف",employee:"موظف"}[r]||r);
+const typeAr=t=>({sale:"بيع",inbound:"وارد",outbound:"صرف",adjustment:"تسوية"}[t]||t);
+const isManager=()=>["admin","manager"].includes(ME.role);
+const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+/* ---------- Storage ---------- */
+function seed(){return{
+  users:[{id:1,name:"المدير العام",role:"admin"},{id:2,name:"موظف المبيعات",role:"employee"}],
+  suppliers:[{id:1,name:"مورد الرياض للأثاث",phone:"0500000000",contact:"أبو أحمد"}],
+  shipments:[],
+  items:[
+    {id:1,code:"BR-100",name:"غرفة نوم كلاسيك",model:"CLASSIC-1",category:"غرف نوم",unit:"طقم",cost:3200,price:4500,commission:50,qty:0,reorder:2,active:true},
+    {id:2,code:"BR-200",name:"غرفة نوم مودرن",model:"MODERN-2",category:"غرف نوم",unit:"طقم",cost:4100,price:5900,commission:75,qty:0,reorder:2,active:true},
+    {id:3,code:"MT-10",name:"مرتبة طبية مفردة",model:"MED-S",category:"مراتب",unit:"قطعة",cost:600,price:950,commission:20,qty:0,reorder:5,active:true},
+    {id:4,code:"MT-20",name:"مرتبة طبية مزدوجة",model:"MED-D",category:"مراتب",unit:"قطعة",cost:1100,price:1650,commission:30,qty:0,reorder:5,active:true},
+  ],
+  movements:[],activity:[],
+  seq:{user:2,supplier:1,shipment:0,item:4,movement:0,activity:0},
+};}
+function load(){const r=localStorage.getItem(KEY);DB=r?JSON.parse(r):seed();if(!r)save();}
+function save(){localStorage.setItem(KEY,JSON.stringify(DB));}
+function nid(k){DB.seq[k]=(DB.seq[k]||0)+1;return DB.seq[k];}
+function logAct(action,detail){DB.activity.unshift({id:nid("activity"),userName:ME.name,action,detail,at:new Date().toISOString()});save();}
+
+/* ---------- Login ---------- */
+function initLogin(){
+  $("#loginUser").innerHTML=DB.users.map(u=>`<option value="${u.id}">${esc(u.name)} — ${roleAr(u.role)}</option>`).join("");
+}
+function doLogin(){
+  ME=DB.users.find(u=>u.id===+$("#loginUser").value);
+  $("#login").style.display="none";$("#app").style.display="block";
+  $("#who").textContent=`${ME.name} · ${roleAr(ME.role)}`;
+  document.querySelectorAll(".navbtn").forEach(b=>b.onclick=()=>go(b.dataset.page));
+  go("dashboard");
+}
+function logout(){location.reload();}
+
+/* ---------- Mobile nav ---------- */
+function toggleNav(){$("#sidebar").classList.toggle("open");$("#backdrop").classList.toggle("open");}
+function closeNav(){$("#sidebar").classList.remove("open");$("#backdrop").classList.remove("open");}
+
+/* ---------- Router ---------- */
+function go(page){
+  closeNav();
+  document.querySelectorAll(".navbtn").forEach(b=>b.classList.toggle("active",b.dataset.page===page));
+  ({dashboard:pDashboard,move:pMove,items:pItems,import:pImport,ledger:pLedger,employees:pEmployees}[page])();
+}
+
+/* ============ 1) لوحة التحكم + العمولات + الأكثر مبيعاً ============ */
+function pDashboard(){
+  const sales=DB.movements.filter(m=>m.type==="sale");
+  const totalQty=sales.reduce((s,m)=>s+m.qty,0);
+  const totalSales=sales.reduce((s,m)=>s+m.qty*m.price,0);
+  const totalComm=sales.reduce((s,m)=>s+m.qty*(m.comm||0),0);
+  const low=DB.items.filter(i=>i.reorder>0&&i.qty<=i.reorder);
+
+  const top={};sales.forEach(m=>{const it=DB.items.find(x=>x.id===m.itemId)||{};
+    top[m.itemId]=top[m.itemId]||{name:it.name||"?",code:it.code||"",qty:0};top[m.itemId].qty+=m.qty;});
+  const topArr=Object.values(top).sort((a,b)=>b.qty-a.qty);const maxQ=topArr[0]?.qty||1;
+
+  const commByEmp={};sales.forEach(m=>{commByEmp[m.userName]=(commByEmp[m.userName]||0)+m.qty*(m.comm||0);});
+  const perf={};DB.activity.forEach(a=>{perf[a.userName]=(perf[a.userName]||0)+1;});
+
+  $("#view").innerHTML=`
+  <div class="pagehead"><h1>📊 لوحة التحكم</h1><span class="pill">${fmt(new Date())}</span></div>
+  <div class="grid-4" style="margin-bottom:16px">
+    <div class="stat"><div class="lbl">عدد الأصناف</div><div class="val">${DB.items.length}</div></div>
+    <div class="stat"><div class="lbl">الكمية المباعة</div><div class="val">${totalQty}</div></div>
+    <div class="stat"><div class="lbl">قيمة المبيعات ﷼</div><div class="val sm">${money(totalSales)}</div></div>
+    <div class="stat"><div class="lbl">إجمالي العمولات ﷼</div><div class="val sm" style="color:var(--brand)">${money(totalComm)}</div></div>
+  </div>
+  <div class="grid-2">
+    <div class="card"><div class="card-title">🏆 الأصناف الأكثر مبيعاً</div>
+      ${topArr.length?topArr.slice(0,8).map(r=>`<div style="margin-bottom:12px">
+        <div style="display:flex;justify-content:space-between;font-size:13.5px;margin-bottom:2px">
+          <span>${esc(r.name)} <span style="color:var(--muted)">(${esc(r.code)})</span></span>
+          <span><b>${r.qty}</b> · ${((r.qty/totalQty)*100||0).toFixed(1)}%</span></div>
+        <div class="bar"><span style="width:${r.qty/maxQ*100}%"></span></div></div>`).join("")
+        :`<div class="empty">لا مبيعات مسجلة بعد.</div>`}
+    </div>
+    <div class="card"><div class="card-title">💰 عمولات الموظفين</div>
+      ${Object.keys(commByEmp).length?`<table><thead><tr><th>الموظف</th><th>إجمالي العمولة ﷼</th></tr></thead>
+        <tbody>${Object.entries(commByEmp).sort((a,b)=>b[1]-a[1]).map(([n,c])=>`<tr><td>${esc(n)}</td><td><b>${money(c)}</b></td></tr>`).join("")}</tbody></table>`
+        :`<div class="empty">لا عمولات بعد.</div>`}
+      <div class="card-title" style="margin-top:16px">👤 نشاط الموظفين</div>
+      ${Object.keys(perf).length?`<table><tbody>${Object.entries(perf).sort((a,b)=>b[1]-a[1]).map(([n,c])=>`<tr><td>${esc(n)}</td><td>${c} عملية</td></tr>`).join("")}</tbody></table>`:`<div class="empty">—</div>`}
+      ${low.length?`<div class="card-title" style="margin-top:16px;color:var(--red)">⚠️ نقص المخزون</div>
+        <table><tbody>${low.map(i=>`<tr><td>${esc(i.name)} (${esc(i.code)})</td><td style="color:var(--red)"><b>${i.qty}</b>/${i.reorder}</td></tr>`).join("")}</tbody></table>`:""}
+    </div>
+  </div>`;
+}
+
+/* ============ 2) حركة / بيع — إدخال ذكي مضغوط + عمولة ============ */
+let picked=null;
+function pMove(){
+  $("#view").innerHTML=`
+  <div class="pagehead"><h1>🛒 تسجيل حركة / بيع</h1></div>
+  <div class="card"><div class="card-title">عملية جديدة — كل بيانات الغرفة/المرتبة في سطر واحد</div><div id="mMsg"></div>
+    <div class="formgrid">
+      <div class="cell c3 ac-wrap"><label>كود / اسم الصنف (بحث ذكي)</label>
+        <input id="mCode" placeholder="اكتب الكود أو الاسم..." autocomplete="off" oninput="acItems(this.value)">
+        <div class="ac-list" id="mAc"></div></div>
+      <div class="cell c3"><label>اسم الصنف (تلقائي)</label><input id="mName" readonly></div>
+      <div class="cell c2"><label>الموديل</label><input id="mModel" placeholder="موديل"></div>
+      <div class="cell c2"><label>نوع الحركة</label>
+        <select id="mType" onchange="onTypeChange()">
+          <option value="sale">بيع (صادر)</option><option value="inbound">وارد (إدخال مخزون)</option>
+          <option value="outbound">صرف / صادر</option><option value="adjustment">تسوية</option></select></div>
+      <div class="cell c2"><label>الكمية</label><input id="mQty" type="number" min="0" step="1" placeholder="1" oninput="calcComm()"></div>
+
+      <div class="cell c2"><label>سعر الوحدة ﷼</label><input id="mPrice" type="number" step="0.01" placeholder="0.00" oninput="calcComm()"></div>
+      <div class="cell c2"><label>القيمة الإجمالية ﷼</label><input id="mValue" readonly></div>
+      <div class="cell c2"><label>عمولة الوحدة ﷼</label><input id="mComm" type="number" step="0.01" placeholder="0.00" oninput="calcComm()"></div>
+      <div class="cell c2"><label>إجمالي العمولة ﷼</label><input id="mCommTotal" readonly></div>
+      <div class="cell c2"><label>رقم الفسح الجمركي</label><input id="mCustoms" placeholder="رقم الفسح"></div>
+      <div class="cell c2"><label>التاريخ</label><input id="mDate" type="date" value="${today()}"></div>
+
+      <div class="cell c3"><label>رقم فاتورة البيع</label><input id="mInvoice" placeholder="رقم الفاتورة"></div>
+      <div class="cell c3"><label>العنوان</label><input id="mAddress" placeholder="عنوان العميل / التسليم"></div>
+      <div class="cell c3"><label>المورد (اختياري)</label>
+        <select id="mSupplier"><option value="">—</option>
+          ${DB.suppliers.map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join("")}</select></div>
+      <div class="cell c3"><label>ملاحظات</label><input id="mNote" placeholder="ملاحظة"></div>
+
+      <div class="cell c12" style="display:flex;gap:10px">
+        <button class="btn green" style="flex:1" onclick="saveMove()">✓ حفظ العملية</button>
+        <button class="btn ghost" onclick="clearMove()">مسح الحقول</button>
+      </div>
+    </div>
+  </div>
+  <div class="card" style="margin-top:16px"><div class="card-title">🕒 آخر الحركات</div>
+    <div class="table-wrap"><table><thead><tr><th>التاريخ</th><th>الصنف</th><th>الموديل</th><th>النوع</th><th>كمية</th>
+      <th>القيمة</th><th>عمولة</th><th>رقم الفسح</th><th>فاتورة البيع</th><th>العنوان</th><th>الموظف</th><th></th></tr></thead>
+    <tbody id="recentMoves"></tbody></table></div>
+  </div>`;
+  renderRecent();
+}
+function acItems(q){
+  const box=$("#mAc");q=q.trim();if(!q){box.style.display="none";return;}
+  const res=DB.items.filter(i=>i.active!==false&&(i.code+i.name+(i.category||"")+(i.model||"")).toLowerCase().includes(q.toLowerCase())).slice(0,8);
+  box.innerHTML=res.map(i=>`<div class="ac-item" onclick="pickItem(${i.id})"><b>${esc(i.code)}</b> — ${esc(i.name)}
+    ${i.model?`<span style="color:var(--muted)"> · ${esc(i.model)}</span>`:""}
+    <span style="color:var(--muted)">(مخزون: ${i.qty})</span></div>`).join("")||`<div class="ac-item">لا نتائج</div>`;
+  box.style.display="block";
+}
+function pickItem(id){
+  picked=DB.items.find(i=>i.id===id);
+  $("#mCode").value=picked.code;$("#mName").value=picked.name;$("#mModel").value=picked.model||"";
+  applyPrices();$("#mAc").style.display="none";calcComm();
+}
+function applyPrices(){
+  if(!picked)return;const t=$("#mType").value;
+  $("#mPrice").value=t==="sale"?picked.price:picked.cost;
+  $("#mComm").value =t==="sale"?(picked.commission||0):0;
+}
+function onTypeChange(){applyPrices();calcComm();}
+function calcComm(){
+  const qty=parseFloat($("#mQty").value)||0,c=parseFloat($("#mComm").value)||0,p=parseFloat($("#mPrice").value)||0;
+  $("#mCommTotal").value=money(qty*c);
+  $("#mValue").value=money(qty*p);
+}
+function clearMove(){
+  ["mCode","mName","mModel","mQty","mPrice","mValue","mComm","mCommTotal","mCustoms","mInvoice","mAddress","mNote"].forEach(i=>$("#"+i).value="");
+  picked=null;
+}
+function saveMove(){
+  const msg=$("#mMsg");const show=(t,c)=>msg.innerHTML=`<div class="msg ${c}">${t}</div>`;
+  if(!picked)return show("اختر صنفاً من قائمة البحث أولاً.","err");
+  const qty=parseFloat($("#mQty").value);if(!qty||qty<=0)return show("أدخل كمية صحيحة.","err");
+  const type=$("#mType").value;const item=DB.items.find(i=>i.id===picked.id);
+  if((type==="sale"||type==="outbound")&&qty>item.qty)return show(`المتاح في المخزون ${item.qty} فقط.`,"err");
+  const mv={id:nid("movement"),itemId:item.id,type,qty,
+    price:parseFloat($("#mPrice").value)||0,comm:parseFloat($("#mComm").value)||0,
+    model:$("#mModel").value||item.model||"",invoice:$("#mInvoice").value||"",address:$("#mAddress").value||"",
+    supplierId:+$("#mSupplier").value||null,customs:$("#mCustoms").value||"",
+    date:$("#mDate").value||today(),note:$("#mNote").value||"",
+    userId:ME.id,userName:ME.name,at:new Date().toISOString()};
+  DB.movements.unshift(mv);
+  item.qty+=(type==="inbound"||type==="adjustment")?qty:-qty;
+  logAct("حركة "+typeAr(type),`${item.code} كمية ${qty}`);save();
+  show(`✔ تم حفظ ${typeAr(type)} للصنف ${item.name}. المخزون الآن: ${item.qty}`,"ok");
+  clearMove();renderRecent();
+}
+function renderRecent(){
+  const tb=$("#recentMoves");if(!tb)return;
+  tb.innerHTML=DB.movements.slice(0,25).map(m=>{const it=DB.items.find(i=>i.id===m.itemId)||{};
+    return `<tr><td>${esc(m.date)}</td><td>${esc(it.name||"?")}</td><td>${esc(m.model||it.model||"")}</td>
+      <td><span class="tag ${m.type}">${typeAr(m.type)}</span></td><td>${m.qty}</td>
+      <td>${money(m.qty*m.price)}</td><td>${m.comm?money(m.qty*m.comm):"—"}</td>
+      <td>${esc(m.customs||"")}</td><td>${esc(m.invoice||"")}</td><td>${esc(m.address||"")}</td><td>${esc(m.userName)}</td>
+      <td><button class="btn ghost sm" onclick="printReceipt(${m.id})">🖨️</button></td></tr>`;}).join("")
+    ||`<tr><td colspan="12" class="empty">لا حركات.</td></tr>`;
+}
+/* فاتورة/سند مبسّط لكل عملية */
+function printReceipt(id){
+  const m=DB.movements.find(x=>x.id===id);if(!m)return;const it=DB.items.find(i=>i.id===m.itemId)||{};
+  const sup=DB.suppliers.find(x=>x.id===m.supplierId);
+  const w=window.open("","_blank");
+  w.document.write(`<html dir="rtl"><head><meta charset="UTF-8"><title>سند ${typeAr(m.type)}</title>
+    <style>body{font-family:Tahoma,sans-serif;padding:24px;color:#0f172a}h2{margin-bottom:6px}
+    table{width:100%;border-collapse:collapse;margin-top:14px}td,th{border:1px solid #cbd5e1;padding:9px;text-align:right;font-size:14px}
+    th{background:#f1f5f9}.tot{font-size:18px;font-weight:bold;margin-top:14px}</style></head><body>
+    <h2>📦 سند ${typeAr(m.type)}</h2>
+    <div>رقم فاتورة البيع: <b>${esc(m.invoice||"—")}</b> · التاريخ: <b>${esc(m.date)}</b> · الموظف: <b>${esc(m.userName)}</b></div>
+    <table><tr><th>الصنف</th><th>الموديل</th><th>الكمية</th><th>سعر الوحدة</th><th>القيمة</th><th>رقم الفسح</th></tr>
+    <tr><td>${esc(it.name||"")} (${esc(it.code||"")})</td><td>${esc(m.model||it.model||"")}</td><td>${m.qty}</td>
+    <td>${money(m.price)}</td><td>${money(m.qty*m.price)}</td><td>${esc(m.customs||"—")}</td></tr></table>
+    <div style="margin-top:10px">العنوان: <b>${esc(m.address||"—")}</b>${sup?` · المورد: <b>${esc(sup.name)}</b>`:""}</div>
+    ${m.note?`<div>ملاحظات: ${esc(m.note)}</div>`:""}
+    <div class="tot">الإجمالي: ${money(m.qty*m.price)} ﷼</div>
+    <script>window.onload=()=>window.print()<\/script></body></html>`);
+  w.document.close();
+}
+
+/* ============ 3) الأصناف ============ */
+function pItems(){
+  $("#view").innerHTML=`<div class="pagehead"><h1>🏷️ قائمة الأصناف</h1>
+    <button class="btn" onclick="itemForm(0)">+ إضافة صنف</button></div>
+  <div class="card">
+    <input id="itemSearch" placeholder="🔍 بحث بالكود أو الاسم أو الموديل أو الفئة..." oninput="renderItems()" style="margin-bottom:14px">
+    <div class="table-wrap"><table><thead><tr><th>الكود</th><th>الاسم</th><th>الموديل</th><th>الفئة</th><th>المخزون</th>
+      <th>التكلفة</th><th>البيع</th><th>العمولة</th><th>الربح%</th><th></th></tr></thead>
+      <tbody id="itemsTbl"></tbody></table></div></div>`;
+  renderItems();
+}
+function renderItems(){
+  const q=($("#itemSearch")?.value||"").toLowerCase();
+  const rows=DB.items.filter(i=>((i.code+i.name+(i.model||"")+(i.category||"")).toLowerCase().includes(q)));
+  $("#itemsTbl").innerHTML=rows.map(i=>{
+    const profit=i.cost>0?(((i.price-i.cost)/i.cost)*100):0;const low=i.reorder>0&&i.qty<=i.reorder;
+    return `<tr><td style="font-family:monospace">${esc(i.code)}</td><td>${esc(i.name)}</td><td>${esc(i.model||"")}</td><td>${esc(i.category||"")}</td>
+      <td style="color:${low?'var(--red)':'inherit'};font-weight:${low?700:400}">${i.qty}</td>
+      <td>${money(i.cost)}</td><td>${money(i.price)}</td><td style="color:var(--brand)">${money(i.commission||0)}</td>
+      <td>${profit.toFixed(0)}%</td>
+      <td style="white-space:nowrap"><button class="btn blue sm" onclick="itemForm(${i.id})">تعديل</button>
+        ${isManager()?`<button class="btn red sm" onclick="delItem(${i.id})">حذف</button>`:""}</td></tr>`;
+  }).join("")||`<tr><td colspan="10" class="empty">لا أصناف.</td></tr>`;
+}
+function itemForm(id){
+  const it=id?DB.items.find(i=>i.id===id):{};
+  const m=document.createElement("div");m.className="modal";
+  m.innerHTML=`<div class="box"><h3>${id?"تعديل صنف":"إضافة صنف"}</h3>
+    <div class="row"><div class="field"><label>الكود *</label><input id="f_code" value="${esc(it.code||"")}"></div>
+      <div class="field"><label>الاسم *</label><input id="f_name" value="${esc(it.name||"")}"></div></div>
+    <div class="row"><div class="field"><label>الموديل</label><input id="f_model" value="${esc(it.model||"")}"></div>
+      <div class="field"><label>الفئة</label><input id="f_cat" value="${esc(it.category||"")}"></div></div>
+    <div class="row"><div class="field"><label>الوحدة</label><input id="f_unit" value="${esc(it.unit||"قطعة")}"></div>
+      <div class="field"><label>حد إعادة الطلب</label><input id="f_reorder" type="number" value="${it.reorder||0}"></div></div>
+    <div class="row"><div class="field"><label>سعر التكلفة</label><input id="f_cost" type="number" step="0.01" value="${it.cost||0}"></div>
+      <div class="field"><label>سعر البيع</label><input id="f_price" type="number" step="0.01" value="${it.price||0}"></div></div>
+    <div class="row"><div class="field"><label>عمولة البيع للوحدة ﷼</label><input id="f_comm" type="number" step="0.01" value="${it.commission||0}"></div>
+      <div class="field"></div></div>
+    <div id="f_msg" style="color:var(--red);font-size:13px;margin-bottom:8px"></div>
+    <div style="display:flex;gap:8px"><button class="btn green" onclick="saveItem(${id||0})">حفظ</button>
+      <button class="btn gray" onclick="this.closest('.modal').remove()">إلغاء</button></div></div>`;
+  document.body.appendChild(m);
+}
+function saveItem(id){
+  const g=x=>$("#"+x).value;const code=g("f_code").trim(),name=g("f_name").trim();
+  if(!code||!name){$("#f_msg").textContent="الكود والاسم مطلوبان.";return;}
+  if(DB.items.some(i=>i.code===code&&i.id!==id)){$("#f_msg").textContent="الكود مستخدم مسبقاً.";return;}
+  const data={code,name,model:g("f_model"),category:g("f_cat"),unit:g("f_unit"),
+    cost:parseFloat(g("f_cost"))||0,price:parseFloat(g("f_price"))||0,
+    commission:parseFloat(g("f_comm"))||0,reorder:parseFloat(g("f_reorder"))||0};
+  if(id){Object.assign(DB.items.find(i=>i.id===id),data);logAct("تعديل صنف",code);}
+  else{DB.items.push({id:nid("item"),qty:0,active:true,...data});logAct("إضافة صنف",code);}
+  save();document.querySelector(".modal").remove();renderItems();
+}
+function delItem(id){
+  const it=DB.items.find(i=>i.id===id);
+  if(DB.movements.some(m=>m.itemId===id)){alert("لا يمكن حذف صنف له حركات مسجلة.");return;}
+  if(!confirm(`حذف الصنف «${it.name}»؟`))return;
+  DB.items=DB.items.filter(i=>i.id!==id);logAct("حذف صنف",it.code);save();renderItems();
+}
+
+/* ============ 4) التوريد والاستيراد ============ */
+function pImport(){
+  $("#view").innerHTML=`<div class="pagehead"><h1>🚚 التوريد والاستيراد</h1></div>
+  <div class="grid-2">
+    <div class="card"><div class="card-title">➕ إضافة مورد</div>
+      <div class="row"><div class="field"><label>اسم المورد *</label><input id="sName"></div>
+        <div class="field"><label>الهاتف</label><input id="sPhone"></div></div>
+      <div class="field" style="margin-bottom:12px"><label>مسؤول التواصل</label><input id="sContact"></div>
+      <button class="btn block" onclick="addSupplier()">حفظ المورد</button>
+      <div class="table-wrap" style="margin-top:14px"><table><thead><tr><th>المورد</th><th>الهاتف</th><th>المسؤول</th></tr></thead>
+        <tbody id="supTbl"></tbody></table></div></div>
+    <div class="card"><div class="card-title">📥 تسجيل شحنة / رقم فسح</div><div id="shMsg"></div>
+      <div class="row"><div class="field"><label>مرجع الشحنة</label><input id="shRef"></div>
+        <div class="field"><label>المورد</label><select id="shSup"><option value="">—</option>
+          ${DB.suppliers.map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join("")}</select></div></div>
+      <div class="row"><div class="field"><label>رقم الفسح الجمركي</label><input id="shCustoms"></div>
+        <div class="field"><label>تاريخ الوصول</label><input id="shDate" type="date" value="${today()}"></div></div>
+      <div class="field" style="margin-bottom:12px"><label>ملاحظات</label><input id="shNote"></div>
+      <button class="btn blue block" onclick="addShipment()">حفظ الشحنة</button></div>
+  </div>
+  <div class="card" style="margin-top:16px"><div class="card-title">📋 سجل الشحنات</div>
+    <div class="table-wrap"><table><thead><tr><th>المرجع</th><th>المورد</th><th>رقم الفسح</th><th>الوصول</th><th>ملاحظات</th><th>سجّلها</th></tr></thead>
+      <tbody id="shTbl"></tbody></table></div></div>`;
+  renderSuppliers();renderShipments();
+}
+function renderSuppliers(){
+  $("#supTbl").innerHTML=DB.suppliers.map(s=>`<tr><td>${esc(s.name)}</td><td>${esc(s.phone||"")}</td><td>${esc(s.contact||"")}</td></tr>`).join("")||`<tr><td colspan="3" class="empty">—</td></tr>`;
+}
+function renderShipments(){
+  $("#shTbl").innerHTML=DB.shipments.map(s=>{const sup=DB.suppliers.find(x=>x.id===s.supplierId);
+    return `<tr><td>${esc(s.ref||"")}</td><td>${esc(sup?sup.name:"")}</td><td>${esc(s.customs||"")}</td><td>${esc(s.date||"")}</td><td>${esc(s.note||"")}</td><td>${esc(s.userName||"")}</td></tr>`;}).join("")||`<tr><td colspan="6" class="empty">—</td></tr>`;
+}
+function addSupplier(){
+  const name=$("#sName").value.trim();if(!name)return;
+  DB.suppliers.push({id:nid("supplier"),name,phone:$("#sPhone").value,contact:$("#sContact").value});
+  logAct("إضافة مورد",name);save();pImport();
+}
+function addShipment(){
+  DB.shipments.unshift({id:nid("shipment"),ref:$("#shRef").value,supplierId:+$("#shSup").value||null,
+    customs:$("#shCustoms").value,date:$("#shDate").value,note:$("#shNote").value,userId:ME.id,userName:ME.name});
+  logAct("تسجيل شحنة",$("#shCustoms").value||"");save();
+  $("#shMsg").innerHTML=`<div class="msg ok">✔ تم حفظ الشحنة.</div>`;renderShipments();
+  ["shRef","shCustoms","shNote"].forEach(i=>$("#"+i).value="");
+}
+
+/* ============ 5) سجل حركة الصنف ============ */
+function pLedger(){
+  $("#view").innerHTML=`<div class="pagehead"><h1>📜 سجل حركة الصنف</h1></div>
+  <div class="card">
+    <div class="field" style="max-width:440px;margin-bottom:12px"><label>اختر الصنف</label>
+      <select id="lItem" onchange="renderLedger()"><option value="">— اختر —</option>
+        ${DB.items.map(i=>`<option value="${i.id}">${esc(i.code)} — ${esc(i.name)}</option>`).join("")}</select></div>
+    <div id="lSummary"></div>
+    <div class="table-wrap"><table><thead><tr><th>التاريخ</th><th>النوع</th><th>الموديل</th><th>الكمية</th><th>السعر</th><th>القيمة</th>
+      <th>العمولة</th><th>رقم الفسح</th><th>فاتورة البيع</th><th>العنوان</th><th>المورد</th><th>الموظف</th><th>ملاحظة</th></tr></thead>
+      <tbody id="lTbl"><tr><td colspan="13" class="empty">اختر صنفاً.</td></tr></tbody></table></div></div>`;
+}
+function renderLedger(){
+  const id=+$("#lItem").value;const tb=$("#lTbl"),sum=$("#lSummary");
+  if(!id){tb.innerHTML=`<tr><td colspan="13" class="empty">اختر صنفاً.</td></tr>`;sum.innerHTML="";return;}
+  const it=DB.items.find(i=>i.id===id);
+  const rows=DB.movements.filter(m=>m.itemId===id);
+  const inb=rows.filter(m=>["inbound","adjustment"].includes(m.type)).reduce((s,m)=>s+m.qty,0);
+  const out=rows.filter(m=>["sale","outbound"].includes(m.type)).reduce((s,m)=>s+m.qty,0);
+  sum.innerHTML=`<div class="grid-3" style="margin-bottom:14px">
+    <div class="stat"><div class="lbl">إجمالي الوارد</div><div class="val sm" style="color:var(--green)">${inb}</div></div>
+    <div class="stat"><div class="lbl">إجمالي الصادر/المباع</div><div class="val sm" style="color:var(--amber)">${out}</div></div>
+    <div class="stat"><div class="lbl">الرصيد الحالي</div><div class="val sm">${it.qty}</div></div></div>`;
+  tb.innerHTML=rows.map(m=>{const sup=DB.suppliers.find(x=>x.id===m.supplierId);
+    return `<tr><td>${fmt(m.at)}</td><td><span class="tag ${m.type}">${typeAr(m.type)}</span></td>
+      <td>${esc(m.model||it.model||"")}</td><td>${m.qty}</td><td>${money(m.price)}</td><td>${money(m.qty*m.price)}</td>
+      <td>${m.comm?money(m.qty*m.comm):"—"}</td><td>${esc(m.customs||"")}</td><td>${esc(m.invoice||"")}</td>
+      <td>${esc(m.address||"")}</td><td>${esc(sup?sup.name:"")}</td>
+      <td>${esc(m.userName)}</td><td>${esc(m.note||"")}</td></tr>`;}).join("")
+    ||`<tr><td colspan="13" class="empty">لا حركات لهذا الصنف.</td></tr>`;
+}
+
+/* ============ 6) الموظفون والصلاحيات ============ */
+function pEmployees(){
+  const canManage=ME.role==="admin";
+  $("#view").innerHTML=`<div class="pagehead"><h1>👥 الموظفون والصلاحيات</h1>
+    ${canManage?`<button class="btn" onclick="userForm(0)">+ إضافة مستخدم</button>`:""}</div>
+  <div class="grid-2">
+    <div class="card"><div class="card-title">قائمة المستخدمين</div>
+      <table><thead><tr><th>الاسم</th><th>الصلاحية</th>${canManage?"<th></th>":""}</tr></thead>
+      <tbody>${DB.users.map(u=>`<tr><td>${esc(u.name)}</td><td><span class="badge-role">${roleAr(u.role)}</span></td>
+        ${canManage?`<td style="white-space:nowrap"><button class="btn blue sm" onclick="userForm(${u.id})">تعديل</button>
+          ${u.id!==ME.id?`<button class="btn red sm" onclick="delUser(${u.id})">حذف</button>`:""}</td>`:""}</tr>`).join("")}</tbody></table>
+      <p style="font-size:12px;color:var(--muted);margin-top:12px">
+        <b>مدير:</b> كل الصلاحيات · <b>مشرف:</b> تعديل/حذف الأصناف · <b>موظف:</b> تسجيل الحركات فقط.</p></div>
+    <div class="card"><div class="card-title">📝 سجل نشاط الموظفين (الأداء)</div>
+      <div class="table-wrap"><table><thead><tr><th>الوقت</th><th>الموظف</th><th>العملية</th><th>التفاصيل</th></tr></thead>
+      <tbody>${DB.activity.slice(0,120).map(a=>`<tr><td>${fmt(a.at)}</td><td>${esc(a.userName)}</td><td>${esc(a.action)}</td><td>${esc(a.detail||"")}</td></tr>`).join("")||`<tr><td colspan="4" class="empty">—</td></tr>`}</tbody></table></div></div>
+  </div>`;
+}
+function userForm(id){
+  const u=id?DB.users.find(x=>x.id===id):{};
+  const m=document.createElement("div");m.className="modal";
+  m.innerHTML=`<div class="box"><h3>${id?"تعديل مستخدم":"إضافة مستخدم"}</h3>
+    <div class="field" style="margin-bottom:12px"><label>الاسم *</label><input id="u_name" value="${esc(u.name||"")}"></div>
+    <div class="field" style="margin-bottom:12px"><label>الصلاحية</label>
+      <select id="u_role"><option value="employee" ${u.role==="employee"?"selected":""}>موظف</option>
+        <option value="manager" ${u.role==="manager"?"selected":""}>مشرف</option>
+        <option value="admin" ${u.role==="admin"?"selected":""}>مدير</option></select></div>
+    <div id="u_msg" style="color:var(--red);font-size:13px;margin-bottom:8px"></div>
+    <div style="display:flex;gap:8px"><button class="btn green" onclick="saveUser(${id||0})">حفظ</button>
+      <button class="btn gray" onclick="this.closest('.modal').remove()">إلغاء</button></div></div>`;
+  document.body.appendChild(m);
+}
+function saveUser(id){
+  const name=$("#u_name").value.trim(),role=$("#u_role").value;
+  if(!name){$("#u_msg").textContent="الاسم مطلوب.";return;}
+  if(id){const u=DB.users.find(x=>x.id===id);u.name=name;u.role=role;logAct("تعديل مستخدم",name);}
+  else{DB.users.push({id:nid("user"),name,role});logAct("إضافة مستخدم",name);}
+  save();document.querySelector(".modal").remove();pEmployees();
+}
+function delUser(id){
+  const u=DB.users.find(x=>x.id===id);
+  if(!confirm(`حذف المستخدم «${u.name}»؟`))return;
+  DB.users=DB.users.filter(x=>x.id!==id);logAct("حذف مستخدم",u.name);save();pEmployees();
+}
+
+/* ---------- نسخ احتياطي / استرجاع ---------- */
+function backup(){
+  const blob=new Blob([JSON.stringify(DB,null,2)],{type:"application/json"});
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);
+  a.download=`inventory-backup-${today()}.json`;a.click();
+}
+function restore(){$("#restoreFile").click();}
+$("#restoreFile").onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();
+  r.onload=()=>{try{DB=JSON.parse(r.result);save();alert("تم الاسترجاع بنجاح.");go("dashboard");}catch{alert("ملف غير صالح.");}};r.readAsText(f);};
+
+/* ---------- Start ---------- */
+load();initLogin();
+</script>
+</body>
+</html>
