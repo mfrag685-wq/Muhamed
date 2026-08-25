@@ -155,6 +155,8 @@ tr:hover td{background:#f8fafc}
     </div>
     <button class="details-toggle" id="joinToggle" style="margin-top:10px;width:100%" onclick="toggleJoin()">ليس لديك حساب؟ اطلب حساباً جديداً</button>
     <div style="margin-top:10px;text-align:center"><span class="cloud-status off" id="cloudStatus">غير مفعّل</span></div>
+    <div style="margin-top:14px;text-align:center;font-size:12px;color:var(--muted)">
+      إعداد وتصميم <a onclick="showDev()" style="color:var(--brand-d);font-weight:700;cursor:pointer">✦ محمد فرج</a></div>
   </div>
 </div>
 <div id="toast"></div>
@@ -168,6 +170,7 @@ tr:hover td{background:#f8fafc}
   <div class="backdrop" id="backdrop" onclick="toggleNav()"></div>
   <aside class="sidebar" id="sidebar">
     <h2 id="brandSide">📦 المخزون</h2>
+    <div id="coSwitch" style="margin-bottom:10px"></div>
     <button class="navbtn" data-page="move">➕ تسجيل حركة</button>
     <button class="navbtn" data-page="dashboard">📊 الأرصدة</button>
     <button class="navbtn" data-page="report">📅 تقرير فترة</button>
@@ -183,6 +186,8 @@ tr:hover td{background:#f8fafc}
       <button class="btn gray sm block" onclick="backup()">⬇ نسخة احتياطية</button>
       <button class="btn ghost sm block" onclick="restore()">⬆ استرجاع</button>
       <button class="btn red sm block" onclick="logout()">خروج</button>
+      <div style="text-align:center;margin-top:8px;font-size:11px;color:#94a3b8">
+        إعداد وتصميم <a onclick="showDev()" style="color:#5eead4;font-weight:700;cursor:pointer">✦ ${''}محمد فرج</a></div>
     </div>
   </aside>
   <main class="main"><div id="view"></div></main>
@@ -228,41 +233,85 @@ function applyNav(){
   document.querySelectorAll(".navbtn").forEach(b=>b.classList.toggle("hidden",!can(b.dataset.page)));
 }
 
+/* ---------- بيانات المطوّر (توثيق) ---------- */
+const DEV={name:"محمد فرج",nameEn:"Mohamed Farag",title:"معدّ ومصمّم النظام · System Developer",phone:"00966559486547",phoneShow:"00966 55 948 6547"};
+/* ---------- الشركة الحالية (عرض لكل جهاز) ---------- */
+let CO=1;
+function citems(){return DB.items.filter(i=>i.companyId===CO);}
+function cmoves(){return DB.movements.filter(m=>m.companyId===CO);}
+function csups(){return DB.suppliers.filter(s=>s.companyId===CO);}
+function curCompany(){return (DB.companies||[]).find(c=>c.id===CO)||DB.companies[0]||{name:"شركتي",logo:"",icon:"🏢"};}
+
 /* ---------- Storage ---------- */
 function seed(){return{
-  settings:{company:"نظام المخزون",logo:""},
+  companies:[{id:1,name:"غرف النوم والأثاث",logo:"",icon:"🛏️"}],
+  settings:{company:"غرف النوم والأثاث",logo:""},
   users:[
     {id:1,name:"المدير العام",username:"admin",pass:hash("admin123"),role:"admin",active:1,perms:preset("admin"),fbUid:"",lastLogin:""},
     {id:2,name:"موظف المخزن",username:"store",pass:hash("store123"),role:"employee",active:1,perms:preset("employee"),fbUid:"",lastLogin:""}
   ],
-  suppliers:[{id:1,name:"مورد الرياض للأثاث",phone:"0500000000",contact:"أبو أحمد"}],
+  suppliers:[{id:1,companyId:1,name:"مورد الرياض للأثاث",phone:"0500000000",contact:"أبو أحمد"}],
   shipments:[],
   items:[
-    {id:1,code:"BR-100",name:"غرفة نوم كلاسيك",model:"CLASSIC-1",category:"غرف نوم",unit:"طقم",cost:3200,price:4500,qty:0,reorder:2,active:true},
-    {id:2,code:"BR-200",name:"غرفة نوم مودرن",model:"MODERN-2",category:"غرف نوم",unit:"طقم",cost:4100,price:5900,qty:0,reorder:2,active:true},
-    {id:3,code:"MT-10",name:"مرتبة طبية مفردة",model:"MED-S",category:"مراتب",unit:"قطعة",cost:600,price:950,qty:0,reorder:5,active:true},
-    {id:4,code:"MT-20",name:"مرتبة طبية مزدوجة",model:"MED-D",category:"مراتب",unit:"قطعة",cost:1100,price:1650,qty:0,reorder:5,active:true},
+    {id:1,companyId:1,code:"غرفة كلاسيك",name:"غرفة نوم كلاسيك",model:"غرفة كلاسيك",category:"غرف نوم",unit:"طقم",cost:3200,price:4500,qty:0,reorder:2,active:true},
+    {id:2,companyId:1,code:"غرفة مودرن",name:"غرفة نوم مودرن",model:"غرفة مودرن",category:"غرف نوم",unit:"طقم",cost:4100,price:5900,qty:0,reorder:2,active:true},
+    {id:3,companyId:1,code:"مرتبة مفردة",name:"مرتبة طبية مفردة",model:"مرتبة مفردة",category:"مراتب",unit:"قطعة",cost:600,price:950,qty:0,reorder:5,active:true},
+    {id:4,companyId:1,code:"مرتبة مزدوجة",name:"مرتبة طبية مزدوجة",model:"مرتبة مزدوجة",category:"مراتب",unit:"قطعة",cost:1100,price:1650,qty:0,reorder:5,active:true},
   ],
   movements:[],activity:[],
-  seq:{user:2,supplier:1,shipment:0,item:4,movement:0,activity:0},
+  seq:{user:2,supplier:1,shipment:0,item:4,movement:0,activity:0,company:1},
 };}
 function ensureShape(){
   DB.users=DB.users||[];DB.items=DB.items||[];DB.movements=DB.movements||[];
   DB.suppliers=DB.suppliers||[];DB.shipments=DB.shipments||[];DB.activity=DB.activity||[];
-  DB.seq=DB.seq||{user:0,supplier:0,shipment:0,item:0,movement:0,activity:0};
-  DB.settings=DB.settings||{company:"نظام المخزون",logo:""};
+  DB.seq=DB.seq||{user:0,supplier:0,shipment:0,item:0,movement:0,activity:0,company:0};
+  DB.settings=DB.settings||{company:"شركتي",logo:""};
+  // تهيئة الشركات وترحيل البيانات القديمة لأول شركة
+  if(!DB.companies||!DB.companies.length){
+    DB.companies=[{id:1,name:DB.settings.company||"شركتي",logo:DB.settings.logo||"",icon:DB.settings.icon||"🏢"}];
+    if(!DB.seq.company||DB.seq.company<1)DB.seq.company=1;
+  }
+  DB.companies.forEach(c=>{if(!c.icon)c.icon="🏢";});
+  const firstCo=DB.companies[0].id;
+  DB.items.forEach(i=>{if(i.companyId===undefined)i.companyId=firstCo;});
+  DB.movements.forEach(m=>{if(m.companyId===undefined)m.companyId=firstCo;});
+  DB.suppliers.forEach(s=>{if(s.companyId===undefined)s.companyId=firstCo;});
+  if(!DB.companies.some(c=>c.id===CO))CO=DB.companies[0].id;
   DB.users.forEach(u=>{if(u.active===undefined)u.active=1;if(u.username===undefined)u.username="";if(u.fbUid===undefined)u.fbUid="";
     if(!u.perms){u.perms=preset(u.role);}else{PERM_KEYS.forEach(k=>{if(u.perms[k[0]]===undefined)u.perms[k[0]]=preset(u.role)[k[0]];});}});
 }
 function applyBrand(){
-  const co=(DB.settings&&DB.settings.company)||"نظام المخزون",logo=(DB.settings&&DB.settings.logo)||"";
-  const lg=x=>logo?`<img src="${logo}" class="brandlogo" alt=""> `:"";
+  const c=curCompany();const co=c.name||"شركتي",logo=c.logo||"",icon=c.icon||"📦";
+  const head=logo?`<img src="${logo}" class="brandlogo" alt="">`:`<span style="font-size:20px">${icon}</span>`;
   const bl=$("#brandLogin"),bs=$("#brandSide");
-  if(bl)bl.innerHTML=(logo?`<img src="${logo}" class="brandlogo" alt=""><br>`:"📦 ")+esc(co);
-  if(bs)bs.innerHTML=(logo?`<img src="${logo}" class="brandlogo" alt=""> `:"📦 ")+esc(co);
+  if(bl)bl.innerHTML=head+`<div style="margin-top:4px">${esc(co)}</div>`;
+  if(bs)bs.innerHTML=head+` ${esc(co)}`;
+  const cs=$("#coSwitch");if(cs)cs.innerHTML=companySwitchHtml();
   document.title=co;
 }
-function load(){const r=localStorage.getItem(KEY);DB=r?JSON.parse(r):seed();ensureShape();if(!r)save();}
+function companySwitchHtml(){
+  if(!DB.companies)return"";
+  const opts=DB.companies.map(c=>`<option value="${c.id}" ${c.id===CO?"selected":""}>${esc((c.icon||"")+" "+c.name)}</option>`).join("");
+  return `<select onchange="switchCompany(this.value)" style="padding:8px;border-radius:8px">${opts}
+    ${ME&&ME.role==="admin"?`<option value="__new">➕ شركة جديدة…</option>`:""}</select>`;
+}
+function switchCompany(v){
+  if(v==="__new"){addCompany();applyBrand();return;}
+  CO=+v;try{localStorage.setItem("inv_company",String(CO));}catch(e){}
+  applyBrand();go(CURRENT_PAGE);
+}
+function addCompany(){
+  if(!ME||ME.role!=="admin"){toast("للمدير فقط");applyBrand();return;}
+  const name=prompt("اسم الشركة الجديدة:");if(!name||!name.trim()){applyBrand();return;}
+  const icon=prompt("رمز/إيموجي يعبّر عن النشاط (اختياري، مثل 🛏️ 🍎 🔧):","🏢")||"🏢";
+  const c={id:nid("company"),name:name.trim(),logo:"",icon:icon.trim()||"🏢"};
+  DB.companies.push(c);CO=c.id;try{localStorage.setItem("inv_company",String(CO));}catch(e){}
+  logAct("إضافة شركة",c.name);save();applyBrand();go("settings");
+  toast("تم إنشاء الشركة — عبّئ أصنافها وبياناتها");
+}
+function load(){const r=localStorage.getItem(KEY);DB=r?JSON.parse(r):seed();
+  try{const c=+localStorage.getItem("inv_company");if(c)CO=c;}catch(e){}
+  ensureShape();if(!r)save();}
 function save(){localStorage.setItem(KEY,JSON.stringify(DB));cloudPush();}
 function nid(k){DB.seq[k]=(DB.seq[k]||0)+1;return DB.seq[k];}
 function logAct(action,detail){DB.activity.unshift({id:nid("activity"),userName:ME?ME.name:"",action,detail,at:new Date().toISOString()});save();}
@@ -504,7 +553,7 @@ function pMove(){
     <!-- حقول الوارد: المورد + الفسح -->
     <div class="formgrid" id="rowIn" style="margin-top:6px">
       <div class="cell c4"><label>المورد</label><select id="mSupplier"><option value="">—</option>
-        ${DB.suppliers.map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join("")}</select></div>
+        ${csups().map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join("")}</select></div>
       <div class="cell c4"><label>رقم الفسح الجمركي (للوارد)</label><input id="mCustoms" placeholder="رقم الفسح"></div>
       <div class="cell c4"><label>ملاحظات</label><input id="mNoteIn" placeholder="ملاحظة"></div>
     </div>
@@ -550,7 +599,7 @@ function setType(t){
 }
 function acItems(q){
   const box=$("#mAc");q=q.trim();if(!q){box.style.display="none";return;}
-  const res=DB.items.filter(i=>i.active!==false&&(i.code+i.name+(i.category||"")+(i.model||"")).toLowerCase().includes(q.toLowerCase())).slice(0,8);
+  const res=citems().filter(i=>i.active!==false&&(i.code+i.name+(i.category||"")+(i.model||"")).toLowerCase().includes(q.toLowerCase())).slice(0,8);
   box.innerHTML=res.map(i=>`<div class="ac-item" onclick="pickItem(${i.id})"><b>${esc(itemModel(i))}</b>
     ${(i.name&&i.name!==itemModel(i))?`<span style="color:var(--muted)"> — ${esc(i.name)}</span>`:""}
     <span style="color:var(--muted)"> (الرصيد: ${i.qty})</span></div>`).join("")||`<div class="ac-item">لا نتائج</div>`;
@@ -602,7 +651,7 @@ function saveMove(){
     const gid="INV"+Date.now();const invNo=($("#mInvoice").value||"").trim()||gid;
     const comm=parseFloat($("#mComm").value)||0,addr=$("#mAddress").value||"",note=$("#mNoteOut").value||"";
     lines.forEach((l,idx)=>{const it=DB.items.find(x=>x.id===l.itemId);it.qty-=l.qty;
-      DB.movements.unshift({id:nid("movement"),itemId:it.id,type:"outbound",qty:l.qty,price:l.price||0,
+      DB.movements.unshift({id:nid("movement"),companyId:CO,itemId:it.id,type:"outbound",qty:l.qty,price:l.price||0,
         comm:idx===0?comm:0,model:itemModel(it),invoice:invNo,invGid:gid,address:addr,supplierId:null,customs:"",
         date,note,balAfter:it.qty,userId:ME.id,userName:ME.name,at:new Date().toISOString()});});
     logAct("منصرف","فاتورة "+invNo+" — "+lines.length+" صنف");save();
@@ -615,7 +664,7 @@ function saveMove(){
   const qty=parseFloat($("#mQty").value);if(!qty||qty<=0)return show("أدخل كمية صحيحة.","err");
   const item=DB.items.find(i=>i.id===picked.id);
   item.qty+=qty;
-  DB.movements.unshift({id:nid("movement"),itemId:item.id,type:mType,qty,price:parseFloat($("#mPrice").value)||0,
+  DB.movements.unshift({id:nid("movement"),companyId:CO,itemId:item.id,type:mType,qty,price:parseFloat($("#mPrice").value)||0,
     comm:0,model:itemModel(item),invoice:"",invGid:"",address:"",supplierId:+($("#mSupplier")?.value)||null,
     customs:mType==="inbound"?($("#mCustoms").value||""):"",date,note:$("#mNoteIn")?.value||"",
     balAfter:item.qty,userId:ME.id,userName:ME.name,at:new Date().toISOString()});
@@ -625,7 +674,7 @@ function saveMove(){
 }
 function renderRecent(){
   const tb=$("#recentMoves");if(!tb)return;
-  tb.innerHTML=DB.movements.slice(0,25).map(m=>{const it=DB.items.find(i=>i.id===m.itemId)||{};const sup=DB.suppliers.find(x=>x.id===m.supplierId);
+  tb.innerHTML=cmoves().slice(0,25).map(m=>{const it=DB.items.find(i=>i.id===m.itemId)||{};const sup=DB.suppliers.find(x=>x.id===m.supplierId);
     return `<tr><td>${esc(m.date)}</td><td>${esc(m.model||itemModel(it))}</td>
       <td><span class="tag ${m.type}">${typeAr(m.type)}</span></td>
       <td style="font-weight:700;color:${isIn(m.type)?'var(--green)':'var(--amber)'}">${isIn(m.type)?"+":"−"}${m.qty}</td>
@@ -637,7 +686,7 @@ function renderRecent(){
 /* ---------- استرجاع الفاتورة برقمها ---------- */
 function lookupInvoice(){
   const no=prompt("أدخل رقم فاتورة البيع لاسترجاعها:");if(no===null)return;
-  const lines=DB.movements.filter(m=>m.type==="outbound"&&String(m.invoice)===no.trim());
+  const lines=cmoves().filter(m=>m.type==="outbound"&&String(m.invoice)===no.trim());
   if(!lines.length){toast("لا توجد فاتورة بهذا الرقم");return;}
   printInvoice(lines[0].invGid||no.trim(),true);
 }
@@ -653,7 +702,7 @@ function showPrint(inner,extraActions){
     </div></div>`;
   document.body.appendChild(m);
 }
-function brandHead(){return `<div class="co">${(DB.settings&&DB.settings.logo)?`<img src="${DB.settings.logo}">`:""}<h3 style="margin:0">${esc((DB.settings&&DB.settings.company)||"نظام المخزون")}</h3></div>`;}
+function brandHead(){const c=curCompany();return `<div class="co">${c.logo?`<img src="${c.logo}">`:`<span style="font-size:26px">${esc(c.icon||"🏢")}</span>`}<h3 style="margin:0">${esc(c.name||"شركتي")}</h3></div>`;}
 function printReceipt(id){
   const m=DB.movements.find(x=>x.id===id);if(!m)return;
   if(m.invGid&&m.type==="outbound"){printInvoice(m.invGid);return;}
@@ -691,11 +740,11 @@ function cancelInvoice(gid){
 
 /* ============ 2) الأرصدة (لوحة) ============ */
 function pDashboard(){
-  const q=($("#dashSearch")?.value||"");
-  const totalItems=DB.items.length;
-  const totalStock=DB.items.reduce((s,i)=>s+i.qty,0);
-  const low=DB.items.filter(i=>i.reorder>0&&i.qty<=i.reorder);
-  const zero=DB.items.filter(i=>i.qty<=0);
+  const q=($("#dashSearch")?.value||"");const CI=citems();
+  const totalItems=CI.length;
+  const totalStock=CI.reduce((s,i)=>s+i.qty,0);
+  const low=CI.filter(i=>i.reorder>0&&i.qty<=i.reorder);
+  const zero=CI.filter(i=>i.qty<=0);
   $("#view").innerHTML=`
   <div class="pagehead"><h1>📊 أرصدة الأصناف</h1><span class="pill">${fmt(new Date())}</span></div>
   <div class="grid-4" style="margin-bottom:16px">
@@ -706,7 +755,7 @@ function pDashboard(){
   </div>
   <div class="card">
     <div class="card-title" style="display:flex;justify-content:space-between;align-items:center"><span>جرد الأرصدة الحالية</span>
-      <button class="btn ghost sm" onclick="exportCSV('الارصدة.csv',['الكود','الصنف','الموديل','الفئة','الوحدة','الرصيد','حد الطلب'],DB.items.map(i=>[i.code,i.name,i.model||'',i.category||'',i.unit||'',i.qty,i.reorder||'']))">⬇ Excel</button></div>
+      <button class="btn ghost sm" onclick="exportCSV('الارصدة.csv',['الموديل','الوصف','الفئة','الوحدة','الرصيد','حد الطلب'],citems().map(i=>[itemModel(i),i.name||'',i.category||'',i.unit||'',i.qty,i.reorder||'']))">⬇ Excel</button></div>
     <input id="dashSearch" placeholder="🔍 بحث بالكود أو الاسم أو الموديل..." value="${esc(q)}" oninput="renderBalances()" style="margin-bottom:14px">
     <div class="table-wrap"><table><thead><tr><th>الموديل</th><th>الوصف</th><th>الفئة</th>
       <th>الوحدة</th><th>الرصيد الحالي</th><th>حد الطلب</th><th>الحالة</th></tr></thead>
@@ -715,7 +764,7 @@ function pDashboard(){
 }
 function renderBalances(){
   const q=($("#dashSearch")?.value||"").toLowerCase();
-  const rows=DB.items.filter(i=>(i.code+i.name+(i.model||"")+(i.category||"")).toLowerCase().includes(q));
+  const rows=citems().filter(i=>(i.code+i.name+(i.model||"")+(i.category||"")).toLowerCase().includes(q));
   $("#balTbl").innerHTML=rows.map(i=>{
     const low=i.reorder>0&&i.qty<=i.reorder;const state=i.qty<=0?["نفد","var(--amber)"]:low?["نقص","var(--red)"]:["متوفر","var(--green)"];
     return `<tr><td style="font-family:monospace;font-weight:700">${esc(itemModel(i))}</td><td>${esc(i.name&&i.name!==itemModel(i)?i.name:"")}</td>
@@ -734,7 +783,7 @@ function pReport(){
       <div class="cell c3"><label>من تاريخ</label><input id="rFrom" type="date" value="${monthStart()}"></div>
       <div class="cell c3"><label>إلى تاريخ</label><input id="rTo" type="date" value="${today()}"></div>
       <div class="cell c3"><label>الفئة</label><select id="rCat"><option value="">كل الفئات</option>
-        ${[...new Set(DB.items.map(i=>i.category).filter(Boolean))].map(c=>`<option>${esc(c)}</option>`).join("")}</select></div>
+        ${[...new Set(citems().map(i=>i.category).filter(Boolean))].map(c=>`<option>${esc(c)}</option>`).join("")}</select></div>
       <div class="cell c3" style="display:flex;align-items:flex-end"><button class="btn block" onclick="renderReport()">عرض التقرير</button></div>
     </div>
   </div>
@@ -744,7 +793,7 @@ function pReport(){
 function renderReport(){
   const from=$("#rFrom").value,to=$("#rTo").value,cat=$("#rCat").value;
   const inRange=d=>(!from||d>=from)&&(!to||d<=to);
-  const items=DB.items.filter(i=>!cat||i.category===cat);
+  const items=citems().filter(i=>!cat||i.category===cat);
   const rows=items.map(it=>{
     const mv=DB.movements.filter(m=>m.itemId===it.id&&inRange(m.date));
     const inb=mv.filter(m=>isIn(m.type)).reduce((s,m)=>s+m.qty,0);
@@ -781,7 +830,7 @@ function pLedger(){
     <div class="formgrid no-print" style="margin-bottom:12px">
       <div class="cell c4"><label>اختر الصنف</label>
         <select id="lItem" onchange="renderLedger()"><option value="">— اختر —</option>
-          ${DB.items.map(i=>`<option value="${i.id}">${esc(itemLabel(i))}</option>`).join("")}</select></div>
+          ${citems().map(i=>`<option value="${i.id}">${esc(itemLabel(i))}</option>`).join("")}</select></div>
       <div class="cell c3"><label>من تاريخ</label><input id="lFrom" type="date" onchange="renderLedger()"></div>
       <div class="cell c3"><label>إلى تاريخ</label><input id="lTo" type="date" onchange="renderLedger()"></div>
       <div class="cell c2"><label>النوع</label><select id="lType" onchange="renderLedger()">
@@ -826,7 +875,7 @@ function exportLedger(id){
 /* ============ 5) الأصناف ============ */
 function pItems(){
   $("#view").innerHTML=`<div class="pagehead"><h1>🏷️ الأصناف (الموديلات)</h1><div style="display:flex;gap:8px;flex-wrap:wrap">
-    <button class="btn ghost" onclick="exportCSV('الموديلات.csv',['الموديل','الوصف','الفئة','الوحدة','الرصيد','حد الطلب'],DB.items.map(i=>[itemModel(i),i.name||'',i.category||'',i.unit||'',i.qty,i.reorder||'']))">⬇ Excel</button>
+    <button class="btn ghost" onclick="exportCSV('الموديلات.csv',['الموديل','الوصف','الفئة','الوحدة','الرصيد','حد الطلب'],citems().map(i=>[itemModel(i),i.name||'',i.category||'',i.unit||'',i.qty,i.reorder||'']))">⬇ Excel</button>
     ${can("canAdd")?`<button class="btn amber" onclick="importModels()">📥 استيراد موديلات</button>`:""}
     ${can("canAdd")?`<button class="btn" onclick="itemForm(0)">+ إضافة موديل</button>`:""}</div></div>
   <div class="card">
@@ -838,7 +887,7 @@ function pItems(){
 }
 function renderItems(){
   const q=($("#itemSearch")?.value||"").toLowerCase();
-  const rows=DB.items.filter(i=>((i.code+i.name+(i.model||"")+(i.category||"")).toLowerCase().includes(q)));
+  const rows=citems().filter(i=>((i.code+i.name+(i.model||"")+(i.category||"")).toLowerCase().includes(q)));
   $("#itemsTbl").innerHTML=rows.map(i=>{
     const low=i.reorder>0&&i.qty<=i.reorder;
     return `<tr><td style="font-family:monospace;font-weight:700">${esc(itemModel(i))}</td><td>${esc(i.name&&i.name!==itemModel(i)?i.name:"")}</td>
@@ -870,13 +919,13 @@ function itemForm(id){
 function saveItem(id){
   const g=x=>$("#"+x)?$("#"+x).value:"";const code=g("f_code").trim(),name=g("f_name").trim();
   if(!code){$("#f_msg").textContent="الموديل / الكود مطلوب.";return;}
-  if(DB.items.some(i=>(itemModel(i).toLowerCase()===code.toLowerCase())&&i.id!==id)){$("#f_msg").textContent="هذا الموديل مسجّل مسبقاً.";return;}
+  if(citems().some(i=>(itemModel(i).toLowerCase()===code.toLowerCase())&&i.id!==id)){$("#f_msg").textContent="هذا الموديل مسجّل مسبقاً.";return;}
   const data={code,model:code,name:name||code,category:g("f_cat"),unit:g("f_unit")||"قطعة",
     price:parseFloat(g("f_price"))||0,reorder:parseFloat(g("f_reorder"))||0};
   if(id){Object.assign(DB.items.find(i=>i.id===id),data);logAct("تعديل موديل",code);}
   else{const q=parseFloat(g("f_qty"))||0;const cost=parseFloat(g("f_cost"))||0;
-    const it={id:nid("item"),qty:q,cost,active:true,...data};DB.items.push(it);
-    if(q>0)DB.movements.unshift({id:nid("movement"),itemId:it.id,type:"inbound",qty:q,price:cost,comm:0,model:code,invoice:"",invGid:"",address:"",supplierId:null,customs:"",date:today(),note:"رصيد افتتاحي",balAfter:q,userId:ME.id,userName:ME.name,at:new Date().toISOString()});
+    const it={id:nid("item"),companyId:CO,qty:q,cost,active:true,...data};DB.items.push(it);
+    if(q>0)DB.movements.unshift({id:nid("movement"),companyId:CO,itemId:it.id,type:"inbound",qty:q,price:cost,comm:0,model:code,invoice:"",invGid:"",address:"",supplierId:null,customs:"",date:today(),note:"رصيد افتتاحي",balAfter:q,userId:ME.id,userName:ME.name,at:new Date().toISOString()});
     logAct("إضافة موديل",code);}
   save();document.querySelector(".modal").remove();renderItems();
 }
@@ -926,10 +975,10 @@ function doImportModels(){
     const parts=line.split(/[,،\t]/).map(s=>s.trim());
     const code=parts[0];if(!code)return;
     let qty=zero?0:(parseFloat(parts[1])||0);
-    if(DB.items.some(i=>itemModel(i).toLowerCase()===code.toLowerCase())){skipped++;return;}
-    const it={id:nid("item"),qty,cost:0,active:true,code,model:code,name:code,category:"",unit:"قطعة",price:0,reorder:0};
+    if(citems().some(i=>itemModel(i).toLowerCase()===code.toLowerCase())){skipped++;return;}
+    const it={id:nid("item"),companyId:CO,qty,cost:0,active:true,code,model:code,name:code,category:"",unit:"قطعة",price:0,reorder:0};
     DB.items.push(it);added++;
-    if(qty>0)DB.movements.unshift({id:nid("movement"),itemId:it.id,type:"inbound",qty,price:0,comm:0,model:code,invoice:"",invGid:"",address:"",supplierId:null,customs:"",date:today(),note:"رصيد افتتاحي (استيراد)",balAfter:qty,userId:ME.id,userName:ME.name,at:new Date().toISOString()});
+    if(qty>0)DB.movements.unshift({id:nid("movement"),companyId:CO,itemId:it.id,type:"inbound",qty,price:0,comm:0,model:code,invoice:"",invGid:"",address:"",supplierId:null,customs:"",date:today(),note:"رصيد افتتاحي (استيراد)",balAfter:qty,userId:ME.id,userName:ME.name,at:new Date().toISOString()});
   });
   logAct("استيراد موديلات",`أُضيف ${added} — تكرار ${skipped}`);save();
   document.querySelector(".modal").remove();renderItems();
@@ -958,12 +1007,12 @@ function pImport(){
   renderSuppliers();
 }
 function renderSuppliers(){
-  $("#supTbl").innerHTML=DB.suppliers.map(s=>`<tr><td>${esc(s.name)}</td><td>${esc(s.phone||"")}</td><td>${esc(s.contact||"")}</td>
+  $("#supTbl").innerHTML=csups().map(s=>`<tr><td>${esc(s.name)}</td><td>${esc(s.phone||"")}</td><td>${esc(s.contact||"")}</td>
     ${ME.role==="admin"?`<td><button class="btn red sm" onclick="delSupplier(${s.id})">حذف</button></td>`:""}</tr>`).join("")||`<tr><td colspan="4" class="empty">—</td></tr>`;
 }
 function addSupplier(){
   const name=$("#sName").value.trim();if(!name)return;
-  DB.suppliers.push({id:nid("supplier"),name,phone:$("#sPhone").value,contact:$("#sContact").value});
+  DB.suppliers.push({id:nid("supplier"),companyId:CO,name,phone:$("#sPhone").value,contact:$("#sContact").value});
   logAct("إضافة مورد",name);save();pImport();
 }
 function delSupplier(id){
@@ -1050,26 +1099,30 @@ function delUser(id){
 /* ============ 8) الإعدادات + العلامة التجارية ============ */
 function pSettings(){
   if(!can("settings")){go("move");return;}
-  const s=DB.settings||{};
+  const c=curCompany();const isAdmin=ME.role==="admin";
   $("#view").innerHTML=`<div class="pagehead"><h1>⚙️ الإعدادات</h1></div>
   <div class="grid-2">
-    <div class="card"><div class="card-title">🏢 بيانات المنشأة</div>
-      <div class="field" style="margin-bottom:12px"><label>اسم المنشأة (يظهر في الدخول والقائمة والسندات)</label>
-        <input id="setCompany" value="${esc(s.company||"")}"></div>
-      <div class="field" style="margin-bottom:12px"><label>الشعار (اختياري)</label>
+    <div class="card"><div class="card-title">🏢 هوية الشركة الحالية</div>
+      <div class="row"><div class="field"><label>اسم الشركة / النشاط</label><input id="setCompany" value="${esc(c.name||"")}"></div>
+        <div class="field"><label>رمز النشاط (إيموجي)</label><input id="setIcon" value="${esc(c.icon||"🏢")}" placeholder="🛏️ 🍎 🔧" style="text-align:center;font-size:20px"></div></div>
+      <div class="field" style="margin-bottom:12px"><label>الشعار (اختياري — يظهر بدل الرمز)</label>
         <input type="file" id="setLogo" accept="image/*" onchange="pickLogo(event)">
-        <div style="margin-top:8px">${s.logo?`<img src="${s.logo}" class="brandlogo">`:'<span style="color:var(--muted);font-size:13px">لا يوجد شعار</span>'}</div></div>
-      <div style="display:flex;gap:8px">
+        <div style="margin-top:8px">${c.logo?`<img src="${c.logo}" class="brandlogo">`:`<span style="font-size:26px">${esc(c.icon||"🏢")}</span>`}</div></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
         <button class="btn green" onclick="saveSettings()">حفظ</button>
-        ${s.logo?`<button class="btn gray" onclick="DB.settings.logo='';save();applyBrand();pSettings();toast('تم حذف الشعار')">حذف الشعار</button>`:""}</div>
+        ${c.logo?`<button class="btn gray" onclick="curCompany().logo='';save();applyBrand();pSettings();toast('تم حذف الشعار')">حذف الشعار</button>`:""}</div>
+      <p style="font-size:12px;color:var(--muted);margin-top:10px">تظهر هذه الهوية في شاشة الدخول والقائمة والسندات المطبوعة.</p>
     </div>
-    <div class="card"><div class="card-title">☁️ حالة النظام السحابي</div>
-      <p style="font-size:13.5px;line-height:1.9">
-        الوضع: <b>${cloudAccounts()?"سحابي (حساب لكل مستخدم)":cloudEnabled()?"سحابي مبسّط":"محلي على هذا الجهاز"}</b><br>
-        مساحة العمل: <b>${esc(cloudWid())}</b><br>
-        المستخدم الحالي: <b>${esc(ME.name)}</b> — ${roleAr(ME.role)}<br>
-        الأجهزة تتزامن فورياً عند الاتصال. التعديلات على البرنامج تظهر تلقائياً بعد كل تحديث.
-      </p>
+    <div class="card"><div class="card-title">🏬 الشركات</div>
+      <div class="table-wrap"><table><thead><tr><th>الشركة</th><th>عدد الأصناف</th>${isAdmin?"<th></th>":""}</tr></thead>
+        <tbody>${DB.companies.map(x=>`<tr><td>${esc((x.icon||"")+" "+x.name)}${x.id===CO?' <span class="tag inbound">الحالية</span>':""}</td>
+          <td>${DB.items.filter(i=>i.companyId===x.id).length}</td>
+          ${isAdmin?`<td style="white-space:nowrap">${x.id!==CO?`<button class="btn blue sm" onclick="switchCompany(${x.id})">تحديد</button>`:""}
+            <button class="btn red sm" onclick="delCompany(${x.id})">حذف</button></td>`:""}</tr>`).join("")}</tbody></table></div>
+      ${isAdmin?`<button class="btn amber block" style="margin-top:10px" onclick="addCompany()">➕ إضافة شركة جديدة</button>`:""}
+      <div class="card-title" style="margin-top:16px">☁️ حالة النظام</div>
+      <p style="font-size:13px;line-height:1.9">الوضع: <b>${cloudAccounts()?"سحابي (حساب لكل مستخدم)":"محلي"}</b> · المستخدم: <b>${esc(ME.name)}</b> — ${roleAr(ME.role)}<br>
+        التعديلات تُنشر تلقائياً عبر GitHub وتظهر لك وللموظفين بعد تحديث الصفحة.</p>
       <button class="btn blue" onclick="changeMyPassword()">🔑 تغيير كلمة مروري</button>
     </div>
   </div>`;
@@ -1078,9 +1131,19 @@ let _logoData="";
 function pickLogo(e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{_logoData=r.result;toast("سيُحفظ الشعار عند الضغط على حفظ");};r.readAsDataURL(f);}
 function saveSettings(){
   if(!guard("settings"))return;
-  DB.settings=DB.settings||{};DB.settings.company=$("#setCompany").value.trim()||"نظام المخزون";
-  if(_logoData){DB.settings.logo=_logoData;_logoData="";}
-  logAct("تعديل الإعدادات",DB.settings.company);save();applyBrand();toast("تم حفظ الإعدادات");pSettings();
+  const c=curCompany();c.name=$("#setCompany").value.trim()||"شركتي";c.icon=$("#setIcon").value.trim()||"🏢";
+  if(_logoData){c.logo=_logoData;_logoData="";}
+  if(DB.companies[0]&&DB.companies[0].id===c.id)DB.settings.company=c.name;
+  logAct("تعديل هوية الشركة",c.name);save();applyBrand();toast("تم حفظ الإعدادات");pSettings();
+}
+function delCompany(id){
+  if(ME.role!=="admin"){toast("للمدير فقط");return;}
+  if(DB.companies.length<=1){toast("لا يمكن حذف الشركة الوحيدة");return;}
+  if(DB.items.some(i=>i.companyId===id)||DB.movements.some(m=>m.companyId===id)){alert("لا يمكن حذف شركة بها أصناف أو حركات. احذف بياناتها أولاً.");return;}
+  const c=DB.companies.find(x=>x.id===id);if(!confirm(`حذف الشركة «${c.name}»؟`))return;
+  DB.companies=DB.companies.filter(x=>x.id!==id);
+  if(CO===id){CO=DB.companies[0].id;try{localStorage.setItem("inv_company",String(CO));}catch(e){}}
+  logAct("حذف شركة",c.name);save();applyBrand();pSettings();
 }
 function changeMyPassword(){
   const p=prompt("كلمة المرور الجديدة (٦ خانات على الأقل):");
@@ -1162,6 +1225,30 @@ function exportCSV(filename,headers,rows){
   toast("تم التصدير");
 }
 
+/* ---------- بطاقة المطوّر (اتصال / واتساب) ---------- */
+function showDev(){
+  const old=$("#devModal");if(old)old.remove();
+  const m=document.createElement("div");m.id="devModal";m.className="modal";
+  m.innerHTML=`<div class="box" style="max-width:360px;padding:0;overflow:hidden">
+    <div style="background:linear-gradient(135deg,#0d9488,#0f766e);color:#fff;padding:26px 20px;text-align:center;position:relative">
+      <button onclick="this.closest('.modal').remove()" style="position:absolute;top:12px;inset-inline-start:12px;background:rgba(255,255,255,.2);border:0;color:#fff;width:34px;height:34px;border-radius:50%;font-size:16px">✕</button>
+      <div style="width:84px;height:84px;border-radius:50%;background:rgba(255,255,255,.15);border:3px solid rgba(255,255,255,.4);display:flex;align-items:center;justify-content:center;font-size:30px;font-weight:800;margin:0 auto 12px">MF</div>
+      <div style="font-size:20px;font-weight:800">${esc(DEV.name)}</div>
+      <div style="opacity:.9">${esc(DEV.nameEn)}</div>
+      <div style="display:inline-block;margin-top:10px;background:rgba(255,255,255,.15);padding:6px 14px;border-radius:20px;font-size:12px">${esc(DEV.title)}</div>
+    </div>
+    <div style="padding:20px;text-align:center">
+      <div style="color:var(--muted);font-size:13px">للتواصل</div>
+      <div style="font-size:20px;font-weight:800;margin:6px 0 16px;direction:ltr">📞 ${esc(DEV.phoneShow)}</div>
+      <div style="display:flex;gap:10px">
+        <a class="btn blue" style="flex:1;text-decoration:none" href="https://wa.me/${DEV.phone.replace(/^00/,'')}" target="_blank" rel="noopener">واتساب</a>
+        <a class="btn green" style="flex:1;text-decoration:none" href="tel:+${DEV.phone.replace(/^00/,'')}">اتصال</a>
+      </div>
+      <div style="color:var(--muted);font-size:11px;margin-top:16px">© 2026 جميع الحقوق محفوظة</div>
+    </div></div>`;
+  document.body.appendChild(m);
+}
+
 /* ---------- نسخ احتياطي / استرجاع ---------- */
 function backup(){
   const blob=new Blob([JSON.stringify(DB,null,2)],{type:"application/json"});
@@ -1173,7 +1260,7 @@ $("#restoreFile").onchange=e=>{const f=e.target.files[0];if(!f)return;const r=ne
   r.onload=()=>{try{DB=JSON.parse(r.result);save();alert("تم الاسترجاع بنجاح.");go("dashboard");}catch{alert("ملف غير صالح.");}};r.readAsText(f);};
 
 /* ---------- Start ---------- */
-load();initLogin();cloudInit();
+load();initLogin();applyBrand();cloudInit();
 </script>
 </body>
 </html>
