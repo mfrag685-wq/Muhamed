@@ -56,14 +56,15 @@ input[readonly]{background:#f8fafc;color:var(--muted)}
 .btn{background:var(--brand);color:#fff;border:0;padding:12px 18px;border-radius:9px;font-weight:600;font-size:15px}
 .btn:hover{background:var(--brand-d)}.btn.blue{background:var(--blue)}.btn.green{background:var(--green)}
 .btn.red{background:var(--red)}.btn.gray{background:#64748b}.btn.ghost{background:#f1f5f9;color:var(--ink)}
-.btn.sm{padding:8px 12px;font-size:13px}.btn.block{width:100%}
+.btn.amber{background:var(--amber)}
+.btn.sm{padding:8px 12px;font-size:13px}.btn.block{width:100%}.btn.lg{padding:15px;font-size:17px}
 .table-wrap{overflow:auto;-webkit-overflow-scrolling:touch}
 table{width:100%;border-collapse:collapse;font-size:13.5px;min-width:480px}
 th{text-align:right;color:var(--muted);font-weight:600;padding:10px 8px;border-bottom:2px solid var(--line);white-space:nowrap}
 td{padding:11px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
 tr:hover td{background:#f8fafc}
 .tag{padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;color:#fff;display:inline-block}
-.tag.inbound{background:var(--green)}.tag.sale{background:var(--sky)}.tag.outbound{background:var(--amber)}.tag.adjustment{background:#64748b}
+.tag.inbound{background:var(--green)}.tag.outbound{background:var(--amber)}.tag.adjustment{background:#64748b}
 .badge-role{padding:2px 9px;border-radius:6px;font-size:11px;background:#e0e7ff;color:#3730a3;font-weight:700}
 .stat{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:15px;box-shadow:var(--shadow)}
 .stat .lbl{color:var(--muted);font-size:13px;margin-bottom:6px}.stat .val{font-size:24px;font-weight:800}.stat .val.sm{font-size:18px}
@@ -77,22 +78,28 @@ tr:hover td{background:#f8fafc}
 .modal{position:fixed;inset:0;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;z-index:60;padding:14px}
 .modal .box{background:#fff;border-radius:16px;padding:22px;width:100%;max-width:520px;max-height:92vh;overflow:auto}
 .modal h3{margin-bottom:16px}
-.bar{height:9px;background:#e2e8f0;border-radius:6px;overflow:hidden;margin-top:5px}.bar>span{display:block;height:100%;background:var(--brand)}
 .pill{display:inline-flex;gap:6px;align-items:center;background:#f1f5f9;padding:5px 10px;border-radius:20px;font-size:12px}
 .empty{color:var(--muted);text-align:center;padding:22px;font-size:14px}
 
-/* ===== لمسة: شريط إدخال مضغوط "كل شيء في سطر واحد" ===== */
-.formgrid{display:grid;grid-template-columns:repeat(12,1fr);gap:10px}
+/* ===== شريط إدخال مضغوط "كل شيء في سطر" ===== */
+.formgrid{display:grid;grid-template-columns:repeat(12,1fr);gap:10px;align-items:end}
 .formgrid .cell{min-width:0}
-.formgrid .cell.c2{grid-column:span 2}
-.formgrid .cell.c3{grid-column:span 3}
-.formgrid .cell.c4{grid-column:span 4}
-.formgrid .cell.c6{grid-column:span 6}
-.formgrid .cell.c12{grid-column:span 12}
-.formgrid input,.formgrid select{padding:9px}
-.formgrid label{margin-bottom:3px}
+.formgrid .cell.c2{grid-column:span 2}.formgrid .cell.c3{grid-column:span 3}
+.formgrid .cell.c4{grid-column:span 4}.formgrid .cell.c5{grid-column:span 5}
+.formgrid .cell.c6{grid-column:span 6}.formgrid .cell.c12{grid-column:span 12}
+.formgrid input,.formgrid select{padding:11px}
 @media(max-width:860px){.formgrid .cell{grid-column:span 6 !important}.formgrid .cell.c12{grid-column:span 12 !important}}
-@media print{.sidebar,.topbar,.backdrop,.pagehead .btn,.navbtn{display:none!important}.main{margin:0!important}}
+
+/* أزرار كبيرة لنوع الحركة — وارد / منصرف */
+.typebtns{display:flex;gap:8px}
+.typebtns button{flex:1;border:2px solid var(--line);background:#fff;color:var(--muted);border-radius:10px;padding:12px;font-weight:700;font-size:15px}
+.typebtns button.on.in{background:var(--green);border-color:var(--green);color:#fff}
+.typebtns button.on.out{background:var(--amber);border-color:var(--amber);color:#fff}
+.typebtns button.on.adj{background:#64748b;border-color:#64748b;color:#fff}
+.balbox{background:#ecfeff;border:1px solid #a5f3fc;border-radius:12px;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.balbox .b{font-size:26px;font-weight:800;color:var(--sky)}
+.details-toggle{background:none;border:0;color:var(--blue);font-weight:600;font-size:13px;padding:4px 0;cursor:pointer}
+@media print{.sidebar,.topbar,.backdrop,.pagehead .btn,.navbtn,.no-print{display:none!important}.main{margin:0!important}}
 </style>
 </head>
 <body>
@@ -100,7 +107,7 @@ tr:hover td{background:#f8fafc}
 <!-- ===== LOGIN ===== -->
 <div id="login">
   <div class="box">
-    <h1>📦 نظام إدارة المخزون</h1>
+    <h1>📦 نظام الوارد والمنصرف</h1>
     <p>اختر المستخدم للدخول ومتابعة العمليات باسمه</p>
     <label>المستخدم</label>
     <select id="loginUser"></select>
@@ -113,17 +120,18 @@ tr:hover td{background:#f8fafc}
 <div id="app">
   <div class="topbar">
     <button class="menu-btn" onclick="toggleNav()">☰</button>
-    <h2>نظام المخزون</h2>
+    <h2>الوارد والمنصرف</h2>
   </div>
   <div class="backdrop" id="backdrop" onclick="toggleNav()"></div>
   <aside class="sidebar" id="sidebar">
     <h2>📦 المخزون</h2>
-    <button class="navbtn" data-page="dashboard">📊 لوحة التحكم</button>
-    <button class="navbtn" data-page="move">🛒 حركة / بيع</button>
-    <button class="navbtn" data-page="items">🏷️ الأصناف</button>
-    <button class="navbtn" data-page="import">🚚 التوريد والاستيراد</button>
+    <button class="navbtn" data-page="move">➕ تسجيل حركة</button>
+    <button class="navbtn" data-page="dashboard">📊 الأرصدة</button>
+    <button class="navbtn" data-page="report">📅 تقرير فترة</button>
     <button class="navbtn" data-page="ledger">📜 سجل حركة الصنف</button>
-    <button class="navbtn" data-page="employees">👥 الموظفون والصلاحيات</button>
+    <button class="navbtn" data-page="items">🏷️ الأصناف</button>
+    <button class="navbtn" data-page="import">🚚 الموردون والشحنات</button>
+    <button class="navbtn" data-page="employees">👥 الموظفون</button>
     <div class="foot">
       <b id="who"></b>
       <button class="btn gray sm block" onclick="backup()">⬇ نسخة احتياطية</button>
@@ -137,30 +145,32 @@ tr:hover td{background:#f8fafc}
 
 <script>
 /* ============================================================
-   نظام إدارة المخزون والمبيعات وحركة الأصناف
-   ملف واحد جاهز للعمل — يحفظ البيانات في متصفح الجهاز (localStorage)
+   نظام الوارد والمنصرف ومتابعة الأرصدة وحركة الأصناف
+   ملف واحد — يحفظ البيانات في متصفح الجهاز (localStorage)
    ============================================================ */
 const KEY="inv_system_v2";
 let DB,ME;
 const $=s=>document.querySelector(s);
 const money=n=>Number(n||0).toLocaleString("ar-EG",{minimumFractionDigits:2,maximumFractionDigits:2});
 const today=()=>new Date().toISOString().slice(0,10);
+const monthStart=()=>{const d=new Date();return new Date(d.getFullYear(),d.getMonth(),1).toISOString().slice(0,10);};
 const fmt=d=>new Date(d).toLocaleString("ar-EG",{dateStyle:"short",timeStyle:"short"});
 const roleAr=r=>({admin:"مدير",manager:"مشرف",employee:"موظف"}[r]||r);
-const typeAr=t=>({sale:"بيع",inbound:"وارد",outbound:"صرف",adjustment:"تسوية"}[t]||t);
+const typeAr=t=>({inbound:"وارد",outbound:"منصرف",adjustment:"تسوية"}[t]||t);
 const isManager=()=>["admin","manager"].includes(ME.role);
+const isIn=t=>t==="inbound"||t==="adjustment";
 const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 
 /* ---------- Storage ---------- */
 function seed(){return{
-  users:[{id:1,name:"المدير العام",role:"admin"},{id:2,name:"موظف المبيعات",role:"employee"}],
+  users:[{id:1,name:"المدير العام",role:"admin"},{id:2,name:"موظف المخزن",role:"employee"}],
   suppliers:[{id:1,name:"مورد الرياض للأثاث",phone:"0500000000",contact:"أبو أحمد"}],
   shipments:[],
   items:[
-    {id:1,code:"BR-100",name:"غرفة نوم كلاسيك",model:"CLASSIC-1",category:"غرف نوم",unit:"طقم",cost:3200,price:4500,commission:50,qty:0,reorder:2,active:true},
-    {id:2,code:"BR-200",name:"غرفة نوم مودرن",model:"MODERN-2",category:"غرف نوم",unit:"طقم",cost:4100,price:5900,commission:75,qty:0,reorder:2,active:true},
-    {id:3,code:"MT-10",name:"مرتبة طبية مفردة",model:"MED-S",category:"مراتب",unit:"قطعة",cost:600,price:950,commission:20,qty:0,reorder:5,active:true},
-    {id:4,code:"MT-20",name:"مرتبة طبية مزدوجة",model:"MED-D",category:"مراتب",unit:"قطعة",cost:1100,price:1650,commission:30,qty:0,reorder:5,active:true},
+    {id:1,code:"BR-100",name:"غرفة نوم كلاسيك",model:"CLASSIC-1",category:"غرف نوم",unit:"طقم",cost:3200,price:4500,qty:0,reorder:2,active:true},
+    {id:2,code:"BR-200",name:"غرفة نوم مودرن",model:"MODERN-2",category:"غرف نوم",unit:"طقم",cost:4100,price:5900,qty:0,reorder:2,active:true},
+    {id:3,code:"MT-10",name:"مرتبة طبية مفردة",model:"MED-S",category:"مراتب",unit:"قطعة",cost:600,price:950,qty:0,reorder:5,active:true},
+    {id:4,code:"MT-20",name:"مرتبة طبية مزدوجة",model:"MED-D",category:"مراتب",unit:"قطعة",cost:1100,price:1650,qty:0,reorder:5,active:true},
   ],
   movements:[],activity:[],
   seq:{user:2,supplier:1,shipment:0,item:4,movement:0,activity:0},
@@ -179,7 +189,7 @@ function doLogin(){
   $("#login").style.display="none";$("#app").style.display="block";
   $("#who").textContent=`${ME.name} · ${roleAr(ME.role)}`;
   document.querySelectorAll(".navbtn").forEach(b=>b.onclick=()=>go(b.dataset.page));
-  go("dashboard");
+  go("move");
 }
 function logout(){location.reload();}
 
@@ -191,155 +201,117 @@ function closeNav(){$("#sidebar").classList.remove("open");$("#backdrop").classL
 function go(page){
   closeNav();
   document.querySelectorAll(".navbtn").forEach(b=>b.classList.toggle("active",b.dataset.page===page));
-  ({dashboard:pDashboard,move:pMove,items:pItems,import:pImport,ledger:pLedger,employees:pEmployees}[page])();
+  ({move:pMove,dashboard:pDashboard,report:pReport,ledger:pLedger,items:pItems,import:pImport,employees:pEmployees}[page])();
 }
 
-/* ============ 1) لوحة التحكم + العمولات + الأكثر مبيعاً ============ */
-function pDashboard(){
-  const sales=DB.movements.filter(m=>m.type==="sale");
-  const totalQty=sales.reduce((s,m)=>s+m.qty,0);
-  const totalSales=sales.reduce((s,m)=>s+m.qty*m.price,0);
-  const totalComm=sales.reduce((s,m)=>s+m.qty*(m.comm||0),0);
-  const low=DB.items.filter(i=>i.reorder>0&&i.qty<=i.reorder);
-
-  const top={};sales.forEach(m=>{const it=DB.items.find(x=>x.id===m.itemId)||{};
-    top[m.itemId]=top[m.itemId]||{name:it.name||"?",code:it.code||"",qty:0};top[m.itemId].qty+=m.qty;});
-  const topArr=Object.values(top).sort((a,b)=>b.qty-a.qty);const maxQ=topArr[0]?.qty||1;
-
-  const commByEmp={};sales.forEach(m=>{commByEmp[m.userName]=(commByEmp[m.userName]||0)+m.qty*(m.comm||0);});
-  const perf={};DB.activity.forEach(a=>{perf[a.userName]=(perf[a.userName]||0)+1;});
-
-  $("#view").innerHTML=`
-  <div class="pagehead"><h1>📊 لوحة التحكم</h1><span class="pill">${fmt(new Date())}</span></div>
-  <div class="grid-4" style="margin-bottom:16px">
-    <div class="stat"><div class="lbl">عدد الأصناف</div><div class="val">${DB.items.length}</div></div>
-    <div class="stat"><div class="lbl">الكمية المباعة</div><div class="val">${totalQty}</div></div>
-    <div class="stat"><div class="lbl">قيمة المبيعات ﷼</div><div class="val sm">${money(totalSales)}</div></div>
-    <div class="stat"><div class="lbl">إجمالي العمولات ﷼</div><div class="val sm" style="color:var(--brand)">${money(totalComm)}</div></div>
-  </div>
-  <div class="grid-2">
-    <div class="card"><div class="card-title">🏆 الأصناف الأكثر مبيعاً</div>
-      ${topArr.length?topArr.slice(0,8).map(r=>`<div style="margin-bottom:12px">
-        <div style="display:flex;justify-content:space-between;font-size:13.5px;margin-bottom:2px">
-          <span>${esc(r.name)} <span style="color:var(--muted)">(${esc(r.code)})</span></span>
-          <span><b>${r.qty}</b> · ${((r.qty/totalQty)*100||0).toFixed(1)}%</span></div>
-        <div class="bar"><span style="width:${r.qty/maxQ*100}%"></span></div></div>`).join("")
-        :`<div class="empty">لا مبيعات مسجلة بعد.</div>`}
-    </div>
-    <div class="card"><div class="card-title">💰 عمولات الموظفين</div>
-      ${Object.keys(commByEmp).length?`<table><thead><tr><th>الموظف</th><th>إجمالي العمولة ﷼</th></tr></thead>
-        <tbody>${Object.entries(commByEmp).sort((a,b)=>b[1]-a[1]).map(([n,c])=>`<tr><td>${esc(n)}</td><td><b>${money(c)}</b></td></tr>`).join("")}</tbody></table>`
-        :`<div class="empty">لا عمولات بعد.</div>`}
-      <div class="card-title" style="margin-top:16px">👤 نشاط الموظفين</div>
-      ${Object.keys(perf).length?`<table><tbody>${Object.entries(perf).sort((a,b)=>b[1]-a[1]).map(([n,c])=>`<tr><td>${esc(n)}</td><td>${c} عملية</td></tr>`).join("")}</tbody></table>`:`<div class="empty">—</div>`}
-      ${low.length?`<div class="card-title" style="margin-top:16px;color:var(--red)">⚠️ نقص المخزون</div>
-        <table><tbody>${low.map(i=>`<tr><td>${esc(i.name)} (${esc(i.code)})</td><td style="color:var(--red)"><b>${i.qty}</b>/${i.reorder}</td></tr>`).join("")}</tbody></table>`:""}
-    </div>
-  </div>`;
-}
-
-/* ============ 2) حركة / بيع — إدخال ذكي مضغوط + عمولة ============ */
-let picked=null;
+/* ============ 1) تسجيل حركة — سطر أساسي بسيط + تفاصيل اختيارية ============ */
+let picked=null,mType="outbound";
 function pMove(){
   $("#view").innerHTML=`
-  <div class="pagehead"><h1>🛒 تسجيل حركة / بيع</h1></div>
-  <div class="card"><div class="card-title">عملية جديدة — كل بيانات الغرفة/المرتبة في سطر واحد</div><div id="mMsg"></div>
+  <div class="pagehead"><h1>➕ تسجيل حركة صنف</h1></div>
+  <div class="card"><div id="mMsg"></div>
+    <div class="balbox" id="mBal" style="display:none"><span>الرصيد الحالي للصنف</span><span class="b" id="mBalV">0</span></div>
+
+    <!-- السطر الأساسي: الكل في سطر واحد -->
     <div class="formgrid">
-      <div class="cell c3 ac-wrap"><label>كود / اسم الصنف (بحث ذكي)</label>
-        <input id="mCode" placeholder="اكتب الكود أو الاسم..." autocomplete="off" oninput="acItems(this.value)">
+      <div class="cell c4 ac-wrap"><label>الصنف (اكتب الكود أو الاسم)</label>
+        <input id="mCode" placeholder="ابحث عن الصنف..." autocomplete="off" oninput="acItems(this.value)">
         <div class="ac-list" id="mAc"></div></div>
-      <div class="cell c3"><label>اسم الصنف (تلقائي)</label><input id="mName" readonly></div>
-      <div class="cell c2"><label>الموديل</label><input id="mModel" placeholder="موديل"></div>
-      <div class="cell c2"><label>نوع الحركة</label>
-        <select id="mType" onchange="onTypeChange()">
-          <option value="sale">بيع (صادر)</option><option value="inbound">وارد (إدخال مخزون)</option>
-          <option value="outbound">صرف / صادر</option><option value="adjustment">تسوية</option></select></div>
-      <div class="cell c2"><label>الكمية</label><input id="mQty" type="number" min="0" step="1" placeholder="1" oninput="calcComm()"></div>
-
-      <div class="cell c2"><label>سعر الوحدة ﷼</label><input id="mPrice" type="number" step="0.01" placeholder="0.00" oninput="calcComm()"></div>
-      <div class="cell c2"><label>القيمة الإجمالية ﷼</label><input id="mValue" readonly></div>
-      <div class="cell c2"><label>عمولة الوحدة ﷼</label><input id="mComm" type="number" step="0.01" placeholder="0.00" oninput="calcComm()"></div>
-      <div class="cell c2"><label>إجمالي العمولة ﷼</label><input id="mCommTotal" readonly></div>
-      <div class="cell c2"><label>رقم الفسح الجمركي</label><input id="mCustoms" placeholder="رقم الفسح"></div>
+      <div class="cell c4"><label>نوع الحركة</label>
+        <div class="typebtns">
+          <button type="button" class="in on" id="tbIn"  onclick="setType('inbound')">⬇ وارد</button>
+          <button type="button" class="out" id="tbOut" onclick="setType('outbound')">⬆ منصرف</button>
+          <button type="button" class="adj" id="tbAdj" onclick="setType('adjustment')">⚙ تسوية</button>
+        </div></div>
+      <div class="cell c2"><label>الكمية</label><input id="mQty" type="number" min="0" step="1" placeholder="1"></div>
       <div class="cell c2"><label>التاريخ</label><input id="mDate" type="date" value="${today()}"></div>
+    </div>
 
-      <div class="cell c3"><label>رقم فاتورة البيع</label><input id="mInvoice" placeholder="رقم الفاتورة"></div>
-      <div class="cell c3"><label>العنوان</label><input id="mAddress" placeholder="عنوان العميل / التسليم"></div>
-      <div class="cell c3"><label>المورد (اختياري)</label>
+    <button class="details-toggle" onclick="toggleDetails()" id="detToggle">▾ تفاصيل إضافية (اختياري)</button>
+    <!-- السطر الثاني: تفاصيل اختيارية -->
+    <div class="formgrid" id="mDetails" style="display:none;margin-top:6px">
+      <div class="cell c2"><label>الموديل</label><input id="mModel" placeholder="موديل"></div>
+      <div class="cell c2"><label>رقم الفسح</label><input id="mCustoms" placeholder="رقم الفسح"></div>
+      <div class="cell c2"><label>رقم الفاتورة</label><input id="mInvoice" placeholder="رقم الفاتورة"></div>
+      <div class="cell c2"><label>السعر ﷼ (اختياري)</label><input id="mPrice" type="number" step="0.01" placeholder="0.00"></div>
+      <div class="cell c2"><label>المورد</label>
         <select id="mSupplier"><option value="">—</option>
           ${DB.suppliers.map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join("")}</select></div>
-      <div class="cell c3"><label>ملاحظات</label><input id="mNote" placeholder="ملاحظة"></div>
+      <div class="cell c2"><label>العنوان</label><input id="mAddress" placeholder="العنوان"></div>
+      <div class="cell c12"><label>ملاحظات</label><input id="mNote" placeholder="ملاحظة"></div>
+    </div>
 
-      <div class="cell c12" style="display:flex;gap:10px">
-        <button class="btn green" style="flex:1" onclick="saveMove()">✓ حفظ العملية</button>
-        <button class="btn ghost" onclick="clearMove()">مسح الحقول</button>
-      </div>
+    <div style="display:flex;gap:10px;margin-top:14px">
+      <button class="btn green lg" style="flex:1" onclick="saveMove()">✓ حفظ الحركة</button>
+      <button class="btn ghost" onclick="clearMove()">مسح</button>
     </div>
   </div>
+
   <div class="card" style="margin-top:16px"><div class="card-title">🕒 آخر الحركات</div>
-    <div class="table-wrap"><table><thead><tr><th>التاريخ</th><th>الصنف</th><th>الموديل</th><th>النوع</th><th>كمية</th>
-      <th>القيمة</th><th>عمولة</th><th>رقم الفسح</th><th>فاتورة البيع</th><th>العنوان</th><th>الموظف</th><th></th></tr></thead>
+    <div class="table-wrap"><table><thead><tr><th>التاريخ</th><th>الصنف</th><th>النوع</th><th>الكمية</th>
+      <th>الرصيد بعدها</th><th>رقم الفسح</th><th>الموظف</th><th></th></tr></thead>
     <tbody id="recentMoves"></tbody></table></div>
   </div>`;
-  renderRecent();
+  setType(mType);renderRecent();
+}
+function setType(t){
+  mType=t;
+  ["tbIn","tbOut","tbAdj"].forEach(id=>$("#"+id)?.classList.remove("on"));
+  ({inbound:"tbIn",outbound:"tbOut",adjustment:"tbAdj"}[t]&&$("#"+{inbound:"tbIn",outbound:"tbOut",adjustment:"tbAdj"}[t]).classList.add("on"));
+}
+function toggleDetails(){
+  const d=$("#mDetails"),t=$("#detToggle");
+  const open=d.style.display==="none";d.style.display=open?"grid":"none";
+  t.textContent=(open?"▴":"▾")+" تفاصيل إضافية (اختياري)";
 }
 function acItems(q){
   const box=$("#mAc");q=q.trim();if(!q){box.style.display="none";return;}
   const res=DB.items.filter(i=>i.active!==false&&(i.code+i.name+(i.category||"")+(i.model||"")).toLowerCase().includes(q.toLowerCase())).slice(0,8);
   box.innerHTML=res.map(i=>`<div class="ac-item" onclick="pickItem(${i.id})"><b>${esc(i.code)}</b> — ${esc(i.name)}
     ${i.model?`<span style="color:var(--muted)"> · ${esc(i.model)}</span>`:""}
-    <span style="color:var(--muted)">(مخزون: ${i.qty})</span></div>`).join("")||`<div class="ac-item">لا نتائج</div>`;
+    <span style="color:var(--muted)">(الرصيد: ${i.qty})</span></div>`).join("")||`<div class="ac-item">لا نتائج</div>`;
   box.style.display="block";
 }
 function pickItem(id){
   picked=DB.items.find(i=>i.id===id);
-  $("#mCode").value=picked.code;$("#mName").value=picked.name;$("#mModel").value=picked.model||"";
-  applyPrices();$("#mAc").style.display="none";calcComm();
-}
-function applyPrices(){
-  if(!picked)return;const t=$("#mType").value;
-  $("#mPrice").value=t==="sale"?picked.price:picked.cost;
-  $("#mComm").value =t==="sale"?(picked.commission||0):0;
-}
-function onTypeChange(){applyPrices();calcComm();}
-function calcComm(){
-  const qty=parseFloat($("#mQty").value)||0,c=parseFloat($("#mComm").value)||0,p=parseFloat($("#mPrice").value)||0;
-  $("#mCommTotal").value=money(qty*c);
-  $("#mValue").value=money(qty*p);
+  $("#mCode").value=picked.code;
+  if($("#mModel"))$("#mModel").value=picked.model||"";
+  $("#mAc").style.display="none";
+  $("#mBal").style.display="flex";$("#mBalV").textContent=picked.qty+" "+(picked.unit||"");
 }
 function clearMove(){
-  ["mCode","mName","mModel","mQty","mPrice","mValue","mComm","mCommTotal","mCustoms","mInvoice","mAddress","mNote"].forEach(i=>$("#"+i).value="");
-  picked=null;
+  ["mCode","mQty","mModel","mCustoms","mInvoice","mPrice","mAddress","mNote"].forEach(i=>$("#"+i)&&($("#"+i).value=""));
+  picked=null;$("#mBal").style.display="none";$("#mCode").focus();
 }
 function saveMove(){
   const msg=$("#mMsg");const show=(t,c)=>msg.innerHTML=`<div class="msg ${c}">${t}</div>`;
   if(!picked)return show("اختر صنفاً من قائمة البحث أولاً.","err");
   const qty=parseFloat($("#mQty").value);if(!qty||qty<=0)return show("أدخل كمية صحيحة.","err");
-  const type=$("#mType").value;const item=DB.items.find(i=>i.id===picked.id);
-  if((type==="sale"||type==="outbound")&&qty>item.qty)return show(`المتاح في المخزون ${item.qty} فقط.`,"err");
-  const mv={id:nid("movement"),itemId:item.id,type,qty,
-    price:parseFloat($("#mPrice").value)||0,comm:parseFloat($("#mComm").value)||0,
-    model:$("#mModel").value||item.model||"",invoice:$("#mInvoice").value||"",address:$("#mAddress").value||"",
-    supplierId:+$("#mSupplier").value||null,customs:$("#mCustoms").value||"",
-    date:$("#mDate").value||today(),note:$("#mNote").value||"",
+  const item=DB.items.find(i=>i.id===picked.id);
+  if(mType==="outbound"&&qty>item.qty)return show(`المتاح في المخزون ${item.qty} فقط.`,"err");
+  item.qty+=isIn(mType)?qty:-qty;
+  const mv={id:nid("movement"),itemId:item.id,type:mType,qty,
+    price:parseFloat($("#mPrice")?.value)||0,
+    model:($("#mModel")?.value)||item.model||"",invoice:($("#mInvoice")?.value)||"",address:($("#mAddress")?.value)||"",
+    supplierId:+($("#mSupplier")?.value)||null,customs:($("#mCustoms")?.value)||"",
+    date:$("#mDate").value||today(),note:($("#mNote")?.value)||"",balAfter:item.qty,
     userId:ME.id,userName:ME.name,at:new Date().toISOString()};
   DB.movements.unshift(mv);
-  item.qty+=(type==="inbound"||type==="adjustment")?qty:-qty;
-  logAct("حركة "+typeAr(type),`${item.code} كمية ${qty}`);save();
-  show(`✔ تم حفظ ${typeAr(type)} للصنف ${item.name}. المخزون الآن: ${item.qty}`,"ok");
+  logAct(typeAr(mType),`${item.code} كمية ${qty}`);save();
+  show(`✔ تم تسجيل ${typeAr(mType)} «${item.name}» بكمية ${qty}. الرصيد الآن: ${item.qty}`,"ok");
   clearMove();renderRecent();
 }
 function renderRecent(){
   const tb=$("#recentMoves");if(!tb)return;
   tb.innerHTML=DB.movements.slice(0,25).map(m=>{const it=DB.items.find(i=>i.id===m.itemId)||{};
-    return `<tr><td>${esc(m.date)}</td><td>${esc(it.name||"?")}</td><td>${esc(m.model||it.model||"")}</td>
-      <td><span class="tag ${m.type}">${typeAr(m.type)}</span></td><td>${m.qty}</td>
-      <td>${money(m.qty*m.price)}</td><td>${m.comm?money(m.qty*m.comm):"—"}</td>
-      <td>${esc(m.customs||"")}</td><td>${esc(m.invoice||"")}</td><td>${esc(m.address||"")}</td><td>${esc(m.userName)}</td>
+    return `<tr><td>${esc(m.date)}</td><td>${esc(it.name||"?")}</td>
+      <td><span class="tag ${m.type}">${typeAr(m.type)}</span></td>
+      <td style="font-weight:700;color:${isIn(m.type)?'var(--green)':'var(--amber)'}">${isIn(m.type)?"+":"−"}${m.qty}</td>
+      <td>${m.balAfter??"—"}</td><td>${esc(m.customs||"")}</td><td>${esc(m.userName)}</td>
       <td><button class="btn ghost sm" onclick="printReceipt(${m.id})">🖨️</button></td></tr>`;}).join("")
-    ||`<tr><td colspan="12" class="empty">لا حركات.</td></tr>`;
+    ||`<tr><td colspan="8" class="empty">لا حركات.</td></tr>`;
 }
-/* فاتورة/سند مبسّط لكل عملية */
+/* سند مبسّط لكل عملية */
 function printReceipt(id){
   const m=DB.movements.find(x=>x.id===id);if(!m)return;const it=DB.items.find(i=>i.id===m.itemId)||{};
   const sup=DB.suppliers.find(x=>x.id===m.supplierId);
@@ -347,27 +319,147 @@ function printReceipt(id){
   w.document.write(`<html dir="rtl"><head><meta charset="UTF-8"><title>سند ${typeAr(m.type)}</title>
     <style>body{font-family:Tahoma,sans-serif;padding:24px;color:#0f172a}h2{margin-bottom:6px}
     table{width:100%;border-collapse:collapse;margin-top:14px}td,th{border:1px solid #cbd5e1;padding:9px;text-align:right;font-size:14px}
-    th{background:#f1f5f9}.tot{font-size:18px;font-weight:bold;margin-top:14px}</style></head><body>
+    th{background:#f1f5f9}</style></head><body>
     <h2>📦 سند ${typeAr(m.type)}</h2>
-    <div>رقم فاتورة البيع: <b>${esc(m.invoice||"—")}</b> · التاريخ: <b>${esc(m.date)}</b> · الموظف: <b>${esc(m.userName)}</b></div>
-    <table><tr><th>الصنف</th><th>الموديل</th><th>الكمية</th><th>سعر الوحدة</th><th>القيمة</th><th>رقم الفسح</th></tr>
-    <tr><td>${esc(it.name||"")} (${esc(it.code||"")})</td><td>${esc(m.model||it.model||"")}</td><td>${m.qty}</td>
-    <td>${money(m.price)}</td><td>${money(m.qty*m.price)}</td><td>${esc(m.customs||"—")}</td></tr></table>
-    <div style="margin-top:10px">العنوان: <b>${esc(m.address||"—")}</b>${sup?` · المورد: <b>${esc(sup.name)}</b>`:""}</div>
+    <div>التاريخ: <b>${esc(m.date)}</b> · الموظف: <b>${esc(m.userName)}</b>${m.invoice?` · فاتورة: <b>${esc(m.invoice)}</b>`:""}</div>
+    <table><tr><th>الصنف</th><th>الموديل</th><th>الكمية</th><th>الرصيد بعدها</th><th>رقم الفسح</th></tr>
+    <tr><td>${esc(it.name||"")} (${esc(it.code||"")})</td><td>${esc(m.model||it.model||"")}</td>
+    <td>${(isIn(m.type)?"+":"−")+m.qty}</td><td>${m.balAfter??"—"}</td><td>${esc(m.customs||"—")}</td></tr></table>
+    <div style="margin-top:10px">${m.address?`العنوان: <b>${esc(m.address)}</b> · `:""}${sup?`المورد: <b>${esc(sup.name)}</b>`:""}</div>
     ${m.note?`<div>ملاحظات: ${esc(m.note)}</div>`:""}
-    <div class="tot">الإجمالي: ${money(m.qty*m.price)} ﷼</div>
     <script>window.onload=()=>window.print()<\/script></body></html>`);
   w.document.close();
 }
 
-/* ============ 3) الأصناف ============ */
+/* ============ 2) الأرصدة (لوحة) ============ */
+function pDashboard(){
+  const q=($("#dashSearch")?.value||"");
+  const totalItems=DB.items.length;
+  const totalStock=DB.items.reduce((s,i)=>s+i.qty,0);
+  const low=DB.items.filter(i=>i.reorder>0&&i.qty<=i.reorder);
+  const zero=DB.items.filter(i=>i.qty<=0);
+  $("#view").innerHTML=`
+  <div class="pagehead"><h1>📊 أرصدة الأصناف</h1><span class="pill">${fmt(new Date())}</span></div>
+  <div class="grid-4" style="margin-bottom:16px">
+    <div class="stat"><div class="lbl">عدد الأصناف</div><div class="val">${totalItems}</div></div>
+    <div class="stat"><div class="lbl">إجمالي الأرصدة</div><div class="val">${totalStock}</div></div>
+    <div class="stat"><div class="lbl">أصناف تحت حد الطلب</div><div class="val" style="color:var(--red)">${low.length}</div></div>
+    <div class="stat"><div class="lbl">أصناف نفدت (صفر)</div><div class="val" style="color:var(--amber)">${zero.length}</div></div>
+  </div>
+  <div class="card">
+    <div class="card-title">جرد الأرصدة الحالية</div>
+    <input id="dashSearch" placeholder="🔍 بحث بالكود أو الاسم أو الموديل..." value="${esc(q)}" oninput="renderBalances()" style="margin-bottom:14px">
+    <div class="table-wrap"><table><thead><tr><th>الكود</th><th>الصنف</th><th>الموديل</th><th>الفئة</th>
+      <th>الوحدة</th><th>الرصيد الحالي</th><th>حد الطلب</th><th>الحالة</th></tr></thead>
+      <tbody id="balTbl"></tbody></table></div></div>`;
+  renderBalances();
+}
+function renderBalances(){
+  const q=($("#dashSearch")?.value||"").toLowerCase();
+  const rows=DB.items.filter(i=>(i.code+i.name+(i.model||"")+(i.category||"")).toLowerCase().includes(q));
+  $("#balTbl").innerHTML=rows.map(i=>{
+    const low=i.reorder>0&&i.qty<=i.reorder;const state=i.qty<=0?["نفد","var(--amber)"]:low?["نقص","var(--red)"]:["متوفر","var(--green)"];
+    return `<tr><td style="font-family:monospace">${esc(i.code)}</td><td>${esc(i.name)}</td><td>${esc(i.model||"")}</td>
+      <td>${esc(i.category||"")}</td><td>${esc(i.unit||"")}</td>
+      <td style="font-weight:800;font-size:15px;color:${low||i.qty<=0?'var(--red)':'inherit'}">${i.qty}</td>
+      <td>${i.reorder||"—"}</td><td><span class="tag" style="background:${state[1]}">${state[0]}</span></td></tr>`;
+  }).join("")||`<tr><td colspan="8" class="empty">لا أصناف.</td></tr>`;
+}
+
+/* ============ 3) تقرير فترة — وارد/منصرف لكل صنف خلال مدة ============ */
+function pReport(){
+  $("#view").innerHTML=`<div class="pagehead"><h1>📅 تقرير الوارد والمنصرف خلال فترة</h1>
+    <button class="btn ghost no-print" onclick="window.print()">🖨️ طباعة</button></div>
+  <div class="card no-print">
+    <div class="formgrid">
+      <div class="cell c3"><label>من تاريخ</label><input id="rFrom" type="date" value="${monthStart()}"></div>
+      <div class="cell c3"><label>إلى تاريخ</label><input id="rTo" type="date" value="${today()}"></div>
+      <div class="cell c3"><label>الفئة</label><select id="rCat"><option value="">كل الفئات</option>
+        ${[...new Set(DB.items.map(i=>i.category).filter(Boolean))].map(c=>`<option>${esc(c)}</option>`).join("")}</select></div>
+      <div class="cell c3" style="display:flex;align-items:flex-end"><button class="btn block" onclick="renderReport()">عرض التقرير</button></div>
+    </div>
+  </div>
+  <div id="reportOut" style="margin-top:16px"></div>`;
+  renderReport();
+}
+function renderReport(){
+  const from=$("#rFrom").value,to=$("#rTo").value,cat=$("#rCat").value;
+  const inRange=d=>(!from||d>=from)&&(!to||d<=to);
+  const items=DB.items.filter(i=>!cat||i.category===cat);
+  const rows=items.map(it=>{
+    const mv=DB.movements.filter(m=>m.itemId===it.id&&inRange(m.date));
+    const inb=mv.filter(m=>isIn(m.type)).reduce((s,m)=>s+m.qty,0);
+    const out=mv.filter(m=>m.type==="outbound").reduce((s,m)=>s+m.qty,0);
+    // الرصيد أول المدة = الرصيد الحالي − صافي حركة المدة (تقريبي بافتراض عدم وجود حركات لاحقة للتاريخ)
+    const after=DB.movements.filter(m=>m.itemId===it.id&&(!to||m.date>to)).reduce((s,m)=>s+(isIn(m.type)?m.qty:-m.qty),0);
+    const closing=it.qty-after;const opening=closing-(inb-out);
+    return {it,inb,out,opening,closing,net:inb-out};
+  }).filter(r=>r.inb||r.out||r.opening||r.closing);
+  const tIn=rows.reduce((s,r)=>s+r.inb,0),tOut=rows.reduce((s,r)=>s+r.out,0);
+  $("#reportOut").innerHTML=`
+    <div class="grid-3" style="margin-bottom:14px">
+      <div class="stat"><div class="lbl">إجمالي الوارد بالمدة</div><div class="val" style="color:var(--green)">${tIn}</div></div>
+      <div class="stat"><div class="lbl">إجمالي المنصرف بالمدة</div><div class="val" style="color:var(--amber)">${tOut}</div></div>
+      <div class="stat"><div class="lbl">صافي الحركة</div><div class="val">${tIn-tOut}</div></div>
+    </div>
+    <div class="card"><div class="card-title">من ${esc(from||"البداية")} إلى ${esc(to||"الآن")}</div>
+    <div class="table-wrap"><table><thead><tr><th>الكود</th><th>الصنف</th><th>رصيد أول المدة</th>
+      <th style="color:var(--green)">الوارد</th><th style="color:var(--amber)">المنصرف</th><th>الصافي</th><th>رصيد آخر المدة</th></tr></thead>
+      <tbody>${rows.map(r=>`<tr><td style="font-family:monospace">${esc(r.it.code)}</td><td>${esc(r.it.name)}</td>
+        <td>${r.opening}</td><td style="color:var(--green);font-weight:700">${r.inb}</td>
+        <td style="color:var(--amber);font-weight:700">${r.out}</td><td>${r.net}</td>
+        <td style="font-weight:700">${r.closing}</td></tr>`).join("")||`<tr><td colspan="7" class="empty">لا حركات في هذه المدة.</td></tr>`}</tbody></table></div></div>`;
+}
+
+/* ============ 4) سجل حركة الصنف (مع فلترة بالتاريخ) ============ */
+function pLedger(){
+  $("#view").innerHTML=`<div class="pagehead"><h1>📜 سجل حركة الصنف</h1>
+    <button class="btn ghost no-print" onclick="window.print()">🖨️ طباعة</button></div>
+  <div class="card">
+    <div class="formgrid no-print" style="margin-bottom:12px">
+      <div class="cell c4"><label>اختر الصنف</label>
+        <select id="lItem" onchange="renderLedger()"><option value="">— اختر —</option>
+          ${DB.items.map(i=>`<option value="${i.id}">${esc(i.code)} — ${esc(i.name)}</option>`).join("")}</select></div>
+      <div class="cell c3"><label>من تاريخ</label><input id="lFrom" type="date" onchange="renderLedger()"></div>
+      <div class="cell c3"><label>إلى تاريخ</label><input id="lTo" type="date" onchange="renderLedger()"></div>
+      <div class="cell c2"><label>النوع</label><select id="lType" onchange="renderLedger()">
+        <option value="">الكل</option><option value="inbound">وارد</option><option value="outbound">منصرف</option><option value="adjustment">تسوية</option></select></div>
+    </div>
+    <div id="lSummary"></div>
+    <div class="table-wrap"><table><thead><tr><th>التاريخ</th><th>النوع</th><th>الكمية</th><th>الرصيد بعدها</th>
+      <th>الموديل</th><th>رقم الفسح</th><th>الفاتورة</th><th>المورد</th><th>الموظف</th><th>ملاحظة</th></tr></thead>
+      <tbody id="lTbl"><tr><td colspan="10" class="empty">اختر صنفاً.</td></tr></tbody></table></div></div>`;
+}
+function renderLedger(){
+  const id=+$("#lItem").value;const tb=$("#lTbl"),sum=$("#lSummary");
+  if(!id){tb.innerHTML=`<tr><td colspan="10" class="empty">اختر صنفاً.</td></tr>`;sum.innerHTML="";return;}
+  const from=$("#lFrom").value,to=$("#lTo").value,ty=$("#lType").value;
+  const it=DB.items.find(i=>i.id===id);
+  let rows=DB.movements.filter(m=>m.itemId===id);
+  rows=rows.filter(m=>(!from||m.date>=from)&&(!to||m.date<=to)&&(!ty||m.type===ty));
+  const inb=rows.filter(m=>isIn(m.type)).reduce((s,m)=>s+m.qty,0);
+  const out=rows.filter(m=>m.type==="outbound").reduce((s,m)=>s+m.qty,0);
+  sum.innerHTML=`<div class="grid-4" style="margin-bottom:14px">
+    <div class="stat"><div class="lbl">الوارد (بالفلتر)</div><div class="val sm" style="color:var(--green)">${inb}</div></div>
+    <div class="stat"><div class="lbl">المنصرف (بالفلتر)</div><div class="val sm" style="color:var(--amber)">${out}</div></div>
+    <div class="stat"><div class="lbl">صافي الحركة</div><div class="val sm">${inb-out}</div></div>
+    <div class="stat"><div class="lbl">الرصيد الحالي</div><div class="val sm">${it.qty}</div></div></div>`;
+  tb.innerHTML=rows.map(m=>{const sup=DB.suppliers.find(x=>x.id===m.supplierId);
+    return `<tr><td>${fmt(m.at)}</td><td><span class="tag ${m.type}">${typeAr(m.type)}</span></td>
+      <td style="font-weight:700;color:${isIn(m.type)?'var(--green)':'var(--amber)'}">${isIn(m.type)?"+":"−"}${m.qty}</td>
+      <td>${m.balAfter??"—"}</td><td>${esc(m.model||it.model||"")}</td><td>${esc(m.customs||"")}</td>
+      <td>${esc(m.invoice||"")}</td><td>${esc(sup?sup.name:"")}</td><td>${esc(m.userName)}</td><td>${esc(m.note||"")}</td></tr>`;}).join("")
+    ||`<tr><td colspan="10" class="empty">لا حركات مطابقة.</td></tr>`;
+}
+
+/* ============ 5) الأصناف ============ */
 function pItems(){
-  $("#view").innerHTML=`<div class="pagehead"><h1>🏷️ قائمة الأصناف</h1>
+  $("#view").innerHTML=`<div class="pagehead"><h1>🏷️ الأصناف</h1>
     <button class="btn" onclick="itemForm(0)">+ إضافة صنف</button></div>
   <div class="card">
     <input id="itemSearch" placeholder="🔍 بحث بالكود أو الاسم أو الموديل أو الفئة..." oninput="renderItems()" style="margin-bottom:14px">
-    <div class="table-wrap"><table><thead><tr><th>الكود</th><th>الاسم</th><th>الموديل</th><th>الفئة</th><th>المخزون</th>
-      <th>التكلفة</th><th>البيع</th><th>العمولة</th><th>الربح%</th><th></th></tr></thead>
+    <div class="table-wrap"><table><thead><tr><th>الكود</th><th>الاسم</th><th>الموديل</th><th>الفئة</th><th>الوحدة</th>
+      <th>الرصيد</th><th>حد الطلب</th><th></th></tr></thead>
       <tbody id="itemsTbl"></tbody></table></div></div>`;
   renderItems();
 }
@@ -375,14 +467,13 @@ function renderItems(){
   const q=($("#itemSearch")?.value||"").toLowerCase();
   const rows=DB.items.filter(i=>((i.code+i.name+(i.model||"")+(i.category||"")).toLowerCase().includes(q)));
   $("#itemsTbl").innerHTML=rows.map(i=>{
-    const profit=i.cost>0?(((i.price-i.cost)/i.cost)*100):0;const low=i.reorder>0&&i.qty<=i.reorder;
-    return `<tr><td style="font-family:monospace">${esc(i.code)}</td><td>${esc(i.name)}</td><td>${esc(i.model||"")}</td><td>${esc(i.category||"")}</td>
-      <td style="color:${low?'var(--red)':'inherit'};font-weight:${low?700:400}">${i.qty}</td>
-      <td>${money(i.cost)}</td><td>${money(i.price)}</td><td style="color:var(--brand)">${money(i.commission||0)}</td>
-      <td>${profit.toFixed(0)}%</td>
+    const low=i.reorder>0&&i.qty<=i.reorder;
+    return `<tr><td style="font-family:monospace">${esc(i.code)}</td><td>${esc(i.name)}</td><td>${esc(i.model||"")}</td>
+      <td>${esc(i.category||"")}</td><td>${esc(i.unit||"")}</td>
+      <td style="color:${low?'var(--red)':'inherit'};font-weight:${low?700:400}">${i.qty}</td><td>${i.reorder||"—"}</td>
       <td style="white-space:nowrap"><button class="btn blue sm" onclick="itemForm(${i.id})">تعديل</button>
         ${isManager()?`<button class="btn red sm" onclick="delItem(${i.id})">حذف</button>`:""}</td></tr>`;
-  }).join("")||`<tr><td colspan="10" class="empty">لا أصناف.</td></tr>`;
+  }).join("")||`<tr><td colspan="8" class="empty">لا أصناف.</td></tr>`;
 }
 function itemForm(id){
   const it=id?DB.items.find(i=>i.id===id):{};
@@ -394,13 +485,12 @@ function itemForm(id){
       <div class="field"><label>الفئة</label><input id="f_cat" value="${esc(it.category||"")}"></div></div>
     <div class="row"><div class="field"><label>الوحدة</label><input id="f_unit" value="${esc(it.unit||"قطعة")}"></div>
       <div class="field"><label>حد إعادة الطلب</label><input id="f_reorder" type="number" value="${it.reorder||0}"></div></div>
-    <div class="row"><div class="field"><label>سعر التكلفة</label><input id="f_cost" type="number" step="0.01" value="${it.cost||0}"></div>
-      <div class="field"><label>سعر البيع</label><input id="f_price" type="number" step="0.01" value="${it.price||0}"></div></div>
-    <div class="row"><div class="field"><label>عمولة البيع للوحدة ﷼</label><input id="f_comm" type="number" step="0.01" value="${it.commission||0}"></div>
-      <div class="field"></div></div>
+    <div class="row"><div class="field"><label>الرصيد الافتتاحي</label><input id="f_qty" type="number" value="${it.qty||0}" ${id?"readonly":""}></div>
+      <div class="field"><label>السعر (اختياري)</label><input id="f_price" type="number" step="0.01" value="${it.price||0}"></div></div>
     <div id="f_msg" style="color:var(--red);font-size:13px;margin-bottom:8px"></div>
     <div style="display:flex;gap:8px"><button class="btn green" onclick="saveItem(${id||0})">حفظ</button>
-      <button class="btn gray" onclick="this.closest('.modal').remove()">إلغاء</button></div></div>`;
+      <button class="btn gray" onclick="this.closest('.modal').remove()">إلغاء</button></div>
+    ${id?`<p style="font-size:12px;color:var(--muted);margin-top:10px">الرصيد يُعدَّل عبر «تسجيل حركة» فقط للحفاظ على دقة السجل.</p>`:""}</div>`;
   document.body.appendChild(m);
 }
 function saveItem(id){
@@ -408,10 +498,11 @@ function saveItem(id){
   if(!code||!name){$("#f_msg").textContent="الكود والاسم مطلوبان.";return;}
   if(DB.items.some(i=>i.code===code&&i.id!==id)){$("#f_msg").textContent="الكود مستخدم مسبقاً.";return;}
   const data={code,name,model:g("f_model"),category:g("f_cat"),unit:g("f_unit"),
-    cost:parseFloat(g("f_cost"))||0,price:parseFloat(g("f_price"))||0,
-    commission:parseFloat(g("f_comm"))||0,reorder:parseFloat(g("f_reorder"))||0};
+    price:parseFloat(g("f_price"))||0,reorder:parseFloat(g("f_reorder"))||0};
   if(id){Object.assign(DB.items.find(i=>i.id===id),data);logAct("تعديل صنف",code);}
-  else{DB.items.push({id:nid("item"),qty:0,active:true,...data});logAct("إضافة صنف",code);}
+  else{const q=parseFloat(g("f_qty"))||0;const it={id:nid("item"),qty:q,active:true,...data};DB.items.push(it);
+    if(q>0){DB.movements.unshift({id:nid("movement"),itemId:it.id,type:"inbound",qty:q,price:0,model:it.model,invoice:"",address:"",supplierId:null,customs:"",date:today(),note:"رصيد افتتاحي",balAfter:q,userId:ME.id,userName:ME.name,at:new Date().toISOString()});}
+    logAct("إضافة صنف",code);}
   save();document.querySelector(".modal").remove();renderItems();
 }
 function delItem(id){
@@ -421,9 +512,9 @@ function delItem(id){
   DB.items=DB.items.filter(i=>i.id!==id);logAct("حذف صنف",it.code);save();renderItems();
 }
 
-/* ============ 4) التوريد والاستيراد ============ */
+/* ============ 6) الموردون والشحنات ============ */
 function pImport(){
-  $("#view").innerHTML=`<div class="pagehead"><h1>🚚 التوريد والاستيراد</h1></div>
+  $("#view").innerHTML=`<div class="pagehead"><h1>🚚 الموردون والشحنات</h1></div>
   <div class="grid-2">
     <div class="card"><div class="card-title">➕ إضافة مورد</div>
       <div class="row"><div class="field"><label>اسم المورد *</label><input id="sName"></div>
@@ -466,39 +557,7 @@ function addShipment(){
   ["shRef","shCustoms","shNote"].forEach(i=>$("#"+i).value="");
 }
 
-/* ============ 5) سجل حركة الصنف ============ */
-function pLedger(){
-  $("#view").innerHTML=`<div class="pagehead"><h1>📜 سجل حركة الصنف</h1></div>
-  <div class="card">
-    <div class="field" style="max-width:440px;margin-bottom:12px"><label>اختر الصنف</label>
-      <select id="lItem" onchange="renderLedger()"><option value="">— اختر —</option>
-        ${DB.items.map(i=>`<option value="${i.id}">${esc(i.code)} — ${esc(i.name)}</option>`).join("")}</select></div>
-    <div id="lSummary"></div>
-    <div class="table-wrap"><table><thead><tr><th>التاريخ</th><th>النوع</th><th>الموديل</th><th>الكمية</th><th>السعر</th><th>القيمة</th>
-      <th>العمولة</th><th>رقم الفسح</th><th>فاتورة البيع</th><th>العنوان</th><th>المورد</th><th>الموظف</th><th>ملاحظة</th></tr></thead>
-      <tbody id="lTbl"><tr><td colspan="13" class="empty">اختر صنفاً.</td></tr></tbody></table></div></div>`;
-}
-function renderLedger(){
-  const id=+$("#lItem").value;const tb=$("#lTbl"),sum=$("#lSummary");
-  if(!id){tb.innerHTML=`<tr><td colspan="13" class="empty">اختر صنفاً.</td></tr>`;sum.innerHTML="";return;}
-  const it=DB.items.find(i=>i.id===id);
-  const rows=DB.movements.filter(m=>m.itemId===id);
-  const inb=rows.filter(m=>["inbound","adjustment"].includes(m.type)).reduce((s,m)=>s+m.qty,0);
-  const out=rows.filter(m=>["sale","outbound"].includes(m.type)).reduce((s,m)=>s+m.qty,0);
-  sum.innerHTML=`<div class="grid-3" style="margin-bottom:14px">
-    <div class="stat"><div class="lbl">إجمالي الوارد</div><div class="val sm" style="color:var(--green)">${inb}</div></div>
-    <div class="stat"><div class="lbl">إجمالي الصادر/المباع</div><div class="val sm" style="color:var(--amber)">${out}</div></div>
-    <div class="stat"><div class="lbl">الرصيد الحالي</div><div class="val sm">${it.qty}</div></div></div>`;
-  tb.innerHTML=rows.map(m=>{const sup=DB.suppliers.find(x=>x.id===m.supplierId);
-    return `<tr><td>${fmt(m.at)}</td><td><span class="tag ${m.type}">${typeAr(m.type)}</span></td>
-      <td>${esc(m.model||it.model||"")}</td><td>${m.qty}</td><td>${money(m.price)}</td><td>${money(m.qty*m.price)}</td>
-      <td>${m.comm?money(m.qty*m.comm):"—"}</td><td>${esc(m.customs||"")}</td><td>${esc(m.invoice||"")}</td>
-      <td>${esc(m.address||"")}</td><td>${esc(sup?sup.name:"")}</td>
-      <td>${esc(m.userName)}</td><td>${esc(m.note||"")}</td></tr>`;}).join("")
-    ||`<tr><td colspan="13" class="empty">لا حركات لهذا الصنف.</td></tr>`;
-}
-
-/* ============ 6) الموظفون والصلاحيات ============ */
+/* ============ 7) الموظفون والصلاحيات ============ */
 function pEmployees(){
   const canManage=ME.role==="admin";
   $("#view").innerHTML=`<div class="pagehead"><h1>👥 الموظفون والصلاحيات</h1>
@@ -511,7 +570,7 @@ function pEmployees(){
           ${u.id!==ME.id?`<button class="btn red sm" onclick="delUser(${u.id})">حذف</button>`:""}</td>`:""}</tr>`).join("")}</tbody></table>
       <p style="font-size:12px;color:var(--muted);margin-top:12px">
         <b>مدير:</b> كل الصلاحيات · <b>مشرف:</b> تعديل/حذف الأصناف · <b>موظف:</b> تسجيل الحركات فقط.</p></div>
-    <div class="card"><div class="card-title">📝 سجل نشاط الموظفين (الأداء)</div>
+    <div class="card"><div class="card-title">📝 سجل نشاط الموظفين</div>
       <div class="table-wrap"><table><thead><tr><th>الوقت</th><th>الموظف</th><th>العملية</th><th>التفاصيل</th></tr></thead>
       <tbody>${DB.activity.slice(0,120).map(a=>`<tr><td>${fmt(a.at)}</td><td>${esc(a.userName)}</td><td>${esc(a.action)}</td><td>${esc(a.detail||"")}</td></tr>`).join("")||`<tr><td colspan="4" class="empty">—</td></tr>`}</tbody></table></div></div>
   </div>`;
