@@ -166,7 +166,7 @@ tr:hover td{background:#f8fafc}
 <div id="app">
   <div class="topbar">
     <button class="menu-btn" onclick="toggleNav()">☰</button>
-    <h2>الوارد والمنصرف</h2>
+    <h2 id="topTitle">الوارد والمنصرف</h2>
   </div>
   <div class="backdrop" id="backdrop" onclick="toggleNav()"></div>
   <aside class="sidebar" id="sidebar">
@@ -268,6 +268,7 @@ function ensureShape(){
   DB.suppliers=DB.suppliers||[];DB.shipments=DB.shipments||[];DB.activity=DB.activity||[];
   DB.seq=DB.seq||{user:0,supplier:0,shipment:0,item:0,movement:0,activity:0,company:0};
   DB.settings=DB.settings||{company:"شركتي",logo:""};
+  if(!DB.settings.appName)DB.settings.appName="نظام إدارة المخزون";
   // تهيئة الشركات وترحيل البيانات القديمة لأول شركة
   if(!DB.companies||!DB.companies.length){
     DB.companies=[{id:1,name:DB.settings.company||"شركتي",logo:DB.settings.logo||"",icon:DB.settings.icon||"🏢"}];
@@ -290,7 +291,9 @@ function applyBrand(){
   if(bl)bl.innerHTML=head+`<div style="margin-top:4px">${esc(co)}</div>`;
   if(bs)bs.innerHTML=head+` ${esc(co)}`;
   const cs=$("#coSwitch");if(cs)cs.innerHTML=companySwitchHtml();
-  document.title=co;
+  const appName=(DB.settings&&DB.settings.appName)||"نظام إدارة المخزون";
+  const tt=$("#topTitle");if(tt)tt.textContent=appName;
+  document.title=appName+" — "+co;
 }
 function companySwitchHtml(){
   if(!DB.companies)return"";
@@ -1129,6 +1132,7 @@ function pSettings(){
   $("#view").innerHTML=`<div class="pagehead"><h1>⚙️ الإعدادات</h1></div>
   <div class="grid-2">
     <div class="card"><div class="card-title">🏢 هوية الشركة الحالية</div>
+      <div class="field" style="margin-bottom:12px"><label>اسم النظام (يظهر بالأعلى وتبويب المتصفح)</label><input id="setApp" value="${esc((DB.settings&&DB.settings.appName)||"")}"></div>
       <div class="row"><div class="field"><label>اسم الشركة / النشاط</label><input id="setCompany" value="${esc(c.name||"")}"></div>
         <div class="field"><label>رمز النشاط (إيموجي)</label><input id="setIcon" value="${esc(c.icon||"🏢")}" placeholder="🛏️ 🍎 🔧" style="text-align:center;font-size:20px"></div></div>
       <div class="field" style="margin-bottom:12px"><label>الشعار (اختياري — يظهر بدل الرمز)</label>
@@ -1158,6 +1162,7 @@ function pickLogo(e){const f=e.target.files[0];if(!f)return;const r=new FileRead
 function saveSettings(){
   if(!guard("settings"))return;
   const c=curCompany();c.name=$("#setCompany").value.trim()||"شركتي";c.icon=$("#setIcon").value.trim()||"🏢";
+  DB.settings.appName=$("#setApp").value.trim()||"نظام إدارة المخزون";
   if(_logoData){c.logo=_logoData;_logoData="";}
   if(DB.companies[0]&&DB.companies[0].id===c.id)DB.settings.company=c.name;
   logAct("تعديل هوية الشركة",c.name);save();applyBrand();toast("تم حفظ الإعدادات");pSettings();
