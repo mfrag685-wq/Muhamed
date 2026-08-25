@@ -142,7 +142,7 @@ tr:hover td{background:#f8fafc}
     <div class="loginok" id="loginOk"></div>
     <div id="loginFields">
       <label>اسم المستخدم</label>
-      <input id="lg_user" autocomplete="username" placeholder="admin" onkeydown="if(event.key==='Enter')doLogin()">
+      <input id="lg_user" autocomplete="username" placeholder="اسم المستخدم" onkeydown="if(event.key==='Enter')doLogin()">
       <label style="margin-top:12px">كلمة المرور</label>
       <input id="lg_pass" type="password" autocomplete="current-password" placeholder="••••••" onkeydown="if(event.key==='Enter')doLogin()">
       <button class="btn block" style="margin-top:16px" onclick="doLogin()">دخول</button>
@@ -155,7 +155,6 @@ tr:hover td{background:#f8fafc}
     </div>
     <button class="details-toggle" id="joinToggle" style="margin-top:10px;width:100%" onclick="toggleJoin()">ليس لديك حساب؟ اطلب حساباً جديداً</button>
     <div style="margin-top:10px;text-align:center"><span class="cloud-status off" id="cloudStatus">غير مفعّل</span></div>
-    <p style="margin-top:12px;font-size:12px">أول دخول: <b>admin / admin123</b> — ثم غيّر كلمة المرور من شاشة «الموظفون».</p>
   </div>
 </div>
 <div id="toast"></div>
@@ -174,7 +173,7 @@ tr:hover td{background:#f8fafc}
     <button class="navbtn" data-page="report">📅 تقرير فترة</button>
     <button class="navbtn" data-page="ledger">📜 سجل حركة الصنف</button>
     <button class="navbtn" data-page="items">🏷️ الأصناف</button>
-    <button class="navbtn" data-page="import">🚚 الموردون والشحنات</button>
+    <button class="navbtn" data-page="import">🚚 الموردون</button>
     <button class="navbtn" data-page="employees">👥 الموظفون</button>
     <button class="navbtn" data-page="settings">⚙️ الإعدادات</button>
     <div class="foot">
@@ -886,14 +885,37 @@ function importModels(){
   if(!guard("canAdd"))return;
   const m=document.createElement("div");m.className="modal";
   m.innerHTML=`<div class="box"><h3>📥 استيراد موديلات دفعة واحدة</h3>
-    <p style="font-size:13px;color:var(--muted);margin-bottom:8px">اكتب كل موديل في سطر. الصيغة: <b>الموديل , الرصيد الافتتاحي</b> (الرصيد اختياري — اتركه فارغاً أو صفراً).<br>
-    مثال:<br>BR-100 , 5<br>BR-200 , 0<br>MT-10 , 12</p>
-    <textarea id="imp_txt" style="width:100%;min-height:170px;padding:11px;border:1px solid var(--line);border-radius:9px;font-family:monospace" placeholder="BR-100 , 5&#10;غرفة مودرن , 0&#10;مرتبة طبية , 8"></textarea>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:8px">الأسهل: نزّل القالب الجاهز، املأه في Excel، ثم ارفعه. أو اكتب يدوياً كل موديل في سطر بصيغة: <b>الموديل , الرصيد الافتتاحي</b> (الرصيد اختياري ويقبل الصفر).</p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+      <button class="btn blue sm" onclick="downloadImportTemplate()">⬇ تنزيل قالب Excel</button>
+      <label class="btn amber sm" style="margin:0">⬆ رفع ملف Excel/CSV<input type="file" accept=".csv,text/csv,.xlsx" style="display:none" onchange="importFromFile(event)"></label>
+    </div>
+    <textarea id="imp_txt" style="width:100%;min-height:150px;padding:11px;border:1px solid var(--line);border-radius:9px;font-family:monospace" placeholder="BR-100 , 5&#10;غرفة مودرن , 0&#10;مرتبة طبية , 8"></textarea>
     <label style="margin-top:10px"><input type="checkbox" id="imp_zero" style="width:auto"> اجعل كل الأرصدة الافتتاحية = صفر</label>
     <div id="imp_msg" style="color:var(--red);font-size:13px;margin:8px 0"></div>
     <div style="display:flex;gap:8px"><button class="btn green" onclick="doImportModels()">استيراد</button>
       <button class="btn gray" onclick="this.closest('.modal').remove()">إلغاء</button></div></div>`;
   document.body.appendChild(m);
+}
+function downloadImportTemplate(){
+  const rows=[["الموديل","الرصيد الافتتاحي"],["BR-100","5"],["BR-200","0"],["MT-10","12"]];
+  const csv=rows.map(r=>r.join(",")).join("\r\n");
+  const blob=new Blob(["﻿"+csv],{type:"text/csv;charset=utf-8"});
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="قالب-استيراد-الموديلات.csv";a.click();
+  toast("نزّل القالب، املأه في Excel واحفظه بصيغة CSV ثم ارفعه");
+}
+function importFromFile(e){
+  const f=e.target.files[0];if(!f)return;
+  if(/\.xlsx$/i.test(f.name)){alert("احفظ الملف من Excel بصيغة CSV (ملف بقيم مفصولة بفواصل) ثم ارفعه.");return;}
+  const r=new FileReader();
+  r.onload=()=>{let t=String(r.result||"");
+    // إزالة سطر العناوين إن وُجد
+    const lines=t.split(/\r?\n/).filter(l=>l.trim());
+    if(lines[0]&&/الموديل|model/i.test(lines[0]))lines.shift();
+    $("#imp_txt").value=lines.join("\n");
+    toast("تم تحميل الملف — راجع القائمة ثم اضغط استيراد");
+  };
+  r.readAsText(f,"utf-8");
 }
 function doImportModels(){
   const txt=$("#imp_txt").value||"",zero=$("#imp_zero").checked;
@@ -921,49 +943,34 @@ function delItem(id){
   DB.items=DB.items.filter(i=>i.id!==id);logAct("حذف موديل",itemModel(it));save();renderItems();
 }
 
-/* ============ 6) الموردون والشحنات ============ */
+/* ============ 6) الموردون ============ */
 function pImport(){
-  $("#view").innerHTML=`<div class="pagehead"><h1>🚚 الموردون والشحنات</h1></div>
-  <div class="grid-2">
-    <div class="card"><div class="card-title">➕ إضافة مورد</div>
-      <div class="row"><div class="field"><label>اسم المورد *</label><input id="sName"></div>
-        <div class="field"><label>الهاتف</label><input id="sPhone"></div></div>
-      <div class="field" style="margin-bottom:12px"><label>مسؤول التواصل</label><input id="sContact"></div>
-      <button class="btn block" onclick="addSupplier()">حفظ المورد</button>
-      <div class="table-wrap" style="margin-top:14px"><table><thead><tr><th>المورد</th><th>الهاتف</th><th>المسؤول</th></tr></thead>
-        <tbody id="supTbl"></tbody></table></div></div>
-    <div class="card"><div class="card-title">📥 تسجيل شحنة / رقم فسح</div><div id="shMsg"></div>
-      <div class="row"><div class="field"><label>مرجع الشحنة</label><input id="shRef"></div>
-        <div class="field"><label>المورد</label><select id="shSup"><option value="">—</option>
-          ${DB.suppliers.map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join("")}</select></div></div>
-      <div class="row"><div class="field"><label>رقم الفسح الجمركي</label><input id="shCustoms"></div>
-        <div class="field"><label>تاريخ الوصول</label><input id="shDate" type="date" value="${today()}"></div></div>
-      <div class="field" style="margin-bottom:12px"><label>ملاحظات</label><input id="shNote"></div>
-      <button class="btn blue block" onclick="addShipment()">حفظ الشحنة</button></div>
-  </div>
-  <div class="card" style="margin-top:16px"><div class="card-title">📋 سجل الشحنات</div>
-    <div class="table-wrap"><table><thead><tr><th>المرجع</th><th>المورد</th><th>رقم الفسح</th><th>الوصول</th><th>ملاحظات</th><th>سجّلها</th></tr></thead>
-      <tbody id="shTbl"></tbody></table></div></div>`;
-  renderSuppliers();renderShipments();
+  $("#view").innerHTML=`<div class="pagehead"><h1>🚚 الموردون</h1></div>
+  <div class="card" style="max-width:640px">
+    <div class="card-title">➕ إضافة مورد</div>
+    <div class="row"><div class="field"><label>اسم المورد *</label><input id="sName"></div>
+      <div class="field"><label>الهاتف</label><input id="sPhone"></div></div>
+    <div class="field" style="margin-bottom:12px"><label>مسؤول التواصل</label><input id="sContact"></div>
+    <button class="btn block" onclick="addSupplier()">حفظ المورد</button>
+    <div class="table-wrap" style="margin-top:14px"><table><thead><tr><th>المورد</th><th>الهاتف</th><th>المسؤول</th>${ME.role==="admin"?"<th></th>":""}</tr></thead>
+      <tbody id="supTbl"></tbody></table></div>
+    <p style="font-size:12px;color:var(--muted);margin-top:10px">رقم الفسح يُسجَّل مع كل حركة وارد مباشرةً من شاشة «تسجيل حركة».</p></div>`;
+  renderSuppliers();
 }
 function renderSuppliers(){
-  $("#supTbl").innerHTML=DB.suppliers.map(s=>`<tr><td>${esc(s.name)}</td><td>${esc(s.phone||"")}</td><td>${esc(s.contact||"")}</td></tr>`).join("")||`<tr><td colspan="3" class="empty">—</td></tr>`;
-}
-function renderShipments(){
-  $("#shTbl").innerHTML=DB.shipments.map(s=>{const sup=DB.suppliers.find(x=>x.id===s.supplierId);
-    return `<tr><td>${esc(s.ref||"")}</td><td>${esc(sup?sup.name:"")}</td><td>${esc(s.customs||"")}</td><td>${esc(s.date||"")}</td><td>${esc(s.note||"")}</td><td>${esc(s.userName||"")}</td></tr>`;}).join("")||`<tr><td colspan="6" class="empty">—</td></tr>`;
+  $("#supTbl").innerHTML=DB.suppliers.map(s=>`<tr><td>${esc(s.name)}</td><td>${esc(s.phone||"")}</td><td>${esc(s.contact||"")}</td>
+    ${ME.role==="admin"?`<td><button class="btn red sm" onclick="delSupplier(${s.id})">حذف</button></td>`:""}</tr>`).join("")||`<tr><td colspan="4" class="empty">—</td></tr>`;
 }
 function addSupplier(){
   const name=$("#sName").value.trim();if(!name)return;
   DB.suppliers.push({id:nid("supplier"),name,phone:$("#sPhone").value,contact:$("#sContact").value});
   logAct("إضافة مورد",name);save();pImport();
 }
-function addShipment(){
-  DB.shipments.unshift({id:nid("shipment"),ref:$("#shRef").value,supplierId:+$("#shSup").value||null,
-    customs:$("#shCustoms").value,date:$("#shDate").value,note:$("#shNote").value,userId:ME.id,userName:ME.name});
-  logAct("تسجيل شحنة",$("#shCustoms").value||"");save();
-  $("#shMsg").innerHTML=`<div class="msg ok">✔ تم حفظ الشحنة.</div>`;renderShipments();
-  ["shRef","shCustoms","shNote"].forEach(i=>$("#"+i).value="");
+function delSupplier(id){
+  if(ME.role!=="admin")return;
+  if(DB.movements.some(m=>m.supplierId===id)){alert("لا يمكن حذف مورد له حركات مسجلة.");return;}
+  const s=DB.suppliers.find(x=>x.id===id);if(!confirm(`حذف المورد «${s.name}»؟`))return;
+  DB.suppliers=DB.suppliers.filter(x=>x.id!==id);logAct("حذف مورد",s.name);save();pImport();
 }
 
 /* ============ 7) الموظفون والصلاحيات ============ */
