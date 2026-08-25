@@ -153,6 +153,7 @@ tr:hover td{background:#f8fafc}
       <label style="margin-top:12px">كلمة المرور</label><input id="jn_pass" type="password" placeholder="٦ خانات على الأقل">
       <button class="btn green block" style="margin-top:16px" onclick="submitJoinRequest()">إرسال طلب انضمام</button>
     </div>
+    <button class="btn ghost block installBtn" style="margin-top:12px" onclick="installApp()">📲 ثبّت التطبيق على الجوال</button>
     <button class="details-toggle" id="joinToggle" style="margin-top:10px;width:100%" onclick="toggleJoin()">ليس لديك حساب؟ اطلب حساباً جديداً</button>
     <div style="margin-top:10px;text-align:center"><span class="cloud-status off" id="cloudStatus">غير مفعّل</span></div>
     <div style="margin-top:14px;text-align:center;font-size:12px;color:var(--muted)">
@@ -182,6 +183,7 @@ tr:hover td{background:#f8fafc}
     <div class="foot">
       <b id="who"></b>
       <div style="margin-bottom:6px"><span class="cloud-status off" id="cloudStatus2">غير مفعّل</span></div>
+      <button class="btn green sm block installBtn" onclick="installApp()">📲 ثبّت التطبيق</button>
       <button class="btn blue sm block" onclick="changeMyPassword()">🔑 تغيير كلمة المرور</button>
       <button class="btn gray sm block" onclick="backup()">⬇ نسخة احتياطية</button>
       <button class="btn ghost sm block" onclick="restore()">⬆ استرجاع</button>
@@ -1249,6 +1251,30 @@ function exportCSV(filename,headers,rows){
   toast("تم التصدير");
 }
 
+/* ---------- تثبيت التطبيق (PWA) ---------- */
+let deferredPrompt=null;
+window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();deferredPrompt=e;
+  document.querySelectorAll(".installBtn").forEach(b=>b.style.display="block");});
+window.addEventListener("appinstalled",()=>{deferredPrompt=null;
+  document.querySelectorAll(".installBtn").forEach(b=>b.style.display="none");toast("تم تثبيت التطبيق ✅");});
+function isStandalone(){return window.matchMedia&&window.matchMedia("(display-mode: standalone)").matches||window.navigator.standalone===true;}
+async function installApp(){
+  if(deferredPrompt){deferredPrompt.prompt();try{await deferredPrompt.userChoice;}catch(e){}deferredPrompt=null;return;}
+  const iOS=/iphone|ipad|ipod/i.test(navigator.userAgent);
+  const m=document.createElement("div");m.className="modal";
+  m.innerHTML=`<div class="box" style="max-width:360px"><h3>📲 تثبيت التطبيق على الجوال</h3>
+    ${iOS?`<p style="line-height:2;font-size:14px">على iPhone/iPad (متصفح Safari):<br>
+      1) اضغط زر المشاركة <b>⬆️</b> بالأسفل.<br>
+      2) اختر <b>«إضافة إلى الشاشة الرئيسية»</b>.<br>
+      3) اضغط <b>«إضافة»</b> — تظهر أيقونة التطبيق.</p>`
+    :`<p style="line-height:2;font-size:14px">على أندرويد (متصفح Chrome):<br>
+      1) افتح قائمة المتصفح <b>⋮</b> بالأعلى.<br>
+      2) اختر <b>«تثبيت التطبيق»</b> أو <b>«إضافة إلى الشاشة الرئيسية»</b>.<br>
+      3) أكّد — تظهر أيقونة التطبيق.</p>`}
+    <button class="btn green block" onclick="this.closest('.modal').remove()">حسناً</button></div>`;
+  document.body.appendChild(m);
+}
+
 /* ---------- بطاقة المطوّر (اتصال / واتساب) ---------- */
 function showDev(){
   const old=$("#devModal");if(old)old.remove();
@@ -1285,6 +1311,7 @@ $("#restoreFile").onchange=e=>{const f=e.target.files[0];if(!f)return;const r=ne
 
 /* ---------- Start ---------- */
 load();initLogin();applyBrand();cloudInit();
+if(isStandalone())document.querySelectorAll(".installBtn").forEach(b=>b.style.display="none");
 </script>
 </body>
 </html>
