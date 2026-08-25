@@ -4,6 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 <title>نظام إدارة المخزون والمبيعات وحركة الأصناف</title>
+<link rel="manifest" href="manifest.inventory.json">
+<meta name="theme-color" content="#0f172a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
@@ -107,6 +112,16 @@ tr:hover td{background:#f8fafc}
 .cloud-status.off{background:#e2e8f0;color:#475569}.cloud-status.connecting{background:#fef9c3;color:#854d0e}
 .cloud-status.ok{background:#dcfce7;color:#166534}.cloud-status.sync{background:#dbeafe;color:#1e40af}.cloud-status.err{background:#fee2e2;color:#991b1b}
 .loginerr{background:#fee2e2;color:#991b1b;padding:10px;border-radius:9px;margin-bottom:12px;font-size:13px;font-weight:600;display:none}
+.loginok{background:#dcfce7;color:#166534;padding:10px;border-radius:9px;margin-bottom:12px;font-size:13px;font-weight:600;display:none}
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(120px);background:#0f172a;color:#fff;
+  padding:12px 22px;border-radius:30px;font-size:14px;font-weight:600;z-index:200;box-shadow:0 8px 24px rgba(0,0,0,.3);
+  transition:transform .3s;max-width:90vw;text-align:center}
+#toast.show{transform:translateX(-50%) translateY(0)}
+.permgrid{display:grid;grid-template-columns:1fr 1fr;gap:6px 14px;margin:6px 0 12px}
+.permgrid label{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--ink);font-weight:500;cursor:pointer;margin:0}
+.permgrid input{width:auto}
+.brandlogo{max-height:44px;max-width:120px;border-radius:8px;object-fit:contain}
+.hidden{display:none!important}
 </style>
 </head>
 <body>
@@ -114,18 +129,29 @@ tr:hover td{background:#f8fafc}
 <!-- ===== LOGIN ===== -->
 <div id="login">
   <div class="box">
-    <h1>📦 نظام الوارد والمنصرف</h1>
+    <h1 id="brandLogin">📦 نظام الوارد والمنصرف</h1>
     <p id="loginLead">سجّل الدخول للمتابعة</p>
     <div class="loginerr" id="loginErr"></div>
-    <label>اسم المستخدم</label>
-    <input id="lg_user" autocomplete="username" placeholder="admin" onkeydown="if(event.key==='Enter')doLogin()">
-    <label style="margin-top:12px">كلمة المرور</label>
-    <input id="lg_pass" type="password" autocomplete="current-password" placeholder="••••••" onkeydown="if(event.key==='Enter')doLogin()">
-    <button class="btn block" style="margin-top:16px" onclick="doLogin()">دخول</button>
-    <div style="margin-top:14px;text-align:center"><span class="cloud-status off" id="cloudStatus">غير مفعّل</span></div>
+    <div class="loginok" id="loginOk"></div>
+    <div id="loginFields">
+      <label>اسم المستخدم</label>
+      <input id="lg_user" autocomplete="username" placeholder="admin" onkeydown="if(event.key==='Enter')doLogin()">
+      <label style="margin-top:12px">كلمة المرور</label>
+      <input id="lg_pass" type="password" autocomplete="current-password" placeholder="••••••" onkeydown="if(event.key==='Enter')doLogin()">
+      <button class="btn block" style="margin-top:16px" onclick="doLogin()">دخول</button>
+    </div>
+    <div id="joinFields" style="display:none">
+      <label>الاسم الكامل</label><input id="jn_name" placeholder="اسمك">
+      <label style="margin-top:12px">اسم المستخدم</label><input id="jn_user" placeholder="اسم للدخول" style="font-family:monospace">
+      <label style="margin-top:12px">كلمة المرور</label><input id="jn_pass" type="password" placeholder="٦ خانات على الأقل">
+      <button class="btn green block" style="margin-top:16px" onclick="submitJoinRequest()">إرسال طلب انضمام</button>
+    </div>
+    <button class="details-toggle" id="joinToggle" style="margin-top:10px;width:100%" onclick="toggleJoin()">ليس لديك حساب؟ اطلب حساباً جديداً</button>
+    <div style="margin-top:10px;text-align:center"><span class="cloud-status off" id="cloudStatus">غير مفعّل</span></div>
     <p style="margin-top:12px;font-size:12px">أول دخول: <b>admin / admin123</b> — ثم غيّر كلمة المرور من شاشة «الموظفون».</p>
   </div>
 </div>
+<div id="toast"></div>
 
 <!-- ===== APP ===== -->
 <div id="app">
@@ -135,7 +161,7 @@ tr:hover td{background:#f8fafc}
   </div>
   <div class="backdrop" id="backdrop" onclick="toggleNav()"></div>
   <aside class="sidebar" id="sidebar">
-    <h2>📦 المخزون</h2>
+    <h2 id="brandSide">📦 المخزون</h2>
     <button class="navbtn" data-page="move">➕ تسجيل حركة</button>
     <button class="navbtn" data-page="dashboard">📊 الأرصدة</button>
     <button class="navbtn" data-page="report">📅 تقرير فترة</button>
@@ -143,9 +169,11 @@ tr:hover td{background:#f8fafc}
     <button class="navbtn" data-page="items">🏷️ الأصناف</button>
     <button class="navbtn" data-page="import">🚚 الموردون والشحنات</button>
     <button class="navbtn" data-page="employees">👥 الموظفون</button>
+    <button class="navbtn" data-page="settings">⚙️ الإعدادات</button>
     <div class="foot">
       <b id="who"></b>
       <div style="margin-bottom:6px"><span class="cloud-status off" id="cloudStatus2">غير مفعّل</span></div>
+      <button class="btn blue sm block" onclick="changeMyPassword()">🔑 تغيير كلمة المرور</button>
       <button class="btn gray sm block" onclick="backup()">⬇ نسخة احتياطية</button>
       <button class="btn ghost sm block" onclick="restore()">⬆ استرجاع</button>
       <button class="btn red sm block" onclick="logout()">خروج</button>
@@ -174,11 +202,32 @@ const isIn=t=>t==="inbound"||t==="adjustment";
 const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 function hash(str){let h=5381;str=String(str);for(let i=0;i<str.length;i++)h=((h<<5)+h+str.charCodeAt(i))>>>0;return "h"+h.toString(36);}
 
+/* ---------- تنبيهات ---------- */
+function toast(m){let t=$("#toast");if(!t)return;t.textContent=m;t.classList.add("show");clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove("show"),2600);}
+
+/* ---------- الصلاحيات (مقتبَسة من نظام التوريد) ---------- */
+const PERM_KEYS=[["move","تسجيل حركة"],["dashboard","الأرصدة"],["report","تقرير فترة"],["ledger","سجل حركة الصنف"],
+  ["items","الأصناف"],["import","الموردون والشحنات"],["employees","الموظفون"],["settings","الإعدادات"],
+  ["canAdd","إضافة"],["canEdit","تعديل"],["canDelete","حذف"],["canExport","تصدير"]];
+function preset(role){
+  const p={};PERM_KEYS.forEach(k=>p[k[0]]=false);
+  if(role==="admin"){PERM_KEYS.forEach(k=>p[k[0]]=true);}
+  else if(role==="manager"){PERM_KEYS.forEach(k=>p[k[0]]=true);p.employees=false;p.settings=false;}
+  else if(role==="employee"){["move","dashboard","report","ledger","canAdd"].forEach(k=>p[k]=true);}
+  return p;
+}
+function can(k){return !!(ME&&ME.perms&&ME.perms[k]);}
+function guard(k,msg){if(can(k))return true;toast(msg||"لا تملك صلاحية لهذا الإجراء");return false;}
+function applyNav(){
+  document.querySelectorAll(".navbtn").forEach(b=>b.classList.toggle("hidden",!can(b.dataset.page)));
+}
+
 /* ---------- Storage ---------- */
 function seed(){return{
+  settings:{company:"نظام المخزون",logo:""},
   users:[
-    {id:1,name:"المدير العام",username:"admin",pass:hash("admin123"),role:"admin",active:1,fbUid:"",lastLogin:""},
-    {id:2,name:"موظف المخزن",username:"store",pass:hash("store123"),role:"employee",active:1,fbUid:"",lastLogin:""}
+    {id:1,name:"المدير العام",username:"admin",pass:hash("admin123"),role:"admin",active:1,perms:preset("admin"),fbUid:"",lastLogin:""},
+    {id:2,name:"موظف المخزن",username:"store",pass:hash("store123"),role:"employee",active:1,perms:preset("employee"),fbUid:"",lastLogin:""}
   ],
   suppliers:[{id:1,name:"مورد الرياض للأثاث",phone:"0500000000",contact:"أبو أحمد"}],
   shipments:[],
@@ -195,7 +244,17 @@ function ensureShape(){
   DB.users=DB.users||[];DB.items=DB.items||[];DB.movements=DB.movements||[];
   DB.suppliers=DB.suppliers||[];DB.shipments=DB.shipments||[];DB.activity=DB.activity||[];
   DB.seq=DB.seq||{user:0,supplier:0,shipment:0,item:0,movement:0,activity:0};
-  DB.users.forEach(u=>{if(u.active===undefined)u.active=1;if(u.username===undefined)u.username="";if(u.fbUid===undefined)u.fbUid="";});
+  DB.settings=DB.settings||{company:"نظام المخزون",logo:""};
+  DB.users.forEach(u=>{if(u.active===undefined)u.active=1;if(u.username===undefined)u.username="";if(u.fbUid===undefined)u.fbUid="";
+    if(!u.perms){u.perms=preset(u.role);}else{PERM_KEYS.forEach(k=>{if(u.perms[k[0]]===undefined)u.perms[k[0]]=preset(u.role)[k[0]];});}});
+}
+function applyBrand(){
+  const co=(DB.settings&&DB.settings.company)||"نظام المخزون",logo=(DB.settings&&DB.settings.logo)||"";
+  const lg=x=>logo?`<img src="${logo}" class="brandlogo" alt=""> `:"";
+  const bl=$("#brandLogin"),bs=$("#brandSide");
+  if(bl)bl.innerHTML=(logo?`<img src="${logo}" class="brandlogo" alt=""><br>`:"📦 ")+esc(co);
+  if(bs)bs.innerHTML=(logo?`<img src="${logo}" class="brandlogo" alt=""> `:"📦 ")+esc(co);
+  document.title=co;
 }
 function load(){const r=localStorage.getItem(KEY);DB=r?JSON.parse(r):seed();ensureShape();if(!r)save();}
 function save(){localStorage.setItem(KEY,JSON.stringify(DB));cloudPush();}
@@ -218,8 +277,10 @@ function doLogin(){
 function startApp(){
   $("#login").style.display="none";$("#app").style.display="block";
   $("#who").textContent=`${ME.name} · ${roleAr(ME.role)}`;
+  applyBrand();applyNav();
   document.querySelectorAll(".navbtn").forEach(b=>b.onclick=()=>go(b.dataset.page));
-  go("move");
+  const first=(PERM_KEYS.map(k=>k[0]).find(k=>["move","dashboard","report","ledger","items","import","employees","settings"].includes(k)&&can(k)))||"move";
+  go(can("move")?"move":first);
 }
 function logout(){if(cloudEnabled()){try{firebase.auth().signOut();}catch(e){}}location.reload();}
 
@@ -402,9 +463,11 @@ function closeNav(){$("#sidebar").classList.remove("open");$("#backdrop").classL
 
 /* ---------- Router ---------- */
 function go(page){
-  closeNav();CURRENT_PAGE=page;
+  closeNav();
+  if(ME&&!can(page)){toast("لا تملك صلاحية للوصول لهذه الشاشة");page=can("move")?"move":"dashboard";}
+  CURRENT_PAGE=page;
   document.querySelectorAll(".navbtn").forEach(b=>b.classList.toggle("active",b.dataset.page===page));
-  ({move:pMove,dashboard:pDashboard,report:pReport,ledger:pLedger,items:pItems,import:pImport,employees:pEmployees}[page])();
+  ({move:pMove,dashboard:pDashboard,report:pReport,ledger:pLedger,items:pItems,import:pImport,employees:pEmployees,settings:pSettings}[page])();
 }
 
 /* ============ 1) تسجيل حركة — سطر أساسي بسيط + تفاصيل اختيارية ============ */
@@ -522,7 +585,8 @@ function printReceipt(id){
   w.document.write(`<html dir="rtl"><head><meta charset="UTF-8"><title>سند ${typeAr(m.type)}</title>
     <style>body{font-family:Tahoma,sans-serif;padding:24px;color:#0f172a}h2{margin-bottom:6px}
     table{width:100%;border-collapse:collapse;margin-top:14px}td,th{border:1px solid #cbd5e1;padding:9px;text-align:right;font-size:14px}
-    th{background:#f1f5f9}</style></head><body>
+    th{background:#f1f5f9}.co{display:flex;align-items:center;gap:10px;margin-bottom:8px}.co img{max-height:50px}</style></head><body>
+    <div class="co">${(DB.settings&&DB.settings.logo)?`<img src="${DB.settings.logo}">`:""}<h3>${esc((DB.settings&&DB.settings.company)||"نظام المخزون")}</h3></div>
     <h2>📦 سند ${typeAr(m.type)}</h2>
     <div>التاريخ: <b>${esc(m.date)}</b> · الموظف: <b>${esc(m.userName)}</b>${m.invoice?` · فاتورة: <b>${esc(m.invoice)}</b>`:""}</div>
     <table><tr><th>الصنف</th><th>الموديل</th><th>الكمية</th><th>الرصيد بعدها</th><th>رقم الفسح</th></tr>
@@ -550,7 +614,8 @@ function pDashboard(){
     <div class="stat"><div class="lbl">أصناف نفدت (صفر)</div><div class="val" style="color:var(--amber)">${zero.length}</div></div>
   </div>
   <div class="card">
-    <div class="card-title">جرد الأرصدة الحالية</div>
+    <div class="card-title" style="display:flex;justify-content:space-between;align-items:center"><span>جرد الأرصدة الحالية</span>
+      <button class="btn ghost sm" onclick="exportCSV('الارصدة.csv',['الكود','الصنف','الموديل','الفئة','الوحدة','الرصيد','حد الطلب'],DB.items.map(i=>[i.code,i.name,i.model||'',i.category||'',i.unit||'',i.qty,i.reorder||'']))">⬇ Excel</button></div>
     <input id="dashSearch" placeholder="🔍 بحث بالكود أو الاسم أو الموديل..." value="${esc(q)}" oninput="renderBalances()" style="margin-bottom:14px">
     <div class="table-wrap"><table><thead><tr><th>الكود</th><th>الصنف</th><th>الموديل</th><th>الفئة</th>
       <th>الوحدة</th><th>الرصيد الحالي</th><th>حد الطلب</th><th>الحالة</th></tr></thead>
@@ -599,13 +664,16 @@ function renderReport(){
     return {it,inb,out,opening,closing,net:inb-out};
   }).filter(r=>r.inb||r.out||r.opening||r.closing);
   const tIn=rows.reduce((s,r)=>s+r.inb,0),tOut=rows.reduce((s,r)=>s+r.out,0);
+  window.__reportRows=rows.map(r=>[r.it.code,r.it.name,r.opening,r.inb,r.out,r.net,r.closing]);
   $("#reportOut").innerHTML=`
     <div class="grid-3" style="margin-bottom:14px">
       <div class="stat"><div class="lbl">إجمالي الوارد بالمدة</div><div class="val" style="color:var(--green)">${tIn}</div></div>
       <div class="stat"><div class="lbl">إجمالي المنصرف بالمدة</div><div class="val" style="color:var(--amber)">${tOut}</div></div>
       <div class="stat"><div class="lbl">صافي الحركة</div><div class="val">${tIn-tOut}</div></div>
     </div>
-    <div class="card"><div class="card-title">من ${esc(from||"البداية")} إلى ${esc(to||"الآن")}</div>
+    <div class="card"><div class="card-title" style="display:flex;justify-content:space-between;align-items:center">
+      <span>من ${esc(from||"البداية")} إلى ${esc(to||"الآن")}</span>
+      <button class="btn ghost sm no-print" onclick="exportCSV('تقرير-وارد-منصرف.csv',['الكود','الصنف','رصيد أول المدة','الوارد','المنصرف','الصافي','رصيد آخر المدة'],window.__reportRows||[])">⬇ Excel</button></div>
     <div class="table-wrap"><table><thead><tr><th>الكود</th><th>الصنف</th><th>رصيد أول المدة</th>
       <th style="color:var(--green)">الوارد</th><th style="color:var(--amber)">المنصرف</th><th>الصافي</th><th>رصيد آخر المدة</th></tr></thead>
       <tbody>${rows.map(r=>`<tr><td style="font-family:monospace">${esc(r.it.code)}</td><td>${esc(r.it.name)}</td>
@@ -646,7 +714,8 @@ function renderLedger(){
     <div class="stat"><div class="lbl">الوارد (بالفلتر)</div><div class="val sm" style="color:var(--green)">${inb}</div></div>
     <div class="stat"><div class="lbl">المنصرف (بالفلتر)</div><div class="val sm" style="color:var(--amber)">${out}</div></div>
     <div class="stat"><div class="lbl">صافي الحركة</div><div class="val sm">${inb-out}</div></div>
-    <div class="stat"><div class="lbl">الرصيد الحالي</div><div class="val sm">${it.qty}</div></div></div>`;
+    <div class="stat"><div class="lbl">الرصيد الحالي</div><div class="val sm">${it.qty}</div></div></div>
+    <button class="btn ghost sm no-print" style="margin-bottom:12px" onclick="exportLedger(${id})">⬇ تصدير الحركات Excel</button>`;
   tb.innerHTML=rows.map(m=>{const sup=DB.suppliers.find(x=>x.id===m.supplierId);
     return `<tr><td>${fmt(m.at)}</td><td><span class="tag ${m.type}">${typeAr(m.type)}</span></td>
       <td style="font-weight:700;color:${isIn(m.type)?'var(--green)':'var(--amber)'}">${isIn(m.type)?"+":"−"}${m.qty}</td>
@@ -654,11 +723,20 @@ function renderLedger(){
       <td>${esc(m.invoice||"")}</td><td>${esc(sup?sup.name:"")}</td><td>${esc(m.userName)}</td><td>${esc(m.note||"")}</td></tr>`;}).join("")
     ||`<tr><td colspan="10" class="empty">لا حركات مطابقة.</td></tr>`;
 }
+function exportLedger(id){
+  const it=DB.items.find(i=>i.id===id);if(!it)return;
+  const from=$("#lFrom").value,to=$("#lTo").value,ty=$("#lType").value;
+  const rows=DB.movements.filter(m=>m.itemId===id&&(!from||m.date>=from)&&(!to||m.date<=to)&&(!ty||m.type===ty));
+  exportCSV("حركة-"+it.code+".csv",["التاريخ","النوع","الكمية","الرصيد بعدها","الموديل","رقم الفسح","الفاتورة","المورد","الموظف","ملاحظة"],
+    rows.map(m=>{const sup=DB.suppliers.find(x=>x.id===m.supplierId);
+      return [fmt(m.at),typeAr(m.type),(isIn(m.type)?"+":"-")+m.qty,m.balAfter??"",m.model||it.model||"",m.customs||"",m.invoice||"",sup?sup.name:"",m.userName,m.note||""];}));
+}
 
 /* ============ 5) الأصناف ============ */
 function pItems(){
-  $("#view").innerHTML=`<div class="pagehead"><h1>🏷️ الأصناف</h1>
-    <button class="btn" onclick="itemForm(0)">+ إضافة صنف</button></div>
+  $("#view").innerHTML=`<div class="pagehead"><h1>🏷️ الأصناف</h1><div style="display:flex;gap:8px">
+    <button class="btn ghost" onclick="exportCSV('الاصناف.csv',['الكود','الاسم','الموديل','الفئة','الوحدة','الرصيد','حد الطلب'],DB.items.map(i=>[i.code,i.name,i.model||'',i.category||'',i.unit||'',i.qty,i.reorder||'']))">⬇ Excel</button>
+    ${can("canAdd")?`<button class="btn" onclick="itemForm(0)">+ إضافة صنف</button>`:""}</div></div>
   <div class="card">
     <input id="itemSearch" placeholder="🔍 بحث بالكود أو الاسم أو الموديل أو الفئة..." oninput="renderItems()" style="margin-bottom:14px">
     <div class="table-wrap"><table><thead><tr><th>الكود</th><th>الاسم</th><th>الموديل</th><th>الفئة</th><th>الوحدة</th>
@@ -674,11 +752,12 @@ function renderItems(){
     return `<tr><td style="font-family:monospace">${esc(i.code)}</td><td>${esc(i.name)}</td><td>${esc(i.model||"")}</td>
       <td>${esc(i.category||"")}</td><td>${esc(i.unit||"")}</td>
       <td style="color:${low?'var(--red)':'inherit'};font-weight:${low?700:400}">${i.qty}</td><td>${i.reorder||"—"}</td>
-      <td style="white-space:nowrap"><button class="btn blue sm" onclick="itemForm(${i.id})">تعديل</button>
-        ${isManager()?`<button class="btn red sm" onclick="delItem(${i.id})">حذف</button>`:""}</td></tr>`;
+      <td style="white-space:nowrap">${can("canEdit")?`<button class="btn blue sm" onclick="itemForm(${i.id})">تعديل</button>`:""}
+        ${can("canDelete")?`<button class="btn red sm" onclick="delItem(${i.id})">حذف</button>`:""}</td></tr>`;
   }).join("")||`<tr><td colspan="8" class="empty">لا أصناف.</td></tr>`;
 }
 function itemForm(id){
+  if(!guard(id?"canEdit":"canAdd"))return;
   const it=id?DB.items.find(i=>i.id===id):{};
   const m=document.createElement("div");m.className="modal";
   m.innerHTML=`<div class="box"><h3>${id?"تعديل صنف":"إضافة صنف"}</h3>
@@ -709,6 +788,7 @@ function saveItem(id){
   save();document.querySelector(".modal").remove();renderItems();
 }
 function delItem(id){
+  if(!guard("canDelete"))return;
   const it=DB.items.find(i=>i.id===id);
   if(DB.movements.some(m=>m.itemId===id)){alert("لا يمكن حذف صنف له حركات مسجلة.");return;}
   if(!confirm(`حذف الصنف «${it.name}»؟`))return;
@@ -779,8 +859,11 @@ function pEmployees(){
         زر <b>«حساب سحابي»</b> يفعّل دخول الموظف من أي جهاز بكلمة المرور التي تحددها له.</p></div>
     <div class="card"><div class="card-title">📝 سجل نشاط الموظفين</div>
       <div class="table-wrap"><table><thead><tr><th>الوقت</th><th>الموظف</th><th>العملية</th><th>التفاصيل</th></tr></thead>
-      <tbody>${DB.activity.slice(0,120).map(a=>`<tr><td>${fmt(a.at)}</td><td>${esc(a.userName)}</td><td>${esc(a.action)}</td><td>${esc(a.detail||"")}</td></tr>`).join("")||`<tr><td colspan="4" class="empty">—</td></tr>`}</tbody></table></div></div>
-  </div>`;
+      <tbody>${DB.activity.slice(0,120).map(a=>`<tr><td>${fmt(a.at)}</td><td>${esc(a.userName)}</td><td>${esc(a.action)}</td><td>${esc(a.detail||"")}</td></tr>`).join("")||`<tr><td colspan="4" class="empty">—</td></tr>`}</tbody></table></div>
+      <button class="btn ghost sm" style="margin-top:10px" onclick="exportCSV('نشاط-الموظفين.csv',['الوقت','الموظف','العملية','التفاصيل'],DB.activity.map(a=>[fmt(a.at),a.userName,a.action,a.detail||'']))">⬇ تصدير السجل Excel</button></div>
+  </div>
+  <div id="joinReqBox"></div>`;
+  if(canManage)renderJoinRequests();
 }
 function userForm(id){
   const u=id?DB.users.find(x=>x.id===id):{};
@@ -797,6 +880,10 @@ function userForm(id){
           <option value="0" ${Number(u.active)===0?"selected":""}>موقوف</option></select></div></div>
     <div class="field" style="margin-bottom:12px"><label>${id?"كلمة مرور جديدة (اتركها فارغة لإبقائها)":"كلمة المرور *"}</label>
       <input id="u_pass" type="text" placeholder="٦ خانات على الأقل"></div>
+    <label>الصلاحيات (يمكن تخصيصها لكل موظف) <button type="button" class="details-toggle" onclick="fillPreset()">↺ حسب الدور</button></label>
+    <div class="permgrid" id="u_perms">
+      ${PERM_KEYS.map(k=>`<label><input type="checkbox" data-perm="${k[0]}" ${(id?(u.perms&&u.perms[k[0]]):preset("employee")[k[0]])?"checked":""}> ${k[1]}</label>`).join("")}
+    </div>
     <div id="u_msg" style="color:var(--red);font-size:13px;margin-bottom:8px"></div>
     <div style="display:flex;gap:8px"><button class="btn green" onclick="saveUser(${id||0})">حفظ</button>
       <button class="btn gray" onclick="this.closest('.modal').remove()">إلغاء</button></div>
@@ -811,15 +898,135 @@ function saveUser(id){
   if(DB.users.some(x=>(x.username||"").toLowerCase()===username.toLowerCase()&&x.id!==id)){$("#u_msg").textContent="اسم المستخدم مستخدم مسبقاً.";return;}
   if(!id&&(!pass||pass.length<6)){$("#u_msg").textContent="كلمة المرور مطلوبة (٦ خانات على الأقل).";return;}
   if(pass&&pass.length<6){$("#u_msg").textContent="كلمة المرور يجب ألا تقل عن ٦ خانات.";return;}
-  if(id){const u=DB.users.find(x=>x.id===id);u.name=name;u.role=role;u.username=username;u.active=active;
+  const perms={};document.querySelectorAll("#u_perms input[data-perm]").forEach(c=>perms[c.dataset.perm]=c.checked);
+  if(id){const u=DB.users.find(x=>x.id===id);u.name=name;u.role=role;u.username=username;u.active=active;u.perms=perms;
     if(pass)u.pass=hash(pass);logAct("تعديل مستخدم",name);}
-  else{DB.users.push({id:nid("user"),name,username,pass:hash(pass),role,active,fbUid:"",lastLogin:""});logAct("إضافة مستخدم",name);}
+  else{DB.users.push({id:nid("user"),name,username,pass:hash(pass),role,active,perms,fbUid:"",lastLogin:""});logAct("إضافة مستخدم",name);}
   save();document.querySelector(".modal").remove();pEmployees();
+}
+function fillPreset(){
+  const role=$("#u_role").value,p=preset(role);
+  document.querySelectorAll("#u_perms input[data-perm]").forEach(c=>c.checked=!!p[c.dataset.perm]);
 }
 function delUser(id){
   const u=DB.users.find(x=>x.id===id);
   if(!confirm(`حذف المستخدم «${u.name}»؟`))return;
   DB.users=DB.users.filter(x=>x.id!==id);logAct("حذف مستخدم",u.name);save();pEmployees();
+}
+
+/* ============ 8) الإعدادات + العلامة التجارية ============ */
+function pSettings(){
+  if(!can("settings")){go("move");return;}
+  const s=DB.settings||{};
+  $("#view").innerHTML=`<div class="pagehead"><h1>⚙️ الإعدادات</h1></div>
+  <div class="grid-2">
+    <div class="card"><div class="card-title">🏢 بيانات المنشأة</div>
+      <div class="field" style="margin-bottom:12px"><label>اسم المنشأة (يظهر في الدخول والقائمة والسندات)</label>
+        <input id="setCompany" value="${esc(s.company||"")}"></div>
+      <div class="field" style="margin-bottom:12px"><label>الشعار (اختياري)</label>
+        <input type="file" id="setLogo" accept="image/*" onchange="pickLogo(event)">
+        <div style="margin-top:8px">${s.logo?`<img src="${s.logo}" class="brandlogo">`:'<span style="color:var(--muted);font-size:13px">لا يوجد شعار</span>'}</div></div>
+      <div style="display:flex;gap:8px">
+        <button class="btn green" onclick="saveSettings()">حفظ</button>
+        ${s.logo?`<button class="btn gray" onclick="DB.settings.logo='';save();applyBrand();pSettings();toast('تم حذف الشعار')">حذف الشعار</button>`:""}</div>
+    </div>
+    <div class="card"><div class="card-title">☁️ حالة النظام السحابي</div>
+      <p style="font-size:13.5px;line-height:1.9">
+        الوضع: <b>${cloudAccounts()?"سحابي (حساب لكل مستخدم)":cloudEnabled()?"سحابي مبسّط":"محلي على هذا الجهاز"}</b><br>
+        مساحة العمل: <b>${esc(cloudWid())}</b><br>
+        المستخدم الحالي: <b>${esc(ME.name)}</b> — ${roleAr(ME.role)}<br>
+        الأجهزة تتزامن فورياً عند الاتصال. التعديلات على البرنامج تظهر تلقائياً بعد كل تحديث.
+      </p>
+      <button class="btn blue" onclick="changeMyPassword()">🔑 تغيير كلمة مروري</button>
+    </div>
+  </div>`;
+}
+let _logoData="";
+function pickLogo(e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{_logoData=r.result;toast("سيُحفظ الشعار عند الضغط على حفظ");};r.readAsDataURL(f);}
+function saveSettings(){
+  if(!guard("settings"))return;
+  DB.settings=DB.settings||{};DB.settings.company=$("#setCompany").value.trim()||"نظام المخزون";
+  if(_logoData){DB.settings.logo=_logoData;_logoData="";}
+  logAct("تعديل الإعدادات",DB.settings.company);save();applyBrand();toast("تم حفظ الإعدادات");pSettings();
+}
+function changeMyPassword(){
+  const p=prompt("كلمة المرور الجديدة (٦ خانات على الأقل):");
+  if(p===null)return;if(p.length<6){toast("٦ خانات على الأقل");return;}
+  const u=DB.users.find(x=>x.id===ME.id);u.pass=hash(p);
+  if(cloudAccounts()){cloudChangeOwnPassword(p,function(err){
+    if(err&&err!=="cancel")toast("تعذّر تحديث كلمة المرور سحابياً");else if(!err){save();toast("تم تغيير كلمة المرور");}
+  });}else{save();toast("تم تغيير كلمة المرور");}
+}
+
+/* ---------- طلبات الانضمام (تسجيل ذاتي بموافقة المدير) ---------- */
+function toggleJoin(){
+  const lf=$("#loginFields"),jf=$("#joinFields"),tg=$("#joinToggle"),lead=$("#loginLead");
+  const joining=jf.style.display==="none";
+  jf.style.display=joining?"block":"none";lf.style.display=joining?"none":"block";
+  tg.textContent=joining?"لديك حساب؟ عُد لتسجيل الدخول":"ليس لديك حساب؟ اطلب حساباً جديداً";
+  loginErr("");$("#loginOk").style.display="none";
+  if(lead)lead.textContent=joining?"أنشئ حساباً وانتظر موافقة المدير":"سجّل الدخول للمتابعة";
+}
+function submitJoinRequest(){
+  if(!cloudAccounts()){loginErr("التسجيل الذاتي متاح في النسخة السحابية فقط.");return;}
+  const name=($("#jn_name").value||"").trim(),u=($("#jn_user").value||"").trim(),p=$("#jn_pass").value||"";
+  if(!name||!u){loginErr("أدخل الاسم واسم المستخدم");return;}
+  if(p.length<6){loginErr("كلمة المرور يجب ألا تقل عن ٦ خانات");return;}
+  loginErr("");cloudInteractive=true;setCloudStatus("connecting");
+  const email=synthEmail(u);
+  firebase.auth().createUserWithEmailAndPassword(email,p).then(function(cred){
+    return firebase.database().ref("workspaces/"+cloudWid()+"/requests/"+cred.user.uid)
+      .set({name:name,username:u,ts:new Date().toISOString(),uid:cred.user.uid}).then(()=>firebase.auth().signOut());
+  }).then(function(){
+    $("#jn_name").value="";$("#jn_user").value="";$("#jn_pass").value="";
+    toggleJoin();setCloudStatus("auth");
+    const ok=$("#loginOk");ok.innerHTML="تم إرسال طلبك ✅ بانتظار موافقة المدير، ثم ادخل باسم المستخدم وكلمة المرور.";ok.style.display="block";
+  }).catch(function(e){
+    setCloudStatus("auth");
+    if(e&&e.code==="auth/email-already-in-use")loginErr("اسم المستخدم مستخدم بالفعل — اختر اسماً آخر أو سجّل الدخول.");
+    else if(e&&e.code==="auth/weak-password")loginErr("كلمة المرور ضعيفة — ٦ خانات على الأقل.");
+    else loginErr("تعذّر إرسال الطلب: "+((e&&e.message)||""));
+  });
+}
+function renderJoinRequests(){
+  const box=$("#joinReqBox");if(!box)return;
+  if(!cloudAccounts()||ME.role!=="admin"){box.innerHTML="";return;}
+  firebase.database().ref("workspaces/"+cloudWid()+"/requests").once("value").then(function(snap){
+    const v=snap.val()||{},keys=Object.keys(v);window.__joinReq=v;
+    if(!keys.length){box.innerHTML="";return;}
+    box.innerHTML=`<div class="card" style="margin-top:16px;border-color:var(--amber)"><div class="card-title" style="color:var(--amber)">🔔 طلبات انضمام بانتظار الموافقة (${keys.length})</div>
+      <div class="table-wrap"><table><thead><tr><th>الوقت</th><th>الاسم</th><th>اسم المستخدم</th><th></th></tr></thead>
+      <tbody>${keys.map(k=>{const r=v[k]||{};return `<tr><td>${esc(fmt(r.ts||""))}</td><td>${esc(r.name||"")}</td><td>${esc(r.username||"")}</td>
+        <td style="white-space:nowrap"><button class="btn green sm" onclick="approveJoin('${k}')">موافقة</button>
+        <button class="btn red sm" onclick="rejectJoin('${k}')">رفض</button></td></tr>`;}).join("")}</tbody></table></div></div>`;
+  }).catch(()=>{box.innerHTML="";});
+}
+function approveJoin(ruid){
+  if(!guard("employees"))return;
+  const r=(window.__joinReq||{})[ruid];if(!r){toast("حدّث القائمة وأعد المحاولة");return;}
+  if(DB.users.some(x=>(x.username||"").toLowerCase()===String(r.username).toLowerCase())){toast("اسم المستخدم مستخدم بالفعل");return;}
+  DB.users.push({id:nid("user"),name:r.name||r.username,username:r.username,pass:hash("cloud-"+ruid),
+    role:"employee",active:1,perms:preset("employee"),fbUid:ruid,lastLogin:""});
+  firebase.database().ref("workspaces/"+cloudWid()+"/members/"+ruid).set({username:r.username,role:"employee",active:1}).catch(()=>{});
+  firebase.database().ref("workspaces/"+cloudWid()+"/requests/"+ruid).remove().catch(()=>{});
+  logAct("قبول انضمام",(r.name||r.username));save();toast("تمت الموافقة — عدّل صلاحياته من الجدول");pEmployees();
+}
+function rejectJoin(ruid){
+  if(!guard("employees"))return;
+  const r=(window.__joinReq||{})[ruid];
+  if(!confirm("رفض الطلب وحذفه؟"))return;
+  firebase.database().ref("workspaces/"+cloudWid()+"/requests/"+ruid).remove().catch(()=>{});
+  logAct("رفض انضمام",r?(r.name||r.username):"");toast("تم رفض الطلب");renderJoinRequests();
+}
+
+/* ---------- تصدير CSV (يفتح في Excel) ---------- */
+function exportCSV(filename,headers,rows){
+  if(!guard("canExport"))return;
+  const esc2=v=>{v=String(v==null?"":v);return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;};
+  const csv=[headers.map(esc2).join(",")].concat(rows.map(r=>r.map(esc2).join(","))).join("\r\n");
+  const blob=new Blob(["﻿"+csv],{type:"text/csv;charset=utf-8"});
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=filename;a.click();
+  toast("تم التصدير");
 }
 
 /* ---------- نسخ احتياطي / استرجاع ---------- */
