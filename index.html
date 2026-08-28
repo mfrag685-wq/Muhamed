@@ -787,10 +787,12 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
       <div class="field"><label>التاريخ</label><input type="date" id="e_date"></div>
       <div class="field"><label>نوع المصروف وطريقة التوزيع</label><select id="e_type" onchange="onExpenseType()">
         <option value="shared">مشترك — توزيع تلقائي حسب الإعداد</option>
+        <option value="shared_ex">مشترك — تلقائي على كل الفروع عدا فرع مستثنى</option>
         <option value="direct">مباشر — يخص فرعاً واحداً</option>
         <option value="amounts">توزيع يدوي بمبلغ محدد لكل فرع</option>
         <option value="percents">توزيع يدوي بنسبة مئوية لكل فرع</option></select></div>
       <div class="field" id="e_clientWrap"><label>الفرع المستفيد</label><select id="e_client"></select></div>
+      <div class="field" id="e_exclWrap" style="display:none"><label>الفرع المستثنى من التوزيع</label><select id="e_exclClient"></select></div>
       <div class="field"><label>التصنيف</label><select id="e_cat">
         <option>إيجار</option><option>كهرباء ومياه</option><option>رواتب وأجور</option><option>نقل وشحن</option>
         <option>تعبئة وتغليف</option><option>أجولة وعبوات</option><option>صناديق وكراتين</option><option>مستلزمات إنتاج</option>
@@ -827,7 +829,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
     <div class="field"><label>إلى</label><input type="date" id="ef_to" onchange="renderExpenses()"></div>
     <div class="field"><label>النوع</label><select id="ef_type" onchange="renderExpenses()">
       <option value="">الكل</option><option value="direct">مباشر</option><option value="shared">مشترك تلقائي</option>
-      <option value="amounts">موزّع بمبالغ</option><option value="percents">موزّع بنسب</option></select></div>
+      <option value="shared_ex">مشترك باستثناء فرع</option><option value="amounts">موزّع بمبالغ</option><option value="percents">موزّع بنسب</option></select></div>
     <div class="field"><label>المورد المرتبط</label><select id="ef_supplier" onchange="renderExpenses()"></select></div>
     <div class="field"><label>التصنيف</label><select id="ef_cat" onchange="renderExpenses()">
       <option value="">كل التصنيفات</option><option>إيجار</option><option>كهرباء ومياه</option><option>رواتب وأجور</option>
@@ -1300,7 +1302,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-08-14-h';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-08-14-i';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -1905,6 +1907,7 @@ function fillAllSelects(){
   fillSelect('sf_item',opts(db.items,'id',itemLabel,'كل الأصناف'));
   fillSelect('sf_wh',opts(db.warehouses,'id',whTxt,'كل المستودعات'));
   fillSelect('e_client',opts(db.clients,'id',nm));
+  fillSelect('e_exclClient',opts(db.clients.filter(function(c){return isBranch(c.id);}),'id',nm,'— اختر الفرع المستثنى —'));
   fillSelect('e_supplier',opts(db.suppliers,'id',nm,'— نثرية / بدون مورد —'));
   fillDatalist('dl_eSup',db.suppliers);
   fillSelect('ef_supplier','<option value="">كل الموردين</option><option value="__none__">— نثرية / بدون مورد —</option>'
@@ -2367,6 +2370,7 @@ function editOpeningStock(id){
 function onExpenseType(){
   var t=val('e_type');
   document.getElementById('e_clientWrap').style.display=(t==='direct')?'flex':'none';
+  var ew=document.getElementById('e_exclWrap'); if(ew) ew.style.display=(t==='shared_ex')?'flex':'none';
   var box=document.getElementById('e_splitBox');
   var manual=(t==='amounts'||t==='percents');
   box.classList.toggle('hidden',!manual);
@@ -2416,8 +2420,10 @@ function saveExpense(){
     if(t==='percents'&&Math.abs(sum-100)>0.01){ toast('مجموع النسب يجب أن يساوي 100% — الحالي '+num(sum)+'%'); return; }
     if(t==='amounts'&&Math.abs(sum-a)>0.01){ toast('مجموع المبالغ الموزّعة '+num(sum)+' لا يساوي قيمة المصروف '+num(a)); return; }
   }
+  var exclId=null;
+  if(t==='shared_ex'){ exclId=+val('e_exclClient')||null; if(!exclId){ toast('اختر الفرع المستثنى من التوزيع'); return; } }
   var rec={id:editId.e||uid(),date:val('e_date'),type:t,clientId:(t==='direct'?+val('e_client'):null),
-    supplierId:(+val('e_supplier')||null),
+    exclClientId:exclId, supplierId:(+val('e_supplier')||null),
     cat:val('e_cat'),amount:a,desc:val('e_desc').trim(),splits:splits,
     amortUnit:amortUnit,amortCount:amortCount,uid:ME.id,ts:nowTs()};
   if(editId.e){ var i=db.expenses.findIndex(function(x){return x.id===editId.e;}); db.expenses[i]=rec; }
@@ -2436,6 +2442,7 @@ function editExpense(id){
   setVal('e_supplier',r.supplierId||''); onExpenseSupplier();
   setVal('e_amortUnit',r.amortUnit||'none'); setVal('e_amortCount',r.amortCount||''); onAmortChange();
   onExpenseType();
+  if(r.type==='shared_ex') setVal('e_exclClient',r.exclClientId||'');
   if(r.type==='direct') setVal('e_client',r.clientId);
   if(r.splits){ db.clients.forEach(function(c){ setVal('esp_'+c.id, r.splits[c.id]||''); }); updateSplitSummary(); }
   document.getElementById('e_editing').textContent='وضع التعديل'; showTab('expenses');
@@ -2858,7 +2865,7 @@ function consolidatedBalances(){
 function pnl(from,to){
   if(from===undefined) from=val('f_from'); if(to===undefined) to=val('f_to');
   var inP=function(d){ return (!from||d>=from)&&(!to||d<=to); };
-  var res={}, method=db.settings.alloc||'sales', pool=0;
+  var res={}, method=db.settings.alloc||'sales', pool=0, poolEx={};
   db.clients.forEach(function(c){ res[c.id]={rev:0,ret:0,cogs:0,waste:0,direct:0,shared:0,weight:0}; });
   db.sales.forEach(function(s){
     if(!inP(s.date)||!res[s.clientId]) return;
@@ -2890,26 +2897,35 @@ function pnl(from,to){
       });
       var left=amt-used; if(left>0.009) pool+=left;   /* حصة فرع محذوف تعود للمشترك */
     }
+    else if(x.type==='shared_ex'&&x.exclClientId){ var ex=+x.exclClientId; poolEx[ex]=(poolEx[ex]||0)+amt; }
     else pool+=amt;
   });
   db.clients.forEach(function(c){ var r=res[c.id];
     r.net_rev=r.rev-r.ret; r.gp=r.net_rev-r.cogs-r.waste; });
   /* المصروفات المشتركة تُوزَّع على الفروع فقط (عملاء لهم مستودع)؛ فإن لم يوجد فرع فعلى الكل */
-  var targets=db.clients.filter(function(c){return isBranch(c.id);});
-  if(!targets.length) targets=db.clients.slice();
-  var isT={},tRev=0,tGP=0,tW=0; targets.forEach(function(c){ isT[c.id]=1; var r=res[c.id];
-    tRev+=r.net_rev; tGP+=Math.max(0,r.gp); tW+=r.weight; });
-  var n=targets.length||1;
-  db.clients.forEach(function(c){
-    var r=res[c.id],share=0;
-    if(isT[c.id]){
-      if(method==='equal') share=1/n;
-      else if(method==='gp') share=tGP>0?Math.max(0,r.gp)/tGP:1/n;
-      else if(method==='weight') share=tW>0?r.weight/tW:1/n;
-      else share=tRev>0?r.net_rev/tRev:1/n;
-    }
-    r.shared+=pool*share; r.exp=r.direct+r.shared; r.net=r.gp-r.exp;
+  var branchTargets=db.clients.filter(function(c){return isBranch(c.id);});
+  if(!branchTargets.length) branchTargets=db.clients.slice();
+  /* موزِّع عام: يقسّم مبلغاً على مجموعة فروع حسب طريقة الإعداد (مبيعات/بالتساوي/ربح/وزن) */
+  function distributeShared(amount,list){
+    if(amount<=0||!list.length) return;
+    var tRev=0,tGP=0,tW=0; list.forEach(function(c){ var r=res[c.id]; tRev+=r.net_rev; tGP+=Math.max(0,r.gp); tW+=r.weight; });
+    var nn=list.length;
+    list.forEach(function(c){ var r=res[c.id],share;
+      if(method==='equal') share=1/nn;
+      else if(method==='gp') share=tGP>0?Math.max(0,r.gp)/tGP:1/nn;
+      else if(method==='weight') share=tW>0?r.weight/tW:1/nn;
+      else share=tRev>0?r.net_rev/tRev:1/nn;
+      r.shared+=amount*share;
+    });
+  }
+  distributeShared(pool,branchTargets);
+  /* المصروفات المشتركة مع استثناء فرع: تُوزَّع على بقية الفروع بنفس الطريقة */
+  Object.keys(poolEx).forEach(function(exId){
+    var ex=+exId, tg=branchTargets.filter(function(c){return c.id!==ex;});
+    if(!tg.length) tg=branchTargets;   /* لو استُثني الفرع الوحيد، يعود للكل تفادياً لضياع المبلغ */
+    distributeShared(poolEx[exId],tg);
   });
+  db.clients.forEach(function(c){ var r=res[c.id]; r.exp=r.direct+r.shared; r.net=r.gp-r.exp; });
   return {rows:res,pool:pool};
 }
 
@@ -5379,7 +5395,7 @@ function onPickUnit(p){
   if(p==='pl') calcLine('pl');
 }
 function expTypeLabel(t){
-  return t==='direct'?'مصروف مباشر':(t==='amounts'?'موزّع بمبالغ محددة':(t==='percents'?'موزّع بنسب مئوية':'مصروف مشترك'));
+  return t==='direct'?'مصروف مباشر':(t==='amounts'?'موزّع بمبالغ محددة':(t==='percents'?'موزّع بنسب مئوية':(t==='shared_ex'?'مشترك (باستثناء فرع)':'مصروف مشترك')));
 }
 function expTargetLabel(x){
   var base;
@@ -5388,6 +5404,7 @@ function expTargetLabel(x){
     var n=x.splits?Object.keys(x.splits).length:0;
     base='موزّع يدوياً على '+n+' فرع';
   }
+  else if(x.type==='shared_ex') base='كل الفروع عدا: '+(x.exclClientId?clientName(x.exclClientId):'—');
   else base='كل الفروع (تلقائي)';
   if(x.supplierId) base+=' • مورد: '+supName(x.supplierId);
   return base;
