@@ -673,6 +673,7 @@ function fixP(p) {
     currency: p.currency === "SAR" ? "SAR" : "USD",
     rate: p.rate ?? "",
     target: ["both", "c1", "c2"].includes(p.target) ? p.target : "both",
+    kind: p.kind === "freight" ? "freight" : "goods",
     method: p.method === "exchange" ? "exchange" : "bank",
     methodName: p.methodName || "",
     note: p.note || ""
@@ -687,7 +688,7 @@ function ledger(ships, pays, co, def, from, to) {
     dr: shSAR(s, def),
     cr: 0
   }));
-  const PE = pays.filter(p => (p.target === "both" || p.target === co) && ok(p.date)).map(p => ({
+  const PE = pays.filter(p => p.kind !== "freight" && (p.target === "both" || p.target === co) && ok(p.date)).map(p => ({
     date: p.date,
     kind: "pay",
     pay: p,
@@ -708,7 +709,7 @@ function summ(ships, pays, co, def) {
   const list = ships.filter(s => s.company === co);
   const cost = list.reduce((s, sh) => s + shSAR(sh, def), 0);
   const landed = list.reduce((s, sh) => s + shLandedSAR(sh, def), 0);
-  const paid = pays.filter(p => p.target === "both" || p.target === co).reduce((s, p) => s + pSAR(p, def), 0);
+  const paid = pays.filter(p => p.kind !== "freight" && (p.target === "both" || p.target === co)).reduce((s, p) => s + pSAR(p, def), 0);
   const items = list.reduce((s, sh) => s + sQ(sh), 0);
   return {
     count: list.length,
@@ -2967,6 +2968,7 @@ function Pays({
     currency: "USD",
     rate: "",
     target: "both",
+    kind: "goods",
     method: "bank",
     methodName: "",
     note: ""
@@ -3169,7 +3171,22 @@ function PayForm({
       fontSize: 14,
       marginBottom: 12
     }
-  }, "\u062A\u0633\u062C\u064A\u0644 \u062F\u0641\u0639\u0629"), /*#__PURE__*/React.createElement("div", {
+  }, "\u062A\u0633\u062C\u064A\u0644 \u062F\u0641\u0639\u0629"), /*#__PURE__*/React.createElement(Lbl, {
+    t: "\u0646\u0648\u0639 \u0627\u0644\u062F\u0641\u0639\u0629"
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 5,
+      flexWrap: "wrap",
+      marginTop: 3
+    }
+  }, /*#__PURE__*/React.createElement(Chip, {
+    active: f.kind !== "freight",
+    onClick: () => setF(p => ({ ...p, kind: "goods" }))
+  }, "\uD83D\uDED2 \u062F\u0641\u0639\u0629 \u0628\u0636\u0627\u0639\u0629"), /*#__PURE__*/React.createElement(Chip, {
+    active: f.kind === "freight",
+    onClick: () => setF(p => ({ ...p, kind: "freight" }))
+  }, "\uD83D\uDEA2 \u062F\u0641\u0639\u0629 \u0623\u062C\u0648\u0631 \u0634\u062D\u0646"))), /*#__PURE__*/React.createElement("div", {
     style: {
       display: "grid",
       gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))",
@@ -4608,6 +4625,8 @@ ReactDOM.createRoot(document.getElementById("app")).render(React.createElement(A
       field("اسم التطبيق (يظهر في الترويسة)",appTitle(),"title")+
       field("أيقونة النشاط — إيموجي (مثال: 🛏️ 🛋️ 🪑 🚪 🛒 🏭)",((window.__APPICON)||"🛏️"),"icon")+
       '<div style="height:1px;background:var(--border);margin:12px 0"></div>'+
+      field("💵 سعر صرف الدولار (كم ريالاً لكل 1$)",String(((window.__cfgGet&&window.__cfgGet("cfg-v3"))||{}).rate||"3.75"),"rate")+
+      '<div style="height:1px;background:var(--border);margin:12px 0"></div>'+
       field("اسم الشركة الأولى",c1.label||"الشركة الأولى","c1label")+
       field("الاختصار (يظهر في الجداول)",c1.short||"ش١","c1short")+
       field("اسم الشركة الثانية",c2.label||"الشركة الثانية","c2label")+
@@ -4624,6 +4643,7 @@ ReactDOM.createRoot(document.getElementById("app")).render(React.createElement(A
       setProfileName(AP,vals.pname);
       window.__cfgSet&&window.__cfgSet("cfg-title",vals.title||"دفتر الاستيراد");
       window.__cfgSet&&window.__cfgSet("cfg-icon",vals.icon||"🛏️");
+      var _r=parseFloat(vals.rate);if(isFinite(_r)&&_r>0){var _cfg=(window.__cfgGet&&window.__cfgGet("cfg-v3"))||{};_cfg.rate=_r;window.__cfgSet&&window.__cfgSet("cfg-v3",_cfg);}
       window.__cfgSet&&window.__cfgSet("cfg-names",{
         c1:{label:vals.c1label||"الشركة الأولى",short:vals.c1short||"ش١"},
         c2:{label:vals.c2label||"الشركة الثانية",short:vals.c2short||"ش٢"}
@@ -5210,7 +5230,16 @@ ReactDOM.createRoot(document.getElementById("app")).render(React.createElement(A
   function lsSet(k,v){try{localStorage.setItem(AP+"::"+k,JSON.stringify(v));}catch(e){}}
   function gRate(){var c=lsGet("cfg-v3")||{};return nv(c.rate)||3.75;}
   function ships(){var a=lsGet("ships-v4");return Array.isArray(a)?a:[];}
-  function fpays(){var a=lsGet(FKEY);return Array.isArray(a)?a:[];}
+  function fpaysLegacy(){var a=lsGet(FKEY);return Array.isArray(a)?a:[];}
+  function allPays(){var a=lsGet("pays-v3");return Array.isArray(a)?a:[];}
+  /* دفعات أجور الشحن الموحّدة: من مخزن الدفعات (نوع=أجور شحن) + القديمة */
+  function fpays(){
+    var out=allPays().filter(function(p){return p.kind==="freight";}).map(function(p){
+      return {id:p.id,date:p.date,amount:p.amount,currency:p.currency,rate:p.rate,bank:p.methodName,note:p.note,_v3:true};
+    });
+    fpaysLegacy().forEach(function(p){out.push(p);});
+    return out;
+  }
   function names(){var n=lsGet("cfg-names")||{};return {c1:(n.c1&&n.c1.label)||"الشركة الأولى",c2:(n.c2&&n.c2.label)||"الشركة الثانية"};}
   function coLabel(c){var n=names();return c==="c2"?n.c2:n.c1;}
   function toSAR(a,cur,rate){return cur==="SAR"?nv(a):nv(a)*(nv(rate)||gRate());}
@@ -5251,7 +5280,7 @@ ReactDOM.createRoot(document.getElementById("app")).render(React.createElement(A
     if(document.getElementById("ik-frt-ov"))return;
     var ov=el("div","position:fixed;inset:0;background:rgba(10,18,28,.55);z-index:5100;display:flex;align-items:center;justify-content:center;padding:14px;font-family:'Tajawal','Segoe UI',sans-serif");
     ov.id="ik-frt-ov";ov.setAttribute("dir","rtl");
-    var box=el("div","background:var(--surface-2,#fff);color:var(--text-primary,#1c2733);border:0.5px solid var(--border,#dbe2ea);border-radius:14px;padding:16px;width:100%;max-width:680px;max-height:88vh;overflow:auto;box-shadow:0 20px 50px rgba(0,0,0,.4)");
+    var box=el("div","background:var(--surface-2,#fff);color:var(--text-primary,#1c2733);border:0.5px solid var(--border,#dbe2ea);border-radius:14px;padding:18px 20px;width:100%;max-width:960px;height:92vh;overflow:auto;box-shadow:0 24px 60px rgba(0,0,0,.45)");
     ov.appendChild(box);document.body.appendChild(ov);
     ov.addEventListener("click",function(e){if(e.target===ov)ov.remove();});
     render(box);
@@ -5294,7 +5323,11 @@ ReactDOM.createRoot(document.getElementById("app")).render(React.createElement(A
     box.querySelector("#ik-frt-co").onchange=function(e){curFilter=e.target.value;render(box);};
     box.querySelector("#ik-frt-print").onclick=function(){printStatement(rows,totD,totC,bal);};
     var addB=box.querySelector("#ik-frt-add");if(addB)addB.onclick=function(){payForm(box);};
-    box.querySelectorAll("[data-del]").forEach(function(b){b.onclick=function(){var id=b.getAttribute("data-del");if(confirm("حذف هذه الدفعة؟")){lsSet(FKEY,fpays().filter(function(x){return x.id!==id;}));render(box);}};});
+    box.querySelectorAll("[data-del]").forEach(function(b){b.onclick=function(){var id=b.getAttribute("data-del");if(!confirm("حذف هذه الدفعة؟"))return;
+      var v3=allPays();var inV3=v3.some(function(x){return x.id===id;});
+      if(inV3){lsSet("pays-v3",v3.filter(function(x){return x.id!==id;}));flash("تم الحذف — جارٍ التحديث…");setTimeout(function(){location.reload();},500);}
+      else{lsSet(FKEY,fpaysLegacy().filter(function(x){return x.id!==id;}));render(box);}
+    };});
   }
   function card(label,val,color){return '<div style="background:var(--surface-1,#eef2f6);border:0.5px solid var(--border,#dbe2ea);border-radius:10px;padding:8px 10px"><div style="font-size:10px;color:var(--text-muted,#8593a6)">'+label+'</div><div style="font-size:14px;font-weight:700;color:'+color+'">'+val+'</div></div>';}
 
@@ -5317,10 +5350,11 @@ ReactDOM.createRoot(document.getElementById("app")).render(React.createElement(A
       if(amt<=0){err("أدخل مبلغاً صحيحاً");return;}
       var bank=box.querySelector("#ik-fp-bank").value.trim();
       if(!bank){err("أدخل اسم البنك");return;}
-      var p={id:uid(),date:box.querySelector("#ik-fp-date").value||today(),amount:String(amt),currency:box.querySelector("#ik-fp-cur").value,rate:box.querySelector("#ik-fp-rate")?box.querySelector("#ik-fp-rate").value:"",bank:bank,note:box.querySelector("#ik-fp-note").value.trim(),company:"all"};
-      var arr=fpays();arr.unshift(p);lsSet(FKEY,arr);
-      flash("تم تسجيل الدفعة ✓");
-      render(box);
+      // تُخزَّن في مخزن الدفعات الموحّد (نوع=أجور شحن) لتظهر في شاشة الدفعات أيضاً
+      var p={id:uid(),date:box.querySelector("#ik-fp-date").value||today(),amount:String(amt),currency:box.querySelector("#ik-fp-cur").value,rate:box.querySelector("#ik-fp-rate")?box.querySelector("#ik-fp-rate").value:"",target:"both",kind:"freight",method:"bank",methodName:bank,note:box.querySelector("#ik-fp-note").value.trim()};
+      var arr=allPays();arr.unshift(p);lsSet("pays-v3",arr);
+      flash("تم تسجيل الدفعة ✓ — جارٍ التحديث…");
+      setTimeout(function(){location.reload();},500);
     };
   }
 
