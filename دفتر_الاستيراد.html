@@ -5162,5 +5162,156 @@ ReactDOM.createRoot(document.getElementById("app")).render(React.createElement(A
 })();
 </script>
 
+
+<!-- ══════════════════════════════════════════════════════════════
+     كشف حساب أجور الشحن (حساب جارٍ: مدين/دائن) + دفعات بنكية للمورّد
+     ══════════════════════════════════════════════════════════════ -->
+<script>
+(function(){
+  var NAVY="#1a3a5c";
+  var AP=(window.__AP)||"p1";
+  var FKEY="pays-freight-v1";
+  function el(t,css,txt){var e=document.createElement(t);if(css)e.style.cssText=css;if(txt!=null)e.textContent=txt;return e;}
+  function esc(s){return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+  function nv(v){var x=parseFloat(v);return isFinite(x)?x:0;}
+  function lsGet(k){try{return JSON.parse(localStorage.getItem(AP+"::"+k));}catch(e){return null;}}
+  function lsSet(k,v){try{localStorage.setItem(AP+"::"+k,JSON.stringify(v));}catch(e){}}
+  function gRate(){var c=lsGet("cfg-v3")||{};return nv(c.rate)||3.75;}
+  function ships(){var a=lsGet("ships-v4");return Array.isArray(a)?a:[];}
+  function fpays(){var a=lsGet(FKEY);return Array.isArray(a)?a:[];}
+  function names(){var n=lsGet("cfg-names")||{};return {c1:(n.c1&&n.c1.label)||"الشركة الأولى",c2:(n.c2&&n.c2.label)||"الشركة الثانية"};}
+  function coLabel(c){var n=names();return c==="c2"?n.c2:n.c1;}
+  function toSAR(a,cur,rate){return cur==="SAR"?nv(a):nv(a)*(nv(rate)||gRate());}
+  function fmt(v){return nv(v).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});}
+  function today(){return new Date().toISOString().slice(0,10);}
+  function uid(){return Math.random().toString(36).slice(2,9)+Date.now().toString(36);}
+
+  /* أجور شحن الشحنة محوّلةً للريال */
+  function shipFreightSAR(sh){
+    var r=nv(sh.rate)||gRate(), cur=sh.currency;
+    function f(ex,exc){var c=(exc&&exc.freight)||cur;return toSAR(ex&&ex.freight,c,r);}
+    var tot=f(sh.extras,sh.extrasCur);
+    (sh.containers||[]).forEach(function(c){tot+=f(c.extras,c.extrasCur);});
+    return tot;
+  }
+  /* بناء قيود الكشف (مدين من الشحنات، دائن من الدفعات) مرتّبة بالتاريخ مع رصيد جارٍ */
+  function buildEntries(coFilter){
+    var rows=[];
+    ships().forEach(function(sh){
+      if(coFilter&&coFilter!=="all"&&sh.company!==coFilter)return;
+      var amt=shipFreightSAR(sh);
+      if(amt>0.005)rows.push({date:sh.date||"",t:"debit",amount:amt,label:"أجور شحن — شحنة "+(sh.num?"#"+sh.num:"")+" ("+coLabel(sh.company)+")"});
+    });
+    fpays().forEach(function(p){
+      if(coFilter&&coFilter!=="all"&&(p.company||"all")!=="all"&&p.company!==coFilter)return;
+      rows.push({date:p.date||"",t:"credit",amount:toSAR(p.amount,p.currency,nv(p.rate)),label:"دفعة بنكية"+(p.bank?(" — "+p.bank):"")+(p.note?(" — "+p.note):""),id:p.id});
+    });
+    rows.sort(function(a,b){return (a.date<b.date?-1:a.date>b.date?1:0);});
+    var run=0;
+    rows.forEach(function(r){run+=(r.t==="debit"?r.amount:-r.amount);r.bal=run;});
+    return rows;
+  }
+
+  function flash(msg,err){var t=el("div","position:fixed;bottom:60px;left:50%;transform:translateX(-50%);background:"+(err?"#c0402a":NAVY)+";color:#fff;padding:8px 20px;border-radius:20px;font-size:12px;z-index:5200;font-family:'Tajawal','Segoe UI',sans-serif;box-shadow:0 4px 12px rgba(15,30,50,.25)",msg);document.body.appendChild(t);setTimeout(function(){t.remove();},2600);}
+
+  var curFilter="all";
+  function openPanel(){
+    if(document.getElementById("ik-frt-ov"))return;
+    var ov=el("div","position:fixed;inset:0;background:rgba(10,18,28,.55);z-index:5100;display:flex;align-items:center;justify-content:center;padding:14px;font-family:'Tajawal','Segoe UI',sans-serif");
+    ov.id="ik-frt-ov";ov.setAttribute("dir","rtl");
+    var box=el("div","background:var(--surface-2,#fff);color:var(--text-primary,#1c2733);border:0.5px solid var(--border,#dbe2ea);border-radius:14px;padding:16px;width:100%;max-width:680px;max-height:88vh;overflow:auto;box-shadow:0 20px 50px rgba(0,0,0,.4)");
+    ov.appendChild(box);document.body.appendChild(ov);
+    ov.addEventListener("click",function(e){if(e.target===ov)ov.remove();});
+    render(box);
+  }
+  function render(box){
+    var rows=buildEntries(curFilter);
+    var totD=0,totC=0;rows.forEach(function(r){if(r.t==="debit")totD+=r.amount;else totC+=r.amount;});
+    var bal=totD-totC;
+    var canEdit=(window.__canEdit!==false);
+    var n=names();
+    var head='<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px">'+
+      '<div style="font-weight:700;font-size:15px;color:var(--text-accent,#1a3a5c)">🚢 كشف حساب أجور الشحن <span style="font-weight:400;font-size:11px;color:var(--text-muted,#8593a6)">— حساب جارٍ (بالريال)</span></div>'+
+      '<div style="display:flex;gap:6px;flex-wrap:wrap">'+
+      '<select id="ik-frt-co" style="border:0.5px solid var(--border-strong,#c3ccd8);background:var(--surface-0,#f4f6f9);color:var(--text-primary,#1c2733);border-radius:8px;padding:6px 8px;font-size:12px;font-family:inherit"><option value="all"'+(curFilter==="all"?" selected":"")+'>الكل</option><option value="c1"'+(curFilter==="c1"?" selected":"")+'>'+esc(n.c1)+'</option><option value="c2"'+(curFilter==="c2"?" selected":"")+'>'+esc(n.c2)+'</option></select>'+
+      (canEdit?'<button id="ik-frt-add" style="border:none;background:'+NAVY+';color:#fff;border-radius:8px;padding:6px 12px;font-size:12px;cursor:pointer;font-family:inherit">+ دفعة بنكية</button>':'')+
+      '<button id="ik-frt-print" style="border:0.5px solid var(--border-strong,#c3ccd8);background:var(--surface-2,#fff);color:var(--text-primary,#1c2733);border-radius:8px;padding:6px 12px;font-size:12px;cursor:pointer;font-family:inherit">🖨 طباعة</button>'+
+      '<button id="ik-frt-close" style="border:0.5px solid var(--border-strong,#c3ccd8);background:var(--surface-2,#fff);color:var(--text-secondary,#48566a);border-radius:8px;padding:6px 12px;font-size:12px;cursor:pointer;font-family:inherit">إغلاق</button>'+
+      '</div></div>';
+    var cards='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-bottom:12px">'+
+      card("إجمالي المصاريف (مدين)",fmt(totD)+" ر.س","#b5341f")+
+      card("إجمالي المدفوع (دائن)",fmt(totC)+" ر.س","#1f7a4d")+
+      card(bal>=0?"المتبقّي للمورّد":"رصيد لك",fmt(Math.abs(bal))+" ر.س",bal>=0?"#9a5b12":"#1f7a4d")+
+      '</div>';
+    var trs=rows.map(function(r){
+      return '<tr>'+
+        '<td style="white-space:nowrap;padding:5px 8px;border-bottom:0.5px solid var(--border,#dbe2ea);font-size:11px">'+esc(r.date)+'</td>'+
+        '<td style="padding:5px 8px;border-bottom:0.5px solid var(--border,#dbe2ea);font-size:11px">'+esc(r.label)+(r.id&&canEdit?' <button data-del="'+r.id+'" style="border:none;background:transparent;color:#b5341f;cursor:pointer;font-size:11px">✕</button>':'')+'</td>'+
+        '<td style="text-align:left;padding:5px 8px;border-bottom:0.5px solid var(--border,#dbe2ea);font-size:11px;color:#b5341f">'+(r.t==="debit"?fmt(r.amount):"")+'</td>'+
+        '<td style="text-align:left;padding:5px 8px;border-bottom:0.5px solid var(--border,#dbe2ea);font-size:11px;color:#1f7a4d">'+(r.t==="credit"?fmt(r.amount):"")+'</td>'+
+        '<td style="text-align:left;padding:5px 8px;border-bottom:0.5px solid var(--border,#dbe2ea);font-size:11px;font-weight:600">'+fmt(r.bal)+'</td>'+
+        '</tr>';
+    }).join("");
+    var table=rows.length?('<div style="border:0.5px solid var(--border,#dbe2ea);border-radius:10px;overflow:auto"><table style="width:100%;border-collapse:collapse">'+
+      '<thead><tr style="background:'+NAVY+';color:#fff"><th style="padding:6px 8px;font-size:10px;text-align:right">التاريخ</th><th style="padding:6px 8px;font-size:10px;text-align:right">البيان</th><th style="padding:6px 8px;font-size:10px;text-align:left">مدين</th><th style="padding:6px 8px;font-size:10px;text-align:left">دائن</th><th style="padding:6px 8px;font-size:10px;text-align:left">الرصيد</th></tr></thead>'+
+      '<tbody>'+trs+'</tbody>'+
+      '<tfoot><tr style="background:var(--surface-1,#eef2f6);font-weight:700"><td colspan="2" style="padding:6px 8px;font-size:11px">الإجمالي</td><td style="text-align:left;padding:6px 8px;font-size:11px;color:#b5341f">'+fmt(totD)+'</td><td style="text-align:left;padding:6px 8px;font-size:11px;color:#1f7a4d">'+fmt(totC)+'</td><td style="text-align:left;padding:6px 8px;font-size:11px">'+fmt(bal)+'</td></tr></tfoot>'+
+      '</table></div>'):'<div style="text-align:center;color:var(--text-muted,#8593a6);font-size:12px;padding:18px;border:1px dashed var(--border,#dbe2ea);border-radius:10px">لا توجد أجور شحن مسجّلة بعد. أضِف أجور الشحن في بيانات الشحنة، وسجّل دفعاتك البنكية هنا.</div>';
+    box.innerHTML=head+cards+table;
+    box.querySelector("#ik-frt-close").onclick=function(){document.getElementById("ik-frt-ov").remove();};
+    box.querySelector("#ik-frt-co").onchange=function(e){curFilter=e.target.value;render(box);};
+    box.querySelector("#ik-frt-print").onclick=function(){printStatement(rows,totD,totC,bal);};
+    var addB=box.querySelector("#ik-frt-add");if(addB)addB.onclick=function(){payForm(box);};
+    box.querySelectorAll("[data-del]").forEach(function(b){b.onclick=function(){var id=b.getAttribute("data-del");if(confirm("حذف هذه الدفعة؟")){lsSet(FKEY,fpays().filter(function(x){return x.id!==id;}));render(box);}};});
+  }
+  function card(label,val,color){return '<div style="background:var(--surface-1,#eef2f6);border:0.5px solid var(--border,#dbe2ea);border-radius:10px;padding:8px 10px"><div style="font-size:10px;color:var(--text-muted,#8593a6)">'+label+'</div><div style="font-size:14px;font-weight:700;color:'+color+'">'+val+'</div></div>';}
+
+  function payForm(box){
+    var inpCss="width:100%;padding:8px 10px;border:0.5px solid var(--border-strong,#c3ccd8);border-radius:8px;background:var(--surface-0,#f4f6f9);color:var(--text-primary,#1c2733);font-family:inherit;font-size:13px;box-sizing:border-box;margin-bottom:8px";
+    box.innerHTML='<div style="font-weight:700;font-size:15px;color:var(--text-accent,#1a3a5c);margin-bottom:12px">+ دفعة بنكية لمورّد الشحن</div>'+
+      '<div id="ik-fp-err" style="display:none;background:#fbeae6;color:#c0402a;border-radius:8px;padding:8px;font-size:12px;margin-bottom:8px"></div>'+
+      '<label style="font-size:11px;color:var(--text-secondary,#48566a)">التاريخ</label><input id="ik-fp-date" type="date" value="'+today()+'" style="'+inpCss+'">'+
+      '<label style="font-size:11px;color:var(--text-secondary,#48566a)">المبلغ</label><input id="ik-fp-amt" type="number" min="0" step="0.01" placeholder="0.00" style="'+inpCss+'">'+
+      '<label style="font-size:11px;color:var(--text-secondary,#48566a)">العملة</label><select id="ik-fp-cur" style="'+inpCss+'"><option value="SAR">ريال ر.س</option><option value="USD">دولار $</option></select>'+
+      '<div id="ik-fp-ratew" style="display:none"><label style="font-size:11px;color:var(--text-secondary,#48566a)">سعر الصرف (اختياري)</label><input id="ik-fp-rate" type="number" min="0" step="0.001" placeholder="'+gRate()+'" style="'+inpCss+'"></div>'+
+      '<label style="font-size:11px;color:var(--text-secondary,#48566a)">اسم البنك</label><input id="ik-fp-bank" placeholder="مثال: البنك الأهلي" style="'+inpCss+'">'+
+      '<label style="font-size:11px;color:var(--text-secondary,#48566a)">ملاحظة (اختياري)</label><input id="ik-fp-note" placeholder="مثال: دفعة مقابل شحنة #3" style="'+inpCss+'">'+
+      '<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:6px"><button id="ik-fp-cancel" style="border:0.5px solid var(--border-strong,#c3ccd8);background:var(--surface-2,#fff);color:var(--text-secondary,#48566a);border-radius:8px;padding:7px 16px;cursor:pointer;font-family:inherit;font-size:12px">رجوع</button><button id="ik-fp-save" style="border:none;background:'+NAVY+';color:#fff;border-radius:8px;padding:7px 18px;cursor:pointer;font-family:inherit;font-size:13px;font-weight:500">حفظ الدفعة</button></div>';
+    var errB=box.querySelector("#ik-fp-err");function err(m){errB.textContent=m;errB.style.display="block";}
+    box.querySelector("#ik-fp-cur").onchange=function(e){box.querySelector("#ik-fp-ratew").style.display=e.target.value==="USD"?"block":"none";};
+    box.querySelector("#ik-fp-cancel").onclick=function(){render(box);};
+    box.querySelector("#ik-fp-save").onclick=function(){
+      var amt=nv(box.querySelector("#ik-fp-amt").value);
+      if(amt<=0){err("أدخل مبلغاً صحيحاً");return;}
+      var bank=box.querySelector("#ik-fp-bank").value.trim();
+      if(!bank){err("أدخل اسم البنك");return;}
+      var p={id:uid(),date:box.querySelector("#ik-fp-date").value||today(),amount:String(amt),currency:box.querySelector("#ik-fp-cur").value,rate:box.querySelector("#ik-fp-rate")?box.querySelector("#ik-fp-rate").value:"",bank:bank,note:box.querySelector("#ik-fp-note").value.trim(),company:"all"};
+      var arr=fpays();arr.unshift(p);lsSet(FKEY,arr);
+      flash("تم تسجيل الدفعة ✓");
+      render(box);
+    };
+  }
+
+  function printStatement(rows,totD,totC,bal){
+    var t=(window.__APPTITLE)||"دفتر الاستيراد";
+    var body=rows.map(function(r){return '<tr><td>'+esc(r.date)+'</td><td>'+esc(r.label)+'</td><td class="l">'+(r.t==="debit"?fmt(r.amount):"")+'</td><td class="l">'+(r.t==="credit"?fmt(r.amount):"")+'</td><td class="l">'+fmt(r.bal)+'</td></tr>';}).join("");
+    var html='<!doctype html><html dir="rtl" lang="ar"><head><meta charset="utf-8"><title>كشف حساب أجور الشحن</title><style>body{font-family:Tajawal,Segoe UI,Tahoma,sans-serif;margin:22px;color:#1c2733}h1{font-size:17px;color:#1a3a5c;border-bottom:2px solid #1a3a5c;padding-bottom:5px}table{width:100%;border-collapse:collapse;margin-top:10px}th{background:#1a3a5c;color:#fff;padding:5px 7px;font-size:11px;text-align:right}td{border:0.5px solid #ccd;padding:4px 7px;font-size:11px}th.l,td.l{text-align:left}tfoot td{font-weight:700;background:#eef2f6}.s{margin:8px 0;font-size:12px}</style></head><body><h1>كشف حساب أجور الشحن — '+esc(t)+'</h1><div class="s">التاريخ: '+today()+' · المبالغ بالريال السعودي</div><div class="s">إجمالي المصاريف (مدين): <b>'+fmt(totD)+'</b> · إجمالي المدفوع (دائن): <b>'+fmt(totC)+'</b> · '+(bal>=0?"المتبقّي للمورّد":"رصيد لك")+': <b>'+fmt(Math.abs(bal))+'</b> ر.س</div><table><thead><tr><th>التاريخ</th><th>البيان</th><th class="l">مدين</th><th class="l">دائن</th><th class="l">الرصيد</th></tr></thead><tbody>'+body+'</tbody><tfoot><tr><td colspan="2">الإجمالي</td><td class="l">'+fmt(totD)+'</td><td class="l">'+fmt(totC)+'</td><td class="l">'+fmt(bal)+'</td></tr></tfoot></table></body></html>';
+    var ifr=document.createElement("iframe");ifr.style.cssText="position:fixed;width:0;height:0;border:0;visibility:hidden";document.body.appendChild(ifr);ifr.srcdoc=html;ifr.onload=function(){try{ifr.contentWindow.focus();ifr.contentWindow.print();}catch(e){}setTimeout(function(){ifr.remove();},60000);};
+  }
+
+  /* زر في شريط الأدوات */
+  function mount(){
+    var bar=document.getElementById("ik-tools-bar");
+    if(!bar){setTimeout(mount,300);return;}
+    if(document.getElementById("ik-frt-btn"))return;
+    var b=el("button","border:none;background:var(--text-accent,#1a3a5c);color:#fff;border-radius:8px;padding:7px 11px;font-size:12px;font-weight:500;cursor:pointer;font-family:'Tajawal','Segoe UI',sans-serif;box-shadow:0 2px 6px rgba(15,30,50,.25);white-space:nowrap","🚢 حساب الشحن");
+    b.id="ik-frt-btn";b.title="كشف حساب أجور الشحن (مدين/دائن)";
+    b.onclick=openPanel;
+    bar.appendChild(b);
+  }
+  if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",mount);else mount();
+})();
+</script>
+
 </body>
 </html>
