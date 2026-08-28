@@ -3321,11 +3321,43 @@ function Statement({
   const L2 = useMemo(() => ledger(ships, pays, "c2", rate, from, to), [ships, pays, rate, from, to]);
   return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     style: {
-      fontSize: 10,
-      color: "var(--text-muted)",
-      marginBottom: 8
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center",
+      flexWrap: "wrap",
+      gap: 8,
+      marginBottom: 10,
+      background: "var(--surface-2)",
+      border: "0.5px solid var(--border)",
+      borderRadius: 10,
+      padding: "9px 12px"
     }
-  }, "\u0645\u0644\u0627\u062D\u0638\u0629: \u0643\u0634\u0641 \u0627\u0644\u062D\u0633\u0627\u0628 \u0645\u0628\u0646\u064A \u0639\u0644\u0649 \u0642\u064A\u0645\u0629 \u0627\u0644\u0634\u0631\u0627\u0621 (FOB) \u0641\u0642\u0637 \u2014 \u0627\u0644\u0645\u0635\u0627\u0631\u064A\u0641 \u0627\u0644\u0625\u0636\u0627\u0641\u064A\u0629 \u062A\u0638\u0647\u0631 \u0641\u064A \u062A\u0642\u0631\u064A\u0631 \u0627\u0644\u062A\u0643\u0627\u0644\u064A\u0641 \u0627\u0644\u0634\u0627\u0645\u0644\u0629."), /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11,
+      color: "var(--text-secondary)"
+    }
+  }, /*#__PURE__*/React.createElement("b", {
+    style: {
+      color: "var(--text-accent)"
+    }
+  }, "\u0643\u0634\u0641 \u062D\u0633\u0627\u0628 \u0627\u0644\u0645\u0648\u0631\u0651\u062F \u2014 \u0627\u0644\u0628\u0636\u0627\u0626\u0639 \u0641\u0642\u0637"), " (\u0642\u064A\u0645\u0629 \u0627\u0644\u0634\u0631\u0627\u0621 FOB\u060C \u0644\u0627 \u064A\u0634\u0645\u0644 \u0627\u0644\u0645\u0635\u0627\u0631\u064A\u0641)."), /*#__PURE__*/React.createElement("button", {
+    onClick: () => {
+      if (window.__openFreight) window.__openFreight();
+    },
+    style: {
+      border: "none",
+      background: "var(--text-accent)",
+      color: "#fff",
+      borderRadius: 8,
+      padding: "7px 13px",
+      fontSize: 12,
+      fontWeight: 600,
+      cursor: "pointer",
+      fontFamily: F,
+      whiteSpace: "nowrap"
+    }
+  }, "\uD83D\uDEA2 \u0643\u0634\u0641 \u062D\u0633\u0627\u0628 \u0623\u062C\u0648\u0631 \u0627\u0644\u0634\u062D\u0646")), /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
       justifyContent: "space-between",
@@ -5299,17 +5331,8 @@ ReactDOM.createRoot(document.getElementById("app")).render(React.createElement(A
     var ifr=document.createElement("iframe");ifr.style.cssText="position:fixed;width:0;height:0;border:0;visibility:hidden";document.body.appendChild(ifr);ifr.srcdoc=html;ifr.onload=function(){try{ifr.contentWindow.focus();ifr.contentWindow.print();}catch(e){}setTimeout(function(){ifr.remove();},60000);};
   }
 
-  /* زر في شريط الأدوات */
-  function mount(){
-    var bar=document.getElementById("ik-tools-bar");
-    if(!bar){setTimeout(mount,300);return;}
-    if(document.getElementById("ik-frt-btn"))return;
-    var b=el("button","border:none;background:var(--text-accent,#1a3a5c);color:#fff;border-radius:8px;padding:7px 11px;font-size:12px;font-weight:500;cursor:pointer;font-family:'Tajawal','Segoe UI',sans-serif;box-shadow:0 2px 6px rgba(15,30,50,.25);white-space:nowrap","🚢 حساب الشحن");
-    b.id="ik-frt-btn";b.title="كشف حساب أجور الشحن (مدين/دائن)";
-    b.onclick=openPanel;
-    bar.appendChild(b);
-  }
-  if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",mount);else mount();
+  /* يُفتح من داخل تبويب «كشف الحساب» عبر الزر المدمج */
+  window.__openFreight=openPanel;
 })();
 </script>
 
