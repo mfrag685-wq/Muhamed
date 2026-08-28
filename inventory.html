@@ -856,6 +856,13 @@ function pReport(){
     <button class="btn ghost no-print" onclick="window.print()">🖨️ طباعة</button></div>
   <div class="card no-print">
     <div class="formgrid">
+      <div class="cell c4"><label>نوع التقرير</label><select id="rMode" onchange="renderReport()">
+        <option value="summary">ملخص لكل صنف</option>
+        <option value="detail">تفصيلي — كل الحركات (يومي)</option></select></div>
+      <div class="cell c4"><label>نوع الحركة</label><select id="rType" onchange="renderReport()">
+        <option value="">الوارد والمنصرف</option><option value="inbound">وارد فقط</option><option value="outbound">منصرف فقط</option><option value="adjustment">تسوية فقط</option></select></div>
+      <div class="cell c4"><label>الصنف</label><select id="rItem" onchange="renderReport()"><option value="">كل الأصناف</option>
+        ${citems().map(i=>`<option value="${i.id}">${esc(itemLabel(i))}</option>`).join("")}</select></div>
       <div class="cell c3"><label>من تاريخ</label><input id="rFrom" type="date" value="${monthStart()}"></div>
       <div class="cell c3"><label>إلى تاريخ</label><input id="rTo" type="date" value="${today()}"></div>
       <div class="cell c3"><label>الفئة</label><select id="rCat"><option value="">كل الفئات</option>
@@ -867,6 +874,7 @@ function pReport(){
   renderReport();
 }
 function renderReport(){
+  if(($("#rMode")&&$("#rMode").value)==="detail"){renderReportDetail();return;}
   const from=$("#rFrom").value,to=$("#rTo").value,cat=$("#rCat").value;
   const inRange=d=>(!from||d>=from)&&(!to||d<=to);
   const items=citems().filter(i=>!cat||i.category===cat);
@@ -896,6 +904,42 @@ function renderReport(){
         <td>${r.opening}</td><td style="color:var(--green);font-weight:700">${r.inb}</td>
         <td style="color:var(--amber);font-weight:700">${r.out}</td><td>${r.net}</td>
         <td style="font-weight:700">${r.closing}</td></tr>`).join("")||`<tr><td colspan="7" class="empty">لا حركات في هذه المدة.</td></tr>`}</tbody></table></div></div>`;
+}
+
+/* تقرير تفصيلي — كل الحركات يومياً */
+function renderReportDetail(){
+  const from=$("#rFrom").value,to=$("#rTo").value,ty=$("#rType").value,itemId=+($("#rItem").value)||0,cat=$("#rCat").value;
+  let rows=cmoves().filter(m=>(!from||m.date>=from)&&(!to||m.date<=to)&&(!ty||m.type===ty)&&(!itemId||m.itemId===itemId));
+  if(cat)rows=rows.filter(m=>{const it=DB.items.find(i=>i.id===m.itemId);return it&&it.category===cat;});
+  rows.sort((a,b)=>(a.date<b.date?-1:a.date>b.date?1:(a.id-b.id)));
+  const tIn=rows.filter(m=>isIn(m.type)).reduce((s,m)=>s+m.qty,0);
+  const tOut=rows.filter(m=>m.type==="outbound").reduce((s,m)=>s+m.qty,0);
+  const tVal=rows.reduce((s,m)=>s+m.qty*m.price,0);
+  window.__reportRows=rows.map(m=>{const it=DB.items.find(i=>i.id===m.itemId)||{};const sup=DB.suppliers.find(x=>x.id===m.supplierId);
+    return [m.date,m.model||itemModel(it),typeAr(m.type),isIn(m.type)?m.qty:0,m.type==="outbound"?m.qty:0,m.price,m.qty*m.price,m.type==="inbound"?(m.customs||""):(m.invoice||""),sup?sup.name:"",m.userName];});
+  // تجميع يومي
+  let body="",curDate=null,dIn=0,dOut=0,dVal=0;
+  const flush=()=>{if(curDate!==null)body+=`<tr style="background:#f1f5f9;font-weight:700"><td colspan="3">إجمالي ${esc(curDate)}</td>
+    <td style="color:var(--green)">${dIn}</td><td style="color:var(--amber)">${dOut}</td><td></td><td>${money(dVal)}</td><td colspan="3"></td></tr>`;};
+  rows.forEach(m=>{const it=DB.items.find(i=>i.id===m.itemId)||{};const sup=DB.suppliers.find(x=>x.id===m.supplierId);
+    if(m.date!==curDate){flush();curDate=m.date;dIn=0;dOut=0;dVal=0;}
+    const inq=isIn(m.type)?m.qty:0,outq=m.type==="outbound"?m.qty:0;dIn+=inq;dOut+=outq;dVal+=m.qty*m.price;
+    body+=`<tr><td>${esc(m.date)}</td><td>${esc(m.model||itemModel(it))}</td><td><span class="tag ${m.type}">${typeAr(m.type)}</span></td>
+      <td style="color:var(--green)">${inq||""}</td><td style="color:var(--amber)">${outq||""}</td><td>${money(m.price)}</td><td>${money(m.qty*m.price)}</td>
+      <td>${esc(m.type==="inbound"?(m.customs||""):(m.invoice||""))}</td><td>${esc(sup?sup.name:"")}</td><td>${esc(m.userName)}</td></tr>`;});
+  flush();
+  $("#reportOut").innerHTML=`
+    <div class="grid-3" style="margin-bottom:14px">
+      <div class="stat"><div class="lbl">إجمالي الوارد</div><div class="val" style="color:var(--green)">${tIn}</div></div>
+      <div class="stat"><div class="lbl">إجمالي المنصرف</div><div class="val" style="color:var(--amber)">${tOut}</div></div>
+      <div class="stat"><div class="lbl">إجمالي القيمة ﷼</div><div class="val sm">${money(tVal)}</div></div>
+    </div>
+    <div class="card"><div class="card-title" style="display:flex;justify-content:space-between;align-items:center">
+      <span>تفصيلي — من ${esc(from||"البداية")} إلى ${esc(to||"الآن")}</span>
+      <button class="btn ghost sm no-print" onclick="exportCSV('تقرير-تفصيلي.csv',['التاريخ','الموديل','النوع','وارد','منصرف','السعر','القيمة','فسح/فاتورة','المورد','الموظف'],window.__reportRows||[])">⬇ Excel</button></div>
+    <div class="table-wrap"><table><thead><tr><th>التاريخ</th><th>الموديل</th><th>النوع</th>
+      <th style="color:var(--green)">وارد</th><th style="color:var(--amber)">منصرف</th><th>السعر</th><th>القيمة</th><th>فسح/فاتورة</th><th>المورد</th><th>الموظف</th></tr></thead>
+      <tbody>${body||`<tr><td colspan="10" class="empty">لا حركات في هذه المدة.</td></tr>`}</tbody></table></div></div>`;
 }
 
 /* ============ 4) سجل حركة الصنف (مع فلترة بالتاريخ) ============ */
@@ -1124,12 +1168,40 @@ function pEmployees(){
         <b>مدير:</b> كل الصلاحيات · <b>مشرف:</b> تعديل/حذف الأصناف · <b>موظف:</b> تسجيل الحركات فقط.<br>
         زر <b>«حساب سحابي»</b> يفعّل دخول الموظف من أي جهاز بكلمة المرور التي تحددها له.</p></div>
     <div class="card"><div class="card-title">📝 سجل نشاط الموظفين</div>
+      <div class="formgrid" style="margin-bottom:10px">
+        <div class="cell c4"><label>الموظف</label><select id="acUser" onchange="renderActivity()"><option value="">كل الموظفين</option>
+          ${[...new Set(DB.activity.map(a=>a.userName).filter(Boolean))].map(n=>`<option>${esc(n)}</option>`).join("")}</select></div>
+        <div class="cell c4"><label>نوع العملية</label><select id="acAction" onchange="renderActivity()"><option value="">الكل</option>
+          ${[...new Set(DB.activity.map(a=>a.action).filter(Boolean))].map(n=>`<option>${esc(n)}</option>`).join("")}</select></div>
+        <div class="cell c2"><label>من</label><input id="acFrom" type="date" onchange="renderActivity()"></div>
+        <div class="cell c2"><label>إلى</label><input id="acTo" type="date" onchange="renderActivity()"></div>
+      </div>
       <div class="table-wrap"><table><thead><tr><th>الوقت</th><th>الموظف</th><th>العملية</th><th>التفاصيل</th></tr></thead>
-      <tbody>${DB.activity.slice(0,120).map(a=>`<tr><td>${fmt(a.at)}</td><td>${esc(a.userName)}</td><td>${esc(a.action)}</td><td>${esc(a.detail||"")}</td></tr>`).join("")||`<tr><td colspan="4" class="empty">—</td></tr>`}</tbody></table></div>
-      <button class="btn ghost sm" style="margin-top:10px" onclick="exportCSV('نشاط-الموظفين.csv',['الوقت','الموظف','العملية','التفاصيل'],DB.activity.map(a=>[fmt(a.at),a.userName,a.action,a.detail||'']))">⬇ تصدير السجل Excel</button></div>
+      <tbody id="acTbl"></tbody></table></div>
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <button class="btn ghost sm" onclick="exportActivity()">⬇ تصدير المعروض Excel</button>
+        ${canManage?`<button class="btn red sm" onclick="clearActivity()">🗑️ تفريغ السجل</button>`:""}</div></div>
   </div>
   <div id="joinReqBox"></div>`;
+  renderActivity();
   if(canManage)renderJoinRequests();
+}
+function filteredActivity(){
+  const u=$("#acUser")?.value||"",ac=$("#acAction")?.value||"",from=$("#acFrom")?.value||"",to=$("#acTo")?.value||"";
+  return DB.activity.filter(a=>{const d=(a.at||"").slice(0,10);
+    return (!u||a.userName===u)&&(!ac||a.action===ac)&&(!from||d>=from)&&(!to||d<=to);});
+}
+function renderActivity(){
+  const tb=$("#acTbl");if(!tb)return;
+  tb.innerHTML=filteredActivity().slice(0,300).map(a=>`<tr><td>${fmt(a.at)}</td><td>${esc(a.userName)}</td><td>${esc(a.action)}</td><td>${esc(a.detail||"")}</td></tr>`).join("")||`<tr><td colspan="4" class="empty">لا نتائج مطابقة.</td></tr>`;
+}
+function exportActivity(){
+  exportCSV("نشاط-الموظفين.csv",["الوقت","الموظف","العملية","التفاصيل"],filteredActivity().map(a=>[fmt(a.at),a.userName,a.action,a.detail||""]));
+}
+function clearActivity(){
+  if(ME.role!=="admin")return;
+  if(!confirm("تفريغ سجل النشاط بالكامل؟ لا يمكن التراجع."))return;
+  DB.activity=[];save();logAct("تفريغ السجل","");pEmployees();toast("تم تفريغ السجل");
 }
 function userForm(id){
   const u=id?DB.users.find(x=>x.id===id):{};
