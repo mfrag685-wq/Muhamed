@@ -229,7 +229,9 @@ function preset(role){
   else if(role==="employee"){["move","dashboard","report","ledger","canAdd"].forEach(k=>p[k]=true);}
   return p;
 }
-function can(k){return !!(ME&&ME.perms&&ME.perms[k]);}
+function can(k){if(!ME||!ME.perms)return false;const o=ME.coPerms&&ME.coPerms[CO];if(o&&o[k]!==undefined)return !!o[k];return !!ME.perms[k];}
+function allowedCompanies(){if(!ME)return DB.companies;const a=ME.companies;return (a&&a.length)?DB.companies.filter(c=>a.includes(c.id)):DB.companies;}
+function mayAccessCompany(id){if(!ME)return true;const a=ME.companies;return !a||!a.length||a.includes(id);}
 function guard(k,msg){if(can(k))return true;toast(msg||"لا تملك صلاحية لهذا الإجراء");return false;}
 function applyNav(){
   document.querySelectorAll(".navbtn").forEach(b=>b.classList.toggle("hidden",!can(b.dataset.page)));
@@ -297,12 +299,15 @@ function applyBrand(){
 }
 function companySwitchHtml(){
   if(!DB.companies)return"";
-  const opts=DB.companies.map(c=>`<option value="${c.id}" ${c.id===CO?"selected":""}>${esc((c.icon||"")+" "+c.name)}</option>`).join("");
+  const list=allowedCompanies();
+  const opts=list.map(c=>`<option value="${c.id}" ${c.id===CO?"selected":""}>${esc((c.icon||"")+" "+c.name)}</option>`).join("");
+  if(list.length<=1&&!(ME&&ME.role==="admin"))return `<div style="color:#94a3b8;font-size:12px">${esc(list[0]?((list[0].icon||"")+" "+list[0].name):"")}</div>`;
   return `<select onchange="switchCompany(this.value)" style="padding:8px;border-radius:8px">${opts}
     ${ME&&ME.role==="admin"?`<option value="__new">➕ شركة جديدة…</option>`:""}</select>`;
 }
 function switchCompany(v){
   if(v==="__new"){addCompany();applyBrand();return;}
+  if(!mayAccessCompany(+v)){toast("لا تملك صلاحية لهذه الشركة");applyBrand();return;}
   CO=+v;try{localStorage.setItem("inv_company",String(CO));}catch(e){}
   applyBrand();go(CURRENT_PAGE);
 }
@@ -338,6 +343,7 @@ function doLogin(){
 function startApp(){
   $("#login").style.display="none";$("#app").style.display="block";
   $("#who").textContent=`${ME.name} · ${roleAr(ME.role)}`;
+  if(!mayAccessCompany(CO)){const a=allowedCompanies();if(a[0])CO=a[0].id;}
   applyBrand();applyNav();
   document.querySelectorAll(".navbtn").forEach(b=>b.onclick=()=>go(b.dataset.page));
   const first=(PERM_KEYS.map(k=>k[0]).find(k=>["move","dashboard","report","ledger","items","import","employees","settings"].includes(k)&&can(k)))||"move";
@@ -574,8 +580,8 @@ function pMove(){
       <div class="cell c5 ac-wrap"><label>الصنف / الموديل</label>
         <input id="mCode" placeholder="ابحث بالموديل أو الاسم..." autocomplete="off" oninput="acItems(this.value)">
         <div class="ac-list" id="mAc"></div></div>
-      <div class="cell c2"><label>الكمية</label><input id="mQty" type="number" min="0" step="1" placeholder="1"></div>
-      <div class="cell c3" id="wrapPrice"><label id="lblPrice">السعر ﷼</label><input id="mPrice" type="number" step="0.01" placeholder="0.00"></div>
+      <div class="cell c2"><label>الكمية</label><input id="mQty" type="number" inputmode="numeric" min="0" step="1" placeholder="1"></div>
+      <div class="cell c3" id="wrapPrice"><label id="lblPrice">السعر ﷼</label><input id="mPrice" type="number" inputmode="decimal" step="0.01" placeholder="0.00"></div>
       <div class="cell c2"><label>التاريخ</label><input id="mDate" type="date" value="${today()}"></div>
     </div>
 
@@ -591,7 +597,7 @@ function pMove(){
     <div id="rowOut" style="margin-top:6px">
       <div class="formgrid">
         <div class="cell c3"><label>رقم فاتورة البيع</label><input id="mInvoice" placeholder="رقم الفاتورة"></div>
-        <div class="cell c3"><label>العمولة ﷼ (لكامل الفاتورة)</label><input id="mComm" type="number" step="0.01" placeholder="0.00"></div>
+        <div class="cell c3"><label>العمولة ﷼ (لكامل الفاتورة)</label><input id="mComm" type="number" inputmode="decimal" step="0.01" placeholder="0.00"></div>
         <div class="cell c3"><label>العنوان</label><input id="mAddress" placeholder="العنوان"></div>
         <div class="cell c3"><label>ملاحظات</label><input id="mNoteOut" placeholder="ملاحظة"></div>
       </div>
@@ -709,8 +715,49 @@ function renderRecent(){
       <td style="font-weight:700;color:${isIn(m.type)?'var(--green)':'var(--amber)'}">${isIn(m.type)?"+":"−"}${m.qty}</td>
       <td>${m.balAfter??"—"}</td><td>${esc(m.type==="inbound"?(m.customs||""):(m.invoice||""))}</td>
       <td>${esc(sup?sup.name:"")}</td><td>${esc(m.userName)}</td>
-      <td><button class="btn ghost sm" onclick="printReceipt(${m.id})">🖨️</button></td></tr>`;}).join("")
+      <td style="white-space:nowrap"><button class="btn ghost sm" onclick="printReceipt(${m.id})">🖨️</button>
+        ${can("canEdit")?`<button class="btn blue sm" onclick="editMovement(${m.id})">تعديل</button>`:""}
+        ${can("canDelete")?`<button class="btn red sm" onclick="delMovement(${m.id})">حذف</button>`:""}</td></tr>`;}).join("")
     ||`<tr><td colspan="9" class="empty">لا حركات.</td></tr>`;
+}
+/* تعديل/حذف حركة (بصلاحية) — يعيد ضبط الرصيد بدقة */
+function delMovement(id){
+  if(!guard("canDelete"))return;
+  const m=DB.movements.find(x=>x.id===id);if(!m)return;
+  const it=DB.items.find(i=>i.id===m.itemId);
+  if(!confirm(`حذف هذه الحركة (${typeAr(m.type)} كمية ${m.qty})؟ سيُعاد ضبط الرصيد.`))return;
+  if(it)it.qty+=isIn(m.type)?-m.qty:m.qty;   // عكس أثر الحركة
+  DB.movements=DB.movements.filter(x=>x.id!==id);
+  logAct("حذف حركة",`${m.model||""} ${typeAr(m.type)} كمية ${m.qty}`);save();
+  toast("تم حذف الحركة وإرجاع الرصيد");renderRecent();
+}
+function editMovement(id){
+  if(!guard("canEdit"))return;
+  const m=DB.movements.find(x=>x.id===id);if(!m)return;const it=DB.items.find(i=>i.id===m.itemId)||{};
+  const el=document.createElement("div");el.className="modal";
+  el.innerHTML=`<div class="box"><h3>تعديل حركة — ${esc(m.model||itemModel(it))} (${typeAr(m.type)})</h3>
+    <div class="row"><div class="field"><label>الكمية</label><input id="em_qty" type="number" inputmode="numeric" value="${m.qty}"></div>
+      <div class="field"><label>السعر ﷼</label><input id="em_price" type="number" inputmode="decimal" step="0.01" value="${m.price||0}"></div></div>
+    <div class="row"><div class="field"><label>التاريخ</label><input id="em_date" type="date" value="${esc(m.date||today())}"></div>
+      <div class="field"><label>${m.type==="inbound"?"رقم الفسح":"رقم الفاتورة"}</label><input id="em_ref" value="${esc(m.type==="inbound"?(m.customs||""):(m.invoice||""))}"></div></div>
+    <div class="field" style="margin-bottom:10px"><label>ملاحظة</label><input id="em_note" value="${esc(m.note||"")}"></div>
+    <div id="em_msg" style="color:var(--red);font-size:13px;margin-bottom:8px"></div>
+    <div style="display:flex;gap:8px"><button class="btn green" onclick="saveMovement(${id})">حفظ</button>
+      <button class="btn gray" onclick="this.closest('.modal').remove()">إلغاء</button></div></div>`;
+  document.body.appendChild(el);
+}
+function saveMovement(id){
+  const m=DB.movements.find(x=>x.id===id);if(!m)return;const it=DB.items.find(i=>i.id===m.itemId);
+  const nq=parseFloat($("#em_qty").value);if(!nq||nq<=0){$("#em_msg").textContent="أدخل كمية صحيحة.";return;}
+  // عكس القديم ثم تطبيق الجديد مع تحقّق الرصيد
+  let base=it?it.qty:0;base+=isIn(m.type)?-m.qty:m.qty;
+  if(m.type==="outbound"&&nq>base){$("#em_msg").textContent=`الرصيد غير كافٍ (المتاح ${base}).`;return;}
+  if(it)it.qty=base+(isIn(m.type)?nq:-nq);
+  m.qty=nq;m.price=parseFloat($("#em_price").value)||0;m.date=$("#em_date").value||m.date;m.note=$("#em_note").value||"";
+  const ref=$("#em_ref").value||"";if(m.type==="inbound")m.customs=ref;else m.invoice=ref;
+  m.balAfter=it?it.qty:m.balAfter;m.editedBy=ME.name;m.editedAt=new Date().toISOString();
+  logAct("تعديل حركة",`${m.model||""} كمية ${nq}`);save();
+  document.querySelector(".modal").remove();toast("تم تعديل الحركة");renderRecent();if($("#lTbl"))renderLedger();
 }
 /* ---------- استرجاع الفاتورة برقمها ---------- */
 function lookupInvoice(){
@@ -867,12 +914,12 @@ function pLedger(){
     </div>
     <div id="lSummary"></div>
     <div class="table-wrap"><table><thead><tr><th>التاريخ</th><th>النوع</th><th>الكمية</th><th>الرصيد بعدها</th>
-      <th>الموديل</th><th>رقم الفسح</th><th>الفاتورة</th><th>المورد</th><th>الموظف</th><th>ملاحظة</th></tr></thead>
-      <tbody id="lTbl"><tr><td colspan="10" class="empty">اختر صنفاً.</td></tr></tbody></table></div></div>`;
+      <th>الموديل</th><th>رقم الفسح</th><th>الفاتورة</th><th>المورد</th><th>الموظف</th><th>ملاحظة</th><th></th></tr></thead>
+      <tbody id="lTbl"><tr><td colspan="11" class="empty">اختر صنفاً.</td></tr></tbody></table></div></div>`;
 }
 function renderLedger(){
   const id=+$("#lItem").value;const tb=$("#lTbl"),sum=$("#lSummary");
-  if(!id){tb.innerHTML=`<tr><td colspan="10" class="empty">اختر صنفاً.</td></tr>`;sum.innerHTML="";return;}
+  if(!id){tb.innerHTML=`<tr><td colspan="11" class="empty">اختر صنفاً.</td></tr>`;sum.innerHTML="";return;}
   const from=$("#lFrom").value,to=$("#lTo").value,ty=$("#lType").value;
   const it=DB.items.find(i=>i.id===id);
   let rows=DB.movements.filter(m=>m.itemId===id);
@@ -889,8 +936,10 @@ function renderLedger(){
     return `<tr><td>${fmt(m.at)}</td><td><span class="tag ${m.type}">${typeAr(m.type)}</span></td>
       <td style="font-weight:700;color:${isIn(m.type)?'var(--green)':'var(--amber)'}">${isIn(m.type)?"+":"−"}${m.qty}</td>
       <td>${m.balAfter??"—"}</td><td>${esc(m.model||it.model||"")}</td><td>${esc(m.customs||"")}</td>
-      <td>${esc(m.invoice||"")}</td><td>${esc(sup?sup.name:"")}</td><td>${esc(m.userName)}</td><td>${esc(m.note||"")}</td></tr>`;}).join("")
-    ||`<tr><td colspan="10" class="empty">لا حركات مطابقة.</td></tr>`;
+      <td>${esc(m.invoice||"")}</td><td>${esc(sup?sup.name:"")}</td><td>${esc(m.userName)}</td><td>${esc(m.note||"")}</td>
+      <td style="white-space:nowrap">${can("canEdit")?`<button class="btn blue sm" onclick="editMovement(${m.id});return false">تعديل</button>`:""}
+        ${can("canDelete")?`<button class="btn red sm" onclick="if(delMovement(${m.id})!==false)renderLedger()">حذف</button>`:""}</td></tr>`;}).join("")
+    ||`<tr><td colspan="11" class="empty">لا حركات مطابقة.</td></tr>`;
 }
 function exportLedger(id){
   const it=DB.items.find(i=>i.id===id);if(!it)return;
@@ -935,14 +984,16 @@ function itemForm(id){
       <div class="field"><label>وصف إضافي (اختياري)</label><input id="f_name" value="${esc(it.name&&it.name!==itemModel(it)?it.name:"")}"></div></div>
     <div class="row"><div class="field"><label>الفئة</label><input id="f_cat" value="${esc(it.category||"")}"></div>
       <div class="field"><label>الوحدة</label><input id="f_unit" value="${esc(it.unit||"قطعة")}"></div></div>
-    <div class="row"><div class="field"><label>حد إعادة الطلب</label><input id="f_reorder" type="number" value="${it.reorder||0}"></div>
-      <div class="field"><label>سعر البيع (اختياري)</label><input id="f_price" type="number" step="0.01" value="${it.price||0}"></div></div>
-    ${id?"":`<div class="row"><div class="field"><label>الرصيد الافتتاحي (يمكن أن يكون صفراً)</label><input id="f_qty" type="number" value="0"></div>
-      <div class="field"><label>سعر التكلفة (اختياري)</label><input id="f_cost" type="number" step="0.01" value="0"></div></div>`}
+    <div class="row"><div class="field"><label>حد إعادة الطلب</label><input id="f_reorder" type="number" inputmode="numeric" value="${it.reorder||0}"></div>
+      <div class="field"><label>سعر البيع (اختياري)</label><input id="f_price" type="number" inputmode="decimal" step="0.01" value="${it.price||0}"></div></div>
+    ${id?`<div class="row"><div class="field"><label>الرصيد الافتتاحي (قابل للتعديل)</label><input id="f_qty" type="number" inputmode="numeric" value="${it.qty||0}"></div>
+      <div class="field"></div></div>`
+      :`<div class="row"><div class="field"><label>الرصيد الافتتاحي (يمكن أن يكون صفراً)</label><input id="f_qty" type="number" inputmode="numeric" value="0"></div>
+      <div class="field"><label>سعر التكلفة (اختياري)</label><input id="f_cost" type="number" inputmode="decimal" step="0.01" value="0"></div></div>`}
     <div id="f_msg" style="color:var(--red);font-size:13px;margin-bottom:8px"></div>
     <div style="display:flex;gap:8px"><button class="btn green" onclick="saveItem(${id||0})">حفظ</button>
       <button class="btn gray" onclick="this.closest('.modal').remove()">إلغاء</button></div>
-    ${id?`<p style="font-size:12px;color:var(--muted);margin-top:10px">الرصيد يُعدَّل عبر «تسجيل حركة» فقط للحفاظ على دقة السجل.</p>`:""}</div>`;
+    ${id?`<p style="font-size:12px;color:var(--muted);margin-top:10px">تعديل الرصيد الافتتاحي يسجّل حركة تسوية تلقائية للحفاظ على دقة السجل.</p>`:""}</div>`;
   document.body.appendChild(m);
 }
 function saveItem(id){
@@ -951,7 +1002,11 @@ function saveItem(id){
   if(citems().some(i=>(itemModel(i).toLowerCase()===code.toLowerCase())&&i.id!==id)){$("#f_msg").textContent="هذا الموديل مسجّل مسبقاً.";return;}
   const data={code,model:code,name:name||code,category:g("f_cat"),unit:g("f_unit")||"قطعة",
     price:parseFloat(g("f_price"))||0,reorder:parseFloat(g("f_reorder"))||0};
-  if(id){Object.assign(DB.items.find(i=>i.id===id),data);logAct("تعديل موديل",code);}
+  if(id){const it=DB.items.find(i=>i.id===id);Object.assign(it,data);
+    const nq=parseFloat(g("f_qty"));
+    if(!isNaN(nq)&&nq!==it.qty){const diff=nq-it.qty;it.qty=nq;
+      DB.movements.unshift({id:nid("movement"),companyId:CO,itemId:it.id,type:diff>0?"inbound":"outbound",qty:Math.abs(diff),price:0,comm:0,model:code,invoice:"",invGid:"",address:"",supplierId:null,customs:"",date:today(),note:"تعديل الرصيد الافتتاحي",balAfter:it.qty,userId:ME.id,userName:ME.name,at:new Date().toISOString()});}
+    logAct("تعديل موديل",code);}
   else{const q=parseFloat(g("f_qty"))||0;const cost=parseFloat(g("f_cost"))||0;
     const it={id:nid("item"),companyId:CO,qty:q,cost,active:true,...data};DB.items.push(it);
     if(q>0)DB.movements.unshift({id:nid("movement"),companyId:CO,itemId:it.id,type:"inbound",qty:q,price:cost,comm:0,model:code,invoice:"",invGid:"",address:"",supplierId:null,customs:"",date:today(),note:"رصيد افتتاحي",balAfter:q,userId:ME.id,userName:ME.name,at:new Date().toISOString()});
@@ -1091,9 +1146,21 @@ function userForm(id){
           <option value="0" ${Number(u.active)===0?"selected":""}>موقوف</option></select></div></div>
     <div class="field" style="margin-bottom:12px"><label>${id?"كلمة مرور جديدة (اتركها فارغة لإبقائها)":"كلمة المرور *"}</label>
       <input id="u_pass" type="text" placeholder="٦ خانات على الأقل"></div>
-    <label>الصلاحيات (يمكن تخصيصها لكل موظف) <button type="button" class="details-toggle" onclick="fillPreset()">↺ حسب الدور</button></label>
+    <label>الشركات المسموح بها (اترك الكل فارغاً = جميع الشركات)</label>
+    <div class="permgrid" id="u_cos">
+      ${DB.companies.map(c=>`<label><input type="checkbox" data-co="${c.id}" ${(u.companies&&u.companies.includes(c.id))?"checked":""}> ${esc((c.icon||"")+" "+c.name)}</label>`).join("")}
+    </div>
+    <label>الصلاحيات الأساسية <button type="button" class="details-toggle" onclick="fillPreset()">↺ حسب الدور</button></label>
     <div class="permgrid" id="u_perms">
       ${PERM_KEYS.map(k=>`<label><input type="checkbox" data-perm="${k[0]}" ${(id?(u.perms&&u.perms[k[0]]):preset("employee")[k[0]])?"checked":""}> ${k[1]}</label>`).join("")}
+    </div>
+    <label style="margin-top:4px">صلاحيات خاصة بشركة معيّنة (اختياري) — فعّل الشركة لتخصيص صلاحياتها</label>
+    <div id="u_coperms">
+      ${DB.companies.map(c=>{const ov=u.coPerms&&u.coPerms[c.id];return `<div style="border:1px solid var(--line);border-radius:9px;padding:8px;margin-bottom:6px">
+        <label style="font-weight:700"><input type="checkbox" data-copen="${c.id}" ${ov?"checked":""} onchange="this.closest('div').querySelector('.cogrid').style.display=this.checked?'grid':'none'"> صلاحيات مختلفة لـ «${esc(c.name)}»</label>
+        <div class="permgrid cogrid" data-co="${c.id}" style="display:${ov?"grid":"none"};margin-top:6px">
+          ${PERM_KEYS.map(k=>`<label><input type="checkbox" data-cok="${c.id}:${k[0]}" ${(ov&&ov[k[0]])?"checked":""}> ${k[1]}</label>`).join("")}
+        </div></div>`;}).join("")}
     </div>
     <div id="u_msg" style="color:var(--red);font-size:13px;margin-bottom:8px"></div>
     <div style="display:flex;gap:8px"><button class="btn green" onclick="saveUser(${id||0})">حفظ</button>
@@ -1110,9 +1177,13 @@ function saveUser(id){
   if(!id&&(!pass||pass.length<6)){$("#u_msg").textContent="كلمة المرور مطلوبة (٦ خانات على الأقل).";return;}
   if(pass&&pass.length<6){$("#u_msg").textContent="كلمة المرور يجب ألا تقل عن ٦ خانات.";return;}
   const perms={};document.querySelectorAll("#u_perms input[data-perm]").forEach(c=>perms[c.dataset.perm]=c.checked);
-  if(id){const u=DB.users.find(x=>x.id===id);u.name=name;u.role=role;u.username=username;u.active=active;u.perms=perms;
+  const companies=[];document.querySelectorAll("#u_cos input[data-co]").forEach(c=>{if(c.checked)companies.push(+c.dataset.co);});
+  const coPerms={};document.querySelectorAll("#u_coperms input[data-copen]").forEach(op=>{
+    if(!op.checked)return;const cid=+op.dataset.copen;const o={};
+    document.querySelectorAll(`#u_coperms input[data-cok^="${cid}:"]`).forEach(c=>{o[c.dataset.cok.split(":")[1]]=c.checked;});coPerms[cid]=o;});
+  if(id){const u=DB.users.find(x=>x.id===id);u.name=name;u.role=role;u.username=username;u.active=active;u.perms=perms;u.companies=companies;u.coPerms=coPerms;
     if(pass)u.pass=hash(pass);logAct("تعديل مستخدم",name);}
-  else{DB.users.push({id:nid("user"),name,username,pass:hash(pass),role,active,perms,fbUid:"",lastLogin:""});logAct("إضافة مستخدم",name);}
+  else{DB.users.push({id:nid("user"),name,username,pass:hash(pass),role,active,perms,companies,coPerms,fbUid:"",lastLogin:""});logAct("إضافة مستخدم",name);}
   save();document.querySelector(".modal").remove();pEmployees();
 }
 function fillPreset(){
