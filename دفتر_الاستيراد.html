@@ -5255,13 +5255,28 @@ ReactDOM.createRoot(document.getElementById("app")).render(React.createElement(A
     (sh.containers||[]).forEach(function(c){tot+=f(c.extras,c.extrasCur);});
     return tot;
   }
+  /* أجور شحن الشحنة مجمّعةً حسب العملة الأصلية {USD,SAR} — لعرض المبلغ كما أُدخل */
+  function shipFreightByCur(sh){
+    var cur=sh.currency, out={USD:0,SAR:0};
+    function f(ex,exc){var c=(exc&&exc.freight)||cur||"SAR",a=nv(ex&&ex.freight);if(!a)return;out[c==="USD"?"USD":"SAR"]+=a;}
+    f(sh.extras,sh.extrasCur);
+    (sh.containers||[]).forEach(function(c){f(c.extras,c.extrasCur);});
+    return out;
+  }
+  /* وصف مبلغ الشحن بالعملة الأصلية (مثال: $15,000 أو $15,000 + 500 ر.س) */
+  function freightOrigLabel(sh){
+    var b=shipFreightByCur(sh),parts=[];
+    if(b.USD>0.005)parts.push("$"+fmt(b.USD));
+    if(b.SAR>0.005)parts.push(fmt(b.SAR)+" ر.س");
+    return parts.join(" + ");
+  }
   /* بناء قيود الكشف (مدين من الشحنات، دائن من الدفعات) مرتّبة بالتاريخ مع رصيد جارٍ */
   function buildEntries(coFilter){
     var rows=[];
     ships().forEach(function(sh){
       if(coFilter&&coFilter!=="all"&&sh.company!==coFilter)return;
       var amt=shipFreightSAR(sh);
-      if(amt>0.005)rows.push({date:sh.date||"",t:"debit",amount:amt,label:"أجور شحن — شحنة "+(sh.num?"#"+sh.num:"")+" ("+coLabel(sh.company)+")"});
+      if(amt>0.005){var orig=freightOrigLabel(sh);rows.push({date:sh.date||"",t:"debit",amount:amt,label:"أجور شحن — شحنة "+(sh.num?"#"+sh.num:"")+" ("+coLabel(sh.company)+")"+(orig?" — "+orig:"")});}
     });
     fpays().forEach(function(p){
       if(coFilter&&coFilter!=="all"&&(p.company||"all")!=="all"&&p.company!==coFilter)return;
