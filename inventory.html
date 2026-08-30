@@ -220,6 +220,8 @@ function hash(str){let h=5381;str=String(str);for(let i=0;i<str.length;i++)h=((h
 
 /* ---------- تنبيهات ---------- */
 function toast(m){let t=$("#toast");if(!t)return;t.textContent=m;t.classList.add("show");clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove("show"),2600);}
+/* الحفاظ على موضع التمرير بعد إعادة بناء الشاشة */
+function keepScroll(){const y=window.scrollY||document.documentElement.scrollTop||0;requestAnimationFrame(()=>{window.scrollTo(0,y);setTimeout(()=>window.scrollTo(0,y),40);});}
 
 /* ---------- الصلاحيات (مقتبَسة من نظام التوريد) ---------- */
 const PERM_KEYS=[["move","تسجيل حركة"],["dashboard","الأرصدة"],["report","تقرير فترة"],["ledger","سجل حركة الصنف"],
@@ -749,7 +751,7 @@ function delMovement(id){
   if(it)it.qty+=isIn(m.type)?-m.qty:m.qty;   // عكس أثر الحركة
   DB.movements=DB.movements.filter(x=>x.id!==id);
   logAct("حذف حركة",`${m.model||""} ${typeAr(m.type)} كمية ${m.qty}`);save();
-  toast("تم حذف الحركة وإرجاع الرصيد");renderRecent();
+  toast("تم حذف الحركة وإرجاع الرصيد");keepScroll();renderRecent();
 }
 function editMovement(id){
   if(!guard("canEdit"))return;
@@ -787,7 +789,7 @@ function saveMovement(id){
   const ref=$("#em_ref").value||"";if(m.type==="inbound")m.customs=ref;else m.invoice=ref;
   m.balAfter=newIt.qty;m.editedBy=ME.name;m.editedAt=new Date().toISOString();
   logAct("تعديل حركة",`${m.model||""} كمية ${nq}`);save();
-  document.querySelector(".modal").remove();toast("تم تعديل الحركة");
+  document.querySelector(".modal").remove();toast("تم تعديل الحركة");keepScroll();
   if($("#recentMoves"))renderRecent();if($("#lTbl"))renderLedger();if($("#reportOut"))renderReport();
 }
 /* ---------- استرجاع الفاتورة برقمها ---------- */
@@ -1118,7 +1120,7 @@ function saveItem(id){
     const it={id:nid("item"),companyId:CO,qty:q,cost,active:true,...data};DB.items.push(it);
     if(q>0)DB.movements.unshift({id:nid("movement"),companyId:CO,itemId:it.id,type:"inbound",qty:q,price:cost,comm:0,model:code,invoice:"",invGid:"",address:"",supplierId:null,customs:"",date:today(),note:"رصيد افتتاحي",balAfter:q,userId:ME.id,userName:ME.name,at:new Date().toISOString()});
     logAct("إضافة موديل",code);}
-  save();document.querySelector(".modal").remove();renderItems();
+  save();document.querySelector(".modal").remove();keepScroll();renderItems();
 }
 /* استيراد موديلات دفعة واحدة مع أرصدة افتتاحية (تقبل الصفر) */
 function importModels(){
@@ -1180,7 +1182,7 @@ function delItem(id){
   const it=DB.items.find(i=>i.id===id);
   if(DB.movements.some(m=>m.itemId===id)){alert("لا يمكن حذف موديل له حركات مسجلة.");return;}
   if(!confirm(`حذف الموديل «${itemModel(it)}»؟`))return;
-  DB.items=DB.items.filter(i=>i.id!==id);logAct("حذف موديل",itemModel(it));save();renderItems();
+  DB.items=DB.items.filter(i=>i.id!==id);logAct("حذف موديل",itemModel(it));save();keepScroll();renderItems();
 }
 
 /* ============ 6) الموردون ============ */
