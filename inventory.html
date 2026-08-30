@@ -735,7 +735,9 @@ function editMovement(id){
   if(!guard("canEdit"))return;
   const m=DB.movements.find(x=>x.id===id);if(!m)return;const it=DB.items.find(i=>i.id===m.itemId)||{};
   const el=document.createElement("div");el.className="modal";
-  el.innerHTML=`<div class="box"><h3>تعديل حركة — ${esc(m.model||itemModel(it))} (${typeAr(m.type)})</h3>
+  el.innerHTML=`<div class="box"><h3>تعديل حركة — ${typeAr(m.type)}</h3>
+    <div class="field" style="margin-bottom:10px"><label>الصنف / الموديل (يمكن تغييره)</label>
+      <select id="em_item">${citems().map(i=>`<option value="${i.id}" ${i.id===m.itemId?"selected":""}>${esc(itemLabel(i))} — الرصيد ${i.qty}</option>`).join("")}</select></div>
     <div class="row"><div class="field"><label>الكمية</label><input id="em_qty" type="number" inputmode="numeric" value="${m.qty}"></div>
       <div class="field"><label>السعر ﷼</label><input id="em_price" type="number" inputmode="decimal" step="0.01" value="${m.price||0}"></div></div>
     <div class="row"><div class="field"><label>التاريخ</label><input id="em_date" type="date" value="${esc(m.date||today())}"></div>
@@ -747,17 +749,26 @@ function editMovement(id){
   document.body.appendChild(el);
 }
 function saveMovement(id){
-  const m=DB.movements.find(x=>x.id===id);if(!m)return;const it=DB.items.find(i=>i.id===m.itemId);
+  const m=DB.movements.find(x=>x.id===id);if(!m)return;
   const nq=parseFloat($("#em_qty").value);if(!nq||nq<=0){$("#em_msg").textContent="أدخل كمية صحيحة.";return;}
-  // عكس القديم ثم تطبيق الجديد مع تحقّق الرصيد
-  let base=it?it.qty:0;base+=isIn(m.type)?-m.qty:m.qty;
-  if(m.type==="outbound"&&nq>base){$("#em_msg").textContent=`الرصيد غير كافٍ (المتاح ${base}).`;return;}
-  if(it)it.qty=base+(isIn(m.type)?nq:-nq);
-  m.qty=nq;m.price=parseFloat($("#em_price").value)||0;m.date=$("#em_date").value||m.date;m.note=$("#em_note").value||"";
+  const newItemId=+($("#em_item").value)||m.itemId;
+  const oldIt=DB.items.find(i=>i.id===m.itemId),newIt=DB.items.find(i=>i.id===newItemId);
+  if(!newIt){$("#em_msg").textContent="اختر صنفاً.";return;}
+  // اعكس أثر الحركة القديمة على الصنف القديم
+  if(oldIt)oldIt.qty+=isIn(m.type)?-m.qty:m.qty;
+  // تحقّق الرصيد على الصنف الجديد (بعد العكس إن كان نفسه)
+  if(m.type==="outbound"&&nq>newIt.qty){
+    if(oldIt)oldIt.qty+=isIn(m.type)?m.qty:-m.qty;   // تراجع عن العكس
+    $("#em_msg").textContent=`الرصيد غير كافٍ للصنف «${itemModel(newIt)}» (المتاح ${newIt.qty}).`;return;
+  }
+  newIt.qty+=isIn(m.type)?nq:-nq;
+  m.itemId=newIt.id;m.model=itemModel(newIt);m.qty=nq;m.price=parseFloat($("#em_price").value)||0;
+  m.date=$("#em_date").value||m.date;m.note=$("#em_note").value||"";
   const ref=$("#em_ref").value||"";if(m.type==="inbound")m.customs=ref;else m.invoice=ref;
-  m.balAfter=it?it.qty:m.balAfter;m.editedBy=ME.name;m.editedAt=new Date().toISOString();
+  m.balAfter=newIt.qty;m.editedBy=ME.name;m.editedAt=new Date().toISOString();
   logAct("تعديل حركة",`${m.model||""} كمية ${nq}`);save();
-  document.querySelector(".modal").remove();toast("تم تعديل الحركة");renderRecent();if($("#lTbl"))renderLedger();
+  document.querySelector(".modal").remove();toast("تم تعديل الحركة");
+  if($("#recentMoves"))renderRecent();if($("#lTbl"))renderLedger();if($("#reportOut"))renderReport();
 }
 /* ---------- استرجاع الفاتورة برقمها ---------- */
 function lookupInvoice(){
@@ -918,15 +929,18 @@ function renderReportDetail(){
   window.__reportRows=rows.map(m=>{const it=DB.items.find(i=>i.id===m.itemId)||{};const sup=DB.suppliers.find(x=>x.id===m.supplierId);
     return [m.date,m.model||itemModel(it),typeAr(m.type),isIn(m.type)?m.qty:0,m.type==="outbound"?m.qty:0,m.price,m.qty*m.price,m.type==="inbound"?(m.customs||""):(m.invoice||""),sup?sup.name:"",m.userName];});
   // تجميع يومي
+  const actCol=can("canEdit")||can("canDelete");
   let body="",curDate=null,dIn=0,dOut=0,dVal=0;
   const flush=()=>{if(curDate!==null)body+=`<tr style="background:#f1f5f9;font-weight:700"><td colspan="3">إجمالي ${esc(curDate)}</td>
-    <td style="color:var(--green)">${dIn}</td><td style="color:var(--amber)">${dOut}</td><td></td><td>${money(dVal)}</td><td colspan="3"></td></tr>`;};
+    <td style="color:var(--green)">${dIn}</td><td style="color:var(--amber)">${dOut}</td><td></td><td>${money(dVal)}</td><td colspan="${actCol?3:2}"></td></tr>`;};
   rows.forEach(m=>{const it=DB.items.find(i=>i.id===m.itemId)||{};const sup=DB.suppliers.find(x=>x.id===m.supplierId);
     if(m.date!==curDate){flush();curDate=m.date;dIn=0;dOut=0;dVal=0;}
     const inq=isIn(m.type)?m.qty:0,outq=m.type==="outbound"?m.qty:0;dIn+=inq;dOut+=outq;dVal+=m.qty*m.price;
     body+=`<tr><td>${esc(m.date)}</td><td>${esc(m.model||itemModel(it))}</td><td><span class="tag ${m.type}">${typeAr(m.type)}</span></td>
       <td style="color:var(--green)">${inq||""}</td><td style="color:var(--amber)">${outq||""}</td><td>${money(m.price)}</td><td>${money(m.qty*m.price)}</td>
-      <td>${esc(m.type==="inbound"?(m.customs||""):(m.invoice||""))}</td><td>${esc(sup?sup.name:"")}</td><td>${esc(m.userName)}</td></tr>`;});
+      <td>${esc(m.type==="inbound"?(m.customs||""):(m.invoice||""))}</td><td>${esc(sup?sup.name:"")}</td><td>${esc(m.userName)}</td>
+      ${actCol?`<td style="white-space:nowrap">${can("canEdit")?`<button class="btn blue sm" onclick="editMovement(${m.id})">تعديل</button>`:""}
+        ${can("canDelete")?`<button class="btn red sm" onclick="if(delMovement(${m.id})!==false)renderReport()">حذف</button>`:""}</td>`:""}</tr>`;});
   flush();
   $("#reportOut").innerHTML=`
     <div class="grid-3" style="margin-bottom:14px">
@@ -938,8 +952,8 @@ function renderReportDetail(){
       <span>تفصيلي — من ${esc(from||"البداية")} إلى ${esc(to||"الآن")}</span>
       <button class="btn ghost sm no-print" onclick="exportCSV('تقرير-تفصيلي.csv',['التاريخ','الموديل','النوع','وارد','منصرف','السعر','القيمة','فسح/فاتورة','المورد','الموظف'],window.__reportRows||[])">⬇ Excel</button></div>
     <div class="table-wrap"><table><thead><tr><th>التاريخ</th><th>الموديل</th><th>النوع</th>
-      <th style="color:var(--green)">وارد</th><th style="color:var(--amber)">منصرف</th><th>السعر</th><th>القيمة</th><th>فسح/فاتورة</th><th>المورد</th><th>الموظف</th></tr></thead>
-      <tbody>${body||`<tr><td colspan="10" class="empty">لا حركات في هذه المدة.</td></tr>`}</tbody></table></div></div>`;
+      <th style="color:var(--green)">وارد</th><th style="color:var(--amber)">منصرف</th><th>السعر</th><th>القيمة</th><th>فسح/فاتورة</th><th>المورد</th><th>الموظف</th>${actCol?"<th></th>":""}</tr></thead>
+      <tbody>${body||`<tr><td colspan="${actCol?11:10}" class="empty">لا حركات في هذه المدة.</td></tr>`}</tbody></table></div></div>`;
 }
 
 /* ============ 4) سجل حركة الصنف (مع فلترة بالتاريخ) ============ */
