@@ -3336,6 +3336,24 @@ function Statement({
   const [to, setTo] = useState("");
   const L1 = useMemo(() => ledger(ships, pays, "c1", rate, from, to), [ships, pays, rate, from, to]);
   const L2 = useMemo(() => ledger(ships, pays, "c2", rate, from, to), [ships, pays, rate, from, to]);
+  const printStmt = () => {
+    const enc = s => String(s == null ? "" : s).replace(/[<>&]/g, c => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;" }[c]));
+    const rowsHtml = L => L.map(r => {
+      const desc = r.kind === "ship" ? ("شحنة " + (r.ship && r.ship.num ? "#" + r.ship.num : "")) : ("دفعة" + (r.pay && r.pay.methodName ? " — " + r.pay.methodName : "") + (r.pay && r.pay.note ? " — " + r.pay.note : "") + (r.pay && r.pay.currency === "USD" ? " ($" + fmt(r.pay.amount) + ")" : ""));
+      return "<tr><td>" + enc(r.date) + "</td><td class=\"d\">" + enc(desc) + "</td><td class=\"l\">" + (r.dr ? fmt(r.dr) : "—") + "</td><td class=\"l\">" + (r.cr ? fmt(r.cr) : "—") + "</td><td class=\"l\">" + fmt(r.bal) + "</td></tr>";
+    }).join("");
+    const block = (co, L) => {
+      const meta = C[co], dr = L.reduce((s, r) => s + r.dr, 0), cr = L.reduce((s, r) => s + r.cr, 0), bal = dr - cr;
+      return "<h2 style=\"color:" + meta.ac + "\">" + enc(meta.label) + "</h2>" + "<div class=\"s\">إجمالي الشحنات (مدين): <b>" + fmt(dr) + "</b> · إجمالي الدفعات (دائن): <b>" + fmt(cr) + "</b> · " + (bal >= 0 ? "المتبقّي للمورّد" : "دفعت أكثر") + ": <b>" + fmt(Math.abs(bal)) + "</b> ر.س</div>" + (L.length ? "<table><thead><tr><th>التاريخ</th><th class=\"d\">البيان</th><th class=\"l\">مدين</th><th class=\"l\">دائن</th><th class=\"l\">الرصيد</th></tr></thead><tbody>" + rowsHtml(L) + "</tbody><tfoot><tr><td colspan=\"2\">الإجمالي</td><td class=\"l\">" + fmt(dr) + "</td><td class=\"l\">" + fmt(cr) + "</td><td class=\"l\">" + fmt(bal) + "</td></tr></tfoot></table>" : "<div class=\"s\">لا توجد حركات.</div>");
+    };
+    const title = window.__APPTITLE || "دفتر الاستيراد";
+    const period = (from || to) ? "<div class=\"s\">الفترة: " + enc(from || "البداية") + " ← " + enc(to || "اليوم") + "</div>" : "";
+    const html = "<!doctype html><html dir=\"rtl\" lang=\"ar\"><head><meta charset=\"utf-8\"><title>كشف حساب المورّد — البضائع</title><style>body{font-family:Tajawal,Segoe UI,Tahoma,sans-serif;margin:22px;color:#1c2733}h1{font-size:18px;color:#1a3a5c;border-bottom:2px solid #1a3a5c;padding-bottom:5px;margin-bottom:4px}h2{font-size:14px;margin:16px 0 4px}table{width:100%;border-collapse:collapse;margin-top:6px}th{background:#1a3a5c;color:#fff;padding:5px 7px;font-size:11px;text-align:right}td{border:0.5px solid #ccd;padding:4px 7px;font-size:11px}th.l,td.l{text-align:left}th.d,td.d{text-align:right}tfoot td{font-weight:700;background:#eef2f6}.s{margin:6px 0;font-size:12px;color:#48566a}@media print{h2{page-break-after:avoid}}</style></head><body>" + "<h1>" + enc(title) + " — كشف حساب المورّد (البضائع)</h1>" + "<div class=\"s\">التاريخ: " + new Date().toISOString().slice(0, 10) + " · المبالغ بالريال السعودي (قيمة الشراء FOB، دون المصاريف)</div>" + period + block("c1", L1) + block("c2", L2) + "</body></html>";
+    const w = window.open("", "_blank");
+    if (!w) { alert("تعذّر فتح نافذة الطباعة — فعّل النوافذ المنبثقة"); return; }
+    w.document.write(html); w.document.close(); w.focus();
+    setTimeout(() => { try { w.print(); } catch (e) {} }, 350);
+  };
   return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
@@ -3358,7 +3376,27 @@ function Statement({
     style: {
       color: "var(--text-accent)"
     }
-  }, "\u0643\u0634\u0641 \u062D\u0633\u0627\u0628 \u0627\u0644\u0645\u0648\u0631\u0651\u062F \u2014 \u0627\u0644\u0628\u0636\u0627\u0626\u0639 \u0641\u0642\u0637"), " (\u0642\u064A\u0645\u0629 \u0627\u0644\u0634\u0631\u0627\u0621 FOB\u060C \u0644\u0627 \u064A\u0634\u0645\u0644 \u0627\u0644\u0645\u0635\u0627\u0631\u064A\u0641)."), /*#__PURE__*/React.createElement("button", {
+  }, "\u0643\u0634\u0641 \u062D\u0633\u0627\u0628 \u0627\u0644\u0645\u0648\u0631\u0651\u062F \u2014 \u0627\u0644\u0628\u0636\u0627\u0626\u0639 \u0641\u0642\u0637"), " (\u0642\u064A\u0645\u0629 \u0627\u0644\u0634\u0631\u0627\u0621 FOB\u060C \u0644\u0627 \u064A\u0634\u0645\u0644 \u0627\u0644\u0645\u0635\u0627\u0631\u064A\u0641)."), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 6,
+      flexWrap: "wrap"
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: printStmt,
+    style: {
+      border: "0.5px solid var(--border-strong,#c3ccd8)",
+      background: "var(--surface-2,#fff)",
+      color: "var(--text-primary,#1c2733)",
+      borderRadius: 8,
+      padding: "7px 13px",
+      fontSize: 12,
+      fontWeight: 600,
+      cursor: "pointer",
+      fontFamily: F,
+      whiteSpace: "nowrap"
+    }
+  }, "\uD83D\uDDA8 \u0637\u0628\u0627\u0639\u0629 / PDF"), /*#__PURE__*/React.createElement("button", {
     onClick: () => {
       if (window.__openFreight) window.__openFreight();
     },
@@ -3374,7 +3412,7 @@ function Statement({
       fontFamily: F,
       whiteSpace: "nowrap"
     }
-  }, "\uD83D\uDEA2 \u0643\u0634\u0641 \u062D\u0633\u0627\u0628 \u0623\u062C\u0648\u0631 \u0627\u0644\u0634\u062D\u0646")), /*#__PURE__*/React.createElement("div", {
+  }, "\uD83D\uDEA2 \u0643\u0634\u0641 \u062D\u0633\u0627\u0628 \u0623\u062C\u0648\u0631 \u0627\u0644\u0634\u062D\u0646"))), /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
       justifyContent: "space-between",
