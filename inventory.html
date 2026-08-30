@@ -898,17 +898,20 @@ function pReport(){
       <div class="cell c3"><label>إلى تاريخ</label><input id="rTo" type="date" value="${today()}"></div>
       <div class="cell c3"><label>الفئة</label><select id="rCat"><option value="">كل الفئات</option>
         ${[...new Set(citems().map(i=>i.category).filter(Boolean))].map(c=>`<option>${esc(c)}</option>`).join("")}</select></div>
+      <div class="cell c6"><label>بحث (الصنف/الموديل أو رقم الفسح أو رقم الفاتورة)</label>
+        <input id="rSearch" placeholder="🔍 اكتب موديلاً أو رقم فسح أو رقم فاتورة..." oninput="renderReport()"></div>
       <div class="cell c3" style="display:flex;align-items:flex-end"><button class="btn block" onclick="renderReport()">عرض التقرير</button></div>
     </div>
+    <p style="font-size:12px;color:var(--muted);margin-top:6px">ملاحظة: البحث بالفسح/الفاتورة يعمل مع «التقرير التفصيلي».</p>
   </div>
   <div id="reportOut" style="margin-top:16px"></div>`;
   renderReport();
 }
 function renderReport(){
   if(($("#rMode")&&$("#rMode").value)==="detail"){renderReportDetail();return;}
-  const from=$("#rFrom").value,to=$("#rTo").value,cat=$("#rCat").value;
+  const from=$("#rFrom").value,to=$("#rTo").value,cat=$("#rCat").value,sq=($("#rSearch")?.value||"").toLowerCase().trim();
   const inRange=d=>(!from||d>=from)&&(!to||d<=to);
-  const items=citems().filter(i=>!cat||i.category===cat);
+  const items=citems().filter(i=>(!cat||i.category===cat)&&(!sq||(i.code+i.name+(i.model||"")+(i.category||"")).toLowerCase().includes(sq)));
   const rows=items.map(it=>{
     const mv=DB.movements.filter(m=>m.itemId===it.id&&inRange(m.date));
     const inb=mv.filter(m=>isIn(m.type)).reduce((s,m)=>s+m.qty,0);
@@ -939,9 +942,11 @@ function renderReport(){
 
 /* تقرير تفصيلي — كل الحركات يومياً */
 function renderReportDetail(){
-  const from=$("#rFrom").value,to=$("#rTo").value,ty=$("#rType").value,itemId=+($("#rItem").value)||0,cat=$("#rCat").value;
+  const from=$("#rFrom").value,to=$("#rTo").value,ty=$("#rType").value,itemId=+($("#rItem").value)||0,cat=$("#rCat").value,sq=($("#rSearch")?.value||"").toLowerCase().trim();
   let rows=cmoves().filter(m=>(!from||m.date>=from)&&(!to||m.date<=to)&&(!ty||m.type===ty)&&(!itemId||m.itemId===itemId));
   if(cat)rows=rows.filter(m=>{const it=DB.items.find(i=>i.id===m.itemId);return it&&it.category===cat;});
+  if(sq)rows=rows.filter(m=>{const it=DB.items.find(i=>i.id===m.itemId)||{};const sup=DB.suppliers.find(x=>x.id===m.supplierId);
+    return ((m.model||itemModel(it))+" "+(it.name||"")+" "+(m.customs||"")+" "+(m.invoice||"")+" "+(sup?sup.name:"")).toLowerCase().includes(sq);});
   rows.sort((a,b)=>(a.date<b.date?-1:a.date>b.date?1:(a.id-b.id)));
   const tIn=rows.filter(m=>isIn(m.type)).reduce((s,m)=>s+m.qty,0);
   const tOut=rows.filter(m=>m.type==="outbound").reduce((s,m)=>s+m.qty,0);
