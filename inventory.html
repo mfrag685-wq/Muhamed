@@ -166,6 +166,7 @@ tr:hover td{background:#f8fafc}
 <div id="app">
   <div class="topbar">
     <button class="menu-btn" onclick="toggleNav()">☰</button>
+    <button class="menu-btn" onclick="goBack()" title="رجوع">↩</button>
     <h2 id="topTitle">الوارد والمنصرف</h2>
   </div>
   <div class="backdrop" id="backdrop" onclick="toggleNav()"></div>
@@ -192,7 +193,9 @@ tr:hover td{background:#f8fafc}
         إعداد وتصميم <a onclick="showDev()" style="color:#5eead4;font-weight:700;cursor:pointer">✦ ${''}محمد فرج</a></div>
     </div>
   </aside>
-  <main class="main"><div id="view"></div></main>
+  <main class="main">
+    <div id="backBar" style="display:none;margin-bottom:12px"><button class="btn ghost sm" onclick="goBack()">↩ رجوع للخلف</button></div>
+    <div id="view"></div></main>
 </div>
 <input type="file" id="restoreFile" accept="application/json" style="display:none">
 
@@ -552,12 +555,21 @@ function toggleNav(){$("#sidebar").classList.toggle("open");$("#backdrop").class
 function closeNav(){$("#sidebar").classList.remove("open");$("#backdrop").classList.remove("open");}
 
 /* ---------- Router ---------- */
-function go(page){
+let PAGE_HISTORY=[];
+function go(page,isBack){
   closeNav();
   if(ME&&!can(page)){toast("لا تملك صلاحية للوصول لهذه الشاشة");page=can("move")?"move":"dashboard";}
+  if(!isBack&&CURRENT_PAGE&&CURRENT_PAGE!==page)PAGE_HISTORY.push(CURRENT_PAGE);
+  if(PAGE_HISTORY.length>50)PAGE_HISTORY.shift();
   CURRENT_PAGE=page;
   document.querySelectorAll(".navbtn").forEach(b=>b.classList.toggle("active",b.dataset.page===page));
   ({move:pMove,dashboard:pDashboard,report:pReport,ledger:pLedger,items:pItems,import:pImport,employees:pEmployees,settings:pSettings}[page])();
+  const bb=$("#backBar");if(bb)bb.style.display=PAGE_HISTORY.length?"block":"none";
+}
+function goBack(){
+  const m=document.querySelector(".modal");if(m){m.remove();return;}   // إغلاق نافذة مفتوحة أولاً
+  if(!PAGE_HISTORY.length)return;
+  const prev=PAGE_HISTORY.pop();go(prev,true);
 }
 
 /* ============ 1) تسجيل حركة — سطر أساسي بسيط + تفاصيل اختيارية ============ */
@@ -956,13 +968,21 @@ function renderReportDetail(){
       <tbody>${body||`<tr><td colspan="${actCol?11:10}" class="empty">لا حركات في هذه المدة.</td></tr>`}</tbody></table></div></div>`;
 }
 
+function filterLedgerItems(){
+  const q=($("#lSearch").value||"").toLowerCase();const sel=$("#lItem");const cur=sel.value;
+  const matches=citems().filter(i=>(i.code+i.name+(i.model||"")+(i.category||"")).toLowerCase().includes(q));
+  sel.innerHTML=`<option value="">— اختر —</option>`+matches.map(i=>`<option value="${i.id}">${esc(itemLabel(i))}</option>`).join("");
+  if(matches.some(i=>String(i.id)===cur))sel.value=cur;
+  if(q&&matches.length===1){sel.value=matches[0].id;renderLedger();}
+}
 /* ============ 4) سجل حركة الصنف (مع فلترة بالتاريخ) ============ */
 function pLedger(){
   $("#view").innerHTML=`<div class="pagehead"><h1>📜 سجل حركة الصنف</h1>
     <button class="btn ghost no-print" onclick="window.print()">🖨️ طباعة</button></div>
   <div class="card">
     <div class="formgrid no-print" style="margin-bottom:12px">
-      <div class="cell c4"><label>اختر الصنف</label>
+      <div class="cell c4"><label>اختر الصنف (ابحث بالموديل)</label>
+        <input id="lSearch" placeholder="🔍 اكتب الموديل للبحث..." oninput="filterLedgerItems()" style="margin-bottom:6px">
         <select id="lItem" onchange="renderLedger()"><option value="">— اختر —</option>
           ${citems().map(i=>`<option value="${i.id}">${esc(itemLabel(i))}</option>`).join("")}</select></div>
       <div class="cell c3"><label>من تاريخ</label><input id="lFrom" type="date" onchange="renderLedger()"></div>
