@@ -249,7 +249,13 @@ let CO=1;
 function citems(){return DB.items.filter(i=>i.companyId===CO);}
 function cmoves(){return DB.movements.filter(m=>m.companyId===CO);}
 function csups(){return DB.suppliers.filter(s=>s.companyId===CO);}
+function cpays(){return DB.payments.filter(p=>p.companyId===CO);}
 function curCompany(){return (DB.companies||[]).find(c=>c.id===CO)||DB.companies[0]||{name:"شركتي",logo:"",icon:"🏢"};}
+/* رصيد المورد المالي = قيمة التوريدات + الأرصدة الافتتاحية − المدفوعات */
+function supSupplies(id){return DB.movements.filter(m=>m.companyId===CO&&m.type==="inbound"&&m.supplierId===id).reduce((s,m)=>s+m.qty*m.price,0);}
+function supOpening(id){return DB.payments.filter(p=>p.companyId===CO&&p.supplierId===id&&p.kind==="opening").reduce((s,p)=>s+p.amount,0);}
+function supPaid(id){return DB.payments.filter(p=>p.companyId===CO&&p.supplierId===id&&p.kind==="payment").reduce((s,p)=>s+p.amount,0);}
+function supBalance(id){return supSupplies(id)+supOpening(id)-supPaid(id);}
 
 /* ---------- Storage ---------- */
 function seed(){return{
@@ -267,13 +273,14 @@ function seed(){return{
     {id:3,companyId:1,code:"مرتبة مفردة",name:"مرتبة طبية مفردة",model:"مرتبة مفردة",category:"مراتب",unit:"قطعة",cost:600,price:950,qty:0,reorder:5,active:true},
     {id:4,companyId:1,code:"مرتبة مزدوجة",name:"مرتبة طبية مزدوجة",model:"مرتبة مزدوجة",category:"مراتب",unit:"قطعة",cost:1100,price:1650,qty:0,reorder:5,active:true},
   ],
-  movements:[],activity:[],
-  seq:{user:2,supplier:1,shipment:0,item:4,movement:0,activity:0,company:1},
+  movements:[],activity:[],payments:[],
+  seq:{user:2,supplier:1,shipment:0,item:4,movement:0,activity:0,company:1,payment:0},
 };}
 function ensureShape(){
   DB.users=DB.users||[];DB.items=DB.items||[];DB.movements=DB.movements||[];
-  DB.suppliers=DB.suppliers||[];DB.shipments=DB.shipments||[];DB.activity=DB.activity||[];
-  DB.seq=DB.seq||{user:0,supplier:0,shipment:0,item:0,movement:0,activity:0,company:0};
+  DB.suppliers=DB.suppliers||[];DB.shipments=DB.shipments||[];DB.activity=DB.activity||[];DB.payments=DB.payments||[];
+  DB.seq=DB.seq||{user:0,supplier:0,shipment:0,item:0,movement:0,activity:0,company:0,payment:0};
+  if(DB.seq.payment===undefined)DB.seq.payment=0;
   DB.settings=DB.settings||{company:"شركتي",logo:""};
   if(!DB.settings.appName)DB.settings.appName="نظام إدارة المخزون";
   // تهيئة الشركات وترحيل البيانات القديمة لأول شركة
@@ -286,6 +293,7 @@ function ensureShape(){
   DB.items.forEach(i=>{if(i.companyId===undefined)i.companyId=firstCo;});
   DB.movements.forEach(m=>{if(m.companyId===undefined)m.companyId=firstCo;});
   DB.suppliers.forEach(s=>{if(s.companyId===undefined)s.companyId=firstCo;});
+  DB.payments.forEach(p=>{if(p.companyId===undefined)p.companyId=firstCo;if(!p.kind)p.kind="payment";});
   if(!DB.companies.some(c=>c.id===CO))CO=DB.companies[0].id;
   DB.users.forEach(u=>{if(u.active===undefined)u.active=1;if(u.username===undefined)u.username="";if(u.fbUid===undefined)u.fbUid="";
     if(u.pwTemp===undefined)u.pwTemp=(u.pass===hash("admin123")||u.pass===hash("store123"))?1:0;
@@ -581,7 +589,10 @@ const itemLabel=it=>it?(itemModel(it)+(it.name&&it.name!==itemModel(it)?" — "+
 function pMove(){
   $("#view").innerHTML=`
   <div class="pagehead"><h1>➕ تسجيل حركة صنف</h1>
-    <button class="btn ghost no-print" onclick="lookupInvoice()">🔎 استرجاع فاتورة برقمها</button></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn ghost no-print" onclick="lookupInvoice()">🔎 استرجاع فاتورة</button>
+      ${can("canAdd")?`<button class="btn blue no-print" onclick="downloadMovesTemplate()">⬇ قالب حركات Excel</button>
+      <label class="btn amber no-print" style="margin:0">⬆ استيراد حركات<input type="file" accept=".csv,text/csv" style="display:none" onchange="importMovesFile(event)"></label>`:""}</div></div>
   <div class="card"><div id="mMsg"></div>
     <div class="typebtns" style="margin-bottom:12px">
       <button type="button" class="in" id="tbIn"  onclick="setType('inbound')">⬇ وارد</button>
@@ -629,12 +640,27 @@ function pMove(){
     </div>
   </div>
 
-  <div class="card" style="margin-top:16px"><div class="card-title">🕒 آخر الحركات</div>
+  <div class="card" style="margin-top:16px">
+    <div class="card-title" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+      <span>🕒 آخر الحركات</span>
+      <div class="typebtns" style="max-width:360px">
+        <button type="button" id="rfAll" onclick="setRecentFilter('')">الكل</button>
+        <button type="button" class="in" id="rfIn" onclick="setRecentFilter('inbound')">⬇ وارد</button>
+        <button type="button" class="out" id="rfOut" onclick="setRecentFilter('outbound')">⬆ منصرف</button>
+      </div></div>
     <div class="table-wrap"><table><thead><tr><th>التاريخ</th><th>الصنف/الموديل</th><th>النوع</th><th>الكمية</th>
       <th>الرصيد بعدها</th><th>فسح/فاتورة</th><th>المورد</th><th>الموظف</th><th></th></tr></thead>
     <tbody id="recentMoves"></tbody></table></div>
   </div>`;
-  setType(mType);renderRecent();renderCart();
+  setType(mType);setRecentFilter(recentType);renderCart();
+}
+let recentType="";
+function setRecentFilter(t){
+  recentType=t;
+  ["rfAll","rfIn","rfOut"].forEach(id=>$("#"+id)?.classList.remove("on"));
+  const map={"":"rfAll",inbound:"rfIn",outbound:"rfOut"};
+  if($("#"+map[t]))$("#"+map[t]).classList.add("on");
+  renderRecent();
 }
 function setType(t){
   if(t!==mType&&t!=="outbound")saleCart=[];
@@ -649,6 +675,7 @@ function setType(t){
   if(lp)lp.textContent=(t==="inbound")?"سعر التكلفة ﷼":"سعر البيع ﷼";
   if(sb)sb.textContent=(t==="outbound")?"✓ حفظ الفاتورة":"✓ حفظ الحركة";
   renderCart();
+  if($("#rfAll")&&(t==="inbound"||t==="outbound"))setRecentFilter(t);   // يفلتر آخر الحركات حسب النوع المختار
 }
 function acItems(q){
   const box=$("#mAc");q=q.trim();if(!q){box.style.display="none";return;}
@@ -732,7 +759,8 @@ function saveMove(){
 }
 function renderRecent(){
   const tb=$("#recentMoves");if(!tb)return;
-  tb.innerHTML=cmoves().slice(0,25).map(m=>{const it=DB.items.find(i=>i.id===m.itemId)||{};const sup=DB.suppliers.find(x=>x.id===m.supplierId);
+  let list=cmoves();if(recentType)list=list.filter(m=>m.type===recentType);
+  tb.innerHTML=list.slice(0,25).map(m=>{const it=DB.items.find(i=>i.id===m.itemId)||{};const sup=DB.suppliers.find(x=>x.id===m.supplierId);
     return `<tr><td>${esc(m.date)}</td><td>${esc(m.model||itemModel(it))}</td>
       <td><span class="tag ${m.type}">${typeAr(m.type)}</span></td>
       <td style="font-weight:700;color:${isIn(m.type)?'var(--green)':'var(--amber)'}">${isIn(m.type)?"+":"−"}${m.qty}</td>
@@ -742,6 +770,48 @@ function renderRecent(){
         ${can("canEdit")?`<button class="btn blue sm" onclick="editMovement(${m.id})">تعديل</button>`:""}
         ${can("canDelete")?`<button class="btn red sm" onclick="delMovement(${m.id})">حذف</button>`:""}</td></tr>`;}).join("")
     ||`<tr><td colspan="9" class="empty">لا حركات.</td></tr>`;
+}
+/* ---------- استيراد حركات وارد/منصرف من Excel ---------- */
+function downloadMovesTemplate(){
+  const rows=[["النوع (وارد/منصرف)","الموديل","الكمية","السعر","المورد (للوارد)","رقم الفسح/الفاتورة","التاريخ"],
+    ["وارد","غرفة كلاسيك","3","3200","مورد الرياض للأثاث","111","2026-08-30"],
+    ["منصرف","غرفة كلاسيك","1","4500","","INV-500","2026-08-30"]];
+  const csv=rows.map(r=>r.map(v=>/[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v).join(",")).join("\r\n");
+  const blob=new Blob(["﻿"+csv],{type:"text/csv;charset=utf-8"});
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="قالب-حركات.csv";a.click();
+  toast("نزّل القالب، املأه في Excel واحفظه CSV ثم ارفعه");
+}
+function importMovesFile(e){
+  const f=e.target.files[0];if(!f)return;
+  if(/\.xlsx$/i.test(f.name)){alert("احفظ الملف من Excel بصيغة CSV ثم ارفعه.");return;}
+  const r=new FileReader();
+  r.onload=()=>{const lines=String(r.result||"").split(/\r?\n/).filter(l=>l.trim());
+    if(lines[0]&&/النوع|type/i.test(lines[0]))lines.shift();
+    let ok=0,skip=0,errs=[];
+    lines.forEach((line,idx)=>{
+      const p=line.split(/,(?=(?:[^"]*"[^"]*")*[^"]*$)/).map(x=>x.replace(/^"|"$/g,"").replace(/""/g,'"').trim());
+      const tRaw=(p[0]||"").trim();const type=/منصرف|بيع|out/i.test(tRaw)?"outbound":/تسوية|adj/i.test(tRaw)?"adjustment":/وارد|in/i.test(tRaw)?"inbound":"";
+      const code=(p[1]||"").trim();const qty=parseFloat(p[2])||0;const price=parseFloat(p[3])||0;
+      const supName=(p[4]||"").trim();const ref=(p[5]||"").trim();const date=(p[6]||"").trim()||today();
+      if(!type||!code||qty<=0){skip++;errs.push(`سطر ${idx+1}: بيانات ناقصة`);return;}
+      let it=citems().find(i=>itemModel(i).toLowerCase()===code.toLowerCase());
+      if(!it){it={id:nid("item"),companyId:CO,qty:0,cost:price,active:true,code,model:code,name:code,category:"",unit:"قطعة",price:0,reorder:0};DB.items.push(it);}
+      if(type==="outbound"&&qty>it.qty){skip++;errs.push(`سطر ${idx+1}: رصيد «${code}» غير كافٍ (${it.qty})`);return;}
+      let supId=null;
+      if(type==="inbound"){if(!supName){skip++;errs.push(`سطر ${idx+1}: المورد مطلوب للوارد`);return;}
+        let sup=csups().find(s=>s.name.toLowerCase()===supName.toLowerCase());
+        if(!sup){sup={id:nid("supplier"),companyId:CO,name:supName,phone:"",contact:""};DB.suppliers.push(sup);}
+        supId=sup.id;}
+      it.qty+=isIn(type)?qty:-qty;
+      DB.movements.unshift({id:nid("movement"),companyId:CO,itemId:it.id,type,qty,price,comm:0,model:itemModel(it),
+        invoice:type==="outbound"?ref:"",invGid:"",address:"",supplierId:supId,customs:type==="inbound"?ref:"",
+        date,note:"استيراد Excel",balAfter:it.qty,userId:ME.id,userName:ME.name,at:new Date().toISOString()});
+      ok++;});
+    logAct("استيراد حركات",`${ok} حركة${skip?` — تخطّي ${skip}`:""}`);save();renderRecent();
+    if($("#supTbl"))renderSuppliers();
+    alert(`تم استيراد ${ok} حركة.${skip?`\nتم تخطّي ${skip}:\n`+errs.slice(0,15).join("\n"):""}`);
+  };
+  r.readAsText(f,"utf-8");
 }
 /* تعديل/حذف حركة (بصلاحية) — يعيد ضبط الرصيد بدقة */
 function delMovement(id){
@@ -1202,43 +1272,125 @@ function pImport(){
       <div class="field"><label>الهاتف</label><input id="sPhone"></div></div>
     <div class="field" style="margin-bottom:12px"><label>مسؤول التواصل</label><input id="sContact"></div>
     <button class="btn block" onclick="addSupplier()">حفظ المورد</button>
-    <div class="table-wrap" style="margin-top:14px"><table><thead><tr><th>المورد</th><th>الهاتف</th><th>إجمالي التوريدات ﷼</th><th></th></tr></thead>
+    <div class="table-wrap" style="margin-top:14px"><table><thead><tr><th>المورد</th><th>الهاتف</th><th>الرصيد المستحق ﷼</th><th></th></tr></thead>
       <tbody id="supTbl"></tbody></table></div>
     <p style="font-size:12px;color:var(--muted);margin-top:10px">اضغط «كشف حساب» لعرض حركة المورد التفصيلية والإجمالية.</p></div>`;
   renderSuppliers();
 }
 function renderSuppliers(){
-  $("#supTbl").innerHTML=csups().map(s=>{const mv=cmoves().filter(m=>m.supplierId===s.id);const tot=mv.reduce((a,m)=>a+m.qty*m.price,0);
-    return `<tr><td>${esc(s.name)}</td><td>${esc(s.phone||"")}</td><td>${money(tot)}</td>
+  $("#supTbl").innerHTML=csups().map(s=>{const bal=supBalance(s.id);
+    return `<tr><td>${esc(s.name)}</td><td>${esc(s.phone||"")}</td><td style="font-weight:700;color:${bal>0?'var(--red)':'inherit'}">${money(bal)}</td>
     <td style="white-space:nowrap"><button class="btn blue sm" onclick="supplierStatement(${s.id})">📄 كشف حساب</button>
+      ${can("canEdit")?`<button class="btn green sm" onclick="makePayment(${s.id})">💵 دفعة</button>`:""}
       ${ME.role==="admin"?`<button class="btn red sm" onclick="delSupplier(${s.id})">حذف</button>`:""}</td></tr>`;}).join("")||`<tr><td colspan="4" class="empty">—</td></tr>`;
 }
-/* كشف حساب المورد — إجمالي وتفصيلي */
+/* ---------- دفعات وأرصدة افتتاحية للمورد ---------- */
+function makePayment(id){
+  if(!guard("canEdit"))return;const s=DB.suppliers.find(x=>x.id===id);if(!s)return;
+  const bal=supBalance(id);
+  const amt=parseFloat(prompt(`تسجيل دفعة للمورد «${s.name}»\nالرصيد المستحق حالياً: ${money(bal)} ﷼\nأدخل مبلغ الدفعة:`));
+  if(!amt||amt<=0){if(amt!==undefined&&!isNaN(amt))return;return;}
+  const method=prompt("طريقة الدفع (نقد/تحويل/شيك):","نقد")||"نقد";
+  const date=prompt("تاريخ الدفعة (YYYY-MM-DD):",today())||today();
+  DB.payments.unshift({id:nid("payment"),companyId:CO,supplierId:id,kind:"payment",amount:amt,method,date,note:"",userId:ME.id,userName:ME.name,at:new Date().toISOString()});
+  logAct("دفعة لمورد",`${s.name}: ${money(amt)} (${method})`);save();
+  toast("تم تسجيل الدفعة وخصمها من الرصيد");if($("#supTbl"))renderSuppliers();if($("#ssOut"))renderSupStatement(id);
+}
+function openingAmount(id){
+  if(!guard("canEdit"))return;const s=DB.suppliers.find(x=>x.id===id);if(!s)return;
+  const amt=parseFloat(prompt(`رصيد افتتاحي (مبلغ مستحق سابق) للمورد «${s.name}»\nأدخل المبلغ:`));
+  if(!amt||amt<=0)return;
+  const date=prompt("تاريخ الرصيد الافتتاحي (YYYY-MM-DD):",today())||today();
+  DB.payments.unshift({id:nid("payment"),companyId:CO,supplierId:id,kind:"opening",amount:amt,method:"",date,note:"رصيد افتتاحي",userId:ME.id,userName:ME.name,at:new Date().toISOString()});
+  logAct("رصيد افتتاحي (مبلغ)",`${s.name}: ${money(amt)}`);save();
+  toast("تم تسجيل الرصيد الافتتاحي");if($("#supTbl"))renderSuppliers();if($("#ssOut"))renderSupStatement(id);
+}
+function openingItems(id){
+  if(!guard("canAdd"))return;const s=DB.suppliers.find(x=>x.id===id);if(!s)return;
+  const m=document.createElement("div");m.className="modal";
+  m.innerHTML=`<div class="box"><h3>📦 رصيد افتتاحي بأصناف — ${esc(s.name)}</h3>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:8px">اكتب كل صنف في سطر بصيغة: <b>الموديل , الكمية , السعر</b>. تُضاف كوارد مرتبط بهذا المورد فتُحدَّث الأرصدة وقيمة حساب المورد.</p>
+    <textarea id="oi_txt" style="width:100%;min-height:150px;padding:11px;border:1px solid var(--line);border-radius:9px;font-family:monospace" placeholder="غرفة كلاسيك , 3 , 3200&#10;مرتبة مفردة , 10 , 600"></textarea>
+    <div class="field" style="margin-top:8px"><label>التاريخ</label><input id="oi_date" type="date" value="${today()}"></div>
+    <div id="oi_msg" style="color:var(--red);font-size:13px;margin:8px 0"></div>
+    <div style="display:flex;gap:8px"><button class="btn green" onclick="doOpeningItems(${id})">حفظ</button>
+      <button class="btn gray" onclick="this.closest('.modal').remove()">إلغاء</button></div></div>`;
+  document.body.appendChild(m);
+}
+function doOpeningItems(id){
+  const txt=$("#oi_txt").value||"",date=$("#oi_date").value||today();
+  const lines=txt.split(/\n+/).map(l=>l.trim()).filter(Boolean);
+  if(!lines.length){$("#oi_msg").textContent="أدخل صنفاً واحداً على الأقل.";return;}
+  let added=0;
+  lines.forEach(line=>{const p=line.split(/[,،\t]/).map(x=>x.trim());const code=p[0];if(!code)return;
+    const qty=parseFloat(p[1])||0,price=parseFloat(p[2])||0;
+    let it=citems().find(i=>itemModel(i).toLowerCase()===code.toLowerCase());
+    if(!it){it={id:nid("item"),companyId:CO,qty:0,cost:price,active:true,code,model:code,name:code,category:"",unit:"قطعة",price:0,reorder:0};DB.items.push(it);}
+    it.qty+=qty;
+    DB.movements.unshift({id:nid("movement"),companyId:CO,itemId:it.id,type:"inbound",qty,price,comm:0,model:itemModel(it),invoice:"",invGid:"",address:"",supplierId:id,customs:"",date,note:"رصيد افتتاحي بأصناف",balAfter:it.qty,userId:ME.id,userName:ME.name,at:new Date().toISOString()});
+    added++;});
+  logAct("رصيد افتتاحي بأصناف",`مورد #${id}: ${added} صنف`);save();
+  document.querySelector(".modal").remove();toast(`تمت إضافة ${added} صنف كرصيد افتتاحي`);
+  if($("#supTbl"))renderSuppliers();if($("#ssOut"))renderSupStatement(id);
+}
+/* كشف حساب المورد — مالي/تفصيلي/إجمالي */
 function supplierStatement(id){
   const s=DB.suppliers.find(x=>x.id===id);if(!s)return;
   $("#view").innerHTML=`<div class="pagehead"><h1>📄 كشف حساب المورد — ${esc(s.name)}</h1>
-    <div style="display:flex;gap:8px"><button class="btn ghost no-print" onclick="pImport()">↩ رجوع</button>
+    <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn ghost no-print" onclick="pImport()">↩ رجوع</button>
       <button class="btn ghost no-print" onclick="window.print()">🖨️ طباعة</button></div></div>
-  <div class="card no-print"><div class="formgrid">
-    <div class="cell c4"><label>نوع الكشف</label><select id="ssMode" onchange="renderSupStatement(${id})">
-      <option value="detail">تفصيلي (كل حركة)</option><option value="summary">إجمالي (لكل صنف)</option></select></div>
-    <div class="cell c3"><label>من تاريخ</label><input id="ssFrom" type="date" onchange="renderSupStatement(${id})"></div>
-    <div class="cell c3"><label>إلى تاريخ</label><input id="ssTo" type="date" onchange="renderSupStatement(${id})"></div>
-    <div class="cell c2"><label>بحث موديل/فسح</label><input id="ssQ" placeholder="🔍" oninput="renderSupStatement(${id})"></div>
-  </div></div>
+  <div class="card no-print">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+      ${can("canEdit")?`<button class="btn green" onclick="makePayment(${id})">💵 تسجيل دفعة</button>`:""}
+      ${can("canEdit")?`<button class="btn amber" onclick="openingAmount(${id})">➕ رصيد افتتاحي (مبلغ)</button>`:""}
+      ${can("canAdd")?`<button class="btn blue" onclick="openingItems(${id})">📦 رصيد افتتاحي (أصناف)</button>`:""}
+    </div>
+    <div class="formgrid">
+      <div class="cell c4"><label>نوع الكشف</label><select id="ssMode" onchange="renderSupStatement(${id})">
+        <option value="financial">مالي (توريدات ومدفوعات ورصيد جارٍ)</option>
+        <option value="detail">تفصيلي (كل حركة أصناف)</option>
+        <option value="summary">إجمالي (لكل صنف)</option></select></div>
+      <div class="cell c3"><label>من تاريخ</label><input id="ssFrom" type="date" onchange="renderSupStatement(${id})"></div>
+      <div class="cell c3"><label>إلى تاريخ</label><input id="ssTo" type="date" onchange="renderSupStatement(${id})"></div>
+      <div class="cell c2"><label>بحث موديل/فسح</label><input id="ssQ" placeholder="🔍" oninput="renderSupStatement(${id})"></div>
+    </div></div>
   <div id="ssOut" style="margin-top:16px"></div>`;
   renderSupStatement(id);
 }
 function renderSupStatement(id){
-  const from=$("#ssFrom")?.value||"",to=$("#ssTo")?.value||"",mode=$("#ssMode")?.value||"detail",q=($("#ssQ")?.value||"").toLowerCase().trim();
+  const from=$("#ssFrom")?.value||"",to=$("#ssTo")?.value||"",mode=$("#ssMode")?.value||"financial",q=($("#ssQ")?.value||"").toLowerCase().trim();
+  const bal=supBalance(id);
+  const stats=`<div class="grid-4" style="margin-bottom:14px">
+    <div class="stat"><div class="lbl">إجمالي التوريدات ﷼</div><div class="val sm">${money(supSupplies(id))}</div></div>
+    <div class="stat"><div class="lbl">رصيد افتتاحي ﷼</div><div class="val sm">${money(supOpening(id))}</div></div>
+    <div class="stat"><div class="lbl">المدفوعات ﷼</div><div class="val sm" style="color:var(--green)">${money(supPaid(id))}</div></div>
+    <div class="stat"><div class="lbl">الرصيد المستحق ﷼</div><div class="val sm" style="color:${bal>0?'var(--red)':'inherit'}">${money(bal)}</div></div></div>`;
+  if(mode==="financial"){
+    // دفتر أستاذ: توريدات (مدين) + افتتاحي (مدين) + دفعات (دائن) مرتّبة بالتاريخ مع رصيد جارٍ
+    let entries=[];
+    DB.movements.filter(m=>m.companyId===CO&&m.type==="inbound"&&m.supplierId===id).forEach(m=>{const it=DB.items.find(i=>i.id===m.itemId)||{};
+      entries.push({date:m.date,desc:"توريد "+(m.model||itemModel(it))+" ×"+m.qty+(m.customs?" (فسح "+m.customs+")":""),debit:m.qty*m.price,credit:0});});
+    DB.payments.filter(p=>p.companyId===CO&&p.supplierId===id).forEach(p=>{
+      if(p.kind==="opening")entries.push({date:p.date,desc:"رصيد افتتاحي",debit:p.amount,credit:0});
+      else entries.push({date:p.date,desc:"دفعة"+(p.method?" ("+p.method+")":""),debit:0,credit:p.amount});});
+    entries=entries.filter(e=>(!from||e.date>=from)&&(!to||e.date<=to)&&(!q||e.desc.toLowerCase().includes(q)));
+    entries.sort((a,b)=>(a.date<b.date?-1:a.date>b.date?1:0));
+    let run=0;const body=entries.map(e=>{run+=e.debit-e.credit;
+      return `<tr><td>${esc(e.date)}</td><td>${esc(e.desc)}</td><td>${e.debit?money(e.debit):""}</td>
+        <td style="color:var(--green)">${e.credit?money(e.credit):""}</td><td style="font-weight:700">${money(run)}</td></tr>`;}).join("");
+    window.__ssCSV={head:["التاريخ","البيان","مدين (توريد)","دائن (دفعة)"],rows:entries.map(e=>[e.date,e.desc,e.debit,e.credit])};
+    $("#ssOut").innerHTML=stats+`<div class="card"><div class="card-title" style="display:flex;justify-content:space-between;align-items:center">
+      <span>الكشف المالي (دفتر الأستاذ)</span>
+      <button class="btn ghost sm no-print" onclick="exportCSV('كشف-مورد-مالي.csv',window.__ssCSV.head,window.__ssCSV.rows)">⬇ Excel</button></div>
+      <div class="table-wrap"><table><thead><tr><th>التاريخ</th><th>البيان</th><th>مدين (توريد)</th><th>دائن (دفعة)</th><th>الرصيد</th></tr></thead>
+        <tbody>${body||`<tr><td colspan="5" class="empty">لا حركات.</td></tr>`}
+        ${entries.length?`<tr style="background:#f1f5f9;font-weight:700"><td colspan="4">الرصيد المستحق</td><td>${money(run)}</td></tr>`:""}</tbody></table></div></div>`;
+    return;
+  }
   let rows=cmoves().filter(m=>m.supplierId===id&&(!from||m.date>=from)&&(!to||m.date<=to));
   if(q)rows=rows.filter(m=>{const it=DB.items.find(i=>i.id===m.itemId)||{};return ((m.model||itemModel(it))+" "+(m.customs||"")+" "+(m.invoice||"")).toLowerCase().includes(q);});
   rows.sort((a,b)=>(a.date<b.date?-1:a.date>b.date?1:a.id-b.id));
   const tQty=rows.reduce((s,m)=>s+m.qty,0),tVal=rows.reduce((s,m)=>s+m.qty*m.price,0);
-  const stats=`<div class="grid-3" style="margin-bottom:14px">
-    <div class="stat"><div class="lbl">عدد الحركات</div><div class="val">${rows.length}</div></div>
-    <div class="stat"><div class="lbl">إجمالي الكمية الواردة</div><div class="val" style="color:var(--green)">${tQty}</div></div>
-    <div class="stat"><div class="lbl">إجمالي القيمة ﷼</div><div class="val sm">${money(tVal)}</div></div></div>`;
   let table,csvHead,csvRows;
   if(mode==="summary"){
     const g={};rows.forEach(m=>{const it=DB.items.find(i=>i.id===m.itemId)||{};const k=m.itemId;g[k]=g[k]||{name:m.model||itemModel(it),qty:0,val:0};g[k].qty+=m.qty;g[k].val+=m.qty*m.price;});
@@ -1270,7 +1422,7 @@ function addSupplier(){
 }
 function delSupplier(id){
   if(ME.role!=="admin")return;
-  if(DB.movements.some(m=>m.supplierId===id)){alert("لا يمكن حذف مورد له حركات مسجلة.");return;}
+  if(DB.movements.some(m=>m.supplierId===id)||DB.payments.some(p=>p.supplierId===id)){alert("لا يمكن حذف مورد له حركات أو دفعات مسجلة.");return;}
   const s=DB.suppliers.find(x=>x.id===id);if(!confirm(`حذف المورد «${s.name}»؟`))return;
   DB.suppliers=DB.suppliers.filter(x=>x.id!==id);logAct("حذف مورد",s.name);save();pImport();
 }
