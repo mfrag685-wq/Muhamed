@@ -820,7 +820,7 @@ html[data-theme="dark"] .rt td.hl{background:#2e2814;color:var(--accent)}
 
 <!-- ══ PAGE 2: COSTS ══ -->
 <div id="page-costs" class="page">
-  <div class="alert ai">💡 <strong>آلية التوزيع:</strong> مصاريف الفاتورة → على أصنافها بنسبة القيمة | مصاريف الحاوية → على فواتيرها بنسبة صافي القيمة | مصاريف الشحنة → على كل الفواتير بنسبة صافي قيمتها | المجموع = 100% دائماً</div>
+  <div class="alert ai">💡 <strong>آلية التوزيع:</strong> مصاريف الفاتورة → على أصنافها بنسبة القيمة | <strong>أجور الشحن البحري + مصاريف الحاوية</strong> → على فواتير حاويتها بنسبة صافي القيمة | مصاريف الشحنة → على كل الفواتير بنسبة صافي قيمتها | المجموع = 100% دائماً</div>
   <div class="card">
     <div class="card-header">📄 مصاريف على مستوى كل فاتورة <span class="tag tag-inv">توزيع على الأصناف</span></div>
     <div class="card-body"><div id="invoice-costs-panels"></div></div>
@@ -1242,16 +1242,15 @@ const S = {
   currentId: null,  // ID of currently loaded shipment (null = new)
   containers:[],
   shipCosts:[
-    {id:1,label:'رسوم الشحن (الناقل البحري)',amount:0,cur:'USD',freight:true},
-    {id:2,label:'رسوم التخليص الجمركي',amount:0,cur:'SAR'},
-    {id:3,label:'الرسوم الجمركية',amount:0,cur:'SAR'},
-    {id:4,label:'رسوم الميناء / الرصيف',amount:0,cur:'SAR'},
-    {id:5,label:'مصاريف النقل الداخلي',amount:0,cur:'SAR'},
-    {id:6,label:'مصاريف التأمين',amount:0,cur:'SAR'},
-    {id:7,label:'مصاريف التفتيش',amount:0,cur:'SAR'},
-    {id:8,label:'مصاريف التخزين',amount:0,cur:'SAR'},
+    {id:1,label:'رسوم التخليص الجمركي',amount:0,cur:'SAR'},
+    {id:2,label:'الرسوم الجمركية',amount:0,cur:'SAR'},
+    {id:3,label:'رسوم الميناء / الرصيف',amount:0,cur:'SAR'},
+    {id:4,label:'مصاريف النقل الداخلي',amount:0,cur:'SAR'},
+    {id:5,label:'مصاريف التأمين',amount:0,cur:'SAR'},
+    {id:6,label:'مصاريف التفتيش',amount:0,cur:'SAR'},
+    {id:7,label:'مصاريف التخزين',amount:0,cur:'SAR'},
   ],
-  nextShipCostId:9, nextConCostId:100,
+  nextShipCostId:8, nextConCostId:100,
   chipFilter:'all'
 };
 
@@ -1653,6 +1652,7 @@ function loadShipment(id) {
   S.shipCosts    = JSON.parse(JSON.stringify(snap.shipCosts||[]));
   S.nextShipCostId = Math.max(8,...S.shipCosts.map(x=>x.id+1));
   S.nextConCostId  = 100 + S.containers.reduce((s,c)=>s+c.costs.length,0);
+  normalizeFreight(); // ترحيل أجور الشحن القديمة (فاتورة → حاوية) دون فقد أي مبلغ
 
   // Apply to DOM
   applyTheme();
@@ -2002,7 +2002,7 @@ function buildContainerTabs() {
   document.getElementById('containers-badge').textContent=n+' حاويات';
   while(S.containers.length<n){
     const ci=S.containers.length+1;
-    S.containers.push({id:ci,number:'CONT-'+String(ci).padStart(3,'0'),invoices:[mkInv(1)],costs:[]});
+    S.containers.push({id:ci,number:'CONT-'+String(ci).padStart(3,'0'),invoices:[mkInv(1)],costs:[],freight:0,freightCur:'USD'});
   }
   S.containers=S.containers.slice(0,n);
 
@@ -2180,8 +2180,6 @@ function buildInvCostPanels(){
   // Apply-all bar
   let h=`<div class="apply-all-bar">
     <span style="font-size:.8rem;font-weight:700;color:var(--primary)">⚡ تطبيق سريع على كل الفواتير:</span>
-    <button class="apply-all-btn" onclick="applyShipCurToAll('USD')">شحن كل الفواتير → USD</button>
-    <button class="apply-all-btn" onclick="applyShipCurToAll('SAR')">شحن كل الفواتير → SAR</button>
     <button class="apply-all-btn" onclick="applyDiscTypeToAll('percent')">خصم كل الفواتير → %</button>
     <button class="apply-all-btn" onclick="applyDiscTypeToAll('amount')">خصم كل الفواتير → مبلغ</button>
   </div>`;
@@ -2198,23 +2196,6 @@ function buildInvCostPanels(){
       </div>
       <div class="card-body">
         <div class="cost-fields-grid">
-
-          <!-- Shipping -->
-          <div class="cost-field-group">
-            <div class="cfg-label">🚢 أجور الشحن البحري</div>
-            <div class="cfg-row">
-              <input type="number" id="inv-ship-${k}" value="${inv.shippingCost||''}" min="0" step="0.01" placeholder="0.00"
-                onchange="S.containers[${ci}].invoices[${ii}].shippingCost=parseFloat(this.value)||0">
-              <select id="inv-ship-cur-${k}" class="cur-sel"
-                onchange="S.containers[${ci}].invoices[${ii}].shipCur=this.value;updCostPreview('ship-preview-${k}',this.value,document.getElementById('inv-ship-${k}').value,${rate})">
-                <option value="USD" ${inv.shipCur==='USD'?'selected':''}>USD</option>
-                <option value="SAR" ${inv.shipCur==='SAR'?'selected':''}>SAR</option>
-              </select>
-              <span class="cost-sar-preview" id="ship-preview-${k}">
-                = ${fmtN(inv.shippingCost*(inv.shipCur==='SAR'?1:rate))} SAR
-              </span>
-            </div>
-          </div>
 
           <!-- Commission -->
           <div class="cost-field-group">
@@ -2302,11 +2283,23 @@ function buildConCostPanels(){
         <span class="tag tag-con">${c.invoices.length} فاتورة</span>
       </div>
       <div class="card-body">
+        <div class="cost-item-row" style="background:#fff6e6;border:1px solid #f0c36d;border-radius:8px;padding:7px 9px;margin-bottom:8px">
+          <span class="cost-lbl" style="border:none;background:transparent;font-weight:800;color:#9a7b2e">🚢 أجور الشحن البحري</span>
+          <input class="cost-amt" type="number" id="cfrt-amt-${ci+1}" value="${c.freight||''}" min="0" step="0.01" placeholder="0.00"
+            onchange="updConFreight(${ci+1},this.value);updCostPreview('cfrt-prev-${ci+1}',document.getElementById('cfrt-cur-${ci+1}').value,this.value,${rate})">
+          <select class="cur-sel" id="cfrt-cur-${ci+1}"
+            onchange="updConFreightCur(${ci+1},this.value);updCostPreview('cfrt-prev-${ci+1}',this.value,document.getElementById('cfrt-amt-${ci+1}').value,${rate})">
+            <option value="USD" ${(c.freightCur||'USD')==='USD'?'selected':''}>USD</option>
+            <option value="SAR" ${c.freightCur==='SAR'?'selected':''}>SAR</option>
+          </select>
+          <span class="cost-sar-preview" id="cfrt-prev-${ci+1}">= ${fmtN((c.freight||0)*((c.freightCur||'USD')==='SAR'?1:rate))} SAR</span>
+          <span class="scope s-con">حاوية → فواتيرها</span>
+        </div>
         <div id="con-costs-list-${ci+1}">`;
     c.costs.forEach(cc=>{ h+=renderConCostRow(ci+1,cc,rate); });
     h+=`</div>
         <button class="add-btn-sm" onclick="addConCost(${ci+1})">＋ إضافة مصروف للحاوية ${ci+1}</button>
-        <div style="font-size:.72rem;color:var(--muted);margin-top:4px">🔹 تُوزَّع على فواتير هذه الحاوية بنسبة صافي قيمة كل فاتورة</div>
+        <div style="font-size:.72rem;color:var(--muted);margin-top:4px">🔹 أجور الشحن البحري ومصاريف الحاوية تُوزَّع على فواتير هذه الحاوية بنسبة صافي قيمة كل فاتورة</div>
       </div></div>`;
   });
   el.innerHTML=h;
@@ -2341,6 +2334,20 @@ function applyAllConCostCur(cur){
   buildConCostPanels();
   toast(`✅ عملة مصاريف الحاويات → ${cur}`);
 }
+function updConFreight(ci,v){ const c=S.containers[ci-1]; if(c) c.freight=parseFloat(v)||0; }
+function updConFreightCur(ci,v){ const c=S.containers[ci-1]; if(c) c.freightCur=v; }
+// ترحيل بيانات قديمة: أجور الشحن كانت على مستوى الفاتورة → تُجمع لحاويتها بالريال (الإجمالي محفوظ تماماً)
+function normalizeFreight(){
+  (S.containers||[]).forEach(function(c){
+    if(typeof c.freight!=='number'){
+      var sum=0, had=false;
+      (c.invoices||[]).forEach(function(inv){ var v=parseFloat(inv&&inv.shippingCost)||0; if(v>0){ had=true; sum+=toSar(v, inv.shipCur||'USD'); } });
+      c.freight = sum; c.freightCur = 'SAR';
+      if(had) (c.invoices||[]).forEach(function(inv){ inv.shippingCost=0; });
+    }
+    if(!c.freightCur) c.freightCur='USD';
+  });
+}
 function updConCostLabel(ci,id,v){ const c=S.containers[ci-1].costs.find(x=>x.id===id); if(c)c.label=v; }
 function updConCostAmt(ci,id,v)  { const c=S.containers[ci-1].costs.find(x=>x.id===id); if(c)c.amount=parseFloat(v)||0; }
 function updConCostCur(ci,id,v)  { const c=S.containers[ci-1].costs.find(x=>x.id===id); if(c)c.cur=v; }
@@ -2370,11 +2377,9 @@ function renderShipCosts(){
       </select>
       <span class="cost-sar-preview" id="sc-prev-${c.id}">= ${fmtN((c.amount||0)*(c.cur==='SAR'?1:rate))} SAR</span>
       <span class="scope s-ship">شحنة</span>
-      <button class="frt-btn${c.freight?' on':''}" id="sc-frt-${c.id}" title="وسم هذا المصروف كرسوم شحن (يظهر في كشف حساب الشحن)" onclick="toggleSCFreight(${c.id})">🚚 شحن</button>
       <button class="del-btn" onclick="removeSC(${c.id})">✕</button>
     </div>`).join('');
 }
-function toggleSCFreight(id){ const c=S.shipCosts.find(x=>x.id===id); if(!c) return; c.freight=!c.freight; const b=document.getElementById('sc-frt-'+id); if(b) b.classList.toggle('on',!!c.freight); toast(c.freight?'🚚 وُسم كرسوم شحن — سيظهر في كشف حساب الشحن':'أُزيل وسم الشحن'); }
 function applyShipCostCurToAll(cur){
   S.shipCosts.forEach(c=>c.cur=cur); renderShipCosts();
   toast(`✅ عملة مصاريف الشحنة → ${cur}`);
@@ -2401,8 +2406,6 @@ function syncCostsFromDOM(){
     // Per-invoice purchase currency (overrides global if set)
     const purchCurEl = document.getElementById(`inv-purchcur-${ci+1}-${ii+1}`);
     if (purchCurEl) inv.purchCur = purchCurEl.value;
-    inv.shippingCost   = parseFloat(document.getElementById(`inv-ship-${k}`)?.value)||0;
-    inv.shipCur        = document.getElementById(`inv-ship-cur-${k}`)?.value || 'USD';
     inv.commissionRate = parseFloat(document.getElementById(`inv-comm-${k}`)?.value)||0;
     inv.discount       = parseFloat(document.getElementById(`inv-disc-${k}`)?.value)||0;
     inv.discountType   = document.getElementById(`inv-disctype-${k}`)?.value || 'amount';
@@ -2457,19 +2460,16 @@ function calculate(){
       const commInvCur = rawInvCur * inv.commissionRate / 100;
       const commSar    = purchaseToSar(commInvCur, invPurchCur);
 
-      // أجور الشحن: بعملتها المختارة (USD أو SAR) → ريال
-      const shipSar  = toSar(inv.shippingCost, inv.shipCur || 'USD');
-
       // مصاريف أخرى: بعملتها المختارة → ريال
       const otherSar = toSar(inv.otherCost, inv.otherCur || 'SAR');
 
-      // صافي قيمة الفاتورة بالريال (للتوزيع التناسبي)
-      const netSar = rawSar - discSar + commSar + shipSar + otherSar;
+      // صافي قيمة الفاتورة بالريال (أساس التوزيع) — لا يشمل أجور الشحن لأنها تُوزَّع على مستوى الحاوية
+      const netSar = rawSar - discSar + commSar + otherSar;
 
       allRec.push({
         ci: ci+1, ii: ii+1, inv,
         rawInvCur, rawSar,
-        discSar, commSar, shipSar, otherSar,
+        discSar, commSar, otherSar,
         netSar, conCostSar
       });
     });
@@ -2477,8 +2477,10 @@ function calculate(){
 
   // ── الخطوة 3: توزيع مصاريف الحاويات (تناسبياً على فواتير كل حاوية) ──
   const cNetMap = {};
-  S.containers.forEach((_,ci) => {
+  const cFreightMap = {};
+  S.containers.forEach((c,ci) => {
     cNetMap[ci+1] = allRec.filter(r=>r.ci===ci+1).reduce((s,r)=>s+r.netSar, 0);
+    cFreightMap[ci+1] = toSar(c.freight||0, c.freightCur||'USD'); // أجور الشحن البحري لهذه الحاوية → ريال
   });
 
   // ── الخطوة 4: توزيع مصاريف الشحنة (تناسبياً على كل الفواتير) ──
@@ -2487,11 +2489,14 @@ function calculate(){
   // ── الخطوة 5: توزيع على مستوى الصنف ──
   let rows = [];
   allRec.forEach(rec => {
-    const {ci,ii,inv,rawInvCur,rawSar,discSar,commSar,shipSar,otherSar,netSar,conCostSar} = rec;
+    const {ci,ii,inv,rawInvCur,rawSar,discSar,commSar,otherSar,netSar,conCostSar} = rec;
 
     // حصة هذه الفاتورة من مصاريف الحاوية
     const cNet = cNetMap[ci] || 0;
     const invConSar = cNet > 0 ? (netSar/cNet) * conCostSar : 0;
+
+    // حصة هذه الفاتورة من أجور الشحن البحري للحاوية (توزيع بنسبة صافي القيمة)
+    const invFreightSar = cNet > 0 ? (netSar/cNet) * (cFreightMap[ci]||0) : 0;
 
     // حصة هذه الفاتورة من مصاريف الشحنة
     const invShipShareSar = gNet > 0 ? (netSar/gNet) * totalShipSar : 0;
@@ -2505,7 +2510,7 @@ function calculate(){
       const itemPurchSar = purchaseToSar(itemValInvCur, invPurchCur); // سعر الشراء بالريال
       const itemDiscSar  = share * discSar;               // حصته من الخصم
       const itemCommSar  = share * commSar;               // حصته من العمولة
-      const itemShipSar  = share * shipSar;               // حصته من شحن الفاتورة
+      const itemShipSar  = share * invFreightSar;         // حصته من أجور الشحن البحري (حاوية)
       const itemOtherSar = share * otherSar;              // حصته من مصاريف أخرى
       const itemConSar   = share * invConSar;             // حصته من مصاريف الحاوية
       const itemSShSar   = share * invShipShareSar;       // حصته من مصاريف الشحنة
@@ -2665,11 +2670,11 @@ function calculate(){
       <th style="color:#fff">الفارق</th><th style="color:#fff">الحالة</th>
     </tr>
   </thead><tbody>`;
-  allRec.forEach(rec=>{
-    const dist=rows.filter(r=>r.ci===rec.ci&&r.ii===rec.ii).reduce((s,r)=>s+r.shipSar,0);
-    const inp=toSar(rec.inv.shippingCost, rec.inv.shipCur||'USD');
+  S.containers.forEach((c,ci)=>{
+    const inp=toSar(c.freight||0, c.freightCur||'USD');
+    const dist=rows.filter(r=>r.ci===ci+1).reduce((s,r)=>s+r.shipSar,0);
     const d=Math.abs(inp-dist);
-    h+=`<tr><td>فاتورة</td><td>شحن فاتورة ${rec.ii} / حاوية ${rec.ci}</td>
+    h+=`<tr><td>حاوية</td><td>أجور الشحن البحري — حاوية ${ci+1}</td>
       <td>${fmtD(inp)}</td><td>${fmtD(dist)}</td>
       <td>${fmtD(d)}</td><td>${d<0.05?'✅':'⚠️'}</td></tr>`;
   });
@@ -4071,7 +4076,7 @@ function applyImportedRows(aoa,fname){
       return {id:ii+1,invNumber:iv.invNumber,purchCur:iv.purchCur,items:iv.items,
         shippingCost:0,shipCur:'USD',commissionRate:0,discount:0,discountType:'amount',otherCost:0,otherCur:'SAR'};
     });
-    return {id:ci+1,number:c.number||('CONT-'+String(ci+1).padStart(3,'0')),invoices:invs.length?invs:[mkInv(1)],costs:[]};
+    return {id:ci+1,number:c.number||('CONT-'+String(ci+1).padStart(3,'0')),invoices:invs.length?invs:[mkInv(1)],costs:[],freight:0,freightCur:'USD'};
   });
 
   if(!built.length){ toast('⚠️ لم يُعثر على أصناف صالحة في الملف',true); return; }
@@ -4205,11 +4210,16 @@ var _frtMode='detail';
 function frtKey(pid){ return 'scs_freightpay_'+(pid||getActiveProfileId()||'default'); }
 function frtLoad(pid){ try{ return JSON.parse(localStorage.getItem(frtKey(pid))||'[]'); }catch(e){ return []; } }
 function frtSave(arr,pid){ try{ localStorage.setItem(frtKey(pid),JSON.stringify(arr)); return true; }catch(e){ toast('⚠️ فشل حفظ دفعات الشحن: التخزين ممتلئ',true); return false; } }
-// رسوم الشحن لشحنة واحدة بالريال — بسعر صرفها المحفوظ وقت الحفظ (توافق تام مع تكلفتها)
+// رسوم الشحن لشحنة واحدة بالريال = مجموع أجور الشحن البحري لكل حاوية — بسعر صرفها المحفوظ وقت الحفظ
 function shipFreightSar(snap){
   var rate=parseFloat(snap&&snap.fxUsdSar)||3.756;
-  var costs=(snap&&snap.shipCosts)||[];
-  return costs.reduce(function(s,c){ if(!c||!c.freight) return s; var a=parseFloat(c.amount)||0; return s+(c.cur==='SAR'?a:a*rate); },0);
+  var conts=(snap&&snap.containers)||[];
+  var total=conts.reduce(function(s,c){ if(!c) return s; var a=parseFloat(c.freight)||0; return s+((c.freightCur||'USD')==='SAR'?a:a*rate); },0);
+  // توافق مع الشحنات القديمة قبل الترحيل: أجور الشحن كانت على مستوى الفاتورة
+  if(total===0){
+    conts.forEach(function(c){ ((c&&c.invoices)||[]).forEach(function(inv){ var v=parseFloat(inv&&inv.shippingCost)||0; if(v>0) total+=((inv.shipCur||'USD')==='SAR'?v:v*rate); }); });
+  }
+  return total;
 }
 function frtPayToSar(p){ var a=parseFloat(p&&p.amount)||0; return (p&&p.cur==='SAR')?a:a*(parseFloat(p&&p.rate)||S.fxUsdSar||3.756); }
 function onFrtMethodChange(){ var m=document.getElementById('frt-method').value; var w=document.getElementById('frt-bank-wrap'); if(w) w.style.display=(m==='transfer')?'':'none'; }
