@@ -605,7 +605,7 @@ function pMove(){
 
     <!-- حقول الوارد: المورد + الفسح -->
     <div class="formgrid" id="rowIn" style="margin-top:6px">
-      <div class="cell c4"><label>المورد</label><select id="mSupplier"><option value="">—</option>
+      <div class="cell c4"><label>المورد * (إجباري للوارد)</label><select id="mSupplier"><option value="">— اختر المورد —</option>
         ${csups().map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join("")}</select></div>
       <div class="cell c4"><label>رقم الفسح الجمركي (للوارد)</label><input id="mCustoms" placeholder="رقم الفسح"></div>
       <div class="cell c4"><label>ملاحظات</label><input id="mNoteIn" placeholder="ملاحظة"></div>
@@ -719,6 +719,7 @@ function saveMove(){
   // وارد / تسوية — صنف واحد
   if(!picked)return show("اختر صنفاً أولاً.","err");
   const qty=parseFloat($("#mQty").value);if(!qty||qty<=0)return show("أدخل كمية صحيحة.","err");
+  if(mType==="inbound"&&!(+($("#mSupplier")?.value)))return show("اختر المورد (إجباري للوارد).","err");
   const item=DB.items.find(i=>i.id===picked.id);
   item.qty+=qty;
   DB.movements.unshift({id:nid("movement"),companyId:CO,itemId:item.id,type:mType,qty,price:parseFloat($("#mPrice").value)||0,
@@ -764,6 +765,8 @@ function editMovement(id){
       <div class="field"><label>السعر ﷼</label><input id="em_price" type="number" inputmode="decimal" step="0.01" value="${m.price||0}"></div></div>
     <div class="row"><div class="field"><label>التاريخ</label><input id="em_date" type="date" value="${esc(m.date||today())}"></div>
       <div class="field"><label>${m.type==="inbound"?"رقم الفسح":"رقم الفاتورة"}</label><input id="em_ref" value="${esc(m.type==="inbound"?(m.customs||""):(m.invoice||""))}"></div></div>
+    ${m.type==="inbound"?`<div class="field" style="margin-bottom:10px"><label>المورد *</label>
+      <select id="em_sup"><option value="">— اختر المورد —</option>${csups().map(s=>`<option value="${s.id}" ${s.id===m.supplierId?"selected":""}>${esc(s.name)}</option>`).join("")}</select></div>`:""}
     <div class="field" style="margin-bottom:10px"><label>ملاحظة</label><input id="em_note" value="${esc(m.note||"")}"></div>
     <div id="em_msg" style="color:var(--red);font-size:13px;margin-bottom:8px"></div>
     <div style="display:flex;gap:8px"><button class="btn green" onclick="saveMovement(${id})">حفظ</button>
@@ -783,9 +786,14 @@ function saveMovement(id){
     if(oldIt)oldIt.qty+=isIn(m.type)?m.qty:-m.qty;   // تراجع عن العكس
     $("#em_msg").textContent=`الرصيد غير كافٍ للصنف «${itemModel(newIt)}» (المتاح ${newIt.qty}).`;return;
   }
+  if(m.type==="inbound"&&!(+($("#em_sup")?.value))){
+    if(oldIt)oldIt.qty+=isIn(m.type)?m.qty:-m.qty;   // تراجع عن العكس
+    $("#em_msg").textContent="اختر المورد (إجباري للوارد).";return;
+  }
   newIt.qty+=isIn(m.type)?nq:-nq;
   m.itemId=newIt.id;m.model=itemModel(newIt);m.qty=nq;m.price=parseFloat($("#em_price").value)||0;
   m.date=$("#em_date").value||m.date;m.note=$("#em_note").value||"";
+  if(m.type==="inbound")m.supplierId=+($("#em_sup").value)||null;
   const ref=$("#em_ref").value||"";if(m.type==="inbound")m.customs=ref;else m.invoice=ref;
   m.balAfter=newIt.qty;m.editedBy=ME.name;m.editedAt=new Date().toISOString();
   logAct("تعديل حركة",`${m.model||""} كمية ${nq}`);save();
