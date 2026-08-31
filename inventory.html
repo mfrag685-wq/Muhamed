@@ -1194,14 +1194,66 @@ function pImport(){
       <div class="field"><label>الهاتف</label><input id="sPhone"></div></div>
     <div class="field" style="margin-bottom:12px"><label>مسؤول التواصل</label><input id="sContact"></div>
     <button class="btn block" onclick="addSupplier()">حفظ المورد</button>
-    <div class="table-wrap" style="margin-top:14px"><table><thead><tr><th>المورد</th><th>الهاتف</th><th>المسؤول</th>${ME.role==="admin"?"<th></th>":""}</tr></thead>
+    <div class="table-wrap" style="margin-top:14px"><table><thead><tr><th>المورد</th><th>الهاتف</th><th>إجمالي التوريدات ﷼</th><th></th></tr></thead>
       <tbody id="supTbl"></tbody></table></div>
-    <p style="font-size:12px;color:var(--muted);margin-top:10px">رقم الفسح يُسجَّل مع كل حركة وارد مباشرةً من شاشة «تسجيل حركة».</p></div>`;
+    <p style="font-size:12px;color:var(--muted);margin-top:10px">اضغط «كشف حساب» لعرض حركة المورد التفصيلية والإجمالية.</p></div>`;
   renderSuppliers();
 }
 function renderSuppliers(){
-  $("#supTbl").innerHTML=csups().map(s=>`<tr><td>${esc(s.name)}</td><td>${esc(s.phone||"")}</td><td>${esc(s.contact||"")}</td>
-    ${ME.role==="admin"?`<td><button class="btn red sm" onclick="delSupplier(${s.id})">حذف</button></td>`:""}</tr>`).join("")||`<tr><td colspan="4" class="empty">—</td></tr>`;
+  $("#supTbl").innerHTML=csups().map(s=>{const mv=cmoves().filter(m=>m.supplierId===s.id);const tot=mv.reduce((a,m)=>a+m.qty*m.price,0);
+    return `<tr><td>${esc(s.name)}</td><td>${esc(s.phone||"")}</td><td>${money(tot)}</td>
+    <td style="white-space:nowrap"><button class="btn blue sm" onclick="supplierStatement(${s.id})">📄 كشف حساب</button>
+      ${ME.role==="admin"?`<button class="btn red sm" onclick="delSupplier(${s.id})">حذف</button>`:""}</td></tr>`;}).join("")||`<tr><td colspan="4" class="empty">—</td></tr>`;
+}
+/* كشف حساب المورد — إجمالي وتفصيلي */
+function supplierStatement(id){
+  const s=DB.suppliers.find(x=>x.id===id);if(!s)return;
+  $("#view").innerHTML=`<div class="pagehead"><h1>📄 كشف حساب المورد — ${esc(s.name)}</h1>
+    <div style="display:flex;gap:8px"><button class="btn ghost no-print" onclick="pImport()">↩ رجوع</button>
+      <button class="btn ghost no-print" onclick="window.print()">🖨️ طباعة</button></div></div>
+  <div class="card no-print"><div class="formgrid">
+    <div class="cell c4"><label>نوع الكشف</label><select id="ssMode" onchange="renderSupStatement(${id})">
+      <option value="detail">تفصيلي (كل حركة)</option><option value="summary">إجمالي (لكل صنف)</option></select></div>
+    <div class="cell c3"><label>من تاريخ</label><input id="ssFrom" type="date" onchange="renderSupStatement(${id})"></div>
+    <div class="cell c3"><label>إلى تاريخ</label><input id="ssTo" type="date" onchange="renderSupStatement(${id})"></div>
+    <div class="cell c2"><label>بحث موديل/فسح</label><input id="ssQ" placeholder="🔍" oninput="renderSupStatement(${id})"></div>
+  </div></div>
+  <div id="ssOut" style="margin-top:16px"></div>`;
+  renderSupStatement(id);
+}
+function renderSupStatement(id){
+  const from=$("#ssFrom")?.value||"",to=$("#ssTo")?.value||"",mode=$("#ssMode")?.value||"detail",q=($("#ssQ")?.value||"").toLowerCase().trim();
+  let rows=cmoves().filter(m=>m.supplierId===id&&(!from||m.date>=from)&&(!to||m.date<=to));
+  if(q)rows=rows.filter(m=>{const it=DB.items.find(i=>i.id===m.itemId)||{};return ((m.model||itemModel(it))+" "+(m.customs||"")+" "+(m.invoice||"")).toLowerCase().includes(q);});
+  rows.sort((a,b)=>(a.date<b.date?-1:a.date>b.date?1:a.id-b.id));
+  const tQty=rows.reduce((s,m)=>s+m.qty,0),tVal=rows.reduce((s,m)=>s+m.qty*m.price,0);
+  const stats=`<div class="grid-3" style="margin-bottom:14px">
+    <div class="stat"><div class="lbl">عدد الحركات</div><div class="val">${rows.length}</div></div>
+    <div class="stat"><div class="lbl">إجمالي الكمية الواردة</div><div class="val" style="color:var(--green)">${tQty}</div></div>
+    <div class="stat"><div class="lbl">إجمالي القيمة ﷼</div><div class="val sm">${money(tVal)}</div></div></div>`;
+  let table,csvHead,csvRows;
+  if(mode==="summary"){
+    const g={};rows.forEach(m=>{const it=DB.items.find(i=>i.id===m.itemId)||{};const k=m.itemId;g[k]=g[k]||{name:m.model||itemModel(it),qty:0,val:0};g[k].qty+=m.qty;g[k].val+=m.qty*m.price;});
+    const arr=Object.values(g).sort((a,b)=>b.val-a.val);
+    csvHead=["الموديل","الكمية","القيمة"];csvRows=arr.map(r=>[r.name,r.qty,r.val]);
+    table=`<div class="table-wrap"><table><thead><tr><th>الموديل</th><th>الكمية</th><th>القيمة ﷼</th></tr></thead>
+      <tbody>${arr.map(r=>`<tr><td>${esc(r.name)}</td><td style="font-weight:700">${r.qty}</td><td>${money(r.val)}</td></tr>`).join("")
+      ||`<tr><td colspan="3" class="empty">لا حركات.</td></tr>`}
+      ${arr.length?`<tr style="background:#f1f5f9;font-weight:700"><td>الإجمالي</td><td>${tQty}</td><td>${money(tVal)}</td></tr>`:""}</tbody></table></div>`;
+  }else{
+    csvHead=["التاريخ","الموديل","الكمية","السعر","القيمة","رقم الفسح","الموظف"];
+    csvRows=rows.map(m=>{const it=DB.items.find(i=>i.id===m.itemId)||{};return [m.date,m.model||itemModel(it),m.qty,m.price,m.qty*m.price,m.customs||"",m.userName];});
+    table=`<div class="table-wrap"><table><thead><tr><th>التاريخ</th><th>الموديل</th><th>الكمية</th><th>السعر</th><th>القيمة</th><th>رقم الفسح</th><th>الموظف</th></tr></thead>
+      <tbody>${rows.map(m=>{const it=DB.items.find(i=>i.id===m.itemId)||{};
+        return `<tr><td>${esc(m.date)}</td><td>${esc(m.model||itemModel(it))}</td><td style="color:var(--green);font-weight:700">${m.qty}</td>
+        <td>${money(m.price)}</td><td>${money(m.qty*m.price)}</td><td>${esc(m.customs||"")}</td><td>${esc(m.userName)}</td></tr>`;}).join("")
+        ||`<tr><td colspan="7" class="empty">لا حركات.</td></tr>`}
+      ${rows.length?`<tr style="background:#f1f5f9;font-weight:700"><td colspan="2">الإجمالي</td><td>${tQty}</td><td></td><td>${money(tVal)}</td><td colspan="2"></td></tr>`:""}</tbody></table></div>`;
+  }
+  window.__ssCSV={head:csvHead,rows:csvRows};
+  $("#ssOut").innerHTML=stats+`<div class="card"><div class="card-title" style="display:flex;justify-content:space-between;align-items:center">
+    <span>${mode==="summary"?"إجمالي لكل صنف":"الحركة التفصيلية"}</span>
+    <button class="btn ghost sm no-print" onclick="exportCSV('كشف-مورد.csv',window.__ssCSV.head,window.__ssCSV.rows)">⬇ Excel</button></div>${table}</div>`;
 }
 function addSupplier(){
   const name=$("#sName").value.trim();if(!name)return;
