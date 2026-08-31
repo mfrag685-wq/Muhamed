@@ -100,9 +100,13 @@ tr:hover td{background:#f8fafc}
 
 /* أزرار كبيرة لنوع الحركة — وارد / منصرف */
 .typebtns{display:flex;gap:8px}
-.typebtns button{flex:1;border:2px solid var(--line);background:#fff;color:var(--muted);border-radius:10px;padding:12px;font-weight:700;font-size:15px}
-.typebtns button.on.in{background:var(--green);border-color:var(--green);color:#fff}
-.typebtns button.on.out{background:var(--amber);border-color:var(--amber);color:#fff}
+.typebtns button{flex:1;border:2px solid var(--line);background:#fff;color:var(--muted);border-radius:10px;padding:12px;font-weight:700;font-size:15px;line-height:1.35;transition:transform .1s}
+.typebtns button.in{border-color:#86efac;color:var(--green);background:#f0fdf4}
+.typebtns button.out{border-color:#fdba74;color:var(--amber);background:#fff7ed;background:#fff7ed}
+.typebtns button.adj{border-color:#cbd5e1;color:#64748b}
+.typebtns button small{display:block;font-size:11px;font-weight:600;opacity:.85}
+.typebtns button.on.in{background:var(--green);border-color:var(--green);color:#fff;box-shadow:0 4px 12px rgba(22,163,74,.35);transform:translateY(-1px)}
+.typebtns button.on.out{background:var(--amber);border-color:var(--amber);color:#fff;box-shadow:0 4px 12px rgba(217,119,6,.35);transform:translateY(-1px)}
 .typebtns button.on.adj{background:#64748b;border-color:#64748b;color:#fff}
 .balbox{background:#ecfeff;border:1px solid #a5f3fc;border-radius:12px;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
 .balbox .b{font-size:26px;font-weight:800;color:var(--sky)}
@@ -595,9 +599,9 @@ function pMove(){
       <label class="btn amber no-print" style="margin:0">⬆ استيراد حركات<input type="file" accept=".csv,text/csv" style="display:none" onchange="importMovesFile(event)"></label>`:""}</div></div>
   <div class="card"><div id="mMsg"></div>
     <div class="typebtns" style="margin-bottom:12px">
-      <button type="button" class="in" id="tbIn"  onclick="setType('inbound')">⬇ وارد</button>
-      <button type="button" class="out" id="tbOut" onclick="setType('outbound')">⬆ منصرف (بيع)</button>
-      <button type="button" class="adj" id="tbAdj" onclick="setType('adjustment')">⚙ تسوية</button>
+      <button type="button" class="in" id="tbIn"  onclick="setType('inbound')">⬇ وارد<small>استلام / إضافة للمخزون</small></button>
+      <button type="button" class="out" id="tbOut" onclick="setType('outbound')">⬆ منصرف<small>صرف / بيع من المخزون</small></button>
+      <button type="button" class="adj" id="tbAdj" onclick="setType('adjustment')">⚙ تسوية<small>تصحيح رصيد</small></button>
     </div>
     <div class="balbox" id="mBal" style="display:none">
       <div style="display:flex;align-items:center;gap:12px">
@@ -1265,7 +1269,8 @@ function delItem(id){
 
 /* ============ 6) الموردون ============ */
 function pImport(){
-  $("#view").innerHTML=`<div class="pagehead"><h1>🚚 الموردون</h1></div>
+  $("#view").innerHTML=`<div class="pagehead"><h1>🚚 الموردون</h1>
+    <button class="btn blue" onclick="suppliersSummary()">📊 كشف حساب مجمّع</button></div>
   <div class="card" style="max-width:640px">
     <div class="card-title">➕ إضافة مورد</div>
     <div class="row"><div class="field"><label>اسم المورد *</label><input id="sName"></div>
@@ -1283,6 +1288,30 @@ function renderSuppliers(){
     <td style="white-space:nowrap"><button class="btn blue sm" onclick="supplierStatement(${s.id})">📄 كشف حساب</button>
       ${can("canEdit")?`<button class="btn green sm" onclick="makePayment(${s.id})">💵 دفعة</button>`:""}
       ${ME.role==="admin"?`<button class="btn red sm" onclick="delSupplier(${s.id})">حذف</button>`:""}</td></tr>`;}).join("")||`<tr><td colspan="4" class="empty">—</td></tr>`;
+}
+/* كشف حساب مجمّع لكل الموردين */
+function suppliersSummary(){
+  const list=csups();
+  const rows=list.map(s=>({s,sup:supSupplies(s.id),opn:supOpening(s.id),paid:supPaid(s.id),bal:supBalance(s.id)}))
+    .filter(r=>r.sup||r.opn||r.paid||r.bal);
+  const T={sup:0,opn:0,paid:0,bal:0};rows.forEach(r=>{T.sup+=r.sup;T.opn+=r.opn;T.paid+=r.paid;T.bal+=r.bal;});
+  window.__csumCSV={head:["المورد","الهاتف","التوريدات","الرصيد الافتتاحي","المدفوعات","الرصيد المستحق"],
+    rows:rows.map(r=>[r.s.name,r.s.phone||"",r.sup,r.opn,r.paid,r.bal])};
+  $("#view").innerHTML=`<div class="pagehead"><h1>📊 كشف حساب مجمّع للموردين</h1>
+    <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn ghost no-print" onclick="pImport()">↩ رجوع</button>
+      <button class="btn ghost no-print" onclick="exportCSV('كشف-مجمّع-الموردين.csv',window.__csumCSV.head,window.__csumCSV.rows)">⬇ Excel</button>
+      <button class="btn ghost no-print" onclick="window.print()">🖨️ طباعة</button></div></div>
+  <div class="grid-4" style="margin-bottom:16px">
+    <div class="stat"><div class="lbl">عدد الموردين</div><div class="val">${rows.length}</div></div>
+    <div class="stat"><div class="lbl">إجمالي التوريدات ﷼</div><div class="val sm">${money(T.sup+T.opn)}</div></div>
+    <div class="stat"><div class="lbl">إجمالي المدفوعات ﷼</div><div class="val sm" style="color:var(--green)">${money(T.paid)}</div></div>
+    <div class="stat"><div class="lbl">إجمالي المستحق ﷼</div><div class="val sm" style="color:${T.bal>0?'var(--red)':'inherit'}">${money(T.bal)}</div></div>
+  </div>
+  <div class="card"><div class="table-wrap"><table><thead><tr><th>المورد</th><th>الهاتف</th><th>التوريدات ﷼</th><th>افتتاحي ﷼</th><th>المدفوعات ﷼</th><th>الرصيد المستحق ﷼</th><th></th></tr></thead>
+    <tbody>${rows.map(r=>`<tr><td>${esc(r.s.name)}</td><td>${esc(r.s.phone||"")}</td><td>${money(r.sup)}</td><td>${money(r.opn)}</td>
+      <td style="color:var(--green)">${money(r.paid)}</td><td style="font-weight:700;color:${r.bal>0?'var(--red)':'inherit'}">${money(r.bal)}</td>
+      <td class="no-print"><button class="btn blue sm" onclick="supplierStatement(${r.s.id})">كشف</button></td></tr>`).join("")||`<tr><td colspan="7" class="empty">لا موردين.</td></tr>`}
+    ${rows.length?`<tr style="background:#f1f5f9;font-weight:700"><td colspan="2">الإجمالي</td><td>${money(T.sup)}</td><td>${money(T.opn)}</td><td style="color:var(--green)">${money(T.paid)}</td><td style="color:${T.bal>0?'var(--red)':'inherit'}">${money(T.bal)}</td><td class="no-print"></td></tr>`:""}</tbody></table></div></div>`;
 }
 /* ---------- دفعات وأرصدة افتتاحية للمورد ---------- */
 function makePayment(id){
