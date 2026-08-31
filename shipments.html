@@ -2271,7 +2271,15 @@ function updCostPreview(id, cur, val, rate){
 function buildConCostPanels(){
   const el=document.getElementById('container-costs-panels');
   const rate=S.fxUsdSar;
-  let h=`<div class="apply-all-bar" style="margin-bottom:10px">
+  const nC=S.containers.length;
+  let h=`<div class="apply-all-bar" style="margin-bottom:10px;background:#fff6e6;border:1px solid #f0c36d">
+    <span style="font-size:.82rem;font-weight:800;color:#9a7b2e">🚢 أجور الشحن لكل حاوية (تُطبَّق على الكل):</span>
+    <input type="number" id="frt-rate-all" min="0" step="0.01" placeholder="مثال 7000" style="width:110px;padding:4px 7px;border:1.5px solid #d8c39a;border-radius:5px">
+    <select id="frt-rate-all-cur" class="cur-sel"><option value="USD">USD</option><option value="SAR">SAR</option></select>
+    <button class="apply-all-btn" style="background:#f6a623;color:#fff;border-color:#f6a623" onclick="applyFreightToAll()">طبّق على ${nC} حاوية</button>
+    <span id="frt-rate-all-hint" style="font-size:.75rem;color:#9a7b2e"></span>
+  </div>
+  <div class="apply-all-bar" style="margin-bottom:10px">
     <span style="font-size:.8rem;font-weight:700;color:var(--primary)">⚡ تحديد عملة كل مصاريف الحاويات:</span>
     <button class="apply-all-btn" onclick="applyAllConCostCur('SAR')">الكل → SAR</button>
     <button class="apply-all-btn" onclick="applyAllConCostCur('USD')">الكل → USD</button>
@@ -2333,6 +2341,16 @@ function applyAllConCostCur(cur){
   S.containers.forEach(c=>c.costs.forEach(cc=>cc.cur=cur));
   buildConCostPanels();
   toast(`✅ عملة مصاريف الحاويات → ${cur}`);
+}
+function applyFreightToAll(){
+  const amt=parseFloat(document.getElementById('frt-rate-all').value)||0;
+  const cur=document.getElementById('frt-rate-all-cur').value||'USD';
+  const n=S.containers.length;
+  if(amt<=0){ toast('⚠️ أدخل قيمة أجور الشحن لكل حاوية',true); return; }
+  S.containers.forEach(c=>{ c.freight=amt; c.freightCur=cur; });
+  buildConCostPanels();
+  const totSar=toSar(amt,cur)*n;
+  toast('🚢 '+fmtN(amt)+' '+cur+' × '+n+' حاوية = '+fmtN(totSar)+' SAR');
 }
 function updConFreight(ci,v){ const c=S.containers[ci-1]; if(c) c.freight=parseFloat(v)||0; }
 function updConFreightCur(ci,v){ const c=S.containers[ci-1]; if(c) c.freightCur=v; }
@@ -4230,7 +4248,7 @@ function clearFrtDates(){ var f=document.getElementById('frt-from'), t=document.
 function frtLedger(from,to){
   var ok=function(d){ return (!from|| (d||'')>=from) && (!to|| (d||'')<=to); };
   var ships=dbLoad().filter(function(s){ return shipFreightSar(s)>0 && ok(s.shipmentDate); })
-    .map(function(s){ return {date:s.shipmentDate||'', kind:'ship', label:'شحنة '+(s.shipmentNo||'—'), dr:shipFreightSar(s), cr:0}; });
+    .map(function(s){ var nc=((s.containers)||[]).length; return {date:s.shipmentDate||'', kind:'ship', label:'شحنة '+(s.shipmentNo||'—')+(nc?' ('+nc+' حاوية)':''), dr:shipFreightSar(s), cr:0}; });
   var pays=frtLoad().filter(function(p){ return ok(p.date); })
     .map(function(p){ var m=(p.method==='transfer')?('تحويل'+(p.bank?' — '+p.bank:'')):'نقدًا';
       return {date:p.date||'', kind:'pay', id:p.id, label:'دفعة ('+m+')'+(p.ref?' #'+p.ref:'')+(p.notes?' — '+p.notes:''), dr:0, cr:frtPayToSar(p)}; });
