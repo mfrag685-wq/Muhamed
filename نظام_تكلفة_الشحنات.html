@@ -126,6 +126,10 @@ td input:focus{border-color:var(--accent);outline:none}
 .cfg-row input[type=number]:focus{border-color:var(--accent);outline:none}
 .cur-sel{border:1.5px solid #b8ccde;border-radius:5px;padding:4px 7px;font-size:.78rem;font-weight:700;color:var(--primary);background:#fff;min-width:65px}
 .cur-sel:focus{border-color:var(--accent);outline:none}
+.frt-btn{border:1.5px solid #d8c39a;background:#fff;color:#9a7b2e;border-radius:5px;padding:3px 7px;font-size:.72rem;font-weight:700;cursor:pointer;white-space:nowrap}
+.frt-btn.on{background:#f6a623;border-color:#f6a623;color:#fff}
+html[data-theme="dark"] .frt-btn{background:#22303f;border-color:#4a5a3a;color:#e0b860}
+html[data-theme="dark"] .frt-btn.on{background:#c98a1a;border-color:#c98a1a;color:#fff}
 .cur-badge{font-size:.72rem;background:#eef2f7;color:var(--primary);border-radius:5px;padding:3px 8px;font-weight:600;white-space:nowrap}
 .cost-sar-preview{font-size:.74rem;color:var(--success);font-weight:700;background:#e8f5e9;border-radius:5px;padding:3px 8px;white-space:nowrap}
 /* FX mini bar in cost panels */
@@ -689,6 +693,7 @@ html[data-theme="dark"] .rt td.hl{background:#2e2814;color:var(--accent)}
   <div class="tab tab-pricing" onclick="showPage('page-pricing')">💹 احتساب البيع</div>
   <div class="tab"         onclick="showPage('page-archive')">🗂️ سجل الشحنات</div>
   <div class="tab"         onclick="showPage('page-payments')">💵 الدفعات المسددة</div>
+  <div class="tab"         onclick="showPage('page-freight')">🚚 كشف حساب الشحن</div>
 </div>
 
 <div class="main">
@@ -1128,6 +1133,52 @@ html[data-theme="dark"] .rt td.hl{background:#2e2814;color:var(--accent)}
   </div>
 </div>
 
+<!-- ══ PAGE 7: FREIGHT ACCOUNT (كشف حساب الشحن) ══ -->
+<div id="page-freight" class="page">
+  <div class="alert ai" style="margin-bottom:12px">🚚 <strong>كشف حساب رسوم الشحن</strong> — يجمع رسوم الشحن من الشحنات (المصاريف المُوسومة بزر «🚚 شحن» في صفحة المصاريف) كأرصدة <strong>مدينة</strong>، ويخصم منها <strong>الدفعات</strong> المسجَّلة أدناه، فيظهر <strong>الرصيد المتبقّي</strong> لشركة الشحن. كل شحنة تُحتسب بسعر صرفها المحفوظ وقت الحفظ (بدون أي انحراف).</div>
+
+  <div id="frt-sum-cards" class="sum-cards" style="margin-bottom:12px"></div>
+
+  <div class="card" style="margin-bottom:12px">
+    <div class="card-header" style="background:#1b5e20">💵 تسجيل دفعة لشركة الشحن — للشركة النشطة: <span id="frt-active-name" style="color:#ffe082"></span></div>
+    <div class="card-body">
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+        <div class="fg"><label>التاريخ</label><input id="frt-date" type="date" style="width:150px"></div>
+        <div class="fg"><label>المبلغ</label><input id="frt-amount" type="number" min="0" step="0.01" placeholder="0.00" style="width:130px"></div>
+        <div class="fg"><label>العملة</label><select id="frt-cur" class="cur-sel"><option value="SAR">SAR</option><option value="USD">USD</option></select></div>
+        <div class="fg"><label>طريقة الدفع</label><select id="frt-method" onchange="onFrtMethodChange()"><option value="transfer">🏦 تحويل بنكي</option><option value="cash">💵 نقدًا</option></select></div>
+        <div class="fg" id="frt-bank-wrap"><label>البنك</label><input id="frt-bank" placeholder="اسم البنك" style="width:150px"></div>
+        <div class="fg"><label>مرجع</label><input id="frt-ref" placeholder="رقم العملية" style="width:120px"></div>
+        <div class="fg"><label>رقم الشحنة</label><input id="frt-ship" placeholder="اختياري" style="width:120px"></div>
+        <div class="fg" style="flex:1;min-width:160px"><label>ملاحظات</label><input id="frt-notes" placeholder="ملاحظات"></div>
+        <button class="btn btn-accent" onclick="addFreightPayment()">➕ إضافة دفعة</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+      <span>📋 كشف الحساب</span>
+      <span style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+        <button class="btn btn-outline btn-sm" id="frt-mode-sum" onclick="setFrtMode('summary')">ملخص</button>
+        <button class="btn btn-outline btn-sm" id="frt-mode-det" onclick="setFrtMode('detail')">تفصيلي</button>
+        <input id="frt-from" type="date" onchange="renderFreight()" style="width:135px" title="من تاريخ">
+        <span style="font-size:.8rem;color:var(--muted)">إلى</span>
+        <input id="frt-to" type="date" onchange="renderFreight()" style="width:135px" title="إلى تاريخ">
+        <button class="btn btn-outline btn-sm" onclick="clearFrtDates()">مسح</button>
+      </span>
+    </div>
+    <div class="card-body">
+      <div style="overflow-x:auto"><table class="tbl" id="frt-table">
+        <thead><tr>
+          <th>#</th><th>التاريخ</th><th>البيان</th><th>مدين (رسوم شحن)</th><th>دائن (مسدد)</th><th>الرصيد الجاري</th><th></th>
+        </tr></thead>
+        <tbody id="frt-tbody"></tbody>
+      </table></div>
+    </div>
+  </div>
+</div>
+
 </div><!-- /main -->
 
 <!-- DETAIL MODAL -->
@@ -1191,15 +1242,16 @@ const S = {
   currentId: null,  // ID of currently loaded shipment (null = new)
   containers:[],
   shipCosts:[
-    {id:1,label:'رسوم التخليص الجمركي',amount:0,cur:'SAR'},
-    {id:2,label:'الرسوم الجمركية',amount:0,cur:'SAR'},
-    {id:3,label:'رسوم الميناء / الرصيف',amount:0,cur:'SAR'},
-    {id:4,label:'مصاريف النقل الداخلي',amount:0,cur:'SAR'},
-    {id:5,label:'مصاريف التأمين',amount:0,cur:'SAR'},
-    {id:6,label:'مصاريف التفتيش',amount:0,cur:'SAR'},
-    {id:7,label:'مصاريف التخزين',amount:0,cur:'SAR'},
+    {id:1,label:'رسوم الشحن (الناقل البحري)',amount:0,cur:'USD',freight:true},
+    {id:2,label:'رسوم التخليص الجمركي',amount:0,cur:'SAR'},
+    {id:3,label:'الرسوم الجمركية',amount:0,cur:'SAR'},
+    {id:4,label:'رسوم الميناء / الرصيف',amount:0,cur:'SAR'},
+    {id:5,label:'مصاريف النقل الداخلي',amount:0,cur:'SAR'},
+    {id:6,label:'مصاريف التأمين',amount:0,cur:'SAR'},
+    {id:7,label:'مصاريف التفتيش',amount:0,cur:'SAR'},
+    {id:8,label:'مصاريف التخزين',amount:0,cur:'SAR'},
   ],
-  nextShipCostId:8, nextConCostId:100,
+  nextShipCostId:9, nextConCostId:100,
   chipFilter:'all'
 };
 
@@ -1376,6 +1428,7 @@ function deleteProfile(id) {
     localStorage.removeItem('scs_db_'+id);
     localStorage.removeItem('scs_cfg_'+id);
     localStorage.removeItem('scs_pay_'+id);
+    localStorage.removeItem('scs_freightpay_'+id);
     profilesSave(profiles.filter(x=>x.id!==id));
     // If was active, clear active
     if (getActiveProfileId()===id) localStorage.removeItem(ACTIVE_KEY);
@@ -2317,9 +2370,11 @@ function renderShipCosts(){
       </select>
       <span class="cost-sar-preview" id="sc-prev-${c.id}">= ${fmtN((c.amount||0)*(c.cur==='SAR'?1:rate))} SAR</span>
       <span class="scope s-ship">شحنة</span>
+      <button class="frt-btn${c.freight?' on':''}" id="sc-frt-${c.id}" title="وسم هذا المصروف كرسوم شحن (يظهر في كشف حساب الشحن)" onclick="toggleSCFreight(${c.id})">🚚 شحن</button>
       <button class="del-btn" onclick="removeSC(${c.id})">✕</button>
     </div>`).join('');
 }
+function toggleSCFreight(id){ const c=S.shipCosts.find(x=>x.id===id); if(!c) return; c.freight=!c.freight; const b=document.getElementById('sc-frt-'+id); if(b) b.classList.toggle('on',!!c.freight); toast(c.freight?'🚚 وُسم كرسوم شحن — سيظهر في كشف حساب الشحن':'أُزيل وسم الشحن'); }
 function applyShipCostCurToAll(cur){
   S.shipCosts.forEach(c=>c.cur=cur); renderShipCosts();
   toast(`✅ عملة مصاريف الشحنة → ${cur}`);
@@ -2788,12 +2843,13 @@ function preparePricingPrint(){ setTimeout(()=>window.print(),100); }
 function showPage(id){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.getElementById(id).classList.add('active');
-  const pages=['page-shipment','page-costs','page-results','page-pricing','page-archive','page-payments'];
+  const pages=['page-shipment','page-costs','page-results','page-pricing','page-archive','page-payments','page-freight'];
   document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',pages[i]===id));
   if(id==='page-costs'){ buildInvCostPanels(); buildConCostPanels(); renderShipCosts(); }
   if(id==='page-archive'){ renderArchive(); }
   if(id==='page-pricing'){ loadPricingPage(); }
   if(id==='page-payments'){ renderPayments(); }
+  if(id==='page-freight'){ onFrtMethodChange(); renderFreight(); }
 }
 
 // ═══════════════════════════════════════════
@@ -3143,7 +3199,7 @@ function cloudApply(data){
 }
 function cloudReloadUI(){
   try{ applyPermsUI(); cfgLoad(); applyTheme(); updateProfileBadge(); renderQuickSwitch();
-    var a=document.querySelector('.page.active'); if(a&&a.id==='page-archive') renderArchive(); if(a&&a.id==='page-payments') renderPayments();
+    var a=document.querySelector('.page.active'); if(a&&a.id==='page-archive') renderArchive(); if(a&&a.id==='page-payments') renderPayments(); if(a&&a.id==='page-freight') renderFreight();
   }catch(e){}
 }
 
@@ -3322,7 +3378,8 @@ function buildFullBackup(){
       profile:p,
       cfg: JSON.parse(localStorage.getItem('scs_cfg_'+p.id)||'{}'),
       db:  JSON.parse(localStorage.getItem('scs_db_'+p.id)||'[]'),
-      pay: JSON.parse(localStorage.getItem('scs_pay_'+p.id)||'[]')
+      pay: JSON.parse(localStorage.getItem('scs_pay_'+p.id)||'[]'),
+      frt: JSON.parse(localStorage.getItem('scs_freightpay_'+p.id)||'[]')
     });
   });
   return out;
@@ -3358,6 +3415,7 @@ function importFullBackup(){
             localStorage.setItem('scs_cfg_'+p.id, JSON.stringify(entry.cfg||{}));
             localStorage.setItem('scs_db_'+p.id,  JSON.stringify(entry.db||[]));
             localStorage.setItem('scs_pay_'+p.id, JSON.stringify(entry.pay||[]));
+            if(entry.frt) localStorage.setItem('scs_freightpay_'+p.id, JSON.stringify(entry.frt||[]));
           });
           profilesSave(profiles);
           renderQuickSwitch(); renderArchive();
@@ -3422,6 +3480,7 @@ function restoreAutoBackup(){
       localStorage.setItem('scs_cfg_'+p.id, JSON.stringify(entry.cfg||{}));
       localStorage.setItem('scs_db_'+p.id,  JSON.stringify(entry.db||[]));
       localStorage.setItem('scs_pay_'+p.id, JSON.stringify(entry.pay||[]));
+      if(entry.frt) localStorage.setItem('scs_freightpay_'+p.id, JSON.stringify(entry.frt||[]));
     });
     profilesSave(profiles);
     renderQuickSwitch(); renderArchive();
@@ -3643,7 +3702,7 @@ function applyPermsUI(){
   const nm=document.getElementById('current-user-name'); if(nm) nm.textContent = u?(u.name||u.username)+' · '+(ROLE_NAMES[u.role]||'')+(isReadonly()?' · 👁 قراءة فقط':''):'';
   document.body.classList.toggle('ro', isReadonly());
   // إظهار/إخفاء التبويبات حسب الصلاحية (كل تقرير/شاشة على حدة)
-  const tabPerm={'page-shipment':'shipment','page-costs':'costs','page-results':'results','page-pricing':'pricing','page-archive':'archive','page-payments':'payments'};
+  const tabPerm={'page-shipment':'shipment','page-costs':'costs','page-results':'results','page-pricing':'pricing','page-archive':'archive','page-payments':'payments','page-freight':'payments'};
   document.querySelectorAll('.tabs .tab').forEach(t=>{
     const oc=t.getAttribute('onclick')||''; const m=oc.match(/'(page-[a-z]+)'/);
     if(m){ t.style.display = can(tabPerm[m[1]]||'shipment') ? '' : 'none'; }
@@ -4135,6 +4194,109 @@ function clearAllPayments(){
   if(!can('delete')){ toast('لا تملك صلاحية الحذف',true); return; }
   const pname=profilesLoad().find(p=>p.id===getActiveProfileId())?.name||'';
   confirm2(`حذف كل دفعات شركة "${pname}" نهائياً؟`, ()=>{ paySave([]); logAction('حذف كل الدفعات', pname); renderPayments(); toast('🗑️ تم حذف الدفعات'); });
+}
+
+// ═══════════════════════════════════════════
+// 🚚 كشف حساب رسوم الشحن (نفس آلية كشف الحساب في دفتر الاستيراد)
+//   المدين = رسوم الشحن من الشحنات (المصاريف المُوسومة freight)، بسعر صرف كل شحنة المحفوظ
+//   الدائن = دفعات الشحن | الرصيد = مدين − دائن (رصيد جارٍ)
+// ═══════════════════════════════════════════
+var _frtMode='detail';
+function frtKey(pid){ return 'scs_freightpay_'+(pid||getActiveProfileId()||'default'); }
+function frtLoad(pid){ try{ return JSON.parse(localStorage.getItem(frtKey(pid))||'[]'); }catch(e){ return []; } }
+function frtSave(arr,pid){ try{ localStorage.setItem(frtKey(pid),JSON.stringify(arr)); return true; }catch(e){ toast('⚠️ فشل حفظ دفعات الشحن: التخزين ممتلئ',true); return false; } }
+// رسوم الشحن لشحنة واحدة بالريال — بسعر صرفها المحفوظ وقت الحفظ (توافق تام مع تكلفتها)
+function shipFreightSar(snap){
+  var rate=parseFloat(snap&&snap.fxUsdSar)||3.756;
+  var costs=(snap&&snap.shipCosts)||[];
+  return costs.reduce(function(s,c){ if(!c||!c.freight) return s; var a=parseFloat(c.amount)||0; return s+(c.cur==='SAR'?a:a*rate); },0);
+}
+function frtPayToSar(p){ var a=parseFloat(p&&p.amount)||0; return (p&&p.cur==='SAR')?a:a*(parseFloat(p&&p.rate)||S.fxUsdSar||3.756); }
+function onFrtMethodChange(){ var m=document.getElementById('frt-method').value; var w=document.getElementById('frt-bank-wrap'); if(w) w.style.display=(m==='transfer')?'':'none'; }
+function setFrtMode(m){ _frtMode=(m==='summary')?'summary':'detail'; renderFreight(); }
+function clearFrtDates(){ var f=document.getElementById('frt-from'), t=document.getElementById('frt-to'); if(f)f.value=''; if(t)t.value=''; renderFreight(); }
+
+// بناء صفوف الأستاذ (مدين/دائن) مرتبة بالتاريخ مع الرصيد الجاري — مطابقة لدالة ledger
+function frtLedger(from,to){
+  var ok=function(d){ return (!from|| (d||'')>=from) && (!to|| (d||'')<=to); };
+  var ships=dbLoad().filter(function(s){ return shipFreightSar(s)>0 && ok(s.shipmentDate); })
+    .map(function(s){ return {date:s.shipmentDate||'', kind:'ship', label:'شحنة '+(s.shipmentNo||'—'), dr:shipFreightSar(s), cr:0}; });
+  var pays=frtLoad().filter(function(p){ return ok(p.date); })
+    .map(function(p){ var m=(p.method==='transfer')?('تحويل'+(p.bank?' — '+p.bank:'')):'نقدًا';
+      return {date:p.date||'', kind:'pay', id:p.id, label:'دفعة ('+m+')'+(p.ref?' #'+p.ref:'')+(p.notes?' — '+p.notes:''), dr:0, cr:frtPayToSar(p)}; });
+  var rows=ships.concat(pays).sort(function(a,b){ return (a.date<b.date)?-1:((a.date>b.date)?1:0); });
+  var run=0; return rows.map(function(r){ run+=r.dr-r.cr; return Object.assign({},r,{bal:run}); });
+}
+
+function renderFreight(){
+  var pid=getActiveProfileId();
+  var pname=(profilesLoad().find(function(p){return p.id===pid;})||{}).name||'—';
+  var nameEl=document.getElementById('frt-active-name'); if(nameEl) nameEl.textContent=pname;
+  var dEl=document.getElementById('frt-date'); if(dEl && !dEl.value) dEl.value=new Date().toISOString().slice(0,10);
+  // أزرار وضع العرض
+  var bs=document.getElementById('frt-mode-sum'), bd=document.getElementById('frt-mode-det');
+  if(bs) bs.classList.toggle('btn-accent', _frtMode==='summary');
+  if(bd) bd.classList.toggle('btn-accent', _frtMode==='detail');
+
+  var from=(document.getElementById('frt-from')||{}).value||'';
+  var to=(document.getElementById('frt-to')||{}).value||'';
+  var rows=frtLedger(from,to);
+  var totDr=rows.reduce(function(s,r){return s+r.dr;},0);
+  var totCr=rows.reduce(function(s,r){return s+r.cr;},0);
+  var bal=totDr-totCr;
+
+  var sc=document.getElementById('frt-sum-cards');
+  if(sc) sc.innerHTML=
+    '<div class="sum-card"><div class="lbl">إجمالي رسوم الشحن — مدين (SAR)</div><div class="val">'+fmtD(totDr)+'</div><div class="sub">'+rows.filter(function(r){return r.kind==='ship';}).length+' شحنة</div></div>'+
+    '<div class="sum-card"><div class="lbl">إجمالي المسدد — دائن (SAR)</div><div class="val" style="color:var(--success)">'+fmtD(totCr)+'</div><div class="sub">'+rows.filter(function(r){return r.kind==='pay';}).length+' دفعة</div></div>'+
+    '<div class="sum-card"><div class="lbl">الرصيد المتبقّي (SAR)</div><div class="val" style="color:'+(bal>0?'var(--danger)':'var(--success)')+'">'+fmtD(bal)+'</div><div class="sub">'+(bal>0?'مستحق لشركة الشحن':(bal<0?'مدفوع بالزيادة':'مسدَّد بالكامل'))+'</div></div>';
+
+  var tb=document.getElementById('frt-tbody'); if(!tb) return;
+  if(!rows.length){ tb.innerHTML='<tr><td colspan="7" style="padding:22px;color:var(--muted)">لا توجد حركات — وسم مصاريف الشحن بزر «🚚 شحن» في صفحة المصاريف، أو سجّل دفعة أعلاه</td></tr>'; return; }
+  if(_frtMode==='summary'){
+    tb.innerHTML=
+      '<tr><td>1</td><td>—</td><td>إجمالي رسوم الشحن (مدين)</td><td class="num">'+fmtD(totDr)+'</td><td class="num">—</td><td class="num">'+fmtD(totDr)+'</td><td></td></tr>'+
+      '<tr><td>2</td><td>—</td><td>إجمالي الدفعات (دائن)</td><td class="num">—</td><td class="num" style="color:var(--success)">'+fmtD(totCr)+'</td><td class="num">'+fmtD(bal)+'</td><td></td></tr>';
+    return;
+  }
+  tb.innerHTML=rows.map(function(r,i){
+    return '<tr>'+
+      '<td>'+(i+1)+'</td>'+
+      '<td>'+escH(r.date||'—')+'</td>'+
+      '<td>'+escH(r.label||'')+'</td>'+
+      '<td class="num">'+(r.dr?fmtD(r.dr):'—')+'</td>'+
+      '<td class="num" style="color:var(--success)">'+(r.cr?fmtD(r.cr):'—')+'</td>'+
+      '<td class="num" style="font-weight:700;color:'+(r.bal>0?'var(--danger)':'var(--success)')+'">'+fmtD(r.bal)+'</td>'+
+      '<td>'+(r.kind==='pay'?'<button class="del-btn" onclick="deleteFreightPayment(\''+r.id+'\')">✕</button>':'')+'</td>'+
+    '</tr>';
+  }).join('');
+}
+
+function addFreightPayment(){
+  if(isReadonly()){ toast('👁 وضع القراءة فقط',true); return; }
+  if(!can('payments')){ toast('لا تملك صلاحية الدفعات',true); return; }
+  var amount=parseFloat(document.getElementById('frt-amount').value)||0;
+  if(amount<=0){ toast('⚠️ أدخل مبلغاً صحيحاً',true); return; }
+  var p={
+    id:'ft_'+Date.now(),
+    date:document.getElementById('frt-date').value||new Date().toISOString().slice(0,10),
+    amount:amount, cur:document.getElementById('frt-cur').value,
+    rate:(S.fxUsdSar||3.756),
+    method:document.getElementById('frt-method').value,
+    bank:document.getElementById('frt-bank').value.trim(),
+    ref:document.getElementById('frt-ref').value.trim(),
+    shipmentNo:document.getElementById('frt-ship').value.trim(),
+    notes:document.getElementById('frt-notes').value.trim()
+  };
+  var list=frtLoad(); list.push(p); frtSave(list);
+  ['frt-amount','frt-ref','frt-notes','frt-bank'].forEach(function(id){ var e=document.getElementById(id); if(e)e.value=''; });
+  renderFreight();
+  logAction('إضافة دفعة شحن', p.amount+' '+p.cur);
+  toast('✅ تمت إضافة دفعة الشحن');
+}
+function deleteFreightPayment(id){
+  if(isReadonly()){ toast('👁 وضع القراءة فقط',true); return; }
+  var list=frtLoad().filter(function(p){return p.id!==id;}); frtSave(list); renderFreight(); logAction('حذف دفعة شحن',''); toast('🗑️ تم حذف الدفعة');
 }
 
 function downloadPaymentTemplate(){
