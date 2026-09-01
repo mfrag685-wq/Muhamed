@@ -561,8 +561,9 @@ function cloudLogin(username,password){
       if(code==="auth/user-not-found"||code==="auth/invalid-credential"||code==="auth/invalid-login-credentials"){
         if(appu&&appu.pass===hash(password)&&Number(appu.active)){
           if(appu.role==="admin")cloudBootstrapAdmin(appu,password,function(m){emergencyAdminLogin(appu);});
-          else fail("حسابك السحابي غير مُفعّل بعد — اطلب من المدير تفعيله من شاشة «الموظفون».");
-        }else fail("اسم المستخدم أو كلمة المرور غير صحيحة");
+          else fail("حسابك السحابي غير مُفعّل بعد — يفعّله المدير من «الموظفون» بالضغط على «حساب سحابي» ثم يعطيك كلمة المرور.");
+        }else if(appu&&!Number(appu.active)){fail("هذا الحساب موقوف. راجع مدير النظام.");}
+        else fail("تعذّر الدخول: كلمة المرور غير صحيحة، أو لم يُفعّل المدير حسابك السحابي بعد («حساب سحابي» من شاشة الموظفون).");
         return;
       }
       fail("تعذّر تسجيل الدخول السحابي: "+((e&&e.message)||""));
