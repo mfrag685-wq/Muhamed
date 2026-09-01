@@ -527,6 +527,34 @@ html[data-theme="dark"] .rt td.hl{background:#2e2814;color:var(--accent)}
   </div>
 </div>
 
+<!-- ══ SUPPLIERS MODAL ══ -->
+<div class="modal-overlay" id="suppliers-modal" style="display:none" onclick="if(event.target===this)closeSuppliers()">
+  <div class="modal-box" style="width:640px;max-height:92vh;overflow-y:auto">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <h2 style="margin:0">🧾 الموردون — للشركة النشطة: <span id="sup-active-name" style="color:var(--accent)"></span></h2>
+      <button onclick="closeSuppliers()" style="background:none;border:none;font-size:1.4rem;cursor:pointer;color:var(--muted)">✕</button>
+    </div>
+    <div style="font-size:.8rem;color:var(--muted);margin-bottom:10px">أضِف موردي البضاعة هنا. تظهر أسماؤهم كاقتراح في حقل «المورد» بصفحة الشحنة، ويُبنى عليهم «كشف حساب المورد».</div>
+    <div id="suppliers-list" style="margin-bottom:14px"></div>
+    <div style="border-top:1px solid var(--border);padding-top:12px">
+      <div style="font-weight:700;color:var(--primary);margin-bottom:8px" id="sup-form-title">➕ إضافة مورد جديد</div>
+      <div class="row2">
+        <div class="mg"><label>اسم المورد *</label><input id="sup-name" placeholder="اسم المورد"></div>
+        <div class="mg"><label>هاتف / تواصل</label><input id="sup-phone" placeholder="اختياري"></div>
+      </div>
+      <div class="row2">
+        <div class="mg"><label>رصيد افتتاحي (مدين علينا)</label><input id="sup-opening" type="number" min="0" step="0.01" placeholder="0.00"></div>
+        <div class="mg"><label>عملة الرصيد الافتتاحي</label><select id="sup-opening-cur"><option value="SAR">SAR</option><option value="USD">USD</option></select></div>
+      </div>
+      <div class="mg"><label>ملاحظات</label><input id="sup-note" placeholder="اختياري"></div>
+      <div style="display:flex;gap:6px;margin-top:6px">
+        <button class="btn btn-accent" onclick="saveSupplier()">💾 حفظ المورد</button>
+        <button class="btn btn-outline" onclick="editSupplierId=null;renderSuppliersModal()">إلغاء</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- ══ PROFILE SELECTOR MODAL (shown first) ══ -->
 <div class="modal-overlay" id="profile-modal">
   <div class="modal-box" style="width:560px">
@@ -678,6 +706,7 @@ html[data-theme="dark"] .rt td.hl{background:#2e2814;color:var(--accent)}
     <button class="hbtn accent" onclick="saveShipment()">💾 حفظ الشحنة</button>
     <button class="hbtn" onclick="newShipment()">➕ شحنة جديدة</button>
     <button class="hbtn" id="btn-settings" onclick="openSetup()">⚙️ إعدادات</button>
+    <button class="hbtn" id="btn-suppliers" onclick="openSuppliers()">🧾 الموردون</button>
     <button class="hbtn" id="btn-users" onclick="openUsers()">👥 المستخدمون</button>
     <button class="hbtn" id="btn-log" onclick="openLog()">📋 السجل</button>
     <span id="current-user-name" style="font-size:.72rem;color:rgba(255,255,255,.75);white-space:nowrap"></span>
@@ -726,7 +755,7 @@ html[data-theme="dark"] .rt td.hl{background:#2e2814;color:var(--accent)}
       <div class="form-row">
         <div class="fg"><label>رقم الشحنة *</label><input id="shipment-no" value="SH-2025-001" placeholder="SH-2025-001"></div>
         <div class="fg"><label>تاريخ الشحنة</label><input id="shipment-date" type="date" value="2025-06-01"></div>
-        <div class="fg"><label>اسم / كود المورد</label><input id="supplier-name" placeholder="اسم المورد أو كوده"></div>
+        <div class="fg"><label>اسم / كود المورد</label><input id="supplier-name" list="suppliers-datalist" placeholder="اسم المورد أو كوده" oninput="onSupplierNameInput()"><datalist id="suppliers-datalist"></datalist></div>
         <div class="fg"><label>بلد المنشأ</label><input id="origin-country" placeholder="مثال: China، Italy..."></div>
         <div class="fg">
           <label>عدد الحاويات</label>
@@ -1428,6 +1457,7 @@ function deleteProfile(id) {
     localStorage.removeItem('scs_cfg_'+id);
     localStorage.removeItem('scs_pay_'+id);
     localStorage.removeItem('scs_freightpay_'+id);
+    localStorage.removeItem('scs_suppliers_'+id);
     profilesSave(profiles.filter(x=>x.id!==id));
     // If was active, clear active
     if (getActiveProfileId()===id) localStorage.removeItem(ACTIVE_KEY);
@@ -3402,7 +3432,8 @@ function buildFullBackup(){
       cfg: JSON.parse(localStorage.getItem('scs_cfg_'+p.id)||'{}'),
       db:  JSON.parse(localStorage.getItem('scs_db_'+p.id)||'[]'),
       pay: JSON.parse(localStorage.getItem('scs_pay_'+p.id)||'[]'),
-      frt: JSON.parse(localStorage.getItem('scs_freightpay_'+p.id)||'[]')
+      frt: JSON.parse(localStorage.getItem('scs_freightpay_'+p.id)||'[]'),
+      sup: JSON.parse(localStorage.getItem('scs_suppliers_'+p.id)||'[]')
     });
   });
   return out;
@@ -3439,6 +3470,7 @@ function importFullBackup(){
             localStorage.setItem('scs_db_'+p.id,  JSON.stringify(entry.db||[]));
             localStorage.setItem('scs_pay_'+p.id, JSON.stringify(entry.pay||[]));
             if(entry.frt) localStorage.setItem('scs_freightpay_'+p.id, JSON.stringify(entry.frt||[]));
+            if(entry.sup) localStorage.setItem('scs_suppliers_'+p.id, JSON.stringify(entry.sup||[]));
           });
           profilesSave(profiles);
           renderQuickSwitch(); renderArchive();
@@ -3504,6 +3536,7 @@ function restoreAutoBackup(){
       localStorage.setItem('scs_db_'+p.id,  JSON.stringify(entry.db||[]));
       localStorage.setItem('scs_pay_'+p.id, JSON.stringify(entry.pay||[]));
       if(entry.frt) localStorage.setItem('scs_freightpay_'+p.id, JSON.stringify(entry.frt||[]));
+      if(entry.sup) localStorage.setItem('scs_suppliers_'+p.id, JSON.stringify(entry.sup||[]));
     });
     profilesSave(profiles);
     renderQuickSwitch(); renderArchive();
@@ -3734,7 +3767,9 @@ function applyPermsUI(){
   const showIf=(id,perm)=>{ const e=document.getElementById(id); if(e) e.style.display=can(perm)?'':'none'; };
   showIf('btn-users', 'users');
   showIf('btn-log', 'users');
+  showIf('btn-suppliers','companies');
   showIf('btn-settings','settings');
+  try{ refreshSupplierDatalist(); }catch(e){}
   // زر إدارة الشركات (badge + quick switch)
   const comp=can('companies');
   ['active-profile-badge'].forEach(id=>{ const e=document.getElementById(id); if(e) e.style.display=comp?'':'none'; });
@@ -4325,6 +4360,69 @@ function addFreightPayment(){
 function deleteFreightPayment(id){
   if(isReadonly()){ toast('👁 وضع القراءة فقط',true); return; }
   var list=frtLoad().filter(function(p){return p.id!==id;}); frtSave(list); renderFreight(); logAction('حذف دفعة شحن',''); toast('🗑️ تم حذف الدفعة');
+}
+
+// ═══════════════════════════════════════════
+// 🧾 إدارة الموردين (لكل شركة) — Feature A (المرحلة 2)
+// ═══════════════════════════════════════════
+function supKey(pid){ return 'scs_suppliers_'+(pid||getActiveProfileId()||'default'); }
+function supLoad(pid){ try{ return JSON.parse(localStorage.getItem(supKey(pid))||'[]'); }catch(e){ return []; } }
+function supSave(arr,pid){ try{ localStorage.setItem(supKey(pid),JSON.stringify(arr)); return true; }catch(e){ toast('⚠️ فشل حفظ الموردين: التخزين ممتلئ',true); return false; } }
+var editSupplierId=null;
+function onSupplierNameInput(){ /* حقل حر — الـ datalist يقترح الموردين المسجّلين */ }
+function refreshSupplierDatalist(){
+  var dl=document.getElementById('suppliers-datalist'); if(!dl) return;
+  dl.innerHTML=supLoad().filter(function(s){return s.active!==0;}).map(function(s){ return '<option value="'+escH(s.name)+'">'; }).join('');
+}
+function openSuppliers(){ if(!can('companies')){ toast('لا تملك صلاحية إدارة الموردين',true); return; } editSupplierId=null; renderSuppliersModal(); document.getElementById('suppliers-modal').style.display='flex'; }
+function closeSuppliers(){ document.getElementById('suppliers-modal').style.display='none'; }
+function renderSuppliersModal(){
+  var pname=(profilesLoad().find(function(p){return p.id===getActiveProfileId();})||{}).name||'—';
+  var nm=document.getElementById('sup-active-name'); if(nm) nm.textContent=pname;
+  var list=supLoad();
+  document.getElementById('suppliers-list').innerHTML=list.map(function(s){
+    var ob=(parseFloat(s.opening)||0); var obTxt=ob>0?('<span class="tag tag-inv" style="margin-right:6px">رصيد افتتاحي: '+fmtD(ob)+' '+escH(s.openingCur||'SAR')+'</span>'):'';
+    return '<div style="display:flex;align-items:center;gap:8px;justify-content:space-between;border:1px solid var(--border);border-radius:8px;padding:8px 11px;margin-bottom:6px;flex-wrap:wrap">'
+      +'<div><strong>'+escH(s.name)+'</strong> '+(s.phone?'<span style="color:var(--muted);font-size:.8rem">'+escH(s.phone)+'</span> ':'')+obTxt
+      +(s.active===0?'<span class="tag" style="background:#fdecea;color:#c0392b">موقوف</span>':'')+(s.note?'<div style="font-size:.75rem;color:var(--muted)">'+escH(s.note)+'</div>':'')+'</div>'
+      +'<div style="display:flex;gap:5px;flex-wrap:wrap">'
+      +'<button class="btn btn-outline btn-sm" onclick="editSupplier(\''+s.id+'\')">تعديل</button>'
+      +'<button class="btn btn-danger btn-sm" onclick="deleteSupplier(\''+s.id+'\')">حذف</button>'
+      +'</div></div>';
+  }).join('')||'<div style="color:var(--muted);text-align:center;padding:14px">لا يوجد موردون بعد</div>';
+  var s=editSupplierId?list.find(function(x){return x.id===editSupplierId;}):null;
+  document.getElementById('sup-form-title').textContent=s?('تعديل: '+s.name):'➕ إضافة مورد جديد';
+  document.getElementById('sup-name').value=s?s.name:'';
+  document.getElementById('sup-phone').value=s?(s.phone||''):'';
+  document.getElementById('sup-opening').value=s?(s.opening||''):'';
+  document.getElementById('sup-opening-cur').value=s?(s.openingCur||'SAR'):'SAR';
+  document.getElementById('sup-note').value=s?(s.note||''):'';
+}
+function editSupplier(id){ editSupplierId=id; renderSuppliersModal(); }
+function saveSupplier(){
+  if(isReadonly()){ toast('👁 وضع القراءة فقط',true); return; }
+  var name=document.getElementById('sup-name').value.trim();
+  if(!name){ toast('أدخل اسم المورد',true); return; }
+  var list=supLoad();
+  var dup=list.find(function(x){ return x.name.toLowerCase()===name.toLowerCase() && x.id!==editSupplierId; });
+  if(dup){ toast('اسم المورد مستخدم بالفعل',true); return; }
+  var rec={
+    name:name,
+    phone:document.getElementById('sup-phone').value.trim(),
+    opening:parseFloat(document.getElementById('sup-opening').value)||0,
+    openingCur:document.getElementById('sup-opening-cur').value,
+    note:document.getElementById('sup-note').value.trim(),
+    active:1
+  };
+  if(editSupplierId){ var t=list.find(function(x){return x.id===editSupplierId;}); if(t){ t.name=rec.name; t.phone=rec.phone; t.opening=rec.opening; t.openingCur=rec.openingCur; t.note=rec.note; } }
+  else { rec.id='sup_'+Date.now(); list.push(rec); }
+  supSave(list); editSupplierId=null; renderSuppliersModal(); refreshSupplierDatalist(); logAction('حفظ مورد', name); toast('✅ تم حفظ المورد');
+}
+function deleteSupplier(id){
+  var s=supLoad().find(function(x){return x.id===id;}); if(!s) return;
+  confirm2('حذف المورد "'+s.name+'"؟ (لن تُحذف شحناته — يبقى اسمها كما هو)', function(){
+    supSave(supLoad().filter(function(x){return x.id!==id;})); renderSuppliersModal(); refreshSupplierDatalist(); logAction('حذف مورد', s.name); toast('🗑️ تم حذف المورد');
+  });
 }
 
 function downloadPaymentTemplate(){
