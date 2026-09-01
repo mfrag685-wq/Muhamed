@@ -1234,6 +1234,7 @@ html[data-theme="dark"] .rt td.hl{background:#2e2814;color:var(--accent)}
         <div class="fg"><label>المبلغ</label><input id="sa-amount" type="number" min="0" step="0.01" placeholder="0.00" style="width:130px"></div>
         <div class="fg"><label>العملة</label><select id="sa-cur" class="cur-sel"><option value="SAR">SAR</option><option value="USD">USD</option></select></div>
         <div class="fg"><label>طريقة الدفع</label><select id="sa-method" onchange="onSaMethodChange()"><option value="transfer">🏦 تحويل بنكي</option><option value="cash">💵 نقدًا</option></select></div>
+        <div class="fg"><label>تخصّ</label><select id="sa-target"><option value="a">نموذج أ</option><option value="b">نموذج ب</option><option value="both">كلاهما</option></select></div>
         <div class="fg" id="sa-bank-wrap"><label>البنك</label><input id="sa-bank" placeholder="اسم البنك" style="width:150px"></div>
         <div class="fg"><label>مرجع</label><input id="sa-ref" placeholder="رقم العملية" style="width:120px"></div>
         <div class="fg" style="flex:1;min-width:150px"><label>ملاحظات</label><input id="sa-notes" placeholder="ملاحظات"></div>
@@ -4590,8 +4591,9 @@ function supAcctLedger(name, from, to){
   var lname=String(name||'').toLowerCase();
   var ships=dbLoad().filter(function(s){ return String(s.supplierName||'').toLowerCase()===lname && shipFobSar(s)>0 && ok(s.shipmentDate); })
     .map(function(s){ var nc=((s.containers)||[]).length; return {date:s.shipmentDate||'', kind:'ship', label:'شحنة '+(s.shipmentNo||'—')+(nc?' ('+nc+' حاوية)':''), dr:shipFobSar(s), cr:0}; });
-  var pays=saPayLoad().filter(function(p){ return String(p.supplier||'').toLowerCase()===lname && ok(p.date); })
-    .map(function(p){ var m=(p.method==='transfer')?('تحويل'+(p.bank?' — '+p.bank:'')):'نقدًا'; return {date:p.date||'', kind:'pay', id:p.id, label:'دفعة ('+m+')'+(p.ref?' #'+p.ref:'')+(p.notes?' — '+p.notes:''), dr:0, cr:saPayToSar(p)}; });
+  // حساب نموذج أ يشمل الدفعات الموسومة «أ» أو «كلاهما» (والقديمة بلا وسم تُعامل كـ«أ»)
+  var pays=saPayLoad().filter(function(p){ var tg=p.target||'a'; return String(p.supplier||'').toLowerCase()===lname && (tg==='a'||tg==='both') && ok(p.date); })
+    .map(function(p){ var m=(p.method==='transfer')?('تحويل'+(p.bank?' — '+p.bank:'')):'نقدًا'; var tgl=(p.target==='both')?' [أ+ب]':''; return {date:p.date||'', kind:'pay', id:p.id, label:'دفعة ('+m+')'+tgl+(p.ref?' #'+p.ref:'')+(p.notes?' — '+p.notes:''), dr:0, cr:saPayToSar(p)}; });
   var rows=ships.concat(pays).sort(function(a,b){ return (a.date<b.date)?-1:((a.date>b.date)?1:0); });
   // رصيد افتتاحي (إن وُجد) يُدرج كأول حركة مدينة
   var sup=supLoad().find(function(x){ return x.name.toLowerCase()===lname; });
@@ -4618,11 +4620,15 @@ function renderSupAcct(){
   var totCr=rows.reduce(function(s,r){return s+r.cr;},0);
   var bal=totDr-totCr;
 
+  // مدفوعات موسومة لنموذج ب (للعلم فقط — لا تدخل رصيد نموذج أ)
+  var okd=function(d){ return (!from||(d||'')>=from) && (!to||(d||'')<=to); };
+  var bPaid=saPayLoad().filter(function(p){ var tg=p.target||'a'; return String(p.supplier||'').toLowerCase()===String(name).toLowerCase() && (tg==='b'||tg==='both') && okd(p.date); }).reduce(function(s,p){return s+saPayToSar(p);},0);
   var sc=document.getElementById('sa-sum-cards');
   if(sc) sc.innerHTML=
     '<div class="sum-card"><div class="lbl">إجمالي المشتريات — مدين (SAR)</div><div class="val">'+fmtD(totDr)+'</div><div class="sub">'+rows.filter(function(r){return r.kind==='ship';}).length+' شحنة</div></div>'+
-    '<div class="sum-card"><div class="lbl">إجمالي المسدد — دائن (SAR)</div><div class="val" style="color:var(--success)">'+fmtD(totCr)+'</div><div class="sub">'+rows.filter(function(r){return r.kind==='pay';}).length+' دفعة</div></div>'+
-    '<div class="sum-card"><div class="lbl">الرصيد المتبقّي (SAR)</div><div class="val" style="color:'+(bal>0?'var(--danger)':'var(--success)')+'">'+fmtD(bal)+'</div><div class="sub">'+(bal>0?'مستحق للمورد':(bal<0?'مدفوع بالزيادة':'مسدَّد بالكامل'))+'</div></div>';
+    '<div class="sum-card"><div class="lbl">إجمالي المسدد لنموذج أ — دائن (SAR)</div><div class="val" style="color:var(--success)">'+fmtD(totCr)+'</div><div class="sub">'+rows.filter(function(r){return r.kind==='pay';}).length+' دفعة</div></div>'+
+    '<div class="sum-card"><div class="lbl">الرصيد المتبقّي (SAR)</div><div class="val" style="color:'+(bal>0?'var(--danger)':'var(--success)')+'">'+fmtD(bal)+'</div><div class="sub">'+(bal>0?'مستحق للمورد':(bal<0?'مدفوع بالزيادة':'مسدَّد بالكامل'))+'</div></div>'+
+    (bPaid>0?'<div class="sum-card"><div class="lbl">مدفوع يخص نموذج ب (SAR)</div><div class="val">'+fmtD(bPaid)+'</div><div class="sub">لا يؤثر على رصيد نموذج أ</div></div>':'');
 
   var tb=document.getElementById('sa-tbody'); if(!tb) return;
   if(!name){ tb.innerHTML='<tr><td colspan="7" style="padding:22px;color:var(--muted)">أضِف موردين من «🧾 الموردون» ثم اختر مورداً</td></tr>'; return; }
@@ -4659,6 +4665,7 @@ function addSupplierPayment(){
     date:document.getElementById('sa-date').value||new Date().toISOString().slice(0,10),
     amount:amount, cur:document.getElementById('sa-cur').value,
     rate:(S.fxUsdSar||3.756),
+    target:(document.getElementById('sa-target')||{}).value||'a',
     method:document.getElementById('sa-method').value,
     bank:document.getElementById('sa-bank').value.trim(),
     ref:document.getElementById('sa-ref').value.trim(),
