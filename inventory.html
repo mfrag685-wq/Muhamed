@@ -547,6 +547,7 @@ function emergencyAdminLogin(u){
 }
 function cloudLogin(username,password){
   function fail(m){loginErr(m);setCloudStatus("auth");}
+  if((password||"").length<6){fail("كلمة المرور يجب ألا تقل عن ٦ خانات في النظام السحابي. اطلب من المدير تعيين كلمة مرور ٦ خانات فأكثر من «حساب سحابي».");setCloudStatus("auth");return;}
   cloudInteractive=true;setCloudStatus("connecting");
   const appu=DB.users.find(x=>(x.username||"").toLowerCase()===String(username).toLowerCase());
   const email=appu?emailForUser(appu):synthEmail(username);
