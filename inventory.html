@@ -535,6 +535,16 @@ function afterCloudAuth(user,username){
     loginErr("");startApp();
   });
 }
+/* دخول طوارئ محلي للمدير عند عدم تطابق كلمة المرور مع الخادم — يسترجع البيانات المحفوظة بدون مزامنة */
+function emergencyAdminLogin(u){
+  if(!confirm("كلمة المرور صحيحة على هذا الجهاز لكنها لا تطابق الخادم السحابي.\nهل تريد الدخول بوضع «محلي مؤقت» (بدون مزامنة) لاسترجاع البيانات وتغيير كلمة المرور؟")) {loginErr("تعذّر الدخول — راجع كلمة مرور المدير على الخادم.");setCloudStatus("auth");return;}
+  u.lastLogin=new Date().toISOString();ME=u;cloudReady=false;cloudInteractive=true;
+  try{firebase.auth().signOut();}catch(e){}
+  setCloudStatus("err");loginErr("");
+  logAct("دخول محلي طارئ","المدير");save();
+  startApp();
+  setTimeout(()=>toast("⚠ وضع محلي بدون مزامنة — غيّر كلمة المرور من الإعدادات لإعادة الربط"),1200);
+}
 function cloudLogin(username,password){
   function fail(m){loginErr(m);setCloudStatus("auth");}
   cloudInteractive=true;setCloudStatus("connecting");
@@ -545,9 +555,12 @@ function cloudLogin(username,password){
     .catch(function(e){
       const code=e&&e.code;
       if(code==="auth/wrong-password"){fail("كلمة المرور غير صحيحة");return;}
+      if(code==="auth/wrong-password"&&appu&&appu.role==="admin"&&appu.pass===hash(password)&&Number(appu.active)){
+        emergencyAdminLogin(appu);return;   // كلمة المرور صحيحة محلياً لكن مختلفة على الخادم
+      }
       if(code==="auth/user-not-found"||code==="auth/invalid-credential"||code==="auth/invalid-login-credentials"){
         if(appu&&appu.pass===hash(password)&&Number(appu.active)){
-          if(appu.role==="admin")cloudBootstrapAdmin(appu,password,fail);
+          if(appu.role==="admin")cloudBootstrapAdmin(appu,password,function(m){emergencyAdminLogin(appu);});
           else fail("حسابك السحابي غير مُفعّل بعد — اطلب من المدير تفعيله من شاشة «الموظفون».");
         }else fail("اسم المستخدم أو كلمة المرور غير صحيحة");
         return;
