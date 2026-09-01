@@ -1298,7 +1298,17 @@ html[data-theme="dark"] .rt td.hl{background:#2e2814;color:var(--accent)}
 
 <!-- ══ PAGE 10: COMPARISON (المقارنة — نموذج أ مقابل نموذج ب) ══ -->
 <div id="page-compare" class="page">
-  <div class="alert ai" style="margin-bottom:12px">⚖️ <strong>المقارنة</strong> — <strong>نموذج أ</strong> = بيانات النظام الكاملة (التكلفة الواصلة الحقيقية وأساس التسعير). <strong>نموذج ب</strong> = مصدر استيراد بديل لنفس الشحنة، تُدخل فيه أسعار الموديلات فقط لمعرفة تكلفة الشراء البديلة. تُقارن <strong>الموديلات المشتركة</strong> فقط. نموذج ب يُحتسب بسعر صرف نفس الشحنة في نموذج أ.</div>
+  <div class="alert ai" style="margin-bottom:12px">⚖️ <strong>المقارنة</strong> — <strong id="cmp-lblA-h1">نموذج أ</strong> = بيانات النظام الكاملة (التكلفة الواصلة الحقيقية وأساس التسعير). <strong id="cmp-lblB-h1">نموذج ب</strong> = مصدر استيراد بديل لنفس الشحنة، تُدخل فيه أسعار الموديلات فقط لمعرفة تكلفة الشراء البديلة. تُقارن <strong>الموديلات المشتركة</strong> فقط.</div>
+
+  <div class="card" style="margin-bottom:12px">
+    <div class="card-body" style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
+      <div class="fg"><label>اسم النموذج أ</label><input id="cmp-lblA" placeholder="نموذج أ" style="width:150px"></div>
+      <div class="fg"><label>اسم النموذج ب</label><input id="cmp-lblB" placeholder="نموذج ب" style="width:150px"></div>
+      <button class="btn btn-outline btn-sm" onclick="cmpSaveLabels()">💾 حفظ الأسماء</button>
+      <div style="flex:1"></div>
+      <button class="btn btn-accent btn-sm" onclick="renderCmpAll()">📊 إجمالي الفروقات لكل الشحنات</button>
+    </div>
+  </div>
 
   <div class="card" style="margin-bottom:12px">
     <div class="card-body" style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
@@ -1308,10 +1318,15 @@ html[data-theme="dark"] .rt td.hl{background:#2e2814;color:var(--accent)}
   </div>
 
   <div class="card" style="margin-bottom:12px">
-    <div class="card-header" style="background:#7a3e10">✍️ إدخال نموذج ب — الشحنة: <span id="cmp-b-shipname" style="color:#ffe082"></span></div>
+    <div class="card-header" style="background:#7a3e10">✍️ إدخال <span id="cmp-b-hdr">نموذج ب</span> — الشحنة: <span id="cmp-b-shipname" style="color:#ffe082"></span></div>
     <div class="card-body">
+      <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:8px">
+        <div class="fg"><label>عملة أسعار <span class="cmp-lblB-t">نموذج ب</span></label><select id="cmp-b-cur" class="cur-sel" onchange="onCmpBCurChange()"><option value="">افتراضي (كنموذج أ)</option><option value="USD">USD</option><option value="SAR">SAR</option></select></div>
+        <div class="fg"><label>معامل التحويل للريال</label><input id="cmp-b-rate" type="number" min="0" step="0.0001" placeholder="افتراضي = سعر نموذج أ" style="width:170px"></div>
+        <div style="font-size:.75rem;color:var(--muted)">اتركهما فارغين لاستخدام عملة/سعر صرف نفس الشحنة في نموذج أ.</div>
+      </div>
       <div style="overflow-x:auto"><table class="tbl" id="cmp-b-table">
-        <thead><tr><th>الموديل</th><th>الكمية</th><th>السعر (بعملة نموذج أ)</th><th></th></tr></thead>
+        <thead><tr><th>الموديل</th><th>الكمية</th><th>السعر</th><th></th></tr></thead>
         <tbody id="cmp-b-tbody"></tbody>
       </table></div>
       <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
@@ -1324,14 +1339,25 @@ html[data-theme="dark"] .rt td.hl{background:#2e2814;color:var(--accent)}
 
   <div id="cmp-sum-cards" class="sum-cards" style="margin-bottom:12px"></div>
 
-  <div class="card">
-    <div class="card-header">📊 مقارنة الموديلات المشتركة (أ ↔ ب)</div>
+  <div class="card" style="margin-bottom:12px">
+    <div class="card-header">📊 مقارنة الموديلات المشتركة (<span class="cmp-lblA-t">نموذج أ</span> ↔ <span class="cmp-lblB-t">نموذج ب</span>) — <span id="cmp-basis">القيمة الفعلية للشحنة</span></div>
     <div class="card-body">
       <div style="overflow-x:auto"><table class="tbl" id="cmp-table">
         <thead><tr>
-          <th>الموديل</th><th>الكمية (أ)</th><th>شراء أ/وحدة</th><th>واصل أ/وحدة</th><th>سعر ب/وحدة</th><th>الفرق (واصل أ − ب)</th><th>الأرخص</th>
+          <th>الموديل</th><th>الكمية</th><th>شراء <span class="cmp-lblA-t">أ</span>/وحدة</th><th>واصل <span class="cmp-lblA-t">أ</span>/وحدة</th><th>سعر <span class="cmp-lblB-t">ب</span>/وحدة</th><th>الفرق</th><th>الأرخص</th>
         </tr></thead>
         <tbody id="cmp-tbody"></tbody>
+      </table></div>
+    </div>
+  </div>
+
+  <div class="card" id="cmp-all-card" style="display:none">
+    <div class="card-header" style="background:#1b5e20">📈 إجمالي الفروقات — كل الشحنات (<span class="cmp-lblA-t">أ</span> ↔ <span class="cmp-lblB-t">ب</span>)</div>
+    <div class="card-body">
+      <div id="cmp-all-sum" class="sum-cards" style="margin-bottom:10px"></div>
+      <div style="overflow-x:auto"><table class="tbl" id="cmp-all-table">
+        <thead><tr><th>رقم الشحنة</th><th>موديلات مشتركة</th><th>إجمالي واصل <span class="cmp-lblA-t">أ</span></th><th>إجمالي <span class="cmp-lblB-t">ب</span></th><th>الفرق (أ − ب)</th><th>الأرخص</th></tr></thead>
+        <tbody id="cmp-all-tbody"></tbody>
       </table></div>
     </div>
   </div>
@@ -4780,10 +4806,36 @@ var _cmpBRows=[];
 function bKey(pid){ return 'scs_modelb_'+(pid||getActiveProfileId()||'default'); }
 function bLoad(pid){ try{ return JSON.parse(localStorage.getItem(bKey(pid))||'{}'); }catch(e){ return {}; } }
 function bSave(obj,pid){ try{ localStorage.setItem(bKey(pid),JSON.stringify(obj)); return true; }catch(e){ toast('⚠️ فشل حفظ نموذج ب: التخزين ممتلئ',true); return false; } }
+// أسماء النماذج (قابلة للتعديل، لكل شركة)
+function cmpCfgKey(pid){ return 'scs_cmpcfg_'+(pid||getActiveProfileId()||'default'); }
+function cmpLabels(){ try{ var c=JSON.parse(localStorage.getItem(cmpCfgKey())||'{}'); return {a:(c.a||'نموذج أ'), b:(c.b||'نموذج ب')}; }catch(e){ return {a:'نموذج أ',b:'نموذج ب'}; } }
+function cmpSaveLabels(){
+  if(isReadonly()){ toast('👁 وضع القراءة فقط',true); return; }
+  var a=(document.getElementById('cmp-lblA').value||'').trim()||'نموذج أ';
+  var b=(document.getElementById('cmp-lblB').value||'').trim()||'نموذج ب';
+  try{ localStorage.setItem(cmpCfgKey(), JSON.stringify({a:a,b:b})); }catch(e){}
+  applyCmpLabels(); renderCompare(); logAction('تعديل أسماء نماذج المقارنة', a+' / '+b); toast('💾 تم حفظ الأسماء');
+}
+function applyCmpLabels(){
+  var L=cmpLabels();
+  var ia=document.getElementById('cmp-lblA'), ib=document.getElementById('cmp-lblB');
+  if(ia&&document.activeElement!==ia) ia.value=L.a; if(ib&&document.activeElement!==ib) ib.value=L.b;
+  Array.prototype.forEach.call(document.querySelectorAll('.cmp-lblA-t'),function(e){ e.textContent=L.a; });
+  Array.prototype.forEach.call(document.querySelectorAll('.cmp-lblB-t'),function(e){ e.textContent=L.b; });
+  var h1a=document.getElementById('cmp-lblA-h1'), h1b=document.getElementById('cmp-lblB-h1'), bh=document.getElementById('cmp-b-hdr');
+  if(h1a) h1a.textContent=L.a; if(h1b) h1b.textContent=L.b; if(bh) bh.textContent=L.b;
+}
 function aFxForShip(num){
   var snap=dbLoad().find(function(s){ return String(s.shipmentNo||'')===String(num); });
   if(!snap) return (S.fxUsdSar||3.756);
   return (snap.invCur==='SAR')?1:(parseFloat(snap.fxUsdSar)||3.756);
+}
+// معامل تحويل أسعار نموذج ب لهذه الشحنة: صريح (عملة/سعر) إن وُجد، وإلا نفس سعر نموذج أ
+function bFxFor(num){
+  var b=bLoad()[num]||{};
+  if(b.cur==='SAR') return 1;
+  if(b.rate!=null && b.rate!=='' && !isNaN(parseFloat(b.rate)) && parseFloat(b.rate)>0) return parseFloat(b.rate);
+  return aFxForShip(num);
 }
 function aModelsForShip(num){
   var snap=dbLoad().find(function(s){ return String(s.shipmentNo||'')===String(num); });
@@ -4797,7 +4849,14 @@ function cmpShipList(){
   Object.keys(bLoad()).forEach(function(n){ nums[n]=1; });
   return Object.keys(nums);
 }
-function onCmpShipChange(){ var num=(document.getElementById('cmp-ship')||{}).value||''; var b=bLoad()[num]; _cmpBRows=(b&&b.items?b.items:[]).map(function(x){return {model:x.model,qty:x.qty,price:x.price};}); renderCmpBEditor(); renderCompare(); }
+function onCmpShipChange(){
+  var num=(document.getElementById('cmp-ship')||{}).value||''; var b=bLoad()[num]||{};
+  _cmpBRows=(b.items?b.items:[]).map(function(x){return {model:x.model,qty:x.qty,price:x.price};});
+  var cc=document.getElementById('cmp-b-cur'); if(cc) cc.value=b.cur||'';
+  var cr=document.getElementById('cmp-b-rate'); if(cr) cr.value=(b.rate!=null?b.rate:'');
+  renderCmpBEditor(); renderCompare();
+}
+function onCmpBCurChange(){ /* يُحفظ عند حفظ نموذج ب */ }
 function renderCmpBEditor(){
   var num=(document.getElementById('cmp-ship')||{}).value||'';
   var nm=document.getElementById('cmp-b-shipname'); if(nm) nm.textContent=num||'—';
@@ -4823,42 +4882,73 @@ function cmpPrefillFromA(){
 function cmpSaveB(){
   if(isReadonly()){ toast('👁 وضع القراءة فقط',true); return; }
   var num=(document.getElementById('cmp-ship')||{}).value||''; if(!num){ toast('اختر رقم الشحنة أولاً',true); return; }
-  var obj=bLoad(); obj[num]={items:_cmpBRows.filter(function(r){return (r.model||'').trim();}).map(function(r){return {model:r.model.trim(),qty:parseFloat(r.qty)||0,price:parseFloat(r.price)||0};})};
+  var cur=(document.getElementById('cmp-b-cur')||{}).value||'';
+  var rate=(document.getElementById('cmp-b-rate')||{}).value; rate=(rate===''||rate==null)?'':(parseFloat(rate)||'');
+  var obj=bLoad(); obj[num]={cur:cur, rate:rate, items:_cmpBRows.filter(function(r){return (r.model||'').trim();}).map(function(r){return {model:r.model.trim(),qty:parseFloat(r.qty)||0,price:parseFloat(r.price)||0};})};
   bSave(obj); logAction('حفظ نموذج ب (مقارنة)', num); toast('💾 تم حفظ نموذج ب'); renderCompare();
 }
-function renderCompare(){
-  var dl=document.getElementById('cmp-ship-list'); if(dl) dl.innerHTML=cmpShipList().map(function(n){return '<option value="'+escH(n)+'">';}).join('');
-  var num=(document.getElementById('cmp-ship')||{}).value||'';
-  var a=aModelsForShip(num);
-  var fx=aFxForShip(num);
+// إجمالي واصل أ وإجمالي ب للموديلات المشتركة في شحنة واحدة
+function cmpShipTotals(num){
+  var a=aModelsForShip(num); var fx=bFxFor(num);
   var bItems=((bLoad()[num]||{}).items)||[];
-  var bMap={}; bItems.forEach(function(x){ var k=(x.model||'').trim(); if(k) bMap[k]={qty:x.qty,priceSar:(parseFloat(x.price)||0)*fx}; });
-  var rows=[]; // الموديلات المشتركة فقط (موجودة في أ وب)
+  var bMap={}; bItems.forEach(function(x){ var k=(x.model||'').trim(); if(k) bMap[k]=(parseFloat(x.price)||0)*fx; });
+  var rows=[], totA=0, totB=0;
   Object.keys(a).forEach(function(k){
     var bk=Object.keys(bMap).find(function(x){return x.toLowerCase()===k.toLowerCase();});
-    if(!bk) return;
-    var A=a[k]; var aUnitFob=A.qty>0?A.fobSar/A.qty:0; var aUnitLanded=A.qty>0?A.landedSar/A.qty:0;
-    var bUnit=bMap[bk].priceSar;
+    if(bk===undefined) return;
+    var A=a[k]; var aUnitFob=A.qty>0?A.fobSar/A.qty:0; var aUnitLanded=A.qty>0?A.landedSar/A.qty:0; var bUnit=bMap[bk];
+    totA+=A.landedSar; totB+=bUnit*A.qty;
     rows.push({model:k, qty:A.qty, aUnitFob:aUnitFob, aUnitLanded:aUnitLanded, bUnit:bUnit, diff:aUnitLanded-bUnit});
   });
+  return {rows:rows, totA:totA, totB:totB};
+}
+function renderCompare(){
+  applyCmpLabels();
+  var L=cmpLabels();
+  var dl=document.getElementById('cmp-ship-list'); if(dl) dl.innerHTML=cmpShipList().map(function(n){return '<option value="'+escH(n)+'">';}).join('');
+  var num=(document.getElementById('cmp-ship')||{}).value||'';
+  var T=cmpShipTotals(num); var rows=T.rows;
   var tb=document.getElementById('cmp-tbody');
   var sc=document.getElementById('cmp-sum-cards');
   if(!num){ if(tb) tb.innerHTML='<tr><td colspan="7" style="padding:20px;color:var(--muted)">اختر رقم شحنة</td></tr>'; if(sc) sc.innerHTML=''; return; }
-  if(!rows.length){ if(tb) tb.innerHTML='<tr><td colspan="7" style="padding:20px;color:var(--muted)">لا توجد موديلات مشتركة — أدخل في نموذج ب موديلات موجودة في نموذج أ</td></tr>'; if(sc) sc.innerHTML=''; return; }
-  var totAland=rows.reduce(function(s,r){return s+r.aUnitLanded*r.qty;},0);
-  var totB=rows.reduce(function(s,r){return s+r.bUnit*r.qty;},0);
+  if(!rows.length){ if(tb) tb.innerHTML='<tr><td colspan="7" style="padding:20px;color:var(--muted)">لا توجد موديلات مشتركة — أدخل في '+escH(L.b)+' موديلات موجودة في '+escH(L.a)+'</td></tr>'; if(sc) sc.innerHTML=''; return; }
+  var totAland=T.totA, totB=T.totB, d=totAland-totB;
   if(sc) sc.innerHTML=
-    '<div class="sum-card"><div class="lbl">إجمالي واصل أ (موديلات مشتركة)</div><div class="val">'+fmtD(totAland)+' SAR</div></div>'+
-    '<div class="sum-card"><div class="lbl">إجمالي شراء ب (نفسها)</div><div class="val">'+fmtD(totB)+' SAR</div></div>'+
-    '<div class="sum-card" style="background:'+(totAland-totB>0?'#fdecea':'#e9f8ef')+'"><div class="lbl">الفرق (أ − ب)</div><div class="val" style="color:'+(totAland-totB>0?'var(--danger)':'var(--success)')+'">'+fmtD(totAland-totB)+' SAR</div><div class="sub">'+(totAland>totB?'نموذج ب أرخص':(totAland<totB?'نموذج أ أرخص':'متساويان'))+'</div></div>';
+    '<div class="sum-card"><div class="lbl">إجمالي واصل '+escH(L.a)+' (موديلات مشتركة)</div><div class="val">'+fmtD(totAland)+' SAR</div></div>'+
+    '<div class="sum-card"><div class="lbl">إجمالي '+escH(L.b)+' (نفسها)</div><div class="val">'+fmtD(totB)+' SAR</div></div>'+
+    '<div class="sum-card" style="background:'+(d>0?'#fdecea':'#e9f8ef')+'"><div class="lbl">الفرق ('+escH(L.a)+' − '+escH(L.b)+')</div><div class="val" style="color:'+(d>0?'var(--danger)':'var(--success)')+'">'+fmtD(d)+' SAR</div><div class="sub">'+(d>0?escH(L.b)+' أرخص':(d<0?escH(L.a)+' أرخص':'متساويان'))+'</div></div>';
   if(tb) tb.innerHTML=rows.map(function(r){
-    var cheaper=r.diff>0?'ب':(r.diff<0?'أ':'=');
+    var cheaper=r.diff>0?escH(L.b):(r.diff<0?escH(L.a):'=');
     return '<tr><td><strong>'+escH(r.model)+'</strong></td><td class="num">'+fmtD(r.qty)+'</td>'+
       '<td class="num">'+fmtD(r.aUnitFob)+'</td><td class="num" style="color:var(--success);font-weight:700">'+fmtD(r.aUnitLanded)+'</td>'+
       '<td class="num">'+fmtD(r.bUnit)+'</td>'+
       '<td class="num" style="color:'+(r.diff>0?'var(--danger)':'var(--success)')+'">'+fmtD(r.diff)+'</td>'+
       '<td style="font-weight:700">'+cheaper+'</td></tr>';
   }).join('');
+}
+// إجمالي الفروقات عبر كل الشحنات التي لها بيانات نموذج ب
+function renderCmpAll(){
+  applyCmpLabels(); var L=cmpLabels();
+  var card=document.getElementById('cmp-all-card'); if(card) card.style.display='';
+  var nums=Object.keys(bLoad());
+  var body=[], gA=0, gB=0, nShared=0;
+  nums.forEach(function(num){
+    var T=cmpShipTotals(num); if(!T.rows.length) return;
+    gA+=T.totA; gB+=T.totB; nShared+=T.rows.length;
+    var d=T.totA-T.totB;
+    body.push('<tr><td><strong>'+escH(num)+'</strong></td><td class="num">'+T.rows.length+'</td>'+
+      '<td class="num">'+fmtD(T.totA)+'</td><td class="num">'+fmtD(T.totB)+'</td>'+
+      '<td class="num" style="color:'+(d>0?'var(--danger)':'var(--success)')+'">'+fmtD(d)+'</td>'+
+      '<td style="font-weight:700">'+(d>0?escH(L.b):(d<0?escH(L.a):'='))+'</td></tr>');
+  });
+  var gd=gA-gB;
+  var sum=document.getElementById('cmp-all-sum');
+  if(sum) sum.innerHTML=
+    '<div class="sum-card"><div class="lbl">إجمالي واصل '+escH(L.a)+' (كل الشحنات)</div><div class="val">'+fmtD(gA)+' SAR</div></div>'+
+    '<div class="sum-card"><div class="lbl">إجمالي '+escH(L.b)+' (كل الشحنات)</div><div class="val">'+fmtD(gB)+' SAR</div></div>'+
+    '<div class="sum-card" style="background:'+(gd>0?'#fdecea':'#e9f8ef')+'"><div class="lbl">إجمالي الفرق ('+escH(L.a)+' − '+escH(L.b)+')</div><div class="val" style="color:'+(gd>0?'var(--danger)':'var(--success)')+'">'+fmtD(gd)+' SAR</div><div class="sub">'+(gd>0?escH(L.b)+' أرخص إجمالاً':(gd<0?escH(L.a)+' أرخص إجمالاً':'متساويان'))+'</div></div>';
+  var tb=document.getElementById('cmp-all-tbody');
+  if(tb) tb.innerHTML=body.join('')||'<tr><td colspan="6" style="padding:18px;color:var(--muted)">لا توجد شحنات بها بيانات نموذج ب وموديلات مشتركة</td></tr>';
 }
 function exportModelReport(){
   if(typeof XLSX==='undefined'){ toast('⚠️ مكتبة Excel غير محمّلة',true); return; }
