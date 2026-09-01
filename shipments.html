@@ -724,6 +724,7 @@ html[data-theme="dark"] .rt td.hl{background:#2e2814;color:var(--accent)}
   <div class="tab"         onclick="showPage('page-payments')">💵 الدفعات المسددة</div>
   <div class="tab"         onclick="showPage('page-freight')">🚚 كشف حساب الشحن</div>
   <div class="tab"         onclick="showPage('page-supacct')">📒 كشف حساب المورد</div>
+  <div class="tab"         onclick="showPage('page-modelrep')">📈 تقرير الموديلات</div>
 </div>
 
 <div class="main">
@@ -1258,6 +1259,36 @@ html[data-theme="dark"] .rt td.hl{background:#2e2814;color:var(--accent)}
           <th>#</th><th>التاريخ</th><th>البيان</th><th>مدين (شراء)</th><th>دائن (مسدد)</th><th>الرصيد الجاري</th><th></th>
         </tr></thead>
         <tbody id="sa-tbody"></tbody>
+      </table></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ PAGE 9: MODELS REPORT (تقرير الموديلات المُجمّع) ══ -->
+<div id="page-modelrep" class="page">
+  <div class="alert ai" style="margin-bottom:12px">📈 <strong>تقرير الموديلات المُجمّع</strong> — يجمع كل الموديلات عبر جميع الشحنات المحفوظة: الكمية، قيمة الشراء (FOB)، والتكلفة الواصلة الإجمالية ومتوسط الوحدة. التكلفة الواصلة تُحتسب بنفس محرك «التكاليف» تماماً لكل شحنة بسعر صرفها المحفوظ.</div>
+
+  <div class="card" style="margin-bottom:12px">
+    <div class="card-body" style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
+      <div class="fg"><label>المورد</label><select id="mr-supplier" onchange="renderModelReport()" style="min-width:180px"></select></div>
+      <div class="fg"><label>من تاريخ</label><input id="mr-from" type="date" onchange="renderModelReport()" style="width:150px"></div>
+      <div class="fg"><label>إلى تاريخ</label><input id="mr-to" type="date" onchange="renderModelReport()" style="width:150px"></div>
+      <div class="search-box" style="min-width:180px"><input id="mr-search" placeholder="ابحث باسم الموديل…" oninput="renderModelReport()"></div>
+      <button class="btn btn-outline btn-sm" onclick="clearModelRep()">مسح الفلاتر</button>
+      <button class="btn btn-green btn-sm" onclick="exportModelReport()">⬇️ تصدير Excel</button>
+    </div>
+  </div>
+
+  <div id="mr-sum-cards" class="sum-cards" style="margin-bottom:12px"></div>
+
+  <div class="card">
+    <div class="card-header">📋 الموديلات (مرتبة حسب التكلفة الواصلة)</div>
+    <div class="card-body">
+      <div style="overflow-x:auto"><table class="tbl" id="mr-table">
+        <thead><tr>
+          <th>#</th><th>الموديل</th><th>الكمية</th><th>شراء FOB (SAR)</th><th>واصل إجمالي (SAR)</th><th>متوسط وحدة واصلة</th><th>عدد الشحنات</th>
+        </tr></thead>
+        <tbody id="mr-tbody"></tbody>
       </table></div>
     </div>
   </div>
@@ -2952,7 +2983,7 @@ function preparePricingPrint(){ setTimeout(()=>window.print(),100); }
 function showPage(id){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.getElementById(id).classList.add('active');
-  const pages=['page-shipment','page-costs','page-results','page-pricing','page-archive','page-payments','page-freight','page-supacct'];
+  const pages=['page-shipment','page-costs','page-results','page-pricing','page-archive','page-payments','page-freight','page-supacct','page-modelrep'];
   document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',pages[i]===id));
   if(id==='page-costs'){ buildInvCostPanels(); buildConCostPanels(); renderShipCosts(); }
   if(id==='page-archive'){ renderArchive(); }
@@ -2960,6 +2991,7 @@ function showPage(id){
   if(id==='page-payments'){ renderPayments(); }
   if(id==='page-freight'){ onFrtMethodChange(); renderFreight(); }
   if(id==='page-supacct'){ onSaMethodChange(); renderSupAcct(); }
+  if(id==='page-modelrep'){ renderModelReport(); }
 }
 
 // ═══════════════════════════════════════════
@@ -3309,7 +3341,7 @@ function cloudApply(data){
 }
 function cloudReloadUI(){
   try{ applyPermsUI(); cfgLoad(); applyTheme(); updateProfileBadge(); renderQuickSwitch();
-    var a=document.querySelector('.page.active'); if(a&&a.id==='page-archive') renderArchive(); if(a&&a.id==='page-payments') renderPayments(); if(a&&a.id==='page-freight') renderFreight(); if(a&&a.id==='page-supacct') renderSupAcct();
+    var a=document.querySelector('.page.active'); if(a&&a.id==='page-archive') renderArchive(); if(a&&a.id==='page-payments') renderPayments(); if(a&&a.id==='page-freight') renderFreight(); if(a&&a.id==='page-supacct') renderSupAcct(); if(a&&a.id==='page-modelrep') renderModelReport();
   }catch(e){}
 }
 
@@ -3818,7 +3850,7 @@ function applyPermsUI(){
   const nm=document.getElementById('current-user-name'); if(nm) nm.textContent = u?(u.name||u.username)+' · '+(ROLE_NAMES[u.role]||'')+(isReadonly()?' · 👁 قراءة فقط':''):'';
   document.body.classList.toggle('ro', isReadonly());
   // إظهار/إخفاء التبويبات حسب الصلاحية (كل تقرير/شاشة على حدة)
-  const tabPerm={'page-shipment':'shipment','page-costs':'costs','page-results':'results','page-pricing':'pricing','page-archive':'archive','page-payments':'payments','page-freight':'payments','page-supacct':'payments'};
+  const tabPerm={'page-shipment':'shipment','page-costs':'costs','page-results':'results','page-pricing':'pricing','page-archive':'archive','page-payments':'payments','page-freight':'payments','page-supacct':'payments','page-modelrep':'results'};
   document.querySelectorAll('.tabs .tab').forEach(t=>{
     const oc=t.getAttribute('onclick')||''; const m=oc.match(/'(page-[a-z]+)'/);
     if(m){ t.style.display = can(tabPerm[m[1]]||'shipment') ? '' : 'none'; }
@@ -4594,6 +4626,105 @@ function addSupplierPayment(){
 function deleteSupplierPayment(id){
   if(isReadonly()){ toast('👁 وضع القراءة فقط',true); return; }
   var list=saPayLoad().filter(function(p){return p.id!==id;}); saPaySave(list); renderSupAcct(); logAction('حذف دفعة مورد',''); toast('🗑️ تم حذف الدفعة');
+}
+
+// ═══════════════════════════════════════════
+// 📈 تقرير الموديلات المُجمّع — Feature C (المرحلة 2)
+//   snapLanded: إعادة إنتاج محرك calculate() على لقطة محفوظة (نقية، بلا DOM، بسعر صرف اللقطة)
+//   — مطابقة تماماً لمعادلة التكاليف الحية (مُتحقَّق منها عددياً) دون المساس بـ calculate()
+// ═══════════════════════════════════════════
+function snapLanded(snap){
+  var fxUsd=parseFloat(snap.fxUsdSar)||3.756;
+  var invCur=snap.invCur||'USD';
+  function tS(a,cur){ a=parseFloat(a)||0; if(!a||isNaN(a)) return 0; return cur==='SAR'?a:a*fxUsd; }
+  function pS(v,pc){ return tS(v, pc||invCur||'USD'); }
+  var conts=snap.containers||[];
+  var totalShipSar=(snap.shipCosts||[]).reduce(function(s,c){ return s+tS(c.amount||0,c.cur); },0);
+  var allRec=[];
+  conts.forEach(function(c,ci){
+    var conCostSar=(c.costs||[]).reduce(function(s,cc){ return s+tS(cc.amount||0,cc.cur); },0);
+    (c.invoices||[]).forEach(function(inv){
+      var invPurchCur=inv.purchCur||invCur||'USD';
+      var rawInvCur=(inv.items||[]).reduce(function(s,it){ return s+(parseFloat(it.qty)||0)*(parseFloat(it.unitPrice)||0); },0);
+      var rawSar=pS(rawInvCur,invPurchCur);
+      var discInvCur=inv.discountType==='percent'?rawInvCur*(parseFloat(inv.discount)||0)/100:(parseFloat(inv.discount)||0);
+      var discSar=pS(discInvCur,invPurchCur);
+      var commSar=pS(rawInvCur*(parseFloat(inv.commissionRate)||0)/100, invPurchCur);
+      var otherSar=tS(inv.otherCost, inv.otherCur||'SAR');
+      var netSar=rawSar-discSar+commSar+otherSar;
+      allRec.push({ci:ci+1, inv:inv, rawInvCur:rawInvCur, invPurchCur:invPurchCur, discSar:discSar, commSar:commSar, otherSar:otherSar, netSar:netSar, conCostSar:conCostSar});
+    });
+  });
+  var cNetMap={}, cFreightMap={};
+  conts.forEach(function(c,ci){ cNetMap[ci+1]=allRec.filter(function(r){return r.ci===ci+1;}).reduce(function(s,r){return s+r.netSar;},0); cFreightMap[ci+1]=tS(c.freight||0,c.freightCur||'USD'); });
+  var gNet=allRec.reduce(function(s,r){return s+r.netSar;},0);
+  var out=[];
+  allRec.forEach(function(rec){
+    var cNet=cNetMap[rec.ci]||0;
+    var invConSar=cNet>0?(rec.netSar/cNet)*rec.conCostSar:0;
+    var invFreightSar=cNet>0?(rec.netSar/cNet)*(cFreightMap[rec.ci]||0):0;
+    var invShipShareSar=gNet>0?(rec.netSar/gNet)*totalShipSar:0;
+    (rec.inv.items||[]).forEach(function(it){
+      var itemValInvCur=(parseFloat(it.qty)||0)*(parseFloat(it.unitPrice)||0);
+      var share=rec.rawInvCur>0?itemValInvCur/rec.rawInvCur:1/((rec.inv.items||[]).length||1);
+      var itemPurchSar=pS(itemValInvCur, rec.invPurchCur);
+      var totSar=itemPurchSar - share*rec.discSar + share*rec.commSar + share*invFreightSar + share*rec.otherSar + share*invConSar + share*invShipShareSar;
+      out.push({ name:(it.name||'صنف'), qty:(parseFloat(it.qty)||0), fobSar:itemPurchSar, landedSar:totSar });
+    });
+  });
+  return out;
+}
+function modelReportRows(){
+  var supFil=(document.getElementById('mr-supplier')||{}).value||'';
+  var from=(document.getElementById('mr-from')||{}).value||'';
+  var to=(document.getElementById('mr-to')||{}).value||'';
+  var q=((document.getElementById('mr-search')||{}).value||'').trim().toLowerCase();
+  var ok=function(d){ return (!from||(d||'')>=from) && (!to||(d||'')<=to); };
+  var agg={};
+  dbLoad().forEach(function(snap){
+    if(supFil && String(snap.supplierName||'').toLowerCase()!==supFil.toLowerCase()) return;
+    if(!ok(snap.shipmentDate)) return;
+    snapLanded(snap).forEach(function(r){
+      var key=r.name.trim()||'—';
+      if(q && key.toLowerCase().indexOf(q)<0) return;
+      if(!agg[key]) agg[key]={name:key, qty:0, fobSar:0, landedSar:0, ships:{}};
+      agg[key].qty+=r.qty; agg[key].fobSar+=r.fobSar; agg[key].landedSar+=r.landedSar; agg[key].ships[snap.id]=1;
+    });
+  });
+  return Object.keys(agg).map(function(k){ var a=agg[k]; return {name:a.name, qty:a.qty, fobSar:a.fobSar, landedSar:a.landedSar, ships:Object.keys(a.ships).length, unit:a.qty>0?a.landedSar/a.qty:0}; })
+    .sort(function(x,y){ return y.landedSar-x.landedSar; });
+}
+function renderModelReport(){
+  // قائمة الموردين للفلتر
+  var sel=document.getElementById('mr-supplier');
+  if(sel){ var cur=sel.value; var names=supLoad().map(function(s){return s.name;}); sel.innerHTML='<option value="">كل الموردين</option>'+names.map(function(n){return '<option value="'+escH(n)+'"'+(n===cur?' selected':'')+'>'+escH(n)+'</option>';}).join(''); }
+  var rows=modelReportRows();
+  var tQty=rows.reduce(function(s,r){return s+r.qty;},0);
+  var tFob=rows.reduce(function(s,r){return s+r.fobSar;},0);
+  var tLanded=rows.reduce(function(s,r){return s+r.landedSar;},0);
+  var sc=document.getElementById('mr-sum-cards');
+  if(sc) sc.innerHTML=
+    '<div class="sum-card"><div class="lbl">عدد الموديلات</div><div class="val">'+rows.length+'</div></div>'+
+    '<div class="sum-card"><div class="lbl">إجمالي الكمية</div><div class="val">'+fmtD(tQty)+'</div></div>'+
+    '<div class="sum-card"><div class="lbl">إجمالي الشراء FOB (SAR)</div><div class="val">'+fmtD(tFob)+'</div></div>'+
+    '<div class="sum-card" style="background:var(--accent);color:var(--primary)"><div class="lbl">إجمالي الواصل (SAR)</div><div class="val">'+fmtD(tLanded)+'</div></div>';
+  var tb=document.getElementById('mr-tbody'); if(!tb) return;
+  if(!rows.length){ tb.innerHTML='<tr><td colspan="7" style="padding:22px;color:var(--muted)">لا توجد بيانات — احفظ شحنات أو عدّل الفلاتر</td></tr>'; return; }
+  tb.innerHTML=rows.map(function(r,i){
+    return '<tr><td>'+(i+1)+'</td><td><strong>'+escH(r.name)+'</strong></td><td class="num">'+fmtD(r.qty)+'</td>'+
+      '<td class="num">'+fmtD(r.fobSar)+'</td><td class="num" style="color:var(--success);font-weight:700">'+fmtD(r.landedSar)+'</td>'+
+      '<td class="num">'+fmtD(r.unit)+'</td><td class="num">'+r.ships+'</td></tr>';
+  }).join('');
+}
+function clearModelRep(){ ['mr-from','mr-to','mr-search'].forEach(function(id){ var e=document.getElementById(id); if(e)e.value=''; }); var s=document.getElementById('mr-supplier'); if(s)s.value=''; renderModelReport(); }
+function exportModelReport(){
+  if(typeof XLSX==='undefined'){ toast('⚠️ مكتبة Excel غير محمّلة',true); return; }
+  var rows=modelReportRows();
+  var aoa=[['الموديل','الكمية','شراء FOB (SAR)','واصل إجمالي (SAR)','متوسط وحدة واصلة (SAR)','عدد الشحنات']];
+  rows.forEach(function(r){ aoa.push([r.name, r.qty, Math.round(r.fobSar*100)/100, Math.round(r.landedSar*100)/100, Math.round(r.unit*100)/100, r.ships]); });
+  var ws=XLSX.utils.aoa_to_sheet(aoa); ws['!cols']=[{wch:28},{wch:10},{wch:16},{wch:18},{wch:20},{wch:12}];
+  var wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'الموديلات');
+  XLSX.writeFile(wb,'تقرير_الموديلات.xlsx'); toast('⬇️ تم تصدير التقرير');
 }
 
 function downloadPaymentTemplate(){
