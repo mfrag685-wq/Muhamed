@@ -723,6 +723,7 @@ html[data-theme="dark"] .rt td.hl{background:#2e2814;color:var(--accent)}
   <div class="tab"         onclick="showPage('page-archive')">🗂️ سجل الشحنات</div>
   <div class="tab"         onclick="showPage('page-payments')">💵 الدفعات المسددة</div>
   <div class="tab"         onclick="showPage('page-freight')">🚚 كشف حساب الشحن</div>
+  <div class="tab"         onclick="showPage('page-supacct')">📒 كشف حساب المورد</div>
 </div>
 
 <div class="main">
@@ -1208,6 +1209,60 @@ html[data-theme="dark"] .rt td.hl{background:#2e2814;color:var(--accent)}
   </div>
 </div>
 
+<!-- ══ PAGE 8: SUPPLIER ACCOUNT (كشف حساب المورد) ══ -->
+<div id="page-supacct" class="page">
+  <div class="alert ai" style="margin-bottom:12px">📒 <strong>كشف حساب المورد</strong> — رصيد <strong>مدين</strong> = قيمة الشراء (FOB) لشحنات هذا المورد (نفس إجمالي «سجل الشحنات»)، ورصيد <strong>دائن</strong> = دفعاته المسجَّلة، مع <strong>الرصيد المتبقّي</strong>. أجور الشحن تبقى في «كشف حساب الشحن» منفصلةً.</div>
+
+  <div class="card" style="margin-bottom:12px">
+    <div class="card-body" style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
+      <div class="fg"><label>المورد</label>
+        <select id="sa-supplier" onchange="renderSupAcct()" style="min-width:220px"></select>
+      </div>
+      <div style="font-size:.78rem;color:var(--muted)">اختر المورد لعرض كشف حسابه — أضِف الموردين من زر «🧾 الموردون» بالأعلى.</div>
+    </div>
+  </div>
+
+  <div id="sa-sum-cards" class="sum-cards" style="margin-bottom:12px"></div>
+
+  <div class="card" style="margin-bottom:12px">
+    <div class="card-header" style="background:#1b5e20">💵 تسجيل دفعة للمورد — <span id="sa-supplier-name" style="color:#ffe082"></span></div>
+    <div class="card-body">
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+        <div class="fg"><label>التاريخ</label><input id="sa-date" type="date" style="width:150px"></div>
+        <div class="fg"><label>المبلغ</label><input id="sa-amount" type="number" min="0" step="0.01" placeholder="0.00" style="width:130px"></div>
+        <div class="fg"><label>العملة</label><select id="sa-cur" class="cur-sel"><option value="SAR">SAR</option><option value="USD">USD</option></select></div>
+        <div class="fg"><label>طريقة الدفع</label><select id="sa-method" onchange="onSaMethodChange()"><option value="transfer">🏦 تحويل بنكي</option><option value="cash">💵 نقدًا</option></select></div>
+        <div class="fg" id="sa-bank-wrap"><label>البنك</label><input id="sa-bank" placeholder="اسم البنك" style="width:150px"></div>
+        <div class="fg"><label>مرجع</label><input id="sa-ref" placeholder="رقم العملية" style="width:120px"></div>
+        <div class="fg" style="flex:1;min-width:150px"><label>ملاحظات</label><input id="sa-notes" placeholder="ملاحظات"></div>
+        <button class="btn btn-accent" onclick="addSupplierPayment()">➕ إضافة دفعة</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+      <span>📋 كشف الحساب</span>
+      <span style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+        <button class="btn btn-outline btn-sm" id="sa-mode-sum" onclick="setSaMode('summary')">ملخص</button>
+        <button class="btn btn-outline btn-sm" id="sa-mode-det" onclick="setSaMode('detail')">تفصيلي</button>
+        <input id="sa-from" type="date" onchange="renderSupAcct()" style="width:135px" title="من تاريخ">
+        <span style="font-size:.8rem;color:var(--muted)">إلى</span>
+        <input id="sa-to" type="date" onchange="renderSupAcct()" style="width:135px" title="إلى تاريخ">
+        <button class="btn btn-outline btn-sm" onclick="clearSaDates()">مسح</button>
+      </span>
+    </div>
+    <div class="card-body">
+      <div style="overflow-x:auto"><table class="tbl" id="sa-table">
+        <thead><tr>
+          <th>#</th><th>التاريخ</th><th>البيان</th><th>مدين (شراء)</th><th>دائن (مسدد)</th><th>الرصيد الجاري</th><th></th>
+        </tr></thead>
+        <tbody id="sa-tbody"></tbody>
+      </table></div>
+    </div>
+  </div>
+</div>
+
 </div><!-- /main -->
 
 <!-- DETAIL MODAL -->
@@ -1458,6 +1513,7 @@ function deleteProfile(id) {
     localStorage.removeItem('scs_pay_'+id);
     localStorage.removeItem('scs_freightpay_'+id);
     localStorage.removeItem('scs_suppliers_'+id);
+    localStorage.removeItem('scs_supplierpay_'+id);
     profilesSave(profiles.filter(x=>x.id!==id));
     // If was active, clear active
     if (getActiveProfileId()===id) localStorage.removeItem(ACTIVE_KEY);
@@ -2896,13 +2952,14 @@ function preparePricingPrint(){ setTimeout(()=>window.print(),100); }
 function showPage(id){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.getElementById(id).classList.add('active');
-  const pages=['page-shipment','page-costs','page-results','page-pricing','page-archive','page-payments','page-freight'];
+  const pages=['page-shipment','page-costs','page-results','page-pricing','page-archive','page-payments','page-freight','page-supacct'];
   document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',pages[i]===id));
   if(id==='page-costs'){ buildInvCostPanels(); buildConCostPanels(); renderShipCosts(); }
   if(id==='page-archive'){ renderArchive(); }
   if(id==='page-pricing'){ loadPricingPage(); }
   if(id==='page-payments'){ renderPayments(); }
   if(id==='page-freight'){ onFrtMethodChange(); renderFreight(); }
+  if(id==='page-supacct'){ onSaMethodChange(); renderSupAcct(); }
 }
 
 // ═══════════════════════════════════════════
@@ -3252,7 +3309,7 @@ function cloudApply(data){
 }
 function cloudReloadUI(){
   try{ applyPermsUI(); cfgLoad(); applyTheme(); updateProfileBadge(); renderQuickSwitch();
-    var a=document.querySelector('.page.active'); if(a&&a.id==='page-archive') renderArchive(); if(a&&a.id==='page-payments') renderPayments(); if(a&&a.id==='page-freight') renderFreight();
+    var a=document.querySelector('.page.active'); if(a&&a.id==='page-archive') renderArchive(); if(a&&a.id==='page-payments') renderPayments(); if(a&&a.id==='page-freight') renderFreight(); if(a&&a.id==='page-supacct') renderSupAcct();
   }catch(e){}
 }
 
@@ -3433,7 +3490,8 @@ function buildFullBackup(){
       db:  JSON.parse(localStorage.getItem('scs_db_'+p.id)||'[]'),
       pay: JSON.parse(localStorage.getItem('scs_pay_'+p.id)||'[]'),
       frt: JSON.parse(localStorage.getItem('scs_freightpay_'+p.id)||'[]'),
-      sup: JSON.parse(localStorage.getItem('scs_suppliers_'+p.id)||'[]')
+      sup: JSON.parse(localStorage.getItem('scs_suppliers_'+p.id)||'[]'),
+      spay: JSON.parse(localStorage.getItem('scs_supplierpay_'+p.id)||'[]')
     });
   });
   return out;
@@ -3471,6 +3529,7 @@ function importFullBackup(){
             localStorage.setItem('scs_pay_'+p.id, JSON.stringify(entry.pay||[]));
             if(entry.frt) localStorage.setItem('scs_freightpay_'+p.id, JSON.stringify(entry.frt||[]));
             if(entry.sup) localStorage.setItem('scs_suppliers_'+p.id, JSON.stringify(entry.sup||[]));
+            if(entry.spay) localStorage.setItem('scs_supplierpay_'+p.id, JSON.stringify(entry.spay||[]));
           });
           profilesSave(profiles);
           renderQuickSwitch(); renderArchive();
@@ -3537,6 +3596,7 @@ function restoreAutoBackup(){
       localStorage.setItem('scs_pay_'+p.id, JSON.stringify(entry.pay||[]));
       if(entry.frt) localStorage.setItem('scs_freightpay_'+p.id, JSON.stringify(entry.frt||[]));
       if(entry.sup) localStorage.setItem('scs_suppliers_'+p.id, JSON.stringify(entry.sup||[]));
+      if(entry.spay) localStorage.setItem('scs_supplierpay_'+p.id, JSON.stringify(entry.spay||[]));
     });
     profilesSave(profiles);
     renderQuickSwitch(); renderArchive();
@@ -3758,7 +3818,7 @@ function applyPermsUI(){
   const nm=document.getElementById('current-user-name'); if(nm) nm.textContent = u?(u.name||u.username)+' · '+(ROLE_NAMES[u.role]||'')+(isReadonly()?' · 👁 قراءة فقط':''):'';
   document.body.classList.toggle('ro', isReadonly());
   // إظهار/إخفاء التبويبات حسب الصلاحية (كل تقرير/شاشة على حدة)
-  const tabPerm={'page-shipment':'shipment','page-costs':'costs','page-results':'results','page-pricing':'pricing','page-archive':'archive','page-payments':'payments','page-freight':'payments'};
+  const tabPerm={'page-shipment':'shipment','page-costs':'costs','page-results':'results','page-pricing':'pricing','page-archive':'archive','page-payments':'payments','page-freight':'payments','page-supacct':'payments'};
   document.querySelectorAll('.tabs .tab').forEach(t=>{
     const oc=t.getAttribute('onclick')||''; const m=oc.match(/'(page-[a-z]+)'/);
     if(m){ t.style.display = can(tabPerm[m[1]]||'shipment') ? '' : 'none'; }
@@ -4423,6 +4483,117 @@ function deleteSupplier(id){
   confirm2('حذف المورد "'+s.name+'"؟ (لن تُحذف شحناته — يبقى اسمها كما هو)', function(){
     supSave(supLoad().filter(function(x){return x.id!==id;})); renderSuppliersModal(); refreshSupplierDatalist(); logAction('حذف مورد', s.name); toast('🗑️ تم حذف المورد');
   });
+}
+
+// ═══════════════════════════════════════════
+// 📒 كشف حساب المورد (FOB) + دفعاته — Feature B (المرحلة 2)
+//   مدين = قيمة الشراء FOB لشحنات المورد (نفس إجمالي سجل الشحنات) | دائن = دفعات المورد
+//   نفس آلية ledger/summ في المصدر (دفتر الاستيراد) — الشحن يبقى منفصلاً
+// ═══════════════════════════════════════════
+var _saMode='detail', _saSupplier='';
+function saPayKey(pid){ return 'scs_supplierpay_'+(pid||getActiveProfileId()||'default'); }
+function saPayLoad(pid){ try{ return JSON.parse(localStorage.getItem(saPayKey(pid))||'[]'); }catch(e){ return []; } }
+function saPaySave(arr,pid){ try{ localStorage.setItem(saPayKey(pid),JSON.stringify(arr)); return true; }catch(e){ toast('⚠️ فشل حفظ دفعات الموردين: التخزين ممتلئ',true); return false; } }
+// قيمة الشراء FOB للشحنة بالريال = نفس إجمالي «سجل الشحنات» (summary.totalSar) دون انحراف
+function shipFobSar(snap){
+  if(snap && snap.summary && typeof snap.summary.totalSar==='number') return snap.summary.totalSar;
+  var fx=parseFloat(snap&&snap.fxInvSar)|| ((snap&&snap.invCur)==='SAR'?1:(parseFloat(snap&&snap.fxUsdSar)||3.756));
+  return ((snap&&snap.containers)||[]).reduce(function(cs,c){ return cs+((c.invoices)||[]).reduce(function(is,inv){ return is+((inv.items)||[]).reduce(function(s,it){ return s+(parseFloat(it.qty)||0)*(parseFloat(it.unitPrice)||0); },0); },0); },0)*fx;
+}
+function saPayToSar(p){ var a=parseFloat(p&&p.amount)||0; return (p&&p.cur==='SAR')?a:a*(parseFloat(p&&p.rate)||S.fxUsdSar||3.756); }
+function onSaMethodChange(){ var m=document.getElementById('sa-method').value; var w=document.getElementById('sa-bank-wrap'); if(w) w.style.display=(m==='transfer')?'':'none'; }
+function setSaMode(m){ _saMode=(m==='summary')?'summary':'detail'; renderSupAcct(); }
+function clearSaDates(){ var f=document.getElementById('sa-from'), t=document.getElementById('sa-to'); if(f)f.value=''; if(t)t.value=''; renderSupAcct(); }
+function saOpeningSar(sup){ if(!sup) return 0; var a=parseFloat(sup.opening)||0; return (sup.openingCur==='USD')?a*(S.fxUsdSar||3.756):a; }
+
+function supAcctLedger(name, from, to){
+  var ok=function(d){ return (!from||(d||'')>=from) && (!to||(d||'')<=to); };
+  var lname=String(name||'').toLowerCase();
+  var ships=dbLoad().filter(function(s){ return String(s.supplierName||'').toLowerCase()===lname && shipFobSar(s)>0 && ok(s.shipmentDate); })
+    .map(function(s){ var nc=((s.containers)||[]).length; return {date:s.shipmentDate||'', kind:'ship', label:'شحنة '+(s.shipmentNo||'—')+(nc?' ('+nc+' حاوية)':''), dr:shipFobSar(s), cr:0}; });
+  var pays=saPayLoad().filter(function(p){ return String(p.supplier||'').toLowerCase()===lname && ok(p.date); })
+    .map(function(p){ var m=(p.method==='transfer')?('تحويل'+(p.bank?' — '+p.bank:'')):'نقدًا'; return {date:p.date||'', kind:'pay', id:p.id, label:'دفعة ('+m+')'+(p.ref?' #'+p.ref:'')+(p.notes?' — '+p.notes:''), dr:0, cr:saPayToSar(p)}; });
+  var rows=ships.concat(pays).sort(function(a,b){ return (a.date<b.date)?-1:((a.date>b.date)?1:0); });
+  // رصيد افتتاحي (إن وُجد) يُدرج كأول حركة مدينة
+  var sup=supLoad().find(function(x){ return x.name.toLowerCase()===lname; });
+  var op=saOpeningSar(sup);
+  if(op>0) rows.unshift({date:'', kind:'open', label:'رصيد افتتاحي', dr:op, cr:0});
+  var run=0; return rows.map(function(r){ run+=r.dr-r.cr; return Object.assign({},r,{bal:run}); });
+}
+
+function renderSupAcct(){
+  var sups=supLoad();
+  var sel=document.getElementById('sa-supplier'); if(!sel) return;
+  // إعادة بناء قائمة الموردين مع الحفاظ على الاختيار
+  var cur=_saSupplier|| sel.value || (sups[0]&&sups[0].name)||'';
+  sel.innerHTML=sups.length? sups.map(function(s){ return '<option value="'+escH(s.name)+'"'+(s.name===cur?' selected':'')+'>'+escH(s.name)+'</option>'; }).join('') : '<option value="">— لا يوجد موردون —</option>';
+  _saSupplier=sel.value; var name=_saSupplier;
+  var nmEl=document.getElementById('sa-supplier-name'); if(nmEl) nmEl.textContent=name||'—';
+  var dEl=document.getElementById('sa-date'); if(dEl && !dEl.value) dEl.value=new Date().toISOString().slice(0,10);
+  var bs=document.getElementById('sa-mode-sum'), bd=document.getElementById('sa-mode-det');
+  if(bs) bs.classList.toggle('btn-accent', _saMode==='summary'); if(bd) bd.classList.toggle('btn-accent', _saMode==='detail');
+
+  var from=(document.getElementById('sa-from')||{}).value||'', to=(document.getElementById('sa-to')||{}).value||'';
+  var rows=name?supAcctLedger(name,from,to):[];
+  var totDr=rows.reduce(function(s,r){return s+r.dr;},0);
+  var totCr=rows.reduce(function(s,r){return s+r.cr;},0);
+  var bal=totDr-totCr;
+
+  var sc=document.getElementById('sa-sum-cards');
+  if(sc) sc.innerHTML=
+    '<div class="sum-card"><div class="lbl">إجمالي المشتريات — مدين (SAR)</div><div class="val">'+fmtD(totDr)+'</div><div class="sub">'+rows.filter(function(r){return r.kind==='ship';}).length+' شحنة</div></div>'+
+    '<div class="sum-card"><div class="lbl">إجمالي المسدد — دائن (SAR)</div><div class="val" style="color:var(--success)">'+fmtD(totCr)+'</div><div class="sub">'+rows.filter(function(r){return r.kind==='pay';}).length+' دفعة</div></div>'+
+    '<div class="sum-card"><div class="lbl">الرصيد المتبقّي (SAR)</div><div class="val" style="color:'+(bal>0?'var(--danger)':'var(--success)')+'">'+fmtD(bal)+'</div><div class="sub">'+(bal>0?'مستحق للمورد':(bal<0?'مدفوع بالزيادة':'مسدَّد بالكامل'))+'</div></div>';
+
+  var tb=document.getElementById('sa-tbody'); if(!tb) return;
+  if(!name){ tb.innerHTML='<tr><td colspan="7" style="padding:22px;color:var(--muted)">أضِف موردين من «🧾 الموردون» ثم اختر مورداً</td></tr>'; return; }
+  if(!rows.length){ tb.innerHTML='<tr><td colspan="7" style="padding:22px;color:var(--muted)">لا توجد حركات لهذا المورد — تأكد أن اسم المورد في الشحنات مطابق، أو سجّل دفعة</td></tr>'; return; }
+  if(_saMode==='summary'){
+    tb.innerHTML=
+      '<tr><td>1</td><td>—</td><td>إجمالي المشتريات (مدين)</td><td class="num">'+fmtD(totDr)+'</td><td class="num">—</td><td class="num">'+fmtD(totDr)+'</td><td></td></tr>'+
+      '<tr><td>2</td><td>—</td><td>إجمالي الدفعات (دائن)</td><td class="num">—</td><td class="num" style="color:var(--success)">'+fmtD(totCr)+'</td><td class="num">'+fmtD(bal)+'</td><td></td></tr>';
+    return;
+  }
+  tb.innerHTML=rows.map(function(r,i){
+    return '<tr>'+
+      '<td>'+(i+1)+'</td>'+
+      '<td>'+escH(r.date||'—')+'</td>'+
+      '<td>'+escH(r.label||'')+'</td>'+
+      '<td class="num">'+(r.dr?fmtD(r.dr):'—')+'</td>'+
+      '<td class="num" style="color:var(--success)">'+(r.cr?fmtD(r.cr):'—')+'</td>'+
+      '<td class="num" style="font-weight:700;color:'+(r.bal>0?'var(--danger)':'var(--success)')+'">'+fmtD(r.bal)+'</td>'+
+      '<td>'+(r.kind==='pay'?'<button class="del-btn" onclick="deleteSupplierPayment(\''+r.id+'\')">✕</button>':'')+'</td>'+
+    '</tr>';
+  }).join('');
+}
+
+function addSupplierPayment(){
+  if(isReadonly()){ toast('👁 وضع القراءة فقط',true); return; }
+  if(!can('payments')){ toast('لا تملك صلاحية الدفعات',true); return; }
+  var name=(document.getElementById('sa-supplier')||{}).value||'';
+  if(!name){ toast('اختر مورداً أولاً',true); return; }
+  var amount=parseFloat(document.getElementById('sa-amount').value)||0;
+  if(amount<=0){ toast('⚠️ أدخل مبلغاً صحيحاً',true); return; }
+  var p={
+    id:'sp_'+Date.now(),
+    supplier:name,
+    date:document.getElementById('sa-date').value||new Date().toISOString().slice(0,10),
+    amount:amount, cur:document.getElementById('sa-cur').value,
+    rate:(S.fxUsdSar||3.756),
+    method:document.getElementById('sa-method').value,
+    bank:document.getElementById('sa-bank').value.trim(),
+    ref:document.getElementById('sa-ref').value.trim(),
+    notes:document.getElementById('sa-notes').value.trim()
+  };
+  var list=saPayLoad(); list.push(p); saPaySave(list);
+  ['sa-amount','sa-ref','sa-notes','sa-bank'].forEach(function(id){ var e=document.getElementById(id); if(e)e.value=''; });
+  renderSupAcct();
+  logAction('إضافة دفعة مورد', name+': '+p.amount+' '+p.cur);
+  toast('✅ تمت إضافة دفعة المورد');
+}
+function deleteSupplierPayment(id){
+  if(isReadonly()){ toast('👁 وضع القراءة فقط',true); return; }
+  var list=saPayLoad().filter(function(p){return p.id!==id;}); saPaySave(list); renderSupAcct(); logAction('حذف دفعة مورد',''); toast('🗑️ تم حذف الدفعة');
 }
 
 function downloadPaymentTemplate(){
