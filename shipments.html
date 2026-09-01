@@ -725,6 +725,7 @@ html[data-theme="dark"] .rt td.hl{background:#2e2814;color:var(--accent)}
   <div class="tab"         onclick="showPage('page-freight')">🚚 كشف حساب الشحن</div>
   <div class="tab"         onclick="showPage('page-supacct')">📒 كشف حساب المورد</div>
   <div class="tab"         onclick="showPage('page-modelrep')">📈 تقرير الموديلات</div>
+  <div class="tab"         onclick="showPage('page-compare')">⚖️ المقارنة</div>
 </div>
 
 <div class="main">
@@ -1294,6 +1295,47 @@ html[data-theme="dark"] .rt td.hl{background:#2e2814;color:var(--accent)}
   </div>
 </div>
 
+<!-- ══ PAGE 10: COMPARISON (المقارنة — نموذج أ مقابل نموذج ب) ══ -->
+<div id="page-compare" class="page">
+  <div class="alert ai" style="margin-bottom:12px">⚖️ <strong>المقارنة</strong> — <strong>نموذج أ</strong> = بيانات النظام الكاملة (التكلفة الواصلة الحقيقية وأساس التسعير). <strong>نموذج ب</strong> = مصدر استيراد بديل لنفس الشحنة، تُدخل فيه أسعار الموديلات فقط لمعرفة تكلفة الشراء البديلة. تُقارن <strong>الموديلات المشتركة</strong> فقط. نموذج ب يُحتسب بسعر صرف نفس الشحنة في نموذج أ.</div>
+
+  <div class="card" style="margin-bottom:12px">
+    <div class="card-body" style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
+      <div class="fg"><label>رقم الشحنة</label><input id="cmp-ship" list="cmp-ship-list" placeholder="اختر/اكتب رقم الشحنة" oninput="onCmpShipChange()" style="min-width:200px"><datalist id="cmp-ship-list"></datalist></div>
+      <div style="font-size:.78rem;color:var(--muted)">اختر رقم شحنة موجوداً في نموذج أ، ثم أدخل أسعار نموذج ب لنفس الموديلات.</div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:12px">
+    <div class="card-header" style="background:#7a3e10">✍️ إدخال نموذج ب — الشحنة: <span id="cmp-b-shipname" style="color:#ffe082"></span></div>
+    <div class="card-body">
+      <div style="overflow-x:auto"><table class="tbl" id="cmp-b-table">
+        <thead><tr><th>الموديل</th><th>الكمية</th><th>السعر (بعملة نموذج أ)</th><th></th></tr></thead>
+        <tbody id="cmp-b-tbody"></tbody>
+      </table></div>
+      <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
+        <button class="btn btn-outline btn-sm" onclick="cmpAddBRow()">＋ صنف</button>
+        <button class="btn btn-outline btn-sm" onclick="cmpPrefillFromA()">⬇️ جلب موديلات نموذج أ</button>
+        <button class="btn btn-accent btn-sm" onclick="cmpSaveB()">💾 حفظ نموذج ب</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="cmp-sum-cards" class="sum-cards" style="margin-bottom:12px"></div>
+
+  <div class="card">
+    <div class="card-header">📊 مقارنة الموديلات المشتركة (أ ↔ ب)</div>
+    <div class="card-body">
+      <div style="overflow-x:auto"><table class="tbl" id="cmp-table">
+        <thead><tr>
+          <th>الموديل</th><th>الكمية (أ)</th><th>شراء أ/وحدة</th><th>واصل أ/وحدة</th><th>سعر ب/وحدة</th><th>الفرق (واصل أ − ب)</th><th>الأرخص</th>
+        </tr></thead>
+        <tbody id="cmp-tbody"></tbody>
+      </table></div>
+    </div>
+  </div>
+</div>
+
 </div><!-- /main -->
 
 <!-- DETAIL MODAL -->
@@ -1545,6 +1587,7 @@ function deleteProfile(id) {
     localStorage.removeItem('scs_freightpay_'+id);
     localStorage.removeItem('scs_suppliers_'+id);
     localStorage.removeItem('scs_supplierpay_'+id);
+    localStorage.removeItem('scs_modelb_'+id);
     profilesSave(profiles.filter(x=>x.id!==id));
     // If was active, clear active
     if (getActiveProfileId()===id) localStorage.removeItem(ACTIVE_KEY);
@@ -2983,7 +3026,7 @@ function preparePricingPrint(){ setTimeout(()=>window.print(),100); }
 function showPage(id){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.getElementById(id).classList.add('active');
-  const pages=['page-shipment','page-costs','page-results','page-pricing','page-archive','page-payments','page-freight','page-supacct','page-modelrep'];
+  const pages=['page-shipment','page-costs','page-results','page-pricing','page-archive','page-payments','page-freight','page-supacct','page-modelrep','page-compare'];
   document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',pages[i]===id));
   if(id==='page-costs'){ buildInvCostPanels(); buildConCostPanels(); renderShipCosts(); }
   if(id==='page-archive'){ renderArchive(); }
@@ -2992,6 +3035,7 @@ function showPage(id){
   if(id==='page-freight'){ onFrtMethodChange(); renderFreight(); }
   if(id==='page-supacct'){ onSaMethodChange(); renderSupAcct(); }
   if(id==='page-modelrep'){ renderModelReport(); }
+  if(id==='page-compare'){ renderCompare(); renderCmpBEditor(); }
 }
 
 // ═══════════════════════════════════════════
@@ -3341,7 +3385,7 @@ function cloudApply(data){
 }
 function cloudReloadUI(){
   try{ applyPermsUI(); cfgLoad(); applyTheme(); updateProfileBadge(); renderQuickSwitch();
-    var a=document.querySelector('.page.active'); if(a&&a.id==='page-archive') renderArchive(); if(a&&a.id==='page-payments') renderPayments(); if(a&&a.id==='page-freight') renderFreight(); if(a&&a.id==='page-supacct') renderSupAcct(); if(a&&a.id==='page-modelrep') renderModelReport();
+    var a=document.querySelector('.page.active'); if(a&&a.id==='page-archive') renderArchive(); if(a&&a.id==='page-payments') renderPayments(); if(a&&a.id==='page-freight') renderFreight(); if(a&&a.id==='page-supacct') renderSupAcct(); if(a&&a.id==='page-modelrep') renderModelReport(); if(a&&a.id==='page-compare') renderCompare();
   }catch(e){}
 }
 
@@ -3523,7 +3567,8 @@ function buildFullBackup(){
       pay: JSON.parse(localStorage.getItem('scs_pay_'+p.id)||'[]'),
       frt: JSON.parse(localStorage.getItem('scs_freightpay_'+p.id)||'[]'),
       sup: JSON.parse(localStorage.getItem('scs_suppliers_'+p.id)||'[]'),
-      spay: JSON.parse(localStorage.getItem('scs_supplierpay_'+p.id)||'[]')
+      spay: JSON.parse(localStorage.getItem('scs_supplierpay_'+p.id)||'[]'),
+      mb: JSON.parse(localStorage.getItem('scs_modelb_'+p.id)||'{}')
     });
   });
   return out;
@@ -3562,6 +3607,7 @@ function importFullBackup(){
             if(entry.frt) localStorage.setItem('scs_freightpay_'+p.id, JSON.stringify(entry.frt||[]));
             if(entry.sup) localStorage.setItem('scs_suppliers_'+p.id, JSON.stringify(entry.sup||[]));
             if(entry.spay) localStorage.setItem('scs_supplierpay_'+p.id, JSON.stringify(entry.spay||[]));
+            if(entry.mb) localStorage.setItem('scs_modelb_'+p.id, JSON.stringify(entry.mb||{}));
           });
           profilesSave(profiles);
           renderQuickSwitch(); renderArchive();
@@ -3629,6 +3675,7 @@ function restoreAutoBackup(){
       if(entry.frt) localStorage.setItem('scs_freightpay_'+p.id, JSON.stringify(entry.frt||[]));
       if(entry.sup) localStorage.setItem('scs_suppliers_'+p.id, JSON.stringify(entry.sup||[]));
       if(entry.spay) localStorage.setItem('scs_supplierpay_'+p.id, JSON.stringify(entry.spay||[]));
+      if(entry.mb) localStorage.setItem('scs_modelb_'+p.id, JSON.stringify(entry.mb||{}));
     });
     profilesSave(profiles);
     renderQuickSwitch(); renderArchive();
@@ -3850,7 +3897,7 @@ function applyPermsUI(){
   const nm=document.getElementById('current-user-name'); if(nm) nm.textContent = u?(u.name||u.username)+' · '+(ROLE_NAMES[u.role]||'')+(isReadonly()?' · 👁 قراءة فقط':''):'';
   document.body.classList.toggle('ro', isReadonly());
   // إظهار/إخفاء التبويبات حسب الصلاحية (كل تقرير/شاشة على حدة)
-  const tabPerm={'page-shipment':'shipment','page-costs':'costs','page-results':'results','page-pricing':'pricing','page-archive':'archive','page-payments':'payments','page-freight':'payments','page-supacct':'payments','page-modelrep':'results'};
+  const tabPerm={'page-shipment':'shipment','page-costs':'costs','page-results':'results','page-pricing':'pricing','page-archive':'archive','page-payments':'payments','page-freight':'payments','page-supacct':'payments','page-modelrep':'results','page-compare':'results'};
   document.querySelectorAll('.tabs .tab').forEach(t=>{
     const oc=t.getAttribute('onclick')||''; const m=oc.match(/'(page-[a-z]+)'/);
     if(m){ t.style.display = can(tabPerm[m[1]]||'shipment') ? '' : 'none'; }
@@ -4717,6 +4764,95 @@ function renderModelReport(){
   }).join('');
 }
 function clearModelRep(){ ['mr-from','mr-to','mr-search'].forEach(function(id){ var e=document.getElementById(id); if(e)e.value=''; }); var s=document.getElementById('mr-supplier'); if(s)s.value=''; renderModelReport(); }
+
+// ═══════════════════════════════════════════
+// ⚖️ المقارنة: نموذج أ (النظام) مقابل نموذج ب (مصدر بديل) — Feature D1 (المرحلة 2)
+//   نموذج ب مبسّط (موديل/كمية/سعر) يُحتسب بسعر صرف نفس الشحنة في نموذج أ. مقارنة الموديلات المشتركة.
+// ═══════════════════════════════════════════
+var _cmpBRows=[];
+function bKey(pid){ return 'scs_modelb_'+(pid||getActiveProfileId()||'default'); }
+function bLoad(pid){ try{ return JSON.parse(localStorage.getItem(bKey(pid))||'{}'); }catch(e){ return {}; } }
+function bSave(obj,pid){ try{ localStorage.setItem(bKey(pid),JSON.stringify(obj)); return true; }catch(e){ toast('⚠️ فشل حفظ نموذج ب: التخزين ممتلئ',true); return false; } }
+function aFxForShip(num){
+  var snap=dbLoad().find(function(s){ return String(s.shipmentNo||'')===String(num); });
+  if(!snap) return (S.fxUsdSar||3.756);
+  return (snap.invCur==='SAR')?1:(parseFloat(snap.fxUsdSar)||3.756);
+}
+function aModelsForShip(num){
+  var snap=dbLoad().find(function(s){ return String(s.shipmentNo||'')===String(num); });
+  var agg={};
+  if(snap){ snapLanded(snap).forEach(function(r){ var k=(r.name||'').trim()||'—'; if(!agg[k]) agg[k]={qty:0,fobSar:0,landedSar:0}; agg[k].qty+=r.qty; agg[k].fobSar+=r.fobSar; agg[k].landedSar+=r.landedSar; }); }
+  return agg;
+}
+function cmpShipList(){
+  var nums={};
+  dbLoad().forEach(function(s){ if(s.shipmentNo) nums[s.shipmentNo]=1; });
+  Object.keys(bLoad()).forEach(function(n){ nums[n]=1; });
+  return Object.keys(nums);
+}
+function onCmpShipChange(){ var num=(document.getElementById('cmp-ship')||{}).value||''; var b=bLoad()[num]; _cmpBRows=(b&&b.items?b.items:[]).map(function(x){return {model:x.model,qty:x.qty,price:x.price};}); renderCmpBEditor(); renderCompare(); }
+function renderCmpBEditor(){
+  var num=(document.getElementById('cmp-ship')||{}).value||'';
+  var nm=document.getElementById('cmp-b-shipname'); if(nm) nm.textContent=num||'—';
+  var tb=document.getElementById('cmp-b-tbody'); if(!tb) return;
+  if(!_cmpBRows.length){ tb.innerHTML='<tr><td colspan="4" style="padding:14px;color:var(--muted)">أضِف أصناف نموذج ب أو اجلب موديلات نموذج أ</td></tr>'; return; }
+  tb.innerHTML=_cmpBRows.map(function(r,i){
+    return '<tr>'+
+      '<td><input value="'+escH(r.model||'')+'" oninput="_cmpBRows['+i+'].model=this.value" style="width:100%"></td>'+
+      '<td><input type="number" min="0" step="0.01" value="'+(r.qty||'')+'" oninput="_cmpBRows['+i+'].qty=parseFloat(this.value)||0" style="width:90px"></td>'+
+      '<td><input type="number" min="0" step="0.01" value="'+(r.price||'')+'" oninput="_cmpBRows['+i+'].price=parseFloat(this.value)||0" style="width:110px"></td>'+
+      '<td><button class="del-btn" onclick="_cmpBRows.splice('+i+',1);renderCmpBEditor()">✕</button></td>'+
+    '</tr>';
+  }).join('');
+}
+function cmpAddBRow(){ _cmpBRows.push({model:'',qty:0,price:0}); renderCmpBEditor(); }
+function cmpPrefillFromA(){
+  var num=(document.getElementById('cmp-ship')||{}).value||''; if(!num){ toast('اختر رقم الشحنة أولاً',true); return; }
+  var a=aModelsForShip(num); var names=Object.keys(a);
+  if(!names.length){ toast('لا توجد موديلات في نموذج أ لهذه الشحنة',true); return; }
+  names.forEach(function(n){ if(!_cmpBRows.some(function(r){return (r.model||'').trim().toLowerCase()===n.toLowerCase();})) _cmpBRows.push({model:n,qty:a[n].qty,price:0}); });
+  renderCmpBEditor(); toast('⬇️ تم جلب موديلات نموذج أ — أدخل أسعار نموذج ب');
+}
+function cmpSaveB(){
+  if(isReadonly()){ toast('👁 وضع القراءة فقط',true); return; }
+  var num=(document.getElementById('cmp-ship')||{}).value||''; if(!num){ toast('اختر رقم الشحنة أولاً',true); return; }
+  var obj=bLoad(); obj[num]={items:_cmpBRows.filter(function(r){return (r.model||'').trim();}).map(function(r){return {model:r.model.trim(),qty:parseFloat(r.qty)||0,price:parseFloat(r.price)||0};})};
+  bSave(obj); logAction('حفظ نموذج ب (مقارنة)', num); toast('💾 تم حفظ نموذج ب'); renderCompare();
+}
+function renderCompare(){
+  var dl=document.getElementById('cmp-ship-list'); if(dl) dl.innerHTML=cmpShipList().map(function(n){return '<option value="'+escH(n)+'">';}).join('');
+  var num=(document.getElementById('cmp-ship')||{}).value||'';
+  var a=aModelsForShip(num);
+  var fx=aFxForShip(num);
+  var bItems=((bLoad()[num]||{}).items)||[];
+  var bMap={}; bItems.forEach(function(x){ var k=(x.model||'').trim(); if(k) bMap[k]={qty:x.qty,priceSar:(parseFloat(x.price)||0)*fx}; });
+  var rows=[]; // الموديلات المشتركة فقط (موجودة في أ وب)
+  Object.keys(a).forEach(function(k){
+    var bk=Object.keys(bMap).find(function(x){return x.toLowerCase()===k.toLowerCase();});
+    if(!bk) return;
+    var A=a[k]; var aUnitFob=A.qty>0?A.fobSar/A.qty:0; var aUnitLanded=A.qty>0?A.landedSar/A.qty:0;
+    var bUnit=bMap[bk].priceSar;
+    rows.push({model:k, qty:A.qty, aUnitFob:aUnitFob, aUnitLanded:aUnitLanded, bUnit:bUnit, diff:aUnitLanded-bUnit});
+  });
+  var tb=document.getElementById('cmp-tbody');
+  var sc=document.getElementById('cmp-sum-cards');
+  if(!num){ if(tb) tb.innerHTML='<tr><td colspan="7" style="padding:20px;color:var(--muted)">اختر رقم شحنة</td></tr>'; if(sc) sc.innerHTML=''; return; }
+  if(!rows.length){ if(tb) tb.innerHTML='<tr><td colspan="7" style="padding:20px;color:var(--muted)">لا توجد موديلات مشتركة — أدخل في نموذج ب موديلات موجودة في نموذج أ</td></tr>'; if(sc) sc.innerHTML=''; return; }
+  var totAland=rows.reduce(function(s,r){return s+r.aUnitLanded*r.qty;},0);
+  var totB=rows.reduce(function(s,r){return s+r.bUnit*r.qty;},0);
+  if(sc) sc.innerHTML=
+    '<div class="sum-card"><div class="lbl">إجمالي واصل أ (موديلات مشتركة)</div><div class="val">'+fmtD(totAland)+' SAR</div></div>'+
+    '<div class="sum-card"><div class="lbl">إجمالي شراء ب (نفسها)</div><div class="val">'+fmtD(totB)+' SAR</div></div>'+
+    '<div class="sum-card" style="background:'+(totAland-totB>0?'#fdecea':'#e9f8ef')+'"><div class="lbl">الفرق (أ − ب)</div><div class="val" style="color:'+(totAland-totB>0?'var(--danger)':'var(--success)')+'">'+fmtD(totAland-totB)+' SAR</div><div class="sub">'+(totAland>totB?'نموذج ب أرخص':(totAland<totB?'نموذج أ أرخص':'متساويان'))+'</div></div>';
+  if(tb) tb.innerHTML=rows.map(function(r){
+    var cheaper=r.diff>0?'ب':(r.diff<0?'أ':'=');
+    return '<tr><td><strong>'+escH(r.model)+'</strong></td><td class="num">'+fmtD(r.qty)+'</td>'+
+      '<td class="num">'+fmtD(r.aUnitFob)+'</td><td class="num" style="color:var(--success);font-weight:700">'+fmtD(r.aUnitLanded)+'</td>'+
+      '<td class="num">'+fmtD(r.bUnit)+'</td>'+
+      '<td class="num" style="color:'+(r.diff>0?'var(--danger)':'var(--success)')+'">'+fmtD(r.diff)+'</td>'+
+      '<td style="font-weight:700">'+cheaper+'</td></tr>';
+  }).join('');
+}
 function exportModelReport(){
   if(typeof XLSX==='undefined'){ toast('⚠️ مكتبة Excel غير محمّلة',true); return; }
   var rows=modelReportRows();
