@@ -547,9 +547,14 @@ html[data-theme="dark"] .rt td.hl{background:#2e2814;color:var(--accent)}
         <div class="mg"><label>عملة الرصيد الافتتاحي</label><select id="sup-opening-cur"><option value="SAR">SAR</option><option value="USD">USD</option></select></div>
       </div>
       <div class="mg"><label>ملاحظات</label><input id="sup-note" placeholder="اختياري"></div>
-      <div style="display:flex;gap:6px;margin-top:6px">
+      <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">
         <button class="btn btn-accent" onclick="saveSupplier()">💾 حفظ المورد</button>
         <button class="btn btn-outline" onclick="editSupplierId=null;renderSuppliersModal()">إلغاء</button>
+        <span style="flex:1"></span>
+        <button class="btn btn-outline btn-sm" onclick="downloadSupplierTemplate()">📄 نموذج فارغ</button>
+        <button class="btn btn-green btn-sm" onclick="exportSuppliers()">⬇️ تصدير</button>
+        <button class="btn btn-outline btn-sm" onclick="document.getElementById('sup-import-file').click()">⬆️ استيراد</button>
+        <input type="file" id="sup-import-file" accept=".xlsx,.xls,.csv" style="display:none" onchange="handleSupplierImport(event)">
       </div>
     </div>
   </div>
@@ -1192,6 +1197,11 @@ html[data-theme="dark"] .rt td.hl{background:#2e2814;color:var(--accent)}
         <select id="sa-supplier" onchange="renderSupAcct()" style="min-width:220px"></select>
       </div>
       <div style="font-size:.78rem;color:var(--muted)">اختر المورد لعرض كشف حسابه — أضِف الموردين من زر «🧾 الموردون» بالأعلى.</div>
+      <span style="flex:1"></span>
+      <button class="btn btn-outline btn-sm" onclick="downloadSupplierPayTemplate()">📄 نموذج دفعات فارغ</button>
+      <button class="btn btn-green btn-sm" onclick="exportSupplierPays()">⬇️ تصدير الدفعات</button>
+      <button class="btn btn-outline btn-sm" onclick="document.getElementById('spay-import-file').click()">⬆️ استيراد الدفعات</button>
+      <input type="file" id="spay-import-file" accept=".xlsx,.xls,.csv" style="display:none" onchange="handleSupplierPayImport(event)">
     </div>
   </div>
 
@@ -5031,6 +5041,107 @@ function applyModelBRows(aoa){
   // حدّث المحرر إن كانت الشحنة الحالية ضمن المستورد
   onCmpShipChange(); renderCompare();
   toast('✅ تم استيراد '+added+' سطر لـ '+Object.keys(ships).length+' شحنة في نموذج ب');
+}
+// أداة قراءة تاريخ خلية Excel → YYYY-MM-DD
+function xlDate(v){ if(v instanceof Date && !isNaN(v)){ var z=new Date(v.getTime()-v.getTimezoneOffset()*60000); return z.toISOString().slice(0,10); } return String(v==null?'':v).trim(); }
+function xlRead(file, sheetPref, cb){
+  if(typeof XLSX==='undefined'){ toast('⚠️ مكتبة Excel غير محمّلة',true); return; }
+  var reader=new FileReader();
+  reader.onload=function(ev){
+    try{ var wb=XLSX.read(ev.target.result,{type:'array',cellDates:true});
+      var sn=(sheetPref && wb.SheetNames.indexOf(sheetPref)>=0)?sheetPref:wb.SheetNames[0];
+      cb(XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,defval:''}));
+    }catch(err){ toast('⚠️ خطأ في قراءة الملف: '+err.message,true); }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// ── الموردون: استيراد/تصدير Excel + نموذج جاهز ──
+var SUP_HEADERS=['اسم المورد','هاتف','رصيد افتتاحي','عملة الرصيد (SAR/USD)','ملاحظات'];
+function downloadSupplierTemplate(){
+  if(typeof XLSX==='undefined'){ toast('⚠️ مكتبة Excel غير محمّلة',true); return; }
+  var rows=[SUP_HEADERS,['شركة النور للتجارة','0500000000',0,'SAR','مورد رئيسي'],['Guangzhou Wood Co','',15000,'USD','']];
+  var ws=XLSX.utils.aoa_to_sheet(rows); ws['!cols']=[{wch:24},{wch:14},{wch:14},{wch:16},{wch:24}];
+  var info=XLSX.utils.aoa_to_sheet([['📘 تعليمات الموردين'],[''],
+    ['• كل سطر = مورد واحد.'],['• «اسم المورد» مطلوب ويجب أن يطابق الاسم المكتوب في حقل المورد بالشحنة ليُبنى كشف الحساب.'],
+    ['• «الرصيد الافتتاحي» اختياري (مدين علينا) بعملته.'],['• الأعمدة: '+SUP_HEADERS.join(' | ')]]);
+  var wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'الموردون'); XLSX.utils.book_append_sheet(wb,info,'تعليمات');
+  XLSX.writeFile(wb,'نموذج_الموردين.xlsx'); toast('⬇️ تم تنزيل نموذج الموردين');
+}
+function exportSuppliers(){
+  if(typeof XLSX==='undefined'){ toast('⚠️ مكتبة Excel غير محمّلة',true); return; }
+  var list=supLoad(); if(!list.length){ toast('لا يوجد موردون للتصدير',true); return; }
+  var aoa=[SUP_HEADERS]; list.forEach(function(s){ aoa.push([s.name, s.phone||'', parseFloat(s.opening)||0, s.openingCur||'SAR', s.note||'']); });
+  var ws=XLSX.utils.aoa_to_sheet(aoa); ws['!cols']=[{wch:24},{wch:14},{wch:14},{wch:16},{wch:24}];
+  var wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'الموردون');
+  XLSX.writeFile(wb,'الموردون.xlsx'); toast('⬇️ تم تصدير الموردين');
+}
+function handleSupplierImport(e){
+  var f=e.target.files[0]; if(!f) return;
+  if(isReadonly()){ toast('👁 وضع القراءة فقط',true); e.target.value=''; return; }
+  xlRead(f,'الموردون',function(aoa){ applySupplierRows(aoa); }); e.target.value='';
+}
+function applySupplierRows(aoa){
+  if(!aoa||!aoa.length){ toast('الملف فارغ',true); return; }
+  var start=/اسم المورد/.test((aoa[0]||[]).join(' '))?1:0;
+  var list=supLoad(), added=0, upd=0;
+  for(var i=start;i<aoa.length;i++){ var r=aoa[i]||[]; var name=String(r[0]==null?'':r[0]).trim(); if(!name) continue;
+    var cur=String(r[3]==null?'':r[3]).trim().toUpperCase(); cur=(cur==='USD')?'USD':'SAR';
+    var rec={name:name, phone:String(r[1]==null?'':r[1]).trim(), opening:parseFloat(r[2])||0, openingCur:cur, note:String(r[4]==null?'':r[4]).trim()};
+    var ex=list.find(function(x){ return x.name.toLowerCase()===name.toLowerCase(); });
+    if(ex){ ex.phone=rec.phone; ex.opening=rec.opening; ex.openingCur=rec.openingCur; ex.note=rec.note; upd++; }
+    else { rec.id='sup_'+Date.now()+'_'+i; rec.active=1; list.push(rec); added++; }
+  }
+  if(!added && !upd){ toast('لا صفوف صالحة',true); return; }
+  supSave(list); refreshSupplierDatalist(); if(document.getElementById('suppliers-modal').style.display==='flex') renderSuppliersModal();
+  logAction('استيراد موردين Excel', 'جديد '+added+' / محدّث '+upd); toast('✅ استيراد الموردين: '+added+' جديد، '+upd+' محدّث');
+}
+
+// ── دفعات الموردين: استيراد/تصدير Excel + نموذج جاهز ──
+var SPAY_HEADERS=['المورد','التاريخ','المبلغ','العملة (SAR/USD)','طريقة الدفع (تحويل/نقدا)','البنك','مرجع','تخصّ (أ/ب/كلاهما)','ملاحظات'];
+function downloadSupplierPayTemplate(){
+  if(typeof XLSX==='undefined'){ toast('⚠️ مكتبة Excel غير محمّلة',true); return; }
+  var rows=[SPAY_HEADERS,['شركة النور للتجارة','2025-06-05',50000,'SAR','تحويل','مصرف الراجحي','TRX-1','أ','دفعة أولى'],
+    ['Guangzhou Wood Co','2025-06-20',10000,'USD','نقدا','','','أ','']];
+  var ws=XLSX.utils.aoa_to_sheet(rows); ws['!cols']=[{wch:22},{wch:12},{wch:12},{wch:14},{wch:18},{wch:16},{wch:12},{wch:16},{wch:20}];
+  var info=XLSX.utils.aoa_to_sheet([['📘 تعليمات دفعات الموردين'],[''],
+    ['• كل سطر = دفعة واحدة لمورد.'],['• «المورد» يجب أن يطابق اسم المورد.'],
+    ['• «طريقة الدفع»: تحويل أو نقدا. «تخصّ»: أ (الافتراضي) أو ب أو كلاهما.'],
+    ['• «التاريخ» بصيغة سنة-شهر-يوم. الأعمدة: '+SPAY_HEADERS.join(' | ')]]);
+  var wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'دفعات الموردين'); XLSX.utils.book_append_sheet(wb,info,'تعليمات');
+  XLSX.writeFile(wb,'نموذج_دفعات_الموردين.xlsx'); toast('⬇️ تم تنزيل نموذج دفعات الموردين');
+}
+function exportSupplierPays(){
+  if(typeof XLSX==='undefined'){ toast('⚠️ مكتبة Excel غير محمّلة',true); return; }
+  var list=saPayLoad(); if(!list.length){ toast('لا توجد دفعات موردين للتصدير',true); return; }
+  var tgAr={a:'أ',b:'ب',both:'كلاهما'};
+  var aoa=[SPAY_HEADERS]; list.forEach(function(p){ aoa.push([p.supplier||'', p.date||'', parseFloat(p.amount)||0, p.cur||'SAR', (p.method==='transfer'?'تحويل':'نقدا'), p.bank||'', p.ref||'', (tgAr[p.target||'a']||'أ'), p.notes||'']); });
+  var ws=XLSX.utils.aoa_to_sheet(aoa); ws['!cols']=[{wch:22},{wch:12},{wch:12},{wch:14},{wch:18},{wch:16},{wch:12},{wch:16},{wch:20}];
+  var wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'دفعات الموردين');
+  XLSX.writeFile(wb,'دفعات_الموردين.xlsx'); toast('⬇️ تم تصدير دفعات الموردين');
+}
+function handleSupplierPayImport(e){
+  var f=e.target.files[0]; if(!f) return;
+  if(isReadonly()){ toast('👁 وضع القراءة فقط',true); e.target.value=''; return; }
+  xlRead(f,'دفعات الموردين',function(aoa){ applySupplierPayRows(aoa); }); e.target.value='';
+}
+function applySupplierPayRows(aoa){
+  if(!aoa||!aoa.length){ toast('الملف فارغ',true); return; }
+  var start=/المورد|التاريخ/.test((aoa[0]||[]).join(' '))?1:0;
+  var list=saPayLoad(), added=0;
+  for(var i=start;i<aoa.length;i++){ var r=aoa[i]||[]; var sup=String(r[0]==null?'':r[0]).trim(); var amt=parseFloat(r[2])||0;
+    if(!sup || amt<=0) continue;
+    var cur=String(r[3]==null?'':r[3]).trim().toUpperCase(); cur=(cur==='USD')?'USD':'SAR';
+    var mth=String(r[4]==null?'':r[4]).trim(); var method=(/تحويل|transfer|bank/i.test(mth))?'transfer':'cash';
+    var tg=String(r[7]==null?'':r[7]).trim(); var target=(tg==='ب'||/^b$/i.test(tg))?'b':((tg==='كلاهما'||/both/i.test(tg))?'both':'a');
+    list.push({ id:'sp_'+Date.now()+'_'+i, supplier:sup, date:xlDate(r[1])||new Date().toISOString().slice(0,10),
+      amount:amt, cur:cur, rate:(S.fxUsdSar||3.756), target:target, method:method,
+      bank:String(r[5]==null?'':r[5]).trim(), ref:String(r[6]==null?'':r[6]).trim(), notes:String(r[8]==null?'':r[8]).trim() });
+    added++;
+  }
+  if(!added){ toast('لا صفوف صالحة (تحقق من المورد والمبلغ)',true); return; }
+  saPaySave(list); if(document.getElementById('page-supacct').classList.contains('active')) renderSupAcct();
+  logAction('استيراد دفعات موردين Excel', added+' دفعة'); toast('✅ تم استيراد '+added+' دفعة مورد');
 }
 // ── الطباعة ──
 function cmpPrintWindow(title, inner){
