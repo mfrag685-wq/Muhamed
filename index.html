@@ -1302,7 +1302,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-08-14-l';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-08-14-m';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -4188,17 +4188,19 @@ function renderReport(){
 
   if(type==='purchases'){
     title='تقرير المشتريات اليومي التفصيلي';
-    head=['التاريخ','رقم الفاتورة','المورد','الصنف','الكمية','وزن الوحدة','الوزن الكلي (كغ)','أساس السعر','السعر','القيمة','المستودع'];
+    head=['التاريخ','رقم الفاتورة','المورد','الصنف','العدد','وزن الوحدة/الصندوق','الكمية (كغ)','أساس السعر','السعر','القيمة','المستودع'];
     var days={},T=0,W=0,U=0;
     db.purchases.forEach(function(p){
       if(!inRange(p.date,f,t)) return; if(!inPartyScope('supplier',p.supplierId)) return;
       (p.lines||[]).forEach(function(l){
         if(fi&&l.itemId!==+fi) return; if(fw&&l.whId!==+fw) return;
         if(!days[p.date]) days[p.date]=[];
+        var itR=byId(db.items,l.itemId), bk=!!(itR&&itR.byKg);
+        var cnt=bk?(l.boxes?qty(l.boxes)+' صندوق':'—'):(qty(l.units)+' '+(l.unit||''));
+        var uwc=bk?(l.boxW?qty(l.boxW):'—'):qty(l.uw);
         days[p.date].push([p.date,p.no||'—',supName(p.supplierId),itemName(l.itemId),
-          qty(l.units)+' '+(l.unit||'')+(l.boxes?' ('+qty(l.boxes)+'×'+qty(l.boxW)+')':''),
-          qty(l.uw),qty(l.units*l.uw),l.basis==='kg'?'بالكيلو':'بالوحدة',num(l.price),num(l.total),whName(l.whId)]);
-        T+=+l.total||0; W+=(+l.units||0)*(+l.uw||0); U+=+l.units||0;
+          cnt,uwc,qty(l.units*l.uw),l.basis==='kg'?'بالكيلو':'بالوحدة',num(l.price),num(l.total),whName(l.whId)]);
+        T+=+l.total||0; W+=(+l.units||0)*(+l.uw||0); U+=(bk?(+l.boxes||0):(+l.units||0));
       });
     });
     Object.keys(days).sort().forEach(function(d){
@@ -4208,14 +4210,14 @@ function renderReport(){
       push('sub-row',['إجمالي يوم '+d,'','','',qty(du),'',num(dw)+' كغ','','',num(dt),'']);
     });
     cards=card('إجمالي المشتريات',money(T),'خلال الفترة')+card('إجمالي الأوزان',qty(W)+' كغ','')
-      +card('إجمالي الوحدات',qty(U),'')+card('عدد الأيام',String(Object.keys(days).length),'');
+      +card('إجمالي العدد',qty(U),'صناديق/وحدات')+card('عدد الأيام',String(Object.keys(days).length),'');
     var pmk=Object.keys(days).sort(), pmv=pmk.map(function(d){ var s=0; days[d].forEach(function(r){ s+=parseFloat(r[9].replace(/,/g,''))||0; }); return s; });
     chart=barChart('المشتريات اليومية','قيمة المشتريات لكل يوم خلال الفترة',pmk.map(function(d){return d.slice(5);}),
       [{name:'المشتريات',color:CHART_COLORS[1],vals:pmv}]);
   }
   else if(type==='sales'){
     title='تقرير المبيعات اليومي التفصيلي';
-    head=['التاريخ','رقم الفاتورة','العميل','الصنف','الوحدات','الوزن الكلي','السعر','الإيراد','التكلفة','مجمل الربح','المستودع'];
+    head=['التاريخ','رقم الفاتورة','العميل','الصنف','العدد','الوزن (كغ)','السعر','الإيراد','التكلفة','مجمل الربح','المستودع'];
     var days2={},R=0,C=0,W2=0;
     db.sales.forEach(function(s){
       if(!inRange(s.date,f,t)) return; if(!inPartyScope('client',s.clientId)) return;
@@ -4223,17 +4225,19 @@ function renderReport(){
         if(fi&&l.itemId!==+fi) return; if(fw&&l.whId!==+fw) return;
         var c=L.cogsLine[s.id+'#'+i]||0;
         if(!days2[s.date]) days2[s.date]=[];
-        days2[s.date].push([s.date,s.no||'—',clientName(s.clientId),itemName(l.itemId),qty(l.units),
+        var itR=byId(db.items,l.itemId), bk=!!(itR&&itR.byKg);
+        var cnt=bk?(l.boxes?qty(l.boxes)+' صندوق':'—'):(qty(l.units)+' '+(l.unit||''));
+        days2[s.date].push([s.date,s.no||'—',clientName(s.clientId),itemName(l.itemId),cnt,
           qty(l.units*l.uw),num(l.price),num(l.total),num(c),num(l.total-c),whName(l.whId)]);
         R+=+l.total||0; C+=c; W2+=(+l.units||0)*(+l.uw||0);
       });
     });
     Object.keys(days2).sort().forEach(function(d){
-      var dr=0,dc=0,dw=0;
+      var dr=0,dc=0,dw=0,du2=0;
       push('day-row',['يوم '+d+' — '+days2[d].length+' حركة','','','','','','','','','','']);
       days2[d].forEach(function(r){ dr+=parseFloat(r[7].replace(/,/g,''))||0; dc+=parseFloat(r[8].replace(/,/g,''))||0;
-        dw+=parseFloat(r[5].replace(/,/g,''))||0; push('',r); });
-      push('sub-row',['إجمالي يوم '+d,'','','','',num(dw)+' كغ','',num(dr),num(dc),num(dr-dc),'']);
+        dw+=parseFloat(r[5].replace(/,/g,''))||0; du2+=parseFloat(r[4])||0; push('',r); });
+      push('sub-row',['إجمالي يوم '+d,'','','',qty(du2),num(dw)+' كغ','',num(dr),num(dc),num(dr-dc),'']);
     });
     cards=card('صافي الإيراد',money(R),'قبل المرتجعات')+card('تكلفة المبيعات',money(C),'')
       +card('مجمل الربح',money(R-C),'هامش '+pct(R-C,R),true)+card('الأوزان المباعة',qty(W2)+' كغ','');
