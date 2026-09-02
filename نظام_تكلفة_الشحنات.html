@@ -639,36 +639,7 @@ html[data-theme="dark"] .rt td.hl{background:#2e2814;color:var(--accent)}
   </div>
 </div>
 
-<!-- ☁️ CLOUD LOGIN MODAL -->
-<div class="modal-overlay" id="cloud-modal" style="display:none" onclick="if(event.target===this)closeCloudModal()">
-  <div class="modal-box" style="width:420px">
-    <div style="text-align:center;margin-bottom:14px">
-      <div style="font-size:2.2rem">☁️</div>
-      <h2 style="margin-bottom:3px">المزامنة السحابية</h2>
-      <p id="cloud-modal-sub" style="margin-bottom:0">سجّل الدخول لمزامنة بياناتك على كل أجهزتك</p>
-    </div>
-    <div id="cloud-signed-out">
-      <div class="mg"><label>البريد الإلكتروني</label><input id="cloud-email" type="email" placeholder="you@example.com" autocomplete="username"></div>
-      <div class="mg"><label>كلمة المرور</label><input id="cloud-pass" type="password" placeholder="••••••••" autocomplete="current-password"></div>
-      <div id="cloud-msg" style="font-size:.8rem;color:var(--danger);min-height:18px;margin-bottom:6px"></div>
-      <div style="display:flex;gap:8px">
-        <button class="btn btn-accent" style="flex:1" onclick="cloudLogin()">🔓 دخول</button>
-        <button class="btn btn-primary" style="flex:1" onclick="cloudSignup()">🆕 حساب جديد</button>
-      </div>
-      <button class="btn btn-outline" style="width:100%;margin-top:8px" onclick="closeCloudModal()">متابعة بدون مزامنة (محلي)</button>
-    </div>
-    <div id="cloud-signed-in" style="display:none;text-align:center">
-      <div class="alert as" style="text-align:right">✅ متصل ومتزامن باسم: <strong id="cloud-user-email"></strong></div>
-      <div style="font-size:.8rem;color:var(--muted);margin-bottom:12px">بياناتك تُحفظ سحابياً وتظهر على أي جهاز تسجّل الدخول منه.</div>
-      <button class="btn btn-danger" onclick="cloudLogout()">🚪 تسجيل الخروج</button>
-      <button class="btn btn-outline" style="margin-top:8px" onclick="closeCloudModal()">إغلاق</button>
-    </div>
-    <div id="cloud-disabled" style="display:none">
-      <div class="alert aw" style="font-size:.8rem">☁️ المزامنة السحابية غير مُفعّلة بعد. لتفعيلها: أنشئ مشروع Firebase مجاني وأدخل مفاتيحه في <code>CLOUD_CONFIG</code> داخل الملف (راجع دليل التفعيل السحابي). حتى ذلك الحين يعمل البرنامج محلياً بالكامل.</div>
-      <button class="btn btn-outline" style="width:100%" onclick="closeCloudModal()">حسناً</button>
-    </div>
-  </div>
-</div>
+<!-- (أُزيلت نافذة المزامنة القديمة بالبريد — الدخول السحابي يتم عبر شاشة الدخول باسم المستخدم) -->
 
 <!-- CONFIRM MODAL -->
 <div class="modal-overlay" id="confirm-modal" style="display:none">
@@ -1336,6 +1307,11 @@ html[data-theme="dark"] .rt td.hl{background:#2e2814;color:var(--accent)}
         <button class="btn btn-outline btn-sm" onclick="cmpAddBRow()">＋ صنف</button>
         <button class="btn btn-outline btn-sm" onclick="cmpPrefillFromA()">⬇️ جلب موديلات نموذج أ</button>
         <button class="btn btn-accent btn-sm" onclick="cmpSaveB()">💾 حفظ نموذج ب</button>
+        <span style="flex:1"></span>
+        <button class="btn btn-outline btn-sm" onclick="downloadModelBTemplate()">📄 نموذج فارغ</button>
+        <button class="btn btn-green btn-sm" onclick="exportModelB()">⬇️ تصدير نموذج ب</button>
+        <button class="btn btn-outline btn-sm" onclick="document.getElementById('mb-import-file').click()">⬆️ استيراد نموذج ب</button>
+        <input type="file" id="mb-import-file" accept=".xlsx,.xls,.csv" style="display:none" onchange="handleModelBImport(event)">
       </div>
     </div>
   </div>
@@ -3598,7 +3574,8 @@ function buildFullBackup(){
       frt: JSON.parse(localStorage.getItem('scs_freightpay_'+p.id)||'[]'),
       sup: JSON.parse(localStorage.getItem('scs_suppliers_'+p.id)||'[]'),
       spay: JSON.parse(localStorage.getItem('scs_supplierpay_'+p.id)||'[]'),
-      mb: JSON.parse(localStorage.getItem('scs_modelb_'+p.id)||'{}')
+      mb: JSON.parse(localStorage.getItem('scs_modelb_'+p.id)||'{}'),
+      cmp: JSON.parse(localStorage.getItem('scs_cmpcfg_'+p.id)||'{}')
     });
   });
   return out;
@@ -3638,6 +3615,7 @@ function importFullBackup(){
             if(entry.sup) localStorage.setItem('scs_suppliers_'+p.id, JSON.stringify(entry.sup||[]));
             if(entry.spay) localStorage.setItem('scs_supplierpay_'+p.id, JSON.stringify(entry.spay||[]));
             if(entry.mb) localStorage.setItem('scs_modelb_'+p.id, JSON.stringify(entry.mb||{}));
+            if(entry.cmp) localStorage.setItem('scs_cmpcfg_'+p.id, JSON.stringify(entry.cmp||{}));
           });
           profilesSave(profiles);
           renderQuickSwitch(); renderArchive();
@@ -3706,6 +3684,7 @@ function restoreAutoBackup(){
       if(entry.sup) localStorage.setItem('scs_suppliers_'+p.id, JSON.stringify(entry.sup||[]));
       if(entry.spay) localStorage.setItem('scs_supplierpay_'+p.id, JSON.stringify(entry.spay||[]));
       if(entry.mb) localStorage.setItem('scs_modelb_'+p.id, JSON.stringify(entry.mb||{}));
+      if(entry.cmp) localStorage.setItem('scs_cmpcfg_'+p.id, JSON.stringify(entry.cmp||{}));
     });
     profilesSave(profiles);
     renderQuickSwitch(); renderArchive();
@@ -4982,6 +4961,76 @@ function exportCmpTotals(){
   var ws=XLSX.utils.aoa_to_sheet(aoa); ws['!cols']=[{wch:14},{wch:18},{wch:18},{wch:18},{wch:12},{wch:12}];
   var wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'مقارنة الإجماليات');
   XLSX.writeFile(wb,'مقارنة_إجماليات_الشحنات.xlsx'); toast('⬇️ تم تصدير جدول الإجماليات');
+}
+// ── استيراد/تصدير نموذج ب (المقارنة) عبر Excel + نموذج جاهز ──
+var MB_HEADERS=['رقم الشحنة','الموديل','الكمية','السعر','العملة (USD/SAR/فارغ)','معامل التحويل (فارغ=كنموذج أ)'];
+function downloadModelBTemplate(){
+  if(typeof XLSX==='undefined'){ toast('⚠️ مكتبة Excel غير محمّلة',true); return; }
+  var L=cmpLabels();
+  var rows=[MB_HEADERS,
+    ['SH-2025-001','3781',25,459,'',''],
+    ['SH-2025-001','3828',23,441,'',''],
+    ['SH-2025-002','4501',10,120,'USD','3.75']];
+  var ws=XLSX.utils.aoa_to_sheet(rows); ws['!cols']=[{wch:16},{wch:18},{wch:10},{wch:12},{wch:18},{wch:22}];
+  var info=XLSX.utils.aoa_to_sheet([
+    ['📘 تعليمات تعبئة نموذج ب (المقارنة) — '+L.b],[''],
+    ['• كل سطر = موديل واحد في نموذج ب لشحنة معيّنة.'],
+    ['• «رقم الشحنة» يجب أن يطابق رقم الشحنة في نموذج أ (النظام) لتتم المقارنة.'],
+    ['• «العملة» و«معامل التحويل» اختياريان: اتركهما فارغين ليُحتسب نموذج ب بعملة وسعر صرف نفس الشحنة في نموذج أ.'],
+    ['• عند تعبئة العملة/المعامل، تُطبَّق على كل موديلات نفس رقم الشحنة (يُؤخذ أول سطر لكل شحنة).'],
+    ['• الأعمدة: '+MB_HEADERS.join(' | ')]
+  ]);
+  var wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'نموذج ب'); XLSX.utils.book_append_sheet(wb,info,'تعليمات');
+  XLSX.writeFile(wb,'نموذج_ب_للمقارنة.xlsx'); toast('⬇️ تم تنزيل نموذج ب الجاهز');
+}
+function exportModelB(){
+  if(typeof XLSX==='undefined'){ toast('⚠️ مكتبة Excel غير محمّلة',true); return; }
+  var obj=bLoad(); var aoa=[MB_HEADERS];
+  Object.keys(obj).forEach(function(num){ var b=obj[num]||{}; (b.items||[]).forEach(function(it){ aoa.push([num, it.model, it.qty, it.price, b.cur||'', (b.rate===''||b.rate==null)?'':b.rate]); }); });
+  if(aoa.length===1){ toast('لا توجد بيانات نموذج ب للتصدير',true); return; }
+  var ws=XLSX.utils.aoa_to_sheet(aoa); ws['!cols']=[{wch:16},{wch:18},{wch:10},{wch:12},{wch:18},{wch:22}];
+  var wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'نموذج ب');
+  XLSX.writeFile(wb,'نموذج_ب_'+((profilesLoad().find(function(p){return p.id===getActiveProfileId();})||{}).name||'')+'.xlsx'); toast('⬇️ تم تصدير نموذج ب');
+}
+function handleModelBImport(e){
+  var file=e.target.files[0]; if(!file){ return; }
+  if(typeof XLSX==='undefined'){ toast('⚠️ مكتبة Excel غير محمّلة',true); e.target.value=''; return; }
+  if(isReadonly()){ toast('👁 وضع القراءة فقط',true); e.target.value=''; return; }
+  var reader=new FileReader();
+  reader.onload=function(ev){
+    try{
+      var wb=XLSX.read(ev.target.result,{type:'array'});
+      var shName=wb.SheetNames.indexOf('نموذج ب')>=0?'نموذج ب':wb.SheetNames[0];
+      var aoa=XLSX.utils.sheet_to_json(wb.Sheets[shName],{header:1,defval:''});
+      applyModelBRows(aoa);
+    }catch(err){ toast('⚠️ خطأ في قراءة الملف: '+err.message,true); }
+    e.target.value='';
+  };
+  reader.readAsArrayBuffer(file);
+}
+function applyModelBRows(aoa){
+  if(!aoa||!aoa.length){ toast('الملف فارغ',true); return; }
+  // تخطي صف العناوين إن وُجد
+  var start=0; var first=(aoa[0]||[]).join(' ');
+  if(/رقم الشحنة|الموديل/.test(first)) start=1;
+  var obj=bLoad(); var added=0, ships={};
+  for(var i=start;i<aoa.length;i++){
+    var r=aoa[i]||[]; var num=String(r[0]==null?'':r[0]).trim(); var model=String(r[1]==null?'':r[1]).trim();
+    if(!num || !model) continue;
+    var qty=parseFloat(r[2])||0, price=parseFloat(r[3])||0;
+    var cur=String(r[4]==null?'':r[4]).trim().toUpperCase(); cur=(cur==='USD'||cur==='SAR')?cur:'';
+    var rate=(r[5]==null||String(r[5]).trim()==='')?'':(parseFloat(r[5])||'');
+    if(!obj[num]) obj[num]={cur:'', rate:'', items:[]};
+    if(!ships[num]){ obj[num].items=[]; obj[num].cur=cur; obj[num].rate=rate; ships[num]=1; } // أول ظهور لرقم الشحنة يعيد ضبطه
+    obj[num].items.push({model:model, qty:qty, price:price});
+    added++;
+  }
+  if(!added){ toast('لم يتم العثور على صفوف صالحة (تحقق من رقم الشحنة والموديل)',true); return; }
+  bSave(obj);
+  logAction('استيراد نموذج ب من Excel', added+' سطر / '+Object.keys(ships).length+' شحنة');
+  // حدّث المحرر إن كانت الشحنة الحالية ضمن المستورد
+  onCmpShipChange(); renderCompare();
+  toast('✅ تم استيراد '+added+' سطر لـ '+Object.keys(ships).length+' شحنة في نموذج ب');
 }
 // ── الطباعة ──
 function cmpPrintWindow(title, inner){
