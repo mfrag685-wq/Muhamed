@@ -1302,7 +1302,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-08-14-j';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-08-14-k';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -4893,29 +4893,30 @@ var TPL={
           {k:'party',h:'المورد',alias:['المورد','مورد','supplier'],req:1},
           {k:'code',h:'كود الصنف',alias:['كود الصنف','كود','code','sku']},
           {k:'item',h:'اسم الصنف',alias:['اسم الصنف','الصنف','صنف','item'],req:1},
-          {k:'units',h:'الكمية',alias:['الكمية','عدد الوحدات','عدد','كمية','units','qty'],num:1,req:1},
-          {k:'uw',h:'وزن الوحدة بالكيلو (اختياري)',alias:['وزن الوحدة','وزن','weight'],num:1},
+          {k:'units',h:'الكمية (للأصناف بالكيلو: عدد الصناديق)',alias:['الكمية','عدد الوحدات','عدد الصناديق','عدد','كمية','units','qty','boxes'],num:1,req:1},
+          {k:'uw',h:'وزن الوحدة/الصندوق بالكيلو',alias:['وزن الصندوق','وزن الوحدة','وزن','weight'],num:1},
           {k:'basis',h:'أساس السعر (وحدة/كيلو)',alias:['اساس','أساس','basis']},
-          {k:'price',h:'سعر الوحدة',alias:['سعر الوحدة','السعر','سعر','price'],num:1,req:1},
+          {k:'price',h:'السعر (للوحدة أو للكيلو حسب الأساس)',alias:['سعر الوحدة','السعر','سعر','price'],num:1,req:1},
           {k:'wh',h:'المستودع (اختياري)',alias:['المستودع','مستودع','warehouse']},
           {k:'note',h:'ملاحظات',alias:['ملاحظات','ملاحظة','note']}],
-    samples:[['2026-07-27','','مؤسسة المزارع الحديثة','20213','بطاطس كبير','60','','','9',''],
-             ['2026-07-27','','مؤسسة المزارع الحديثة','20211','بصل كبير','40','','','9','']]},
+    samples:[['2026-07-27','','مؤسسة المزارع الحديثة','20213','بطاطس متنوع','5','10','كيلو','2.5','',' صنف بالكيلو: 5 صناديق × 10كغ'],
+             ['2026-07-27','','مؤسسة المزارع الحديثة','20211','بصل ابيض','8','25','كيلو','2','',' صنف بالكيلو: 8 شوالات × 25كغ'],
+             ['2026-07-27','','مؤسسة المزارع الحديثة','20301','كرتون موز','60','18','وحدة','35','','صنف بالوحدة: 60 كرتون']]},
   sales:{name:'نموذج_المبيعات',title:'المبيعات',
     cols:[{k:'date',h:'التاريخ',alias:['التاريخ','تاريخ','date']},
           {k:'no',h:'رقم الفاتورة',alias:['رقم الفاتورة','رقم','فاتورة','invoice','no']},
           {k:'party',h:'الفرع / العميل',alias:['الفرع','فرع','العميل','عميل','client'],req:1},
           {k:'code',h:'كود الصنف',alias:['كود الصنف','كود','code','sku']},
           {k:'item',h:'اسم الصنف',alias:['اسم الصنف','الصنف','صنف','item'],req:1},
-          {k:'units',h:'الكمية',alias:['الكمية','عدد الوحدات','عدد','كمية','units','qty'],num:1,req:1},
-          {k:'uw',h:'وزن الوحدة بالكيلو (اختياري)',alias:['وزن الوحدة','وزن','weight'],num:1},
+          {k:'units',h:'الكمية (للأصناف بالكيلو: عدد الصناديق)',alias:['الكمية','عدد الوحدات','عدد الصناديق','عدد','كمية','units','qty','boxes'],num:1,req:1},
+          {k:'uw',h:'وزن الوحدة/الصندوق بالكيلو',alias:['وزن الصندوق','وزن الوحدة','وزن','weight'],num:1},
           {k:'basis',h:'أساس السعر (وحدة/كيلو)',alias:['اساس','أساس','basis']},
-          {k:'price',h:'سعر الوحدة',alias:['سعر الوحدة','سعر البيع','السعر','سعر','price'],num:1,req:1},
+          {k:'price',h:'السعر (للوحدة أو للكيلو حسب الأساس)',alias:['سعر الوحدة','سعر البيع','السعر','سعر','price'],num:1,req:1},
           {k:'wh',h:'المستودع (اختياري)',alias:['المستودع','مستودع','warehouse']},
           {k:'note',h:'ملاحظات',alias:['ملاحظات','ملاحظة','note']}],
-    samples:[['2026-07-27','','فرع النسيم','20213','بطاطس كبير','567','','','9',''],
-             ['2026-07-27','','فرع النسيم','20211','بصل كبير','590','','','9',''],
-             ['2026-07-27','','فرع حراء','20211','بصل كبير','300','','','9','']]}
+    samples:[['2026-07-27','','فرع النسيم','20213','بطاطس متنوع','40','10','كيلو','3','','صنف بالكيلو: 40 صندوق × 10كغ'],
+             ['2026-07-27','','فرع النسيم','20211','بصل ابيض','12','25','كيلو','2.6','','صنف بالكيلو: 12 شوال × 25كغ'],
+             ['2026-07-27','','فرع حراء','20301','كرتون موز','30','18','وحدة','45','','صنف بالوحدة: 30 كرتون']]}
 };
 function downloadTemplate(k){
   var t=TPL[k];
@@ -5067,10 +5068,17 @@ function importRow(k,v){
     var price=v.price; if(!price||price<=0) throw new Error('سعر الوحدة غير صالح');
     var uw=(v.uw&&v.uw>0)?v.uw:0, basis=(String(v.basis||'').indexOf('كيلو')>-1)?'kg':'unit';
     var itemId=resolveItem(v.item,v.code,uw);
-    if(!uw){ var itRec=byId(db.items,itemId); uw=(itRec&&itRec.uw>0)?itRec.uw:1; }   /* وزن الوحدة من الصنف إن لم يُذكر */
+    var itRec=byId(db.items,itemId);
+    if(!uw){ uw=(itRec&&itRec.uw>0)?itRec.uw:1; }   /* وزن الوحدة/الصندوق من الصنف إن لم يُذكر */
     var whId=(v.wh&&String(v.wh).trim())?findOrCreate(db.warehouses,String(v.wh).trim(),function(n){return {name:n,clientId:null};}):defaultWh();
     var total=basis==='kg'?units*uw*price:units*price;
-    var line={itemId:itemId,unit:itemUnit(itemId),units:units,uw:uw,basis:basis,price:price,total:total,whId:whId};
+    var line;
+    if(itRec&&itRec.byKg){   /* صنف بالكيلو: الكمية = عدد الصناديق، وزن الوحدة = وزن الصندوق → يُخزَّن بالكيلو */
+      var kg=units*uw;
+      line={itemId:itemId,unit:'كيلو',units:kg,uw:1,basis:'kg',price:(kg>0?total/kg:0),total:total,whId:whId,boxes:units,boxW:uw};
+    } else {
+      line={itemId:itemId,unit:itemUnit(itemId),units:units,uw:uw,basis:basis,price:price,total:total,whId:whId};
+    }
     var arr2=k==='purchases'?db.purchases:db.sales;
     var pid=k==='purchases'?findOrCreate(db.suppliers,party,function(n){return {name:n,phone:'',note:'',opening:0,openingDate:''};})
                           :findOrCreateClient(party);
