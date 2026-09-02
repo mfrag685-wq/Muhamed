@@ -3511,6 +3511,13 @@ function cloudAfterAuth(fbUser,username){
 function cloudSignIn(username,password){
   if(!cloudEnabled()) return;
   cloudEnsureInit();
+  // السحابة تتطلب 6 أحرف؛ كلمات المرور القصيرة القديمة تعمل محلياً فقط (بلا رسالة خطأ مزعجة)
+  if(String(password||'').length<6){
+    cloudSetDot(''); cloudLabel('محلي فقط');
+    if(!localStorage.getItem('scs_shortpw_hint')){ try{ localStorage.setItem('scs_shortpw_hint','1'); }catch(e){}
+      toast('ℹ️ لتفعيل المزامنة السحابية اجعل كلمة مرورك 6 أحرف فأكثر من «🔑 كلمتي»',false); }
+    return;
+  }
   var email=synthEmail(username);
   cloudSetDot('sync'); cloudLabel('اتصال…');
   firebase.auth().signInWithEmailAndPassword(email,password)
@@ -3522,6 +3529,7 @@ function cloudSignIn(username,password){
         .catch(function(e2){
           var c2=(e2&&e2.code)||'';
           if(c2.indexOf('email-already-in-use')>=0){ cloudSetDot('err'); cloudLabel('كلمة السحابة مختلفة'); }
+          else if(c2.indexOf('weak-password')>=0){ cloudSetDot(''); cloudLabel('محلي فقط'); toast('ℹ️ كلمة المرور أقصر من 6 أحرف المطلوبة للسحابة — غيّرها من «🔑 كلمتي»',false); }
           else { cloudSetDot('err'); cloudLabel('تعذّر'); toast('⚠️ السحابة: '+cloudErr(e2),true); }
         });
     });
@@ -3562,6 +3570,7 @@ function cloudErr(e){
   if(c.indexOf('permission')>=0||c.indexOf('PERMISSION')>=0) return 'حدّث قواعد الأمان (workspaces) في Firebase';
   if(c.indexOf('network')>=0) return 'لا يوجد اتصال بالإنترنت';
   if(c.indexOf('too-many-requests')>=0) return 'محاولات كثيرة — انتظر قليلاً';
+  if(c.indexOf('weak-password')>=0) return 'كلمة المرور أقصر من 6 أحرف المطلوبة للسحابة — غيّرها من «🔑 كلمتي»';
   return (e&&e.message)||'حدث خطأ';
 }
 
