@@ -1302,7 +1302,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-08-14-m';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-08-14-n';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -2981,7 +2981,8 @@ function purchaseRegistryRows(){
       if(whF&&l.whId!==+whF) return;
       var net=+l.total||0, vat=(p.total>0)?round2(docVat(p)*(net/p.total)):0, grand=round2(net+vat);
       invSet[p.id]=1;
-      out.push({date:p.date,no:p.no||'—',sup:supName(p.supplierId),item:itemName(l.itemId),
+      var itR=byId(db.items,l.itemId);
+      out.push({date:p.date,no:p.no||'—',sup:supName(p.supplierId),item:itemName(l.itemId),byKg:!!(itR&&itR.byKg),
         units:+l.units||0,unit:l.unit||'',weight:(+l.units||0)*(+l.uw||0),wh:whName(l.whId),boxes:+l.boxes||0,boxW:+l.boxW||0,
         price:+l.price||0,basis:l.basis,net:net,vat:vat,grand:grand,note:p.note||'',pid:p.id});
     });
@@ -2998,7 +2999,7 @@ function renderPurchases(){
     var h='<span class="reg-act">'; if(canEd) h+='<button onclick="editDoc(\'p\','+pid+')">تعديل</button> ';
     if(canDel) h+='<button class="del" onclick="delRec(\'purchases\','+pid+')">حذف</button>'; return h+'</span>'; };
   var cols=detailed
-    ?[['التاريخ',0],['رقم الفاتورة',0],['المورد',0],['الصنف',0],['الكمية',1],['الوزن (كغ)',1],['المستودع',0],['سعر الوحدة',1],['الصافي',1],['الضريبة',1],['الإجمالي',1],['ملاحظات',0],['إجراء',0]]
+    ?[['التاريخ',0],['رقم الفاتورة',0],['المورد',0],['الصنف',0],['العدد',1],['الوزن (كغ)',1],['المستودع',0],['سعر الوحدة',1],['الصافي',1],['الضريبة',1],['الإجمالي',1],['ملاحظات',0],['إجراء',0]]
     :[['التاريخ',0],['المورد',0],['الصنف',0],['الصافي',1],['الضريبة',1],['الإجمالي',1],['إجراء',0]];
   head.innerHTML='<tr>'+cols.map(function(c){return '<th class="'+(c[1]?'num':'')+'">'+esc(c[0])+'</th>';}).join('')+'</tr>';
   var body='';
@@ -3008,7 +3009,7 @@ function renderPurchases(){
       if(detailed){
         body+='<tr><td class="num">'+esc(r.date)+'</td><td class="txt"><span class="pill-inv">'+esc(r.no)+'</span></td>'
           +'<td class="txt">'+esc(r.sup)+'</td><td class="txt">'+esc(r.item)+'</td>'
-          +'<td class="num">'+qty(r.units)+' '+esc(r.unit)+(r.boxes?' <span style="color:#94a3b8">('+qty(r.boxes)+'×'+qty(r.boxW)+')</span>':'')+'</td><td class="num">'+qty(r.weight)+'</td>'
+          +'<td class="num">'+(r.byKg?(r.boxes?qty(r.boxes)+' صندوق':'—'):(qty(r.units)+' '+esc(r.unit)))+'</td><td class="num">'+qty(r.weight)+'</td>'
           +'<td class="txt">'+esc(r.wh)+'</td><td class="num">'+num(r.price)+(r.basis==='kg'?' /كغ':' /و')+'</td>'
           +'<td class="num">'+num(r.net)+'</td><td class="num">'+num(r.vat)+'</td><td class="num grand">'+num(r.grand)+'</td>'
           +'<td class="txt" style="color:#64748b">'+esc(r.note)+'</td><td class="txt">'+actCell(r.pid)+'</td></tr>';
@@ -3033,8 +3034,8 @@ function renderPurchases(){
 }
 function exportPurchaseRegistry(){
   var d=purchaseRegistryRows(), detailed=(purchaseView==='detailed'), head, rows=[];
-  if(detailed){ head=['التاريخ','رقم الفاتورة','المورد','الصنف','الكمية','الوحدة','الوزن (كغ)','المستودع','سعر الوحدة','أساس السعر','الصافي','الضريبة','الإجمالي شامل الضريبة','ملاحظات'];
-    d.rows.forEach(function(r){ rows.push([r.date,r.no,r.sup,r.item,r.units,r.unit,r.weight,r.wh,r.price,(r.basis==='kg'?'كيلو':'وحدة'),r.net,r.vat,r.grand,r.note]); });
+  if(detailed){ head=['التاريخ','رقم الفاتورة','المورد','الصنف','العدد','وزن الصندوق/الوحدة','الوزن (كغ)','المستودع','سعر الوحدة','أساس السعر','الصافي','الضريبة','الإجمالي شامل الضريبة','ملاحظات'];
+    d.rows.forEach(function(r){ rows.push([r.date,r.no,r.sup,r.item,(r.byKg?(r.boxes||''):r.units),(r.byKg?(r.boxW||''):r.unit),r.weight,r.wh,r.price,(r.basis==='kg'?'كيلو':'وحدة'),r.net,r.vat,r.grand,r.note]); });
     rows.push(['الإجمالي','','','','','',d.tot.weight,'','','',d.tot.net,d.tot.vat,d.tot.grand,'']);
   } else { head=['التاريخ','المورد','الصنف','الصافي (قبل الضريبة)','الضريبة','الإجمالي شامل الضريبة'];
     d.rows.forEach(function(r){ rows.push([r.date,r.sup,r.item,r.net,r.vat,r.grand]); });
@@ -3068,7 +3069,8 @@ function salesRegistryRows(){
       var net=+l.total||0, vat=(s.total>0)?round2(docVat(s)*(net/s.total)):0, grand=round2(net+vat);
       var cost=L.cogsLine[s.id+'#'+i]||0;
       invSet[s.id]=1;
-      out.push({date:s.date,no:s.no||'—',cl:clientName(s.clientId),item:itemName(l.itemId),
+      var itR=byId(db.items,l.itemId);
+      out.push({date:s.date,no:s.no||'—',cl:clientName(s.clientId),item:itemName(l.itemId),byKg:!!(itR&&itR.byKg),
         units:+l.units||0,unit:l.unit||'',weight:(+l.units||0)*(+l.uw||0),wh:whName(l.whId),boxes:+l.boxes||0,boxW:+l.boxW||0,
         price:+l.price||0,basis:l.basis,net:net,vat:vat,grand:grand,cost:cost,gp:round2(net-cost),note:s.note||'',sid:s.id});
     });
@@ -3091,7 +3093,7 @@ function renderSales(){
       {h:'رقم الفاتورة',f:function(r){return '<span class="pill-inv">'+esc(r.no)+'</span>';}},
       {h:'العميل',f:function(r){return esc(r.cl);}},
       {h:'الصنف',f:function(r){return esc(r.item);}},
-      {h:'الكمية',num:1,f:function(r){return qty(r.units)+(r.boxes?' <span style="color:#94a3b8">('+qty(r.boxes)+'×'+qty(r.boxW)+')</span>':'');}},
+      {h:'العدد',num:1,f:function(r){return r.byKg?(r.boxes?qty(r.boxes)+' صندوق':'—'):(qty(r.units)+' '+esc(r.unit||''));}},
       {h:'الوزن (كغ)',num:1,tot:'weight',f:function(r){return qty(r.weight);}},
       {h:'المستودع',f:function(r){return esc(r.wh);}},
       {h:'سعر الوحدة',num:1,f:function(r){return num(r.price)+(r.basis==='kg'?' /كغ':' /و');}},
@@ -3135,8 +3137,8 @@ function renderSales(){
 }
 function exportSalesRegistry(){
   var d=salesRegistryRows(), detailed=(salesView==='detailed'), P=canSeeProfit(), head, rows=[];
-  if(detailed){ head=['التاريخ','رقم الفاتورة','العميل','الصنف','الكمية','الوزن (كغ)','المستودع','سعر الوحدة','أساس السعر','الصافي','الضريبة','الإجمالي شامل الضريبة'].concat(P?['التكلفة','مجمل الربح']:[],['ملاحظات']);
-    d.rows.forEach(function(r){ rows.push([r.date,r.no,r.cl,r.item,r.units,r.weight,r.wh,r.price,(r.basis==='kg'?'كيلو':'وحدة'),r.net,r.vat,r.grand].concat(P?[r.cost,r.gp]:[],[r.note])); });
+  if(detailed){ head=['التاريخ','رقم الفاتورة','العميل','الصنف','العدد','الوزن (كغ)','المستودع','سعر الوحدة','أساس السعر','الصافي','الضريبة','الإجمالي شامل الضريبة'].concat(P?['التكلفة','مجمل الربح']:[],['ملاحظات']);
+    d.rows.forEach(function(r){ rows.push([r.date,r.no,r.cl,r.item,(r.byKg?(r.boxes||''):r.units),r.weight,r.wh,r.price,(r.basis==='kg'?'كيلو':'وحدة'),r.net,r.vat,r.grand].concat(P?[r.cost,r.gp]:[],[r.note])); });
     rows.push(['الإجمالي','','','','',d.tot.weight,'','','',d.tot.net,d.tot.vat,d.tot.grand].concat(P?[d.tot.cost,d.tot.gp]:[],['']));
   } else { head=['التاريخ','العميل','الصنف','الصافي (قبل الضريبة)','الضريبة','الإجمالي شامل الضريبة'].concat(P?['التكلفة','مجمل الربح']:[]);
     d.rows.forEach(function(r){ rows.push([r.date,r.cl,r.item,r.net,r.vat,r.grand].concat(P?[r.cost,r.gp]:[])); });
