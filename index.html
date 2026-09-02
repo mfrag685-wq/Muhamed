@@ -1302,7 +1302,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-08-14-i';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-08-14-j';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -2866,7 +2866,7 @@ function pnl(from,to){
   if(from===undefined) from=val('f_from'); if(to===undefined) to=val('f_to');
   var inP=function(d){ return (!from||d>=from)&&(!to||d<=to); };
   var res={}, method=db.settings.alloc||'sales', pool=0, poolEx={};
-  db.clients.forEach(function(c){ res[c.id]={rev:0,ret:0,cogs:0,waste:0,direct:0,shared:0,weight:0}; });
+  db.clients.forEach(function(c){ res[c.id]={rev:0,ret:0,cogs:0,waste:0,direct:0,shared:0,sharedEx:0,excludedAmt:0,weight:0}; });
   db.sales.forEach(function(s){
     if(!inP(s.date)||!res[s.clientId]) return;
     res[s.clientId].rev+=+s.total||0;
@@ -2906,7 +2906,7 @@ function pnl(from,to){
   var branchTargets=db.clients.filter(function(c){return isBranch(c.id);});
   if(!branchTargets.length) branchTargets=db.clients.slice();
   /* موزِّع عام: يقسّم مبلغاً على مجموعة فروع حسب طريقة الإعداد (مبيعات/بالتساوي/ربح/وزن) */
-  function distributeShared(amount,list){
+  function distributeShared(amount,list,isEx){
     if(amount<=0||!list.length) return;
     var tRev=0,tGP=0,tW=0; list.forEach(function(c){ var r=res[c.id]; tRev+=r.net_rev; tGP+=Math.max(0,r.gp); tW+=r.weight; });
     var nn=list.length;
@@ -2915,15 +2915,16 @@ function pnl(from,to){
       else if(method==='gp') share=tGP>0?Math.max(0,r.gp)/tGP:1/nn;
       else if(method==='weight') share=tW>0?r.weight/tW:1/nn;
       else share=tRev>0?r.net_rev/tRev:1/nn;
-      r.shared+=amount*share;
+      r.shared+=amount*share; if(isEx) r.sharedEx+=amount*share;
     });
   }
   distributeShared(pool,branchTargets);
   /* المصروفات المشتركة مع استثناء فرع: تُوزَّع على بقية الفروع بنفس الطريقة */
   Object.keys(poolEx).forEach(function(exId){
     var ex=+exId, tg=branchTargets.filter(function(c){return c.id!==ex;});
+    if(res[ex]) res[ex].excludedAmt+=poolEx[exId];   /* المبلغ الذي أُعفي منه هذا الفرع */
     if(!tg.length) tg=branchTargets;   /* لو استُثني الفرع الوحيد، يعود للكل تفادياً لضياع المبلغ */
-    distributeShared(poolEx[exId],tg);
+    distributeShared(poolEx[exId],tg,true);
   });
   db.clients.forEach(function(c){ var r=res[c.id]; r.exp=r.direct+r.shared; r.net=r.gp-r.exp; });
   return {rows:res,pool:pool};
@@ -4187,23 +4188,24 @@ function renderReport(){
 
   if(type==='purchases'){
     title='تقرير المشتريات اليومي التفصيلي';
-    head=['التاريخ','رقم الفاتورة','المورد','الصنف','الوحدات','وزن الوحدة','الوزن الكلي','أساس السعر','السعر','القيمة','المستودع'];
+    head=['التاريخ','رقم الفاتورة','المورد','الصنف','الكمية','وزن الوحدة','الوزن الكلي (كغ)','أساس السعر','السعر','القيمة','المستودع'];
     var days={},T=0,W=0,U=0;
     db.purchases.forEach(function(p){
       if(!inRange(p.date,f,t)) return; if(!inPartyScope('supplier',p.supplierId)) return;
       (p.lines||[]).forEach(function(l){
         if(fi&&l.itemId!==+fi) return; if(fw&&l.whId!==+fw) return;
         if(!days[p.date]) days[p.date]=[];
-        days[p.date].push([p.date,p.no||'—',supName(p.supplierId),itemName(l.itemId),qty(l.units)+' '+(l.unit||''),
+        days[p.date].push([p.date,p.no||'—',supName(p.supplierId),itemName(l.itemId),
+          qty(l.units)+' '+(l.unit||'')+(l.boxes?' ('+qty(l.boxes)+'×'+qty(l.boxW)+')':''),
           qty(l.uw),qty(l.units*l.uw),l.basis==='kg'?'بالكيلو':'بالوحدة',num(l.price),num(l.total),whName(l.whId)]);
         T+=+l.total||0; W+=(+l.units||0)*(+l.uw||0); U+=+l.units||0;
       });
     });
     Object.keys(days).sort().forEach(function(d){
-      var dt=0,dw=0;
+      var dt=0,dw=0,du=0;
       push('day-row',['يوم '+d+' — '+days[d].length+' حركة','','','','','','','','','','']);
-      days[d].forEach(function(r){ dt+=parseFloat(r[9].replace(/,/g,''))||0; dw+=parseFloat(r[6].replace(/,/g,''))||0; push('',r); });
-      push('sub-row',['إجمالي يوم '+d,'','','','','',num(dw)+' كغ','','',num(dt),'']);
+      days[d].forEach(function(r){ dt+=parseFloat(r[9].replace(/,/g,''))||0; dw+=parseFloat(r[6].replace(/,/g,''))||0; du+=parseFloat(r[4])||0; push('',r); });
+      push('sub-row',['إجمالي يوم '+d,'','','',qty(du),'',num(dw)+' كغ','','',num(dt),'']);
     });
     cards=card('إجمالي المشتريات',money(T),'خلال الفترة')+card('إجمالي الأوزان',qty(W)+' كغ','')
       +card('إجمالي الوحدات',qty(U),'')+card('عدد الأيام',String(Object.keys(days).length),'');
@@ -4348,7 +4350,7 @@ function renderReport(){
       title='قائمة دخل فرع (تفصيلية)';
       cards=card('اختر الفرع','—','اختر فرعاً (عميل له مستودع) من قائمة «الجهة» أعلاه');
     } else {
-      var bid=+fp, P=pnl(f,t), x=P.rows[bid]||{rev:0,ret:0,net_rev:0,cogs:0,gp:0,waste:0,direct:0,shared:0,exp:0,net:0};
+      var bid=+fp, P=pnl(f,t), x=P.rows[bid]||{rev:0,ret:0,net_rev:0,cogs:0,gp:0,waste:0,direct:0,shared:0,sharedEx:0,excludedAmt:0,exp:0,net:0};
       title='قائمة دخل الفرع: '+clientName(bid)+'  ·  '+((f||'البداية')+' ← '+(t||'اليوم'));
       var pctv=function(v){ return x.net_rev>0?(v/x.net_rev*100).toFixed(1)+'%':'—'; };
       var row=function(lbl,v,cls){ push(cls||'',[lbl,num(v),pctv(v)]); };
@@ -4360,6 +4362,8 @@ function renderReport(){
       push('sub-row',['مجمل الربح',num(x.gp),pctv(x.gp)]);
       row('يُخصم: مصروفات مباشرة للفرع',x.direct);
       row('يُخصم: حصة الفرع من المصروفات المشتركة',x.shared);
+      if(x.sharedEx>0.009) push('',['— منها حصة من مصروفات مشتركة باستثناء فروع أخرى','('+num(x.sharedEx)+')',pctv(x.sharedEx)]);
+      if(x.excludedAmt>0.009) push('',['ℹ هذا الفرع مُعفى من مصروفات مشتركة بقيمة (لم تُحمّل عليه)',num(x.excludedAmt),'—']);
       push('total-row',['صافي ربح / (خسارة) الفرع',num(x.net),pctv(x.net)]);
       /* معلومات مساندة */
       var invB=0; if(!L) refreshLedger();
