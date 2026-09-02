@@ -1307,6 +1307,7 @@ html[data-theme="dark"] .rt td.hl{background:#2e2814;color:var(--accent)}
       <button class="btn btn-outline btn-sm" onclick="cmpSaveLabels()">💾 حفظ الأسماء</button>
       <div class="fg"><label>أساس قيمة نموذج أ</label><select id="cmp-basis-sel" onchange="renderCompare()"><option value="landed">التكلفة الواصلة</option><option value="fob">قيمة الشراء (FOB)</option></select></div>
       <div style="flex:1"></div>
+      <button class="btn btn-green btn-sm" onclick="exportCmpTotals()">⬇️ تصدير الإجماليات Excel</button>
       <button class="btn btn-outline btn-sm" onclick="printCmpSummary()">🖨️ طباعة الملخص</button>
       <button class="btn btn-outline btn-sm" onclick="printCmpAnalytic()">🖨️ طباعة تحليلي (موديل بموديل)</button>
     </div>
@@ -1358,7 +1359,7 @@ html[data-theme="dark"] .rt td.hl{background:#2e2814;color:var(--accent)}
     <div class="card-body">
       <div id="cmp-all-sum" class="sum-cards" style="margin-bottom:10px"></div>
       <div style="overflow-x:auto"><table class="tbl" id="cmp-all-table">
-        <thead><tr><th>رقم الشحنة</th><th>إجمالي <span class="cmp-lblA-t">أ</span> (SAR)</th><th>إجمالي <span class="cmp-lblB-t">ب</span> (SAR)</th><th>نتيجة المقارنة (أ − ب)</th><th>الأرخص</th></tr></thead>
+        <thead><tr><th>رقم الشحنة</th><th>إجمالي <span class="cmp-lblA-t">أ</span> (SAR)</th><th>إجمالي <span class="cmp-lblB-t">ب</span> (SAR)</th><th>نتيجة المقارنة (أ − ب)</th><th>نسبة الفرق %</th><th>الأرخص</th></tr></thead>
         <tbody id="cmp-all-tbody"></tbody>
       </table></div>
     </div>
@@ -4905,6 +4906,9 @@ function cmpShipTotals(num){
   return {rows:rows, totA:totA, totB:totB};
 }
 function cmpBasis(){ var s=document.getElementById('cmp-basis-sel'); return (s&&s.value==='fob')?'fob':'landed'; }
+// نسبة الفرق % منسوبة إلى نموذج ب (كم يزيد/يقل نموذج أ عن ب)
+function cmpPct(aTot,bTot){ return (bTot>0)?((aTot-bTot)/bTot*100):0; }
+function cmpPctTxt(p){ return (p>0?'+':'')+ (Math.round(p*10)/10).toLocaleString('en',{minimumFractionDigits:1,maximumFractionDigits:1})+'%'; }
 // إجمالي قيمة الشحنة كاملةً في نموذج أ (كل الموديلات) — واصل وشراء
 function aShipTotals(num){ var a=aModelsForShip(num); var fob=0, landed=0; Object.keys(a).forEach(function(k){ fob+=a[k].fobSar; landed+=a[k].landedSar; }); return {fob:fob, landed:landed}; }
 // إجمالي قيمة الشحنة كاملةً في نموذج ب (كل ما أُدخل) بالريال
@@ -4950,21 +4954,34 @@ function renderCmpTotals(){
   applyCmpLabels(); var L=cmpLabels();
   var rows=cmpTotalsRows(); var gA=0, gB=0;
   var body=rows.map(function(r){
-    gA+=r.aTot; gB+=r.bTot; var d=r.diff;
+    gA+=r.aTot; gB+=r.bTot; var d=r.diff; var p=cmpPct(r.aTot,r.bTot);
     return '<tr><td><strong>'+escH(r.num)+'</strong></td>'+
       '<td class="num">'+fmtD(r.aTot)+'</td><td class="num">'+fmtD(r.bTot)+'</td>'+
       '<td class="num" style="color:'+(d>0?'var(--danger)':'var(--success)')+'">'+(r.hasB?fmtD(d):'—')+'</td>'+
+      '<td class="num" style="color:'+(d>0?'var(--danger)':'var(--success)')+'">'+(r.hasB?cmpPctTxt(p):'—')+'</td>'+
       '<td style="font-weight:700">'+(!r.hasB?'—':(d>0?escH(L.b):(d<0?escH(L.a):'=')))+'</td></tr>';
   });
-  var gd=gA-gB;
-  if(body.length) body.push('<tr style="background:#e3f2fd;font-weight:800"><td>الإجمالي</td><td class="num">'+fmtD(gA)+'</td><td class="num">'+fmtD(gB)+'</td><td class="num" style="color:'+(gd>0?'var(--danger)':'var(--success)')+'">'+fmtD(gd)+'</td><td>'+(gd>0?escH(L.b):(gd<0?escH(L.a):'='))+'</td></tr>');
+  var gd=gA-gB; var gp=cmpPct(gA,gB);
+  if(body.length) body.push('<tr style="background:#e3f2fd;font-weight:800"><td>الإجمالي</td><td class="num">'+fmtD(gA)+'</td><td class="num">'+fmtD(gB)+'</td><td class="num" style="color:'+(gd>0?'var(--danger)':'var(--success)')+'">'+fmtD(gd)+'</td><td class="num">'+(gB>0?cmpPctTxt(gp):'—')+'</td><td>'+(gd>0?escH(L.b):(gd<0?escH(L.a):'='))+'</td></tr>');
   var sum=document.getElementById('cmp-all-sum');
   if(sum) sum.innerHTML=
     '<div class="sum-card"><div class="lbl">إجمالي كل الشحنات — '+escH(L.a)+'</div><div class="val">'+fmtD(gA)+' SAR</div></div>'+
     '<div class="sum-card"><div class="lbl">إجمالي كل الشحنات — '+escH(L.b)+'</div><div class="val">'+fmtD(gB)+' SAR</div></div>'+
     '<div class="sum-card" style="background:'+(gd>0?'#fdecea':'#e9f8ef')+'"><div class="lbl">إجمالي الفرق ('+escH(L.a)+' − '+escH(L.b)+')</div><div class="val" style="color:'+(gd>0?'var(--danger)':'var(--success)')+'">'+fmtD(gd)+' SAR</div><div class="sub">'+(gB<=0?'أدخل نموذج ب':(gd>0?escH(L.b)+' أرخص إجمالاً':(gd<0?escH(L.a)+' أرخص إجمالاً':'متساويان')))+'</div></div>';
   var tb=document.getElementById('cmp-all-tbody');
-  if(tb) tb.innerHTML=body.join('')||'<tr><td colspan="5" style="padding:18px;color:var(--muted)">لا توجد شحنات — احفظ شحنات في نموذج أ وأدخل نموذج ب</td></tr>';
+  if(tb) tb.innerHTML=body.join('')||'<tr><td colspan="6" style="padding:18px;color:var(--muted)">لا توجد شحنات — احفظ شحنات في نموذج أ وأدخل نموذج ب</td></tr>';
+}
+function exportCmpTotals(){
+  if(typeof XLSX==='undefined'){ toast('⚠️ مكتبة Excel غير محمّلة',true); return; }
+  var L=cmpLabels(); var rows=cmpTotalsRows(); var gA=0,gB=0;
+  var aoa=[['رقم الشحنة','إجمالي '+L.a+' (SAR)','إجمالي '+L.b+' (SAR)','نتيجة المقارنة (أ − ب)','نسبة الفرق %','الأرخص']];
+  rows.forEach(function(r){ gA+=r.aTot; gB+=r.bTot; var d=r.diff; var p=cmpPct(r.aTot,r.bTot);
+    aoa.push([r.num, Math.round(r.aTot*100)/100, Math.round(r.bTot*100)/100, r.hasB?Math.round(d*100)/100:'', r.hasB?Math.round(p*10)/10:'', r.hasB?(d>0?L.b:(d<0?L.a:'=')):'']); });
+  var gd=gA-gB;
+  aoa.push(['الإجمالي', Math.round(gA*100)/100, Math.round(gB*100)/100, Math.round(gd*100)/100, gB>0?Math.round(cmpPct(gA,gB)*10)/10:'', gd>0?L.b:(gd<0?L.a:'=')]);
+  var ws=XLSX.utils.aoa_to_sheet(aoa); ws['!cols']=[{wch:14},{wch:18},{wch:18},{wch:18},{wch:12},{wch:12}];
+  var wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'مقارنة الإجماليات');
+  XLSX.writeFile(wb,'مقارنة_إجماليات_الشحنات.xlsx'); toast('⬇️ تم تصدير جدول الإجماليات');
 }
 // ── الطباعة ──
 function cmpPrintWindow(title, inner){
@@ -4980,10 +4997,10 @@ function cmpPrintWindow(title, inner){
 }
 function printCmpSummary(){
   var L=cmpLabels(); var rows=cmpTotalsRows(); var gA=0,gB=0;
-  var trs=rows.map(function(r){ gA+=r.aTot; gB+=r.bTot; var d=r.diff; return '<tr><td>'+escH(r.num)+'</td><td class=num>'+fmtD(r.aTot)+'</td><td class=num>'+fmtD(r.bTot)+'</td><td class=num>'+(r.hasB?fmtD(d):'—')+'</td><td>'+(!r.hasB?'—':(d>0?escH(L.b):(d<0?escH(L.a):'=')))+'</td></tr>'; }).join('');
+  var trs=rows.map(function(r){ gA+=r.aTot; gB+=r.bTot; var d=r.diff; var p=cmpPct(r.aTot,r.bTot); return '<tr><td>'+escH(r.num)+'</td><td class=num>'+fmtD(r.aTot)+'</td><td class=num>'+fmtD(r.bTot)+'</td><td class=num>'+(r.hasB?fmtD(d):'—')+'</td><td class=num>'+(r.hasB?cmpPctTxt(p):'—')+'</td><td>'+(!r.hasB?'—':(d>0?escH(L.b):(d<0?escH(L.a):'=')))+'</td></tr>'; }).join('');
   var gd=gA-gB;
-  var tbl='<table><thead><tr><th>رقم الشحنة</th><th>إجمالي '+escH(L.a)+'</th><th>إجمالي '+escH(L.b)+'</th><th>نتيجة المقارنة (أ − ب)</th><th>الأرخص</th></tr></thead><tbody>'+trs+
-    '<tr class=tot><td>الإجمالي</td><td class=num>'+fmtD(gA)+'</td><td class=num>'+fmtD(gB)+'</td><td class=num>'+fmtD(gd)+'</td><td>'+(gd>0?escH(L.b):(gd<0?escH(L.a):'='))+'</td></tr></tbody></table>';
+  var tbl='<table><thead><tr><th>رقم الشحنة</th><th>إجمالي '+escH(L.a)+'</th><th>إجمالي '+escH(L.b)+'</th><th>نتيجة المقارنة (أ − ب)</th><th>نسبة الفرق %</th><th>الأرخص</th></tr></thead><tbody>'+trs+
+    '<tr class=tot><td>الإجمالي</td><td class=num>'+fmtD(gA)+'</td><td class=num>'+fmtD(gB)+'</td><td class=num>'+fmtD(gd)+'</td><td class=num>'+(gB>0?cmpPctTxt(cmpPct(gA,gB)):'—')+'</td><td>'+(gd>0?escH(L.b):(gd<0?escH(L.a):'='))+'</td></tr></tbody></table>';
   cmpPrintWindow('مقارنة إجماليات الشحنات — '+escH(L.a)+' مقابل '+escH(L.b), tbl);
 }
 function printCmpAnalytic(){
