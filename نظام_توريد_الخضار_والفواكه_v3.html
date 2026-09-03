@@ -478,8 +478,8 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
         <div class="inline-add"><select id="pl_item" onchange="onPickItem('pl')"></select><button class="btn btn-sm" onclick="quickAddItem('pl')" title="صنف جديد">+</button></div></div>
       <div class="field"><label>الوحدة</label>
         <div class="inline-add"><select id="pl_unit" onchange="onPickUnit('pl')"></select><button class="btn btn-sm" onclick="quickAddUnit('pl')" title="وحدة جديدة">+</button></div></div>
-      <div class="field"><label id="lbl_pl_units">عدد الوحدات</label><input type="number" id="pl_units" step="0.01" min="0" oninput="calcLine('pl')"></div>
-      <div class="field"><label id="lbl_pl_uw">معامل التحويل — وزن الوحدة (كغ)</label>
+      <div class="field"><label id="lbl_pl_units">عدد الوحدات *</label><input type="number" id="pl_units" step="0.01" min="0" oninput="calcLine('pl')"></div>
+      <div class="field"><label id="lbl_pl_uw">معامل التحويل — وزن الوحدة (كغ) *</label>
         <input type="number" id="pl_uw" step="0.01" min="0" oninput="calcLine('pl')" list="dl_pl_uw">
         <datalist id="dl_pl_uw"></datalist>
         <span class="mini" id="pl_uwHint"></span></div>
@@ -568,8 +568,8 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
       <div class="field"><label>الصنف</label><select id="sl_item" onchange="onPickItem('sl')"></select></div>
       <div class="field"><label>المستودع المصدر</label><select id="sl_wh" onchange="showAvail()"></select></div>
       <div class="field"><label>الرصيد المتاح</label><input type="text" id="sl_avail" readonly></div>
-      <div class="field"><label id="lbl_sl_units">عدد الوحدات</label><input type="number" id="sl_units" step="0.01" min="0" oninput="calcLine('sl')"></div>
-      <div class="field"><label id="lbl_sl_uw">وزن الوحدة (كغ)</label><input type="number" id="sl_uw" step="0.01" min="0" oninput="calcLine('sl')" list="dl_sl_uw">
+      <div class="field"><label id="lbl_sl_units">عدد الوحدات *</label><input type="number" id="sl_units" step="0.01" min="0" oninput="calcLine('sl')"></div>
+      <div class="field"><label id="lbl_sl_uw">وزن الوحدة (كغ) *</label><input type="number" id="sl_uw" step="0.01" min="0" oninput="calcLine('sl')" list="dl_sl_uw">
         <datalist id="dl_sl_uw"></datalist><span class="mini" id="sl_uwHint"></span></div>
       <div class="field"><label>الوزن الإجمالي</label><input type="text" id="sl_tw" readonly></div>
       <div class="field"><label>أساس السعر</label><select id="sl_basis" onchange="calcLine('sl')">
@@ -1302,7 +1302,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-08-14-n';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-08-14-o';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -1968,7 +1968,7 @@ function setDefaults(){
 function onPickItem(p){
   var it=byId(db.items,+val(p+'_item')); if(!it) return;
   if(p==='pl'){ setVal('pl_unit',it.unit); refreshUW('pl'); }
-  setVal(p+'_uw',it.uw);
+  setVal(p+'_uw',it.byKg?'':it.uw);   /* الأصناف بالكيلو: وزن الصندوق يُدخَل يدوياً (إلزامي) لأنه متغيّر */
   if(p==='pl'||p==='sl') applyItemTracking(p,it);
   if(p==='sl') showAvail();
   calcLine(p);
@@ -1986,14 +1986,14 @@ function itemBoxWeights(itemId){
 function applyItemTracking(p,it){
   var byKg=!!(it&&it.byKg);
   var uL=document.getElementById('lbl_'+p+'_units'), wL=document.getElementById('lbl_'+p+'_uw');
-  if(uL) uL.textContent=byKg?'عدد الصناديق':'عدد الوحدات';
-  if(wL) wL.textContent=byKg?'وزن الصندوق (كغ)':(p==='pl'?'معامل التحويل — وزن الوحدة (كغ)':'وزن الوحدة (كغ)');
+  if(uL) uL.textContent=(byKg?'عدد الصناديق':'عدد الوحدات')+' *';
+  if(wL) wL.textContent=(byKg?'وزن الصندوق (كغ)':(p==='pl'?'معامل التحويل — وزن الوحدة (كغ)':'وزن الوحدة (كغ)'))+' *';
   if(byKg){
     var ws=itemBoxWeights(it.id), dl=document.getElementById('dl_'+p+'_uw');
     if(dl) dl.innerHTML=ws.map(function(w){return '<option value="'+w+'">'+w+' كغ</option>';}).join('');
     var hint=document.getElementById(p+'_uwHint');
-    if(hint) hint.textContent=ws.length?('أوزان الصناديق المستخدمة: '+ws.join(' / ')+' كغ — أو اكتب وزناً آخر'):'اكتب وزن الصندوق بالكيلو';
-    if(ws.length) setVal(p+'_uw',ws[0]);
+    if(hint) hint.textContent=ws.length?('أوزان الصناديق المستخدمة: '+ws.join(' / ')+' كغ — اكتب وزن الصندوق (إلزامي)'):'اكتب وزن الصندوق بالكيلو (إلزامي)';
+    /* لا نملأ الوزن تلقائياً للأصناف بالكيلو — يبقى إلزامياً بإدخال المستخدم */
   }
 }
 function showAvail(){
@@ -2025,11 +2025,11 @@ function addLine(k){
   var p=k==='p'?'pl':'sl';
   var itemId=+val(p+'_item'), units=fnum(p+'_units'), uw=fnum(p+'_uw'), price=fnum(p+'_price'), b=val(p+'_basis');
   if(!itemId){ toast('اختر الصنف'); return; }
-  if(units<=0){ toast('أدخل عدد الوحدات'); return; }
-  if(uw<=0){ toast('أدخل وزن الوحدة (معامل التحويل)'); return; }
-  if(price<=0){ toast('أدخل السعر'); return; }
-  var unitName=k==='p'?(val('pl_unit')||itemUnit(itemId)):itemUnit(itemId);
   var it0=byId(db.items,itemId), byKg=!!(it0&&it0.byKg);
+  if(units<=0){ toast(byKg?'أدخل عدد الصناديق (إلزامي)':'أدخل الكمية (إلزامي)'); return; }
+  if(uw<=0){ toast(byKg?'أدخل وزن الصندوق بالكيلو (إلزامي)':'أدخل وزن الوحدة بالكيلو (إلزامي)'); return; }
+  if(price<=0){ toast('أدخل السعر (إلزامي)'); return; }
+  var unitName=k==='p'?(val('pl_unit')||itemUnit(itemId)):itemUnit(itemId);
   /* للأصناف بالكيلو: تُدخَل الصناديق (u) بوزن (uw) فيُخزَّن السطر بالكيلو (وحدة=1كغ) مع حفظ الصناديق للعرض */
   function mk(u,wh){
     var net=(b==='kg'?u*uw*price:u*price);
