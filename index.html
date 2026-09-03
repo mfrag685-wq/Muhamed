@@ -1302,7 +1302,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-08-14-u';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-08-14-v';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -3032,8 +3032,9 @@ function renderPurchases(){
     if(canDel) h+='<button class="del" onclick="delRec(\'purchases\','+pid+')">حذف</button>'; return h+'</span>'; };
   var cols=detailed
     ?[['التاريخ',0],['رقم الفاتورة',0],['المورد',0],['الصنف',0],['العدد',1],['الوزن (كغ)',1],['المستودع',0],['سعر الوحدة',1],['الصافي',1],['الضريبة',1],['الإجمالي',1],['ملاحظات',0],['إجراء',0]]
-    :[['التاريخ',0],['المورد',0],['الصنف',0],['الصافي',1],['الضريبة',1],['الإجمالي',1],['إجراء',0]];
+    :[['التاريخ',0],['المورد',0],['الصنف',0],['العدد',1],['الوزن (كغ)',1],['الصافي',1],['الضريبة',1],['الإجمالي',1],['إجراء',0]];
   head.innerHTML='<tr>'+cols.map(function(c){return '<th class="'+(c[1]?'num':'')+'">'+esc(c[0])+'</th>';}).join('')+'</tr>';
+  var cntCell=function(r){ return r.byKg?(r.boxes?qty(r.boxes)+' صندوق':'—'):(qty(r.units)+' '+esc(r.unit)); };
   var body='';
   if(!rows.length){ body='<tr><td colspan="'+cols.length+'" style="text-align:center;color:#94a3b8;padding:28px">لا توجد فواتير شراء مطابقة للفلترة.</td></tr>'; }
   else {
@@ -3041,12 +3042,13 @@ function renderPurchases(){
       if(detailed){
         body+='<tr><td class="num">'+esc(r.date)+'</td><td class="txt"><span class="pill-inv">'+esc(r.no)+'</span></td>'
           +'<td class="txt">'+esc(r.sup)+'</td><td class="txt">'+esc(r.item)+'</td>'
-          +'<td class="num">'+(r.byKg?(r.boxes?qty(r.boxes)+' صندوق':'—'):(qty(r.units)+' '+esc(r.unit)))+'</td><td class="num">'+qty(r.weight)+'</td>'
+          +'<td class="num">'+cntCell(r)+'</td><td class="num">'+qty(r.weight)+'</td>'
           +'<td class="txt">'+esc(r.wh)+'</td><td class="num">'+num(r.price)+(r.basis==='kg'?' /كغ':' /و')+'</td>'
           +'<td class="num">'+num(r.net)+'</td><td class="num">'+num(r.vat)+'</td><td class="num grand">'+num(r.grand)+'</td>'
           +'<td class="txt" style="color:#64748b">'+esc(r.note)+'</td><td class="txt">'+actCell(r.pid)+'</td></tr>';
       } else {
         body+='<tr><td class="num">'+esc(r.date)+'</td><td class="txt">'+esc(r.sup)+'</td><td class="txt">'+esc(r.item)+'</td>'
+          +'<td class="num">'+cntCell(r)+'</td><td class="num">'+qty(r.weight)+'</td>'
           +'<td class="num">'+num(r.net)+'</td><td class="num">'+num(r.vat)+'</td><td class="num grand">'+num(r.grand)+'</td>'
           +'<td class="txt">'+actCell(r.pid)+'</td></tr>';
       }
@@ -3055,7 +3057,7 @@ function renderPurchases(){
       +'<td></td><td class="num">'+qty(T.weight)+'</td><td></td><td></td>'
       +'<td class="num">'+num(T.net)+'</td><td class="num">'+num(T.vat)+'</td><td class="num">'+num(T.grand)+'</td><td colspan="2"></td></tr>';
     else body+='<tr class="reg-total"><td class="txt" colspan="3">الإجمالي — '+d.invoices+' فاتورة · '+rows.length+' سطر</td>'
-      +'<td class="num">'+num(T.net)+'</td><td class="num">'+num(T.vat)+'</td><td class="num">'+num(T.grand)+'</td><td></td></tr>';
+      +'<td></td><td class="num">'+qty(T.weight)+'</td><td class="num">'+num(T.net)+'</td><td class="num">'+num(T.vat)+'</td><td class="num">'+num(T.grand)+'</td><td></td></tr>';
   }
   document.getElementById('tbPurchases').innerHTML=body;
   var k=document.getElementById('purchaseKpis');
@@ -3139,6 +3141,8 @@ function renderSales(){
     :[{h:'التاريخ',f:function(r){return esc(r.date);}},
       {h:'العميل',f:function(r){return esc(r.cl);}},
       {h:'الصنف',f:function(r){return esc(r.item);}},
+      {h:'العدد',num:1,f:function(r){return r.byKg?(r.boxes?qty(r.boxes)+' صندوق':'—'):(qty(r.units)+' '+esc(r.unit||''));}},
+      {h:'الوزن (كغ)',num:1,tot:'weight',f:function(r){return qty(r.weight);}},
       {h:'الصافي',num:1,tot:'net',f:function(r){return num(r.net);}},
       {h:'الضريبة',num:1,tot:'vat',f:function(r){return num(r.vat);}},
       {h:'الإجمالي',num:1,grand:1,tot:'grand',f:function(r){return num(r.grand);}},
