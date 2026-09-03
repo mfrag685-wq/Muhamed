@@ -1302,7 +1302,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-08-14-q';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-08-14-r';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -1975,12 +1975,13 @@ function onPickItem(p){
 }
 /* أوزان الصناديق التي استُخدمت فعلاً لهذا الصنف (من الحركات) + أوزان وحدته — لاقتراحها في الإدخال */
 function itemBoxWeights(itemId){
-  var set={}, add=function(w){ w=+w; if(w>0) set[Math.round(w*1000)/1000]=1; };
-  var it=byId(db.items,itemId);
+  var set={}, add=function(w){ w=Math.round((+w||0)*1000)/1000; if(w>0) set[w]=1; };
+  var it=byId(db.items,itemId), byKg=!!(it&&it.byKg);
+  var wOf=function(x){ return byKg?x.boxW:x.uw; };   /* بالكيلو: وزن الصندوق · بالوحدة: وزن الوحدة */
   if(it&&Array.isArray(it.boxWeights)) it.boxWeights.forEach(add);   /* أوزان محفوظة على الصنف */
-  db.purchases.forEach(function(p){(p.lines||[]).forEach(function(l){ if(l.itemId===itemId&&l.boxW) add(l.boxW); });});
-  db.sales.forEach(function(s){(s.lines||[]).forEach(function(l){ if(l.itemId===itemId&&l.boxW) add(l.boxW); });});
-  [db.preturns,db.sreturns,db.transfers,db.waste,db.openingStock].forEach(function(arr){(arr||[]).forEach(function(r){ if(r.itemId===itemId&&r.boxW) add(r.boxW); });});
+  db.purchases.forEach(function(p){(p.lines||[]).forEach(function(l){ if(l.itemId===itemId) add(wOf(l)); });});
+  db.sales.forEach(function(s){(s.lines||[]).forEach(function(l){ if(l.itemId===itemId) add(wOf(l)); });});
+  [db.preturns,db.sreturns,db.transfers,db.waste,db.openingStock].forEach(function(arr){(arr||[]).forEach(function(r){ if(r.itemId===itemId) add(wOf(r)); });});
   if(it) unitWeights(it.unit).forEach(add);
   return Object.keys(set).map(Number).sort(function(a,b){return a-b;});
 }
@@ -1997,13 +1998,15 @@ function applyItemTracking(p,it){
   var uL=document.getElementById('lbl_'+p+'_units'), wL=document.getElementById('lbl_'+p+'_uw');
   if(uL) uL.textContent=(byKg?'عدد الصناديق':'عدد الوحدات')+' *';
   if(wL) wL.textContent=(byKg?'وزن الصندوق (كغ)':(p==='pl'?'معامل التحويل — وزن الوحدة (كغ)':'وزن الوحدة (كغ)'))+' *';
-  if(byKg){
-    var ws=itemBoxWeights(it.id), dl=document.getElementById('dl_'+p+'_uw');
-    if(dl) dl.innerHTML=ws.map(function(w){return '<option value="'+w+'">'+w+' كغ</option>';}).join('');
-    var hint=document.getElementById(p+'_uwHint');
-    if(hint) hint.textContent=ws.length?('أوزان الصناديق المستخدمة: '+ws.join(' / ')+' كغ — اكتب وزن الصندوق (إلزامي)'):'اكتب وزن الصندوق بالكيلو (إلزامي)';
-    /* لا نملأ الوزن تلقائياً للأصناف بالكيلو — يبقى إلزامياً بإدخال المستخدم */
+  /* اقتراح الأوزان المتعددة لكل الأصناف (بالكيلو أو بالوحدة) — إدخال حرّ + حفظ الجديد */
+  var ws=itemBoxWeights(it.id), dl=document.getElementById('dl_'+p+'_uw');
+  if(dl) dl.innerHTML=ws.map(function(w){return '<option value="'+w+'">'+w+' كغ</option>';}).join('');
+  var hint=document.getElementById(p+'_uwHint');
+  if(hint){
+    var lead=byKg?'أوزان الصناديق':'أوزان الوحدة';
+    hint.textContent=ws.length?(lead+' المتاحة: '+ws.join(' / ')+' كغ — أو اكتب وزناً آخر'):(byKg?'اكتب وزن الصندوق بالكيلو (إلزامي)':'اكتب وزن الوحدة بالكيلو (إلزامي)');
   }
+  /* لا نملأ وزن الصندوق تلقائياً للأصناف بالكيلو — يبقى إلزامياً بإدخال المستخدم */
 }
 function showAvail(){
   var w=+val('sl_wh'), i=+val('sl_item'), it=byId(db.items,i);
@@ -2038,7 +2041,7 @@ function addLine(k){
   if(units<=0){ toast(byKg?'أدخل عدد الصناديق (إلزامي)':'أدخل الكمية (إلزامي)'); return; }
   if(uw<=0){ toast(byKg?'أدخل وزن الصندوق بالكيلو (إلزامي)':'أدخل وزن الوحدة بالكيلو (إلزامي)'); return; }
   if(price<=0){ toast('أدخل السعر (إلزامي)'); return; }
-  if(byKg) rememberBoxWeight(itemId,uw);   /* حفظ وزن صندوق جديد ليصبح اقتراحاً دائماً */
+  rememberBoxWeight(itemId,uw);   /* حفظ أي وزن جديد (صندوق/وحدة) ليصبح اقتراحاً دائماً */
   var unitName=k==='p'?(val('pl_unit')||itemUnit(itemId)):itemUnit(itemId);
   /* للأصناف بالكيلو: تُدخَل الصناديق (u) بوزن (uw) فيُخزَّن السطر بالكيلو (وحدة=1كغ) مع حفظ الصناديق للعرض */
   function mk(u,wh){
@@ -2075,7 +2078,7 @@ function addLine(k){
   }
   setVal(p+'_units',''); setVal(p+'_price',''); setVal(p+'_total','');
   if(document.getElementById(p+'_tw')) setVal(p+'_tw','');
-  if(byKg&&it0) applyItemTracking(p,it0);   /* تحديث قائمة الأوزان المقترحة فوراً بالوزن الجديد */
+  if(it0) applyItemTracking(p,it0);   /* تحديث قائمة الأوزان المقترحة فوراً بالوزن الجديد */
   renderDraft(k); if(k==='s') showAvail();
 }
 function delLine(k,i){ draft[k].lines.splice(i,1); renderDraft(k); }
@@ -2147,7 +2150,7 @@ function savePurchase(){
     db.purchases.push(rec);
     log('add','المشتريات','فاتورة شراء '+(rec.no||'#'+rec.id)+' — '+supName(rec.supplierId)+' بقيمة '+num(pv.net)+' و'+num(wt)+' كغ');
   }
-  (rec.lines||[]).forEach(function(l){ if(l.boxW) rememberBoxWeight(l.itemId,l.boxW); });
+  (rec.lines||[]).forEach(function(l){ rememberBoxWeight(l.itemId,l.boxW||l.uw); });
   cancelDoc('p'); commit('تم حفظ فاتورة الشراء');
 }
 function saveSale(){
@@ -2167,7 +2170,7 @@ function saveSale(){
     db.sales.push(rec);
     log('add','المبيعات','فاتورة بيع '+(rec.no||'#'+rec.id)+' — '+clientName(rec.clientId)+' بقيمة '+num(sv.net)+' و'+num(wt)+' كغ');
   }
-  (rec.lines||[]).forEach(function(l){ if(l.boxW) rememberBoxWeight(l.itemId,l.boxW); });
+  (rec.lines||[]).forEach(function(l){ rememberBoxWeight(l.itemId,l.boxW||l.uw); });
   cancelDoc('s'); commit('تم حفظ فاتورة البيع');
 }
 function editDoc(k,id){
@@ -5117,6 +5120,7 @@ function importRow(k,v){
       var kg=units*uw; rememberBoxWeight(itemId,uw);
       line={itemId:itemId,unit:'كيلو',units:kg,uw:1,basis:'kg',price:(kg>0?total/kg:0),total:total,whId:whId,boxes:units,boxW:uw};
     } else {
+      rememberBoxWeight(itemId,uw);
       line={itemId:itemId,unit:itemUnit(itemId),units:units,uw:uw,basis:basis,price:price,total:total,whId:whId};
     }
     var arr2=k==='purchases'?db.purchases:db.sales;
