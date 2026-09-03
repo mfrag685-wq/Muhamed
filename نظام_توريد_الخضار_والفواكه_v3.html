@@ -1308,7 +1308,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-08-15-a';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-08-15-b';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -1657,41 +1657,70 @@ function startApp(){
   applyPerms(); setDefaults(); renderAll(); renderMaster(); renderUsers(); renderSettingsForm(); applyLogo();
   setTimeout(welcomeUser,600);   /* رسالة ترحيب ظريفة لكل مستخدم مع علم دولته */
 }
-/* ---------- رسائل الترحيب ---------- */
+/* ---------- رسائل الترحيب (مخصّصة لكل مستخدم مع تدوير تتابعي) ---------- */
 function isYahya(u){ var un=(u&&u.username||'').toLowerCase(), nm=(u&&u.name||''); return un==='yahya'||nm.indexOf('يحيى')>-1||nm.toLowerCase().indexOf('yahya')>-1; }
+var WELCOME_MSGS={
+  'yahya':[
+    'أهلاً بك يا أبا عبد الله. تشرفت بتجاوبك المستمر ودقتك المعهودة في إنجاز المهام.',
+    'مرحباً بك يا أبا عبد الله. رؤيتك الواعية للتقارير تمنحنا اتجاهاً صحيحاً ومدروساً للعمل.',
+    'أهلاً بك يا أبا عبد الله. حرصك على بلوغ الدقة في كل تفصيل يختصر الكثير من الجهد والوقت.',
+    'مرحباً بك يا أبا عبد الله. خبرتك الكبيرة في قطاع التوريدات والمبيعات تمثل ركيزة أساسية لنجاحنا.',
+    'أهلاً بك يا أبا عبد الله. تعاونك الدائم وسرعة استجابتك للتعليمات تعكسان احترافية عالية.'
+  ],
+  'mohamed alam':[
+    'أهلاً بك يا محمد. بتكاتف الجهود وتعاون الفريق، نصنع فارقاً حقيقياً اليوم.',
+    'مرحباً يا محمد. الأفكار الابتكارية تثمر وتنجح أكثر عندما تتناغم مع جهود الفريق الواحد.',
+    'أهلاً بك يا محمد. نجاح المنظومة يبدأ من تكامل العقول وانسجام الفريق معاً.',
+    'مرحباً يا محمد. روح العمل الجماعي هي السر الحقيقي خلف كل إنجاز متجدد.',
+    'أهلاً بك يا محمد. نتطلع دائماً لتوظيف الطاقات الفردية لخدمة الهدف المشترك للفريق.'
+  ],
+  'amro':[
+    'أهلاً بك يا عمرو. نثق بخبرتك، ومعاً سنرى كيف يسهل النظام مهامنا اليومية.',
+    'مرحباً يا عمرو. خطوة موفقة، ونتطلع لأن نرى أثر خبرتك الميدانية في تطوير سير العمل.',
+    'أهلاً بك يا عمرو. بداية يوم مثمر، ونثق أننا سنكتشف معاً قيمة الميزات التنظيمية الجديدة اليوم.',
+    'مرحباً يا عمرو. رؤيتك النقدية تحفزنا دائماً لتحسين الأدوات وجعلها أكثر راحة للجميع.',
+    'أهلاً بك يا عمرو. نرحب بك دائماً، وكلنا أمل أن تجد في النظام الجديد مرونة تخدم عملك.'
+  ],
+  'abdelnaser':[
+    'أهلاً بك يا عبد الناصر. جهودك ودقتك في إدخال البيانات هي أساس نجاح العمل.',
+    'مرحباً يا عبد الناصر. عملك المتقن وانتظامك في تحديث السجلات يختصر الكثير من الجهد.',
+    'أهلاً بك يا عبد الناصر. بصمتك الواضحة وحرصك على حفظ التفاصيل بدقة تستحق كل تقدير.',
+    'مرحباً يا عبد الناصر. التزامك ببيئة البيانات يضمن لنا رؤية واضحة ومستقرة للأعمال.',
+    'أهلاً بك يا عبد الناصر. شكراً لجهودك المتفانية في حفظ وتنظيم السجلات بكل أمانة.'
+  ]
+};
 function welcomeUser(){
   if(!ME) return;
-  var pal=isYahya(ME), flag=pal?'🇵🇸':'🇪🇬', name=pal?'أبو عبد الله':(ME.name||'صديقنا');
-  var pool=pal?[
-    'أهلاً أبا عبد الله — نوّرت النظام يا سند الفريق، ويومك موفّق بإذن الله',
-    'يا هلا بأبو عبد الله — حضورك بركة وشغلك دقّة، سدِّد وأبشر بالخير',
-    'أبو عبد الله على المنصّة — الأرقام بأمان بين يديك، والتوفيق حليفك اليوم',
-    'مرحباً أبا عبد الله — من فلسطين عزيمة لا تلين، بالتوفيق في تسجيلاتك',
-    'نوّر أبو عبد الله — رجل الدقّة والإتقان، ربنا يبارك في شغلك'
-  ]:[
-    'أهلاً يا '+name+' — نوّرت! يلّا نظبّط الفواتير على أصولها، ويومك فل',
-    'يا مرحب بـ '+name+' — الدقّة شعارنا والبركة في شغلك، بالتوفيق النهاردة',
-    name+' دخل الشغل — خلّي تسجيلاتك زي الفل، وربنا يوفّقك',
-    'أهلاً بأسطى الحسابات '+name+' — النظام في أمان معاك، يوم سعيد ومنتِج',
-    'نوّرت يا '+name+' — شدّ حيلك، والأرقام هتمشي زي الساعة. بالتوفيق'
-  ];
-  var msg=pool[Math.floor(Math.random()*pool.length)];
+  var un=(ME.username||'').trim().toLowerCase(), nm=(ME.name||'').trim();
+  var flag=isYahya(ME)?'🇵🇸':'🇪🇬';
+  var pool=WELCOME_MSGS[un]||WELCOME_MSGS[nm.toLowerCase()];   /* مطابقة بالمعرّف أو الاسم */
+  if(!pool){   /* رسائل عامة لأي مستخدم غير مُدرَج */
+    var who=nm||'صديقنا';
+    pool=['أهلاً بك يا '+who+'. سعدنا بعودتك، ونتمنى لك يوماً موفقاً ومثمراً بإذن الله.',
+          'مرحباً يا '+who+'. حضورك إضافة للفريق، بالتوفيق في مهامك اليوم.',
+          'أهلاً بك يا '+who+'. جاهزون ليوم عمل منظّم ودقيق، شكراً لجهودك.'];
+  }
+  var key='wlc_'+(un||nm), n=0;
+  try{ n=parseInt(localStorage.getItem(key)||'0',10)||0; }catch(e){}
+  var msg=pool[n%pool.length];
+  try{ localStorage.setItem(key,String(n+1)); }catch(e){}   /* تدوير تتابعي مع كل دخول */
   showWelcome(flag,msg);
 }
 function showWelcome(flag,msg){
   var old=document.getElementById('welcomeBanner'); if(old) old.remove();
+  var company=(db.settings&&db.settings.company)||'شركة جبار البيشي للتجارة والاستيراد';
   var d=document.createElement('div'); d.id='welcomeBanner';
-  d.style.cssText='position:fixed;top:16px;left:50%;transform:translateX(-50%) translateY(-14px);z-index:9999;'
-    +'background:linear-gradient(135deg,#0f766e,#065f46);color:#fff;padding:14px 22px;border-radius:16px;'
-    +'box-shadow:0 14px 38px rgba(0,0,0,.30);max-width:92%;text-align:center;line-height:1.7;'
-    +'opacity:0;transition:opacity .45s ease,transform .45s ease;direction:rtl;cursor:pointer';
-  d.innerHTML='<div style="font-size:32px;line-height:1">'+flag+'</div>'
-    +'<div style="font-weight:800;font-size:16px;margin-top:4px">'+esc(msg)+'</div>'
-    +'<div style="font-size:11px;opacity:.85;margin-top:4px">'+esc((db.settings&&db.settings.company)||'نظام التوريد')+'</div>';
+  d.style.cssText='position:fixed;top:18px;left:50%;transform:translateX(-50%) translateY(-14px);z-index:9999;'
+    +'background:linear-gradient(135deg,#1b3b2b 0%,#0f241a 100%);color:#fff;padding:20px 26px;border-radius:14px;'
+    +'box-shadow:0 12px 30px rgba(0,0,0,.28);max-width:480px;width:92%;text-align:center;line-height:1.7;'
+    +'border:1px solid rgba(212,175,55,.4);opacity:0;transition:opacity .45s ease,transform .45s ease;direction:rtl;cursor:pointer';
+  d.innerHTML='<div style="font-size:11px;letter-spacing:1.5px;color:#d4af37;font-weight:700;margin-bottom:8px">'+esc(company)+'</div>'
+    +'<div style="font-size:30px;line-height:1;margin-bottom:6px">'+flag+'</div>'
+    +'<div style="font-size:15px;font-weight:500;color:#f7f7f7">'+esc(msg)+'</div>';
   d.onclick=function(){ d.style.opacity='0'; setTimeout(function(){ if(d.parentNode) d.remove(); },450); };
   document.body.appendChild(d);
   requestAnimationFrame(function(){ d.style.opacity='1'; d.style.transform='translateX(-50%) translateY(0)'; });
-  setTimeout(function(){ if(d.parentNode){ d.style.opacity='0'; d.style.transform='translateX(-50%) translateY(-14px)'; setTimeout(function(){ if(d.parentNode) d.remove(); },500); } },5400);
+  setTimeout(function(){ if(d.parentNode){ d.style.opacity='0'; d.style.transform='translateX(-50%) translateY(-14px)'; setTimeout(function(){ if(d.parentNode) d.remove(); },500); } },6500);
 }
 /* ---------- الأقسام: التبديل والصلاحيات ---------- */
 function userDepts(){ /* الأقسام المسموح بها للمستخدم الحالي */
