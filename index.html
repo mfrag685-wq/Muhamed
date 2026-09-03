@@ -1308,7 +1308,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-08-14-z';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-08-15-a';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -1655,6 +1655,43 @@ function startApp(){
   document.getElementById('uAvatar').textContent=(ME.name||'؟').trim().charAt(0);
   updateDeptUI();
   applyPerms(); setDefaults(); renderAll(); renderMaster(); renderUsers(); renderSettingsForm(); applyLogo();
+  setTimeout(welcomeUser,600);   /* رسالة ترحيب ظريفة لكل مستخدم مع علم دولته */
+}
+/* ---------- رسائل الترحيب ---------- */
+function isYahya(u){ var un=(u&&u.username||'').toLowerCase(), nm=(u&&u.name||''); return un==='yahya'||nm.indexOf('يحيى')>-1||nm.toLowerCase().indexOf('yahya')>-1; }
+function welcomeUser(){
+  if(!ME) return;
+  var pal=isYahya(ME), flag=pal?'🇵🇸':'🇪🇬', name=pal?'أبو عبد الله':(ME.name||'صديقنا');
+  var pool=pal?[
+    'أهلاً أبا عبد الله — نوّرت النظام يا سند الفريق، ويومك موفّق بإذن الله',
+    'يا هلا بأبو عبد الله — حضورك بركة وشغلك دقّة، سدِّد وأبشر بالخير',
+    'أبو عبد الله على المنصّة — الأرقام بأمان بين يديك، والتوفيق حليفك اليوم',
+    'مرحباً أبا عبد الله — من فلسطين عزيمة لا تلين، بالتوفيق في تسجيلاتك',
+    'نوّر أبو عبد الله — رجل الدقّة والإتقان، ربنا يبارك في شغلك'
+  ]:[
+    'أهلاً يا '+name+' — نوّرت! يلّا نظبّط الفواتير على أصولها، ويومك فل',
+    'يا مرحب بـ '+name+' — الدقّة شعارنا والبركة في شغلك، بالتوفيق النهاردة',
+    name+' دخل الشغل — خلّي تسجيلاتك زي الفل، وربنا يوفّقك',
+    'أهلاً بأسطى الحسابات '+name+' — النظام في أمان معاك، يوم سعيد ومنتِج',
+    'نوّرت يا '+name+' — شدّ حيلك، والأرقام هتمشي زي الساعة. بالتوفيق'
+  ];
+  var msg=pool[Math.floor(Math.random()*pool.length)];
+  showWelcome(flag,msg);
+}
+function showWelcome(flag,msg){
+  var old=document.getElementById('welcomeBanner'); if(old) old.remove();
+  var d=document.createElement('div'); d.id='welcomeBanner';
+  d.style.cssText='position:fixed;top:16px;left:50%;transform:translateX(-50%) translateY(-14px);z-index:9999;'
+    +'background:linear-gradient(135deg,#0f766e,#065f46);color:#fff;padding:14px 22px;border-radius:16px;'
+    +'box-shadow:0 14px 38px rgba(0,0,0,.30);max-width:92%;text-align:center;line-height:1.7;'
+    +'opacity:0;transition:opacity .45s ease,transform .45s ease;direction:rtl;cursor:pointer';
+  d.innerHTML='<div style="font-size:32px;line-height:1">'+flag+'</div>'
+    +'<div style="font-weight:800;font-size:16px;margin-top:4px">'+esc(msg)+'</div>'
+    +'<div style="font-size:11px;opacity:.85;margin-top:4px">'+esc((db.settings&&db.settings.company)||'نظام التوريد')+'</div>';
+  d.onclick=function(){ d.style.opacity='0'; setTimeout(function(){ if(d.parentNode) d.remove(); },450); };
+  document.body.appendChild(d);
+  requestAnimationFrame(function(){ d.style.opacity='1'; d.style.transform='translateX(-50%) translateY(0)'; });
+  setTimeout(function(){ if(d.parentNode){ d.style.opacity='0'; d.style.transform='translateX(-50%) translateY(-14px)'; setTimeout(function(){ if(d.parentNode) d.remove(); },500); } },5400);
 }
 /* ---------- الأقسام: التبديل والصلاحيات ---------- */
 function userDepts(){ /* الأقسام المسموح بها للمستخدم الحالي */
