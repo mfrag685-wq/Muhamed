@@ -1308,7 +1308,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-08-15-b';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-08-15-c';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -1707,20 +1707,37 @@ function welcomeUser(){
   showWelcome(flag,msg);
 }
 function showWelcome(flag,msg){
-  var old=document.getElementById('welcomeBanner'); if(old) old.remove();
+  var old=document.getElementById('welcomeOverlay'); if(old) old.remove();
   var company=(db.settings&&db.settings.company)||'شركة جبار البيشي للتجارة والاستيراد';
-  var d=document.createElement('div'); d.id='welcomeBanner';
-  d.style.cssText='position:fixed;top:18px;left:50%;transform:translateX(-50%) translateY(-14px);z-index:9999;'
-    +'background:linear-gradient(135deg,#1b3b2b 0%,#0f241a 100%);color:#fff;padding:20px 26px;border-radius:14px;'
-    +'box-shadow:0 12px 30px rgba(0,0,0,.28);max-width:480px;width:92%;text-align:center;line-height:1.7;'
-    +'border:1px solid rgba(212,175,55,.4);opacity:0;transition:opacity .45s ease,transform .45s ease;direction:rtl;cursor:pointer';
-  d.innerHTML='<div style="font-size:11px;letter-spacing:1.5px;color:#d4af37;font-weight:700;margin-bottom:8px">'+esc(company)+'</div>'
-    +'<div style="font-size:30px;line-height:1;margin-bottom:6px">'+flag+'</div>'
-    +'<div style="font-size:15px;font-weight:500;color:#f7f7f7">'+esc(msg)+'</div>';
-  d.onclick=function(){ d.style.opacity='0'; setTimeout(function(){ if(d.parentNode) d.remove(); },450); };
-  document.body.appendChild(d);
-  requestAnimationFrame(function(){ d.style.opacity='1'; d.style.transform='translateX(-50%) translateY(0)'; });
-  setTimeout(function(){ if(d.parentNode){ d.style.opacity='0'; d.style.transform='translateX(-50%) translateY(-14px)'; setTimeout(function(){ if(d.parentNode) d.remove(); },500); } },6500);
+  var ov=document.createElement('div'); ov.id='welcomeOverlay';
+  ov.style.cssText='position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;'
+    +'direction:rtl;background:radial-gradient(circle at center,rgba(0,0,0,.34),rgba(0,0,0,.64));'
+    +'backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)';
+  var card=document.createElement('div');
+  card.style.cssText='position:relative;overflow:hidden;background:linear-gradient(135deg,#1b3b2b 0%,#0f241a 100%);color:#fff;'
+    +'padding:32px 34px;border-radius:22px;max-width:480px;width:92%;text-align:center;line-height:1.85;'
+    +'box-shadow:0 26px 64px rgba(0,0,0,.55),0 0 0 1px rgba(212,175,55,.55),0 0 44px rgba(212,175,55,.16)';
+  card.innerHTML='<div style="font-size:12px;letter-spacing:2px;color:#d4af37;font-weight:800;margin-bottom:14px">'+esc(company)+'</div>'
+    +'<div id="wlcFlag" style="font-size:54px;line-height:1;margin-bottom:12px">'+flag+'</div>'
+    +'<div style="font-size:16px;font-weight:600;color:#f7f7f7">'+esc(msg)+'</div>'
+    +'<div style="margin:18px auto 0;height:3px;width:64px;background:linear-gradient(90deg,transparent,#d4af37,transparent);border-radius:2px"></div>';
+  var shine=document.createElement('div');
+  shine.style.cssText='position:absolute;top:0;left:-60%;width:45%;height:100%;pointer-events:none;transform:skewX(-20deg);'
+    +'background:linear-gradient(120deg,transparent,rgba(255,255,255,.14),transparent)';
+  card.appendChild(shine);
+  ov.appendChild(card); document.body.appendChild(ov);
+  var closed=false, dismiss=function(){ if(closed||!ov.parentNode) return; closed=true;
+    ov.animate([{opacity:1},{opacity:0}],{duration:480,easing:'ease',fill:'forwards'});
+    var a=card.animate([{opacity:1,transform:'scale(1) translateY(0)'},{opacity:0,transform:'scale(.82) translateY(-26px)'}],{duration:480,easing:'cubic-bezier(.4,0,1,1)',fill:'forwards'});
+    a.onfinish=function(){ if(ov.parentNode) ov.remove(); };
+  };
+  ov.onclick=dismiss;
+  ov.animate([{opacity:0},{opacity:1}],{duration:320,fill:'forwards'});
+  card.animate([{opacity:0,transform:'scale(.6) translateY(34px)'},{opacity:1,transform:'scale(1.04) translateY(0)',offset:.7},{opacity:1,transform:'scale(1) translateY(0)'}],{duration:680,easing:'cubic-bezier(.34,1.56,.64,1)',fill:'backwards'});
+  var fl=card.querySelector('#wlcFlag');
+  if(fl) fl.animate([{transform:'scale(.35) rotate(-14deg)',opacity:0},{transform:'scale(1.28) rotate(7deg)',opacity:1,offset:.6},{transform:'scale(1) rotate(0)',opacity:1}],{duration:850,delay:160,easing:'cubic-bezier(.34,1.56,.64,1)',fill:'backwards'});
+  shine.animate([{left:'-60%'},{left:'130%'}],{duration:1300,delay:450,easing:'ease-in-out',fill:'forwards'});
+  setTimeout(dismiss,5200);
 }
 /* ---------- الأقسام: التبديل والصلاحيات ---------- */
 function userDepts(){ /* الأقسام المسموح بها للمستخدم الحالي */
