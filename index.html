@@ -492,7 +492,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
         <option value="single">الكمية كاملة لمستودع واحد</option>
         <option value="units">توزيع بكميات محددة على الفروع</option>
         <option value="percents">توزيع بنسب مئوية على الفروع</option></select></div>
-      <div class="field" id="pl_whWrap"><label>المستودع المستلم</label><select id="pl_wh"></select></div>
+      <div class="field" id="pl_whWrap"><label>المستودع المستلم</label><select id="pl_wh" onchange="fillPurchaseItems()"></select></div>
     </div>
     <div id="pl_distBox" class="hidden" style="margin-top:12px">
       <div class="sec-title" style="margin-top:0">توزيع الكمية على المستودعات</div>
@@ -566,7 +566,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
     <div class="sec-title" style="margin-top:18px">أصناف الفاتورة</div>
     <div class="grid">
       <div class="field"><label>الصنف</label><select id="sl_item" onchange="onPickItem('sl')"></select></div>
-      <div class="field"><label>المستودع المصدر</label><select id="sl_wh" onchange="showAvail()"></select></div>
+      <div class="field"><label>المستودع المصدر</label><select id="sl_wh" onchange="fillSaleItems();showAvail()"></select></div>
       <div class="field"><label>الرصيد المتاح</label><input type="text" id="sl_avail" readonly></div>
       <div class="field"><label id="lbl_sl_units">عدد الوحدات *</label><input type="number" id="sl_units" step="0.01" min="0" oninput="calcLine('sl')"></div>
       <div class="field"><label id="lbl_sl_uw">وزن الوحدة (كغ) *</label><input type="number" id="sl_uw" step="0.01" min="0" oninput="calcLine('sl')" list="dl_sl_uw">
@@ -1103,6 +1103,8 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
             <option value="0">بالوحدة (صندوق/شوال…)</option>
             <option value="1">بالكيلو — يُخزَّن ويُسحب بالكيلوجرام</option></select>
             <span class="mini">للأصناف ذات أوزان صناديق مختلفة (بطاطس…): تُدخِل الصناديق فيُحوَّل المخزون تلقائياً إلى كيلو.</span></div>
+          <div class="field"><label>مستودع/فرع الصنف (لتمييز الجودات)</label><select id="it_wh"></select>
+            <span class="mini">اختر مستودعاً ليظهر هذا الصنف عند الشراء/البيع من ذلك المستودع فقط. «عام» = يظهر لكل المستودعات.</span></div>
           <div class="field"><label>حد إعادة الطلب (وحدات)</label><input type="number" id="it_min" step="0.01" min="0" placeholder="0"></div>
           <div class="field"><label>الحالة</label><select id="it_active"><option value="1">نشط — يظهر عند الإضافة</option><option value="0">متوقف — يبقى في السجلات فقط</option></select></div>
         </div>
@@ -1302,7 +1304,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-08-14-w';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-08-14-x';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -1858,6 +1860,18 @@ function fillSelect(id,html,keep){
 }
 function activeItems(){ return db.items.filter(function(i){ return i.active!==0; }); }
 function itemLabel(i){ return i.name+(i.active===0?' (متوقف)':''); }
+/* ===== أصناف خاصة بكل مستودع (لتمييز الجودات) ===== */
+function itemWhLabel(i){ return i.name+(i.whId?' — '+whName(i.whId):''); }
+/* أصناف الشراء لمستودع: العامة + الخاصة بهذا المستودع */
+function itemsForWh(whId){ whId=+whId||0; return activeItems().filter(function(i){ return !i.whId||i.whId===whId; }); }
+/* أصناف البيع لمستودع: العامة + الخاصة به + ما له رصيد فعلي فيه (بعد التحويلات) */
+function saleItemsForWh(whId){ whId=+whId||0; if(!whId) return activeItems();
+  var has={}; if(!L) refreshLedger();
+  Object.keys(L.stock).forEach(function(k){ var s=L.stock[k]; if(s.whId===whId&&Math.abs(s.units)>0.0001) has[s.itemId]=1; });
+  return activeItems().filter(function(i){ return !i.whId||i.whId===whId||has[i.id]; }); }
+function fillPurchaseItems(){ var w=+val('pl_wh'), single=(val('pl_dist')!=='single'?false:true);
+  fillSelect('pl_item',opts((single&&w)?itemsForWh(w):activeItems(),'id',itemWhLabel)); }
+function fillSaleItems(){ var w=+val('sl_wh'); fillSelect('sl_item',opts(w?saleItemsForWh(w):activeItems(),'id',itemWhLabel)); }
 /* تعبئة قائمة اقتراحات البحث (datalist) بأسماء الجهات */
 function fillDatalist(id,arr){ var el=document.getElementById(id); if(!el) return;
   el.innerHTML=(arr||[]).map(function(o){ return '<option value="'+esc(o.name)+'"></option>'; }).join(''); }
@@ -1916,7 +1930,6 @@ function fillAllSelects(){
     +db.suppliers.map(function(s){return '<option value="'+s.id+'">'+esc(s.name)+'</option>';}).join(''));
   fillSelect('wh_client',opts(db.clients,'id',nm,'مستودع عام لكل الفروع'));
   /* عند الإدخال الجديد (شراء/بيع) تظهر الأصناف النشطة فقط؛ التحويل والفاقد والمرتجعات وقوائم الاستعراض تظهر الكل مع وسم المتوقف */
-  ['pl_item','sl_item'].forEach(function(id){ fillSelect(id,opts(activeItems(),'id',nm)); });
   ['t_item','w_item','os_item'].forEach(function(id){ fillSelect(id,opts(db.items,'id',itemLabel)); });
   fillSelect('st_item',opts(db.items,'id',itemLabel,'كل الأصناف'));
   fillSelect('rp_item',opts(db.items,'id',itemLabel,'كل الأصناف'));
@@ -1924,6 +1937,8 @@ function fillAllSelects(){
   fillSelect('pl_unit',opts(db.units,'name',function(u){return u.name+(u.weights&&u.weights.length?' ('+u.weights.length+' أوزان)':'');}));
   refreshUW('it'); refreshUW('pl');
   ['pl_wh','sl_wh','r_wh','t_from','t_to','w_wh','os_wh'].forEach(function(id){ fillSelect(id,opts(db.warehouses,'id',whTxt)); });
+  fillSelect('it_wh',opts(db.warehouses,'id',whTxt,'عام — كل المستودعات'));
+  fillPurchaseItems(); fillSaleItems();   /* أصناف الشراء/البيع مُصفّاة حسب المستودع المختار */
   fillSelect('st_wh',opts(db.warehouses,'id',whTxt,'كل المستودعات'));
   fillSelect('rp_wh',opts(db.warehouses,'id',whTxt,'كل المستودعات'));
   fillSelect('au_user',opts(db.users,'id',nm,'كل المستخدمين'));
@@ -2033,7 +2048,7 @@ function onItemUnitPick(){
 function onSaleClient(){
   var cid=+val('s_client'), ws=clientWhs(cid);
   if(ws.length) setVal('sl_wh',ws[0].id);
-  showAvail();
+  fillSaleItems(); showAvail();
 }
 function addLine(k){
   var p=k==='p'?'pl':'sl';
@@ -2088,12 +2103,13 @@ function delLine(k,i){ draft[k].lines.splice(i,1); renderDraft(k); }
 function editLine(k,i){
   var p=k==='p'?'pl':'sl', l=draft[k].lines[i]; if(!l) return;
   var it=byId(db.items,l.itemId), bk=!!(it&&it.byKg);
+  /* اضبط المستودع أولاً ثم صفِّ الأصناف كي يظهر الصنف الخاص بذلك المستودع */
+  if(k==='p'){ if(document.getElementById('pl_dist')) setVal('pl_dist','single'); onPurchaseDist&&onPurchaseDist(); setVal('pl_wh',l.whId); fillPurchaseItems(); }
+  else { setVal('sl_wh',l.whId); fillSaleItems(); }
   setVal(p+'_item',l.itemId); onPickItem(p);   /* يضبط الوحدة والتسميات */
   if(bk){ setVal(p+'_units',l.boxes!=null?l.boxes:''); setVal(p+'_uw',l.boxW!=null?l.boxW:''); setVal(p+'_basis','kg'); }
   else { setVal(p+'_units',l.units); setVal(p+'_uw',l.uw); setVal(p+'_basis',l.basis||'unit'); }
   setVal(p+'_price',l.price);
-  if(k==='p'){ if(document.getElementById('pl_dist')) setVal('pl_dist','single'); onPurchaseDist&&onPurchaseDist(); setVal('pl_wh',l.whId); }
-  else setVal('sl_wh',l.whId);
   draft[k].lines.splice(i,1); renderDraft(k); calcLine(p); if(k==='s') showAvail();
   toast('عدّل الحقول ثم اضغط «إضافة الصنف للفاتورة» لإعادة السطر');
 }
@@ -2656,18 +2672,18 @@ function saveItem(){
   var n=val('it_name').trim(); if(!n){ toast('أدخل اسم الصنف'); return; }
   if(db.items.filter(function(i){return i.name===n&&i.id!==editId.it;}).length){ toast('اسم الصنف مستخدم'); return; }
   if(!val('it_unit')){ toast('اختر وحدة للصنف — أضف وحدة جديدة إن لم تكن موجودة'); return; }
-  var rec={name:n,unit:val('it_unit'),uw:fnum('it_uw')||1,min:fnum('it_min'),active:Number(val('it_active')),byKg:Number(val('it_bykg'))||0};
+  var rec={name:n,unit:val('it_unit'),uw:fnum('it_uw')||1,min:fnum('it_min'),active:Number(val('it_active')),byKg:Number(val('it_bykg'))||0,whId:(+val('it_wh')||null)};
   var uRec=db.units.filter(function(x){return x.name===rec.unit;})[0];   /* الوزن الجديد يُضاف لقائمة أوزان الوحدة */
   if(uRec&&rec.uw>0&&uRec.weights.indexOf(rec.uw)<0){ uRec.weights.push(rec.uw); uRec.weights.sort(function(a,b){return a-b;}); }
-  if(editId.it){ var it=byId(db.items,editId.it); it.name=rec.name; it.unit=rec.unit; it.uw=rec.uw; it.min=rec.min; it.active=rec.active; it.byKg=rec.byKg;
-    log('edit','البيانات الأساسية','تعديل الصنف '+n+' — '+(rec.active?'نشط':'موقوف')+(rec.byKg?' — تتبّع بالكيلو':'')); }
+  if(editId.it){ var it=byId(db.items,editId.it); it.name=rec.name; it.unit=rec.unit; it.uw=rec.uw; it.min=rec.min; it.active=rec.active; it.byKg=rec.byKg; it.whId=rec.whId;
+    log('edit','البيانات الأساسية','تعديل الصنف '+n+' — '+(rec.active?'نشط':'موقوف')+(rec.byKg?' — تتبّع بالكيلو':'')+(rec.whId?' — مستودع '+whName(rec.whId):'')); }
   else { rec.id=uid(); db.items.push(rec); log('add','البيانات الأساسية','إضافة صنف: '+n+' — وحدة '+rec.unit+' بوزن '+rec.uw+' كغ'); }
   cancelDoc('it'); commit('تم حفظ الصنف'); renderMaster();
 }
 function editItem(id){ if(!guard('canEdit'))return; var i=byId(db.items,id); if(!i)return;
   editId.it=id; setVal('it_name',i.name); setVal('it_unit',i.unit); refreshUW('it');
   setVal('it_uw',i.uw); setVal('it_min',i.min||0);
-  setVal('it_active',String(i.active===0?0:1)); setVal('it_bykg',String(i.byKg?1:0));
+  setVal('it_active',String(i.active===0?0:1)); setVal('it_bykg',String(i.byKg?1:0)); setVal('it_wh',i.whId||'');
   document.getElementById('it_editing').textContent='وضع التعديل'; showTab('master'); }
 function toggleItemActive(id){
   if(!guard('canEdit')) return;
@@ -3687,7 +3703,7 @@ function renderMaster(){
     var u=0; Object.keys(L.stock).forEach(function(k){ if(L.stock[k].itemId===i.id) u+=L.stock[k].units; });
     var isActive=i.active!==0;
     var bw=i.byKg?itemBoxWeights(i.id):[];
-    return '<tr><td class="name"><b>'+esc(i.name)+'</b>'+(i.code?' <span class="mini">('+esc(i.code)+')</span>':'')+(i.byKg?' <span class="pill pill-info">كيلو</span>':'')+'</td><td>'+(i.byKg?'كيلو':esc(i.unit))+'</td><td>'+(i.byKg?(bw.length?'صناديق '+bw.join('/')+' كغ':'بالكيلو'):(qty(i.uw)+' كغ'))+'</td>'
+    return '<tr><td class="name"><b>'+esc(i.name)+'</b>'+(i.code?' <span class="mini">('+esc(i.code)+')</span>':'')+(i.byKg?' <span class="pill pill-info">كيلو</span>':'')+(i.whId?' <span class="pill pill-warn">'+esc(whName(i.whId))+'</span>':'')+'</td><td>'+(i.byKg?'كيلو':esc(i.unit))+'</td><td>'+(i.byKg?(bw.length?'صناديق '+bw.join('/')+' كغ':'بالكيلو'):(qty(i.uw)+' كغ'))+'</td>'
       +'<td>'+qty(i.min||0)+'</td><td>'+qty(u)+(i.min>0&&u<i.min?' <span class="pill pill-warn">تحت الحد</span>':'')+'</td>'
       +'<td><span class="pill '+(isActive?'pill-ok':'pill-bad')+'">'+(isActive?'نشط':'متوقف')+'</span></td>'
       +'<td>'+(can('canEdit')?'<button class="btn-sm" onclick="editItem('+i.id+')">تعديل</button> '
@@ -5534,6 +5550,7 @@ function onPurchaseDist(){
   var mode=val('pl_dist'), single=(mode==='single');
   document.getElementById('pl_whWrap').style.display=single?'flex':'none';
   document.getElementById('pl_distBox').classList.toggle('hidden',single);
+  fillPurchaseItems();   /* التوزيع المتعدد يعرض كل الأصناف؛ المفرد يُصفّى حسب المستودع */
   if(!single) renderPurchaseDist();
 }
 function renderPurchaseDist(){
