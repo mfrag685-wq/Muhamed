@@ -1302,7 +1302,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-08-14-o';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-08-14-p';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -5089,12 +5089,14 @@ function importRow(k,v){
     if(!dt) throw new Error('التاريخ مطلوب (أضف عمود تاريخ أو أدخله عند الاستيراد)');
     var no=(v.no||'').trim();
     var party=needTxt(v.party,k==='purchases'?'المورد':'الفرع/العميل');
-    var units=v.units; if(!units||units<=0) throw new Error('الكمية غير صالحة');
-    var price=v.price; if(!price||price<=0) throw new Error('سعر الوحدة غير صالح');
+    var units=v.units; if(!units||units<=0) throw new Error('الكمية إلزامية — أدخل عدد الصناديق/الوحدات');
+    var price=v.price; if(!price||price<=0) throw new Error('السعر إلزامي');
     var uw=(v.uw&&v.uw>0)?v.uw:0, basis=(String(v.basis||'').indexOf('كيلو')>-1)?'kg':'unit';
     var itemId=resolveItem(v.item,v.code,uw);
     var itRec=byId(db.items,itemId);
-    if(!uw){ uw=(itRec&&itRec.uw>0)?itRec.uw:1; }   /* وزن الوحدة/الصندوق من الصنف إن لم يُذكر */
+    if(itRec&&itRec.byKg&&!uw) throw new Error('وزن الصندوق إلزامي لصنف «'+itemName(itemId)+'» (بالكيلو) — املأ عمود وزن الوحدة/الصندوق');
+    if(!uw){ uw=(itRec&&itRec.uw>0)?itRec.uw:0; }   /* وزن الوحدة من تعريف الصنف إن لم يُذكر */
+    if(!uw) throw new Error('الوزن إلزامي — أدخل وزن الوحدة/الصندوق بالكيلو للصنف «'+itemName(itemId)+'»');
     var whId=(v.wh&&String(v.wh).trim())?findOrCreate(db.warehouses,String(v.wh).trim(),function(n){return {name:n,clientId:null};}):defaultWh();
     var total=basis==='kg'?units*uw*price:units*price;
     var line;
