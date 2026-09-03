@@ -1302,7 +1302,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-08-14-r';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-08-14-s';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -4947,23 +4947,26 @@ function tplItemRows(k){
   var sup=(db.suppliers[0]&&db.suppliers[0].name)||'اسم المورد';
   var branch=((db.clients.filter(function(c){return isBranch(c.id);})[0])||db.clients[0]||{}).name||'اسم الفرع';
   var wh0=(db.warehouses[0]&&db.warehouses[0].name)||'المستودع الرئيسي';
-  var d=today();
-  return its.map(function(it){
-    var byKg=!!it.byKg;
-    var bw=byKg?((itemBoxWeights(it.id)[0])||it.uw||10):(it.uw||1);
-    var basis=byKg?'كيلو':'وحدة';
-    var note=byKg?('صنف بالكيلو: اكتب عدد الصناديق (وزن الصندوق '+qty(bw)+'كغ)'):'صنف بالوحدة: اكتب عدد الوحدات';
-    if(k==='purchases') return [d,'',sup,it.code||'',it.name,'',qty(bw),basis,'','',note];
-    if(k==='sales')     return [d,'',branch,it.code||'',it.name,'',qty(bw),basis,'','',note];
-    return [d,wh0,it.name,'',qty(bw),basis,''];   /* المخزون الافتتاحي */
+  var d=today(), out=[];
+  its.forEach(function(it){
+    var byKg=!!it.byKg, basis=byKg?'كيلو':'وحدة';
+    var ws=itemBoxWeights(it.id);            /* كل الأوزان المعروفة للصنف — صف لكل وزن */
+    if(!ws.length) ws=[byKg?(it.uw||10):(it.uw||1)];
+    ws.forEach(function(bw){
+      var note=byKg?('صنف بالكيلو: اكتب عدد الصناديق (وزن الصندوق '+qty(bw)+'كغ)'):('صنف بالوحدة: وزن الوحدة '+qty(bw)+'كغ');
+      if(k==='purchases') out.push([d,'',sup,it.code||'',it.name,'',qty(bw),basis,'','',note]);
+      else if(k==='sales') out.push([d,'',branch,it.code||'',it.name,'',qty(bw),basis,'','',note]);
+      else out.push([d,wh0,it.name,'',qty(bw),basis,'']);   /* المخزون الافتتاحي */
+    });
   });
+  return out;
 }
 function downloadTemplate(k){
   var t=TPL[k];
   var samples=tplItemRows(k)||t.samples||[];
   var rows=[t.cols.map(function(c){return c.h;})].concat(samples);
   saveXlsx(t.name, t.title, rows);   /* نموذج Excel حقيقي (.xlsx) */
-  toast(tplItemRows(k)?'تم تنزيل النموذج (Excel) — صف لكل صنف لديك؛ أدخل الكمية والسعر فقط':'تم تنزيل النموذج (Excel) — أبقِ صف العناوين كما هو واستبدل الأسطر التجريبية ببياناتك');
+  toast(tplItemRows(k)?'تم تنزيل النموذج (Excel) — صف لكل صنف ولكل وزن متاح له؛ أدخل الكمية والسعر (وعدّل الوزن أو أضف صفاً بوزن جديد)':'تم تنزيل النموذج (Excel) — أبقِ صف العناوين كما هو واستبدل الأسطر التجريبية ببياناتك');
 }
 var importKind=null;
 function pickImport(k){ if(!guard('canAdd')) return; importKind=k; document.getElementById('csvFile').click(); }
