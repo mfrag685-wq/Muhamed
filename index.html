@@ -503,7 +503,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
       <span class="mini">اكتب إجمالي الكمية أعلاه ثم اختر طريقة التوزيع — يُنشأ سطر مستقل لكل مستودع تلقائياً.</span></div>
     <div class="table-scroll"><table>
       <thead><tr><th class="name">الصنف</th><th>الوحدات</th><th>وزن الوحدة</th><th>الوزن الكلي</th>
-        <th>السعر</th><th>القيمة</th><th class="name">المستودع</th><th>حذف</th></tr></thead>
+        <th>السعر</th><th>القيمة</th><th class="name">المستودع</th><th>إجراء</th></tr></thead>
       <tbody id="tbPLines"></tbody></table></div>
     <div class="doc-total">
       <div class="field" style="min-width:170px"><label>طريقة الضريبة</label><select id="p_vatmode" onchange="renderDraft('p')">
@@ -580,7 +580,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
     <div class="form-foot"><button class="btn-alt" onclick="addLine('s')">إضافة الصنف للفاتورة</button></div>
     <div class="table-scroll"><table>
       <thead><tr><th class="name">الصنف</th><th>الوحدات</th><th>وزن الوحدة</th><th>الوزن الكلي</th>
-        <th>السعر</th><th>القيمة</th><th class="name">المستودع</th><th>حذف</th></tr></thead>
+        <th>السعر</th><th>القيمة</th><th class="name">المستودع</th><th>إجراء</th></tr></thead>
       <tbody id="tbSLines"></tbody></table></div>
     <div class="doc-total">
       <div class="field" style="min-width:170px"><label>طريقة الضريبة</label><select id="s_vatmode" onchange="renderDraft('s')">
@@ -1302,7 +1302,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-08-14-t';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-08-14-u';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -2082,16 +2082,32 @@ function addLine(k){
   renderDraft(k); if(k==='s') showAvail();
 }
 function delLine(k,i){ draft[k].lines.splice(i,1); renderDraft(k); }
+/* تعديل سطر: يُعيد قيمه إلى حقول الإدخال كما أُدخلت (صناديق/وزن صندوق للأصناف بالكيلو) ثم يُزيله ليُعاد إضافته بعد التعديل */
+function editLine(k,i){
+  var p=k==='p'?'pl':'sl', l=draft[k].lines[i]; if(!l) return;
+  var it=byId(db.items,l.itemId), bk=!!(it&&it.byKg);
+  setVal(p+'_item',l.itemId); onPickItem(p);   /* يضبط الوحدة والتسميات */
+  if(bk){ setVal(p+'_units',l.boxes!=null?l.boxes:''); setVal(p+'_uw',l.boxW!=null?l.boxW:''); setVal(p+'_basis','kg'); }
+  else { setVal(p+'_units',l.units); setVal(p+'_uw',l.uw); setVal(p+'_basis',l.basis||'unit'); }
+  setVal(p+'_price',l.price);
+  if(k==='p'){ if(document.getElementById('pl_dist')) setVal('pl_dist','single'); onPurchaseDist&&onPurchaseDist(); setVal('pl_wh',l.whId); }
+  else setVal('sl_wh',l.whId);
+  draft[k].lines.splice(i,1); renderDraft(k); calcLine(p); if(k==='s') showAvail();
+  toast('عدّل الحقول ثم اضغط «إضافة الصنف للفاتورة» لإعادة السطر');
+}
 function renderDraft(k){
   var d=draft[k], tb=document.getElementById(k==='p'?'tbPLines':'tbSLines'), tot=0, wt=0, h='';
   d.lines.forEach(function(l,i){
     tot+=l.total; wt+=l.units*l.uw;
-    h+='<tr><td class="name">'+esc(itemName(l.itemId))+'</td><td>'+qty(l.units)+' '+esc(l.unit||'')
-      +(l.boxes?' <span class="mini">('+qty(l.boxes)+' صندوق × '+qty(l.boxW)+'كغ)</span>':'')+'</td>'
-      +'<td>'+qty(l.uw)+'</td><td>'+qty(l.units*l.uw)+'</td>'
+    var it=byId(db.items,l.itemId), bk=!!(it&&it.byKg);
+    /* الأصناف بالكيلو تُعرض كما أُدخلت: عدد الصناديق ووزن الصندوق (كل رقم في مكانه) */
+    var uCell=bk?(l.boxes!=null?qty(l.boxes)+' صندوق':qty(l.units)+' كيلو'):(qty(l.units)+' '+esc(l.unit||''));
+    var wCell=bk?(l.boxW!=null?qty(l.boxW):'—'):qty(l.uw);
+    h+='<tr><td class="name">'+esc(itemName(l.itemId))+'</td><td>'+uCell+'</td>'
+      +'<td>'+wCell+'</td><td>'+qty(l.units*l.uw)+'</td>'
       +'<td>'+num(l.price)+(l.basis==='kg'?' /كغ':' /وحدة')+'</td><td>'+money(l.total)+'</td>'
       +'<td class="name">'+esc(whName(l.whId))+'</td>'
-      +'<td><button class="btn-sm btn-del" onclick="delLine(\''+k+'\','+i+')">حذف</button></td></tr>';
+      +'<td><button class="btn-sm" onclick="editLine(\''+k+'\','+i+')">تعديل</button> <button class="btn-sm btn-del" onclick="delLine(\''+k+'\','+i+')">حذف</button></td></tr>';
   });
   tb.innerHTML=h||'<tr><td colspan="8" class="empty">لم تُضف أصناف بعد.</td></tr>';
   var pfx=k==='p'?'p':'s';
