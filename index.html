@@ -1088,7 +1088,11 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
         <thead><tr><th class="name">الوحدة</th><th class="name">الأوزان المتاحة (كغ)</th><th>عدد الأصناف المرتبطة</th><th>إجراء</th></tr></thead>
         <tbody id="tbUnits"></tbody></table></div>
 
-      <div class="sec-title warn">الأصناف ومعاملات التحويل</div>
+      <div class="sec-title warn">الأصناف ومعاملات التحويل
+        <span class="no-print" style="display:inline-flex;gap:8px;font-weight:400;font-size:13px;margin-right:8px;flex-wrap:wrap">
+          <input type="text" id="msItemSearch" oninput="renderMaster()" placeholder="🔍 بحث بالاسم" style="width:150px">
+          <select id="msItemWh" onchange="renderMaster()" title="تصفية بالمستودع/الفرع" style="max-width:100%"></select>
+        </span></div>
       <div class="doc-box no-print">
         <div class="grid-2">
           <div class="field"><label>اسم الصنف</label><input type="text" id="it_name" placeholder="طماطم"></div>
@@ -1304,7 +1308,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-08-14-x';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-08-14-y';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -1695,9 +1699,10 @@ function switchDept(key){
 
 /* ---------- التبويبات ---------- */
 function showTab(id){
+  var cur=document.querySelector('.panel.active'), changing=(!cur||cur.id!==id);
   document.querySelectorAll('.tab-btn').forEach(function(b){ b.classList.toggle('active',b.dataset.tab===id); });
   document.querySelectorAll('.panel').forEach(function(p){ p.classList.toggle('active',p.id===id); });
-  window.scrollTo({top:0,behavior:'smooth'});
+  if(changing) window.scrollTo({top:0,behavior:'smooth'});   /* لا تقفز للأعلى إن كان التبويب مفتوحاً أصلاً (تعديل/إضافة صنف) */
 }
 document.querySelectorAll('.tab-btn').forEach(function(b){ b.addEventListener('click',function(){ showTab(b.dataset.tab); }); });
 
@@ -1938,6 +1943,8 @@ function fillAllSelects(){
   refreshUW('it'); refreshUW('pl');
   ['pl_wh','sl_wh','r_wh','t_from','t_to','w_wh','os_wh'].forEach(function(id){ fillSelect(id,opts(db.warehouses,'id',whTxt)); });
   fillSelect('it_wh',opts(db.warehouses,'id',whTxt,'عام — كل المستودعات'));
+  fillSelect('msItemWh','<option value="">كل الأصناف (كل المستودعات)</option><option value="__gen__">عام (بدون مستودع)</option>'
+    +db.warehouses.map(function(w){return '<option value="'+w.id+'">'+esc(whTxt(w))+'</option>';}).join(''));
   fillPurchaseItems(); fillSaleItems();   /* أصناف الشراء/البيع مُصفّاة حسب المستودع المختار */
   fillSelect('st_wh',opts(db.warehouses,'id',whTxt,'كل المستودعات'));
   fillSelect('rp_wh',opts(db.warehouses,'id',whTxt,'كل المستودعات'));
@@ -3699,7 +3706,12 @@ function renderMaster(){
       +(can('canDelete')?'<button class="btn-sm btn-del" onclick="delWarehouse('+w.id+')">حذف</button>':'')+'</td></tr>';
   }).join('')||'<tr><td colspan="4" class="empty">لا توجد مستودعات.</td></tr>';
 
-  document.getElementById('tbItMaster').innerHTML=db.items.map(function(i){
+  var itQ=(val('msItemSearch')||'').trim(), itWh=val('msItemWh');
+  document.getElementById('tbItMaster').innerHTML=db.items.filter(function(i){
+    if(itQ&&(i.name||'').indexOf(itQ)<0&&(i.code||'').indexOf(itQ)<0) return false;
+    if(itWh){ if(itWh==='__gen__'){ if(i.whId) return false; } else if(i.whId!==+itWh) return false; }
+    return true;
+  }).map(function(i){
     var u=0; Object.keys(L.stock).forEach(function(k){ if(L.stock[k].itemId===i.id) u+=L.stock[k].units; });
     var isActive=i.active!==0;
     var bw=i.byKg?itemBoxWeights(i.id):[];
