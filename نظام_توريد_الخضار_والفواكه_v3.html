@@ -1302,7 +1302,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-08-14-v';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-08-14-w';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -1510,8 +1510,10 @@ function applyVat(lines,rate,mode){
   rate=Number(rate)||0; mode=mode||'add';
   var factor=(mode==='incl')?1/(1+rate/100):1;   /* تحويل السعر الشامل إلى صافي */
   var out=(lines||[]).map(function(l){
-    return {itemId:l.itemId,unit:l.unit,units:l.units,uw:l.uw,basis:l.basis,
+    var o={itemId:l.itemId,unit:l.unit,units:l.units,uw:l.uw,basis:l.basis,
       price:round2((Number(l.price)||0)*factor),total:round2((Number(l.total)||0)*factor),whId:l.whId};
+    if(l.boxes!=null) o.boxes=l.boxes; if(l.boxW!=null) o.boxW=l.boxW;   /* حفظ عدد الصناديق ووزن الصندوق */
+    return o;
   });
   var net=0; out.forEach(function(l){ net+=l.total; }); net=round2(net);
   var vat=(mode==='none')?0:round2(net*rate/100);
