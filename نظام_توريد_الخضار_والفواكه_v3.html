@@ -1302,7 +1302,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-08-14-s';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-08-14-t';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -3209,7 +3209,7 @@ function renderStock(){
     tot+=s.cost; totW+=s.weight;
     h+='<tr><td class="name">'+esc(whName(s.whId))+'</td><td class="name muted">'+(whClient(s.whId)?esc(clientName(whClient(s.whId))):'عام')+'</td>'
       +'<td class="name">'+esc(itemName(s.itemId))+(isLow?' <span class="pill pill-warn">تحت الحد</span>':'')+(s.units<0?' <span class="pill pill-bad">رصيد سالب</span>':'')+'</td>'
-      +'<td>'+qty(s.units)+'</td><td>'+qty(s.weight)+'</td><td>'+money(avg)+'</td><td>'+money(avgK)+'</td><td>'+money(s.cost)+'</td></tr>';
+      +'<td>'+qty(s.units)+' <span class="muted" style="font-size:11px">'+esc(it&&it.byKg?'كغ':(it?(it.unit||''):''))+'</span></td><td>'+qty(s.weight)+'</td><td>'+money(avg)+'</td><td>'+money(avgK)+'</td><td>'+money(s.cost)+'</td></tr>';
   });
   document.getElementById('tbStock').innerHTML=h?h+'<tr class="total-row"><td colspan="4">الإجمالي</td><td>'+qty(totW)+' كغ</td><td colspan="2"></td><td>'+money(tot)+'</td></tr>'
     :'<tr><td colspan="8" class="empty">لا يوجد رصيد مطابق. المخزون يزيد بالمشتريات وينقص بالمبيعات والفاقد.</td></tr>';
@@ -4289,8 +4289,9 @@ function renderReport(){
       push('',[m.date,m.type,m.ref,m.party,whName(m.whId),itemName(m.itemId),
         m.inU?qty(m.inU):'—',m.outU?qty(m.outU):'—',num(m.val)]);
     });
-    cards=card('إجمالي الوارد',qty(inU)+' وحدة','')+card('إجمالي المنصرف',qty(outU)+' وحدة','')
-      +card('صافي الحركة',qty(inU-outU)+' وحدة','')+card('عدد الحركات',String(rows.length),'');
+    var selIt=fi?byId(db.items,+fi):null, uLbl=(selIt&&selIt.byKg)?'كغ':'وحدة';
+    cards=card('إجمالي الوارد',qty(inU)+' '+uLbl,'')+card('إجمالي المنصرف',qty(outU)+' '+uLbl,'')
+      +card('صافي الحركة',qty(inU-outU)+' '+uLbl,'')+card('عدد الحركات',String(rows.length),'');
     if(!fi) cards=card('اختر صنفاً','—','لعرض كارت صنف محدد')+cards;
   }
   else if(type==='balClients'){
@@ -4470,7 +4471,7 @@ function renderReport(){
     var bid=fp?+fp:null;
     title='حركة الفرع اليومية — مبيعات ومشتريات'+(bid?('  ·  '+clientName(bid)):'')
       +'  ·  '+((f||'البداية')+' ← '+(t||'اليوم'));
-    head=['التاريخ','الحركة','المورد / البيان','الصنف','الوحدات','الوزن (كغ)','القيمة'];
+    head=['التاريخ','الحركة','المورد / البيان','الصنف','العدد','الوزن (كغ)','القيمة'];
     if(!bid){
       cards=card('اختر الفرع','—','اختر فرعاً من قائمة «الجهة» أعلاه لعرض حركته اليومية مفصّلة');
     } else {
@@ -4483,7 +4484,9 @@ function renderReport(){
         (p.lines||[]).forEach(function(l){
           if(!whset[l.whId]) return;
           var v=+l.total||0, w=(+l.units||0)*(+l.uw||0), g=dd(p.date);
-          g.buys.push([p.date,'شراء',supName(p.supplierId)+' ← '+whName(l.whId),itemName(l.itemId),qty(l.units)+' '+(l.unit||''),qty(w),num(v)]);
+          var bkp=byId(db.items,l.itemId); bkp=!!(bkp&&bkp.byKg);
+          var cntp=bkp?(l.boxes?qty(l.boxes)+' صندوق':'—'):(qty(l.units)+' '+(l.unit||''));
+          g.buys.push([p.date,'شراء',supName(p.supplierId)+' ← '+whName(l.whId),itemName(l.itemId),cntp,qty(w),num(v)]);
           g.bt+=v; g.w+=w; TB+=v; TW+=w; nB++;
         });
       });
@@ -4491,7 +4494,9 @@ function renderReport(){
         if(!inRange(s.date,f,t)||s.clientId!==bid) return;
         (s.lines||[]).forEach(function(l){
           var v=+l.total||0, w=(+l.units||0)*(+l.uw||0), g=dd(s.date);
-          g.sells.push([s.date,'بيع','فاتورة '+(s.no||'#'+s.id),itemName(l.itemId),qty(l.units),qty(w),num(v)]);
+          var bks=byId(db.items,l.itemId); bks=!!(bks&&bks.byKg);
+          var cnts=bks?(l.boxes?qty(l.boxes)+' صندوق':'—'):(qty(l.units)+' '+(l.unit||''));
+          g.sells.push([s.date,'بيع','فاتورة '+(s.no||'#'+s.id),itemName(l.itemId),cnts,qty(w),num(v)]);
           g.st+=v; g.w+=w; TS+=v; TW+=w; nS++;
         });
       });
@@ -4840,10 +4845,11 @@ function tableData(kind){
     db.preturns.forEach(function(r){ rows.push([r.date,'مرتجع شراء',supName(r.supplierId),itemName(r.itemId),r.units,r.total,docVat(r),docGrand(r),whName(r.whId),r.reason||'']); });
     db.sreturns.forEach(function(r){ rows.push([r.date,'مرتجع بيع',clientName(r.clientId),itemName(r.itemId),r.units,r.total,docVat(r),docGrand(r),whName(r.whId),r.reason||'']); }); }
   else if(kind==='stock'){ title='أرصدة المخزون';
-    head=['المستودع','تابع لـ','الصنف','الوحدات','الوزن','متوسط تكلفة الوحدة','قيمة المخزون'];
+    head=['المستودع','تابع لـ','الصنف','الكمية','الوحدة','الوزن (كغ)','متوسط تكلفة الوحدة','قيمة المخزون'];
     Object.keys(L.stock).forEach(function(k){ var s=L.stock[k]; if(Math.abs(s.units)<0.001) return;
+      var it=byId(db.items,s.itemId), ul=(it&&it.byKg)?'كغ':(it?(it.unit||'وحدة'):'وحدة');
       rows.push([whName(s.whId),s.whId&&whClient(s.whId)?clientName(whClient(s.whId)):'عام',itemName(s.itemId),
-        s.units,s.weight,s.units>0?s.cost/s.units:0,s.cost]); }); }
+        s.units,ul,s.weight,s.units>0?s.cost/s.units:0,s.cost]); }); }
   else if(kind==='expenses'){ title='المصروفات';
     head=['التاريخ','النوع','الجهة','المورد المرتبط','التصنيف','القيمة','البيان','أدخلها'];
     filteredExpenses().forEach(function(x){ rows.push([x.date,expTypeLabel(x.type),
