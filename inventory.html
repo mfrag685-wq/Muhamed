@@ -302,9 +302,10 @@ function ensureShape(){
   DB.suppliers.forEach(s=>{if(s.companyId===undefined)s.companyId=firstCo;});
   DB.payments.forEach(p=>{if(p.companyId===undefined)p.companyId=firstCo;if(!p.kind)p.kind="payment";});
   if(!DB.companies.some(c=>c.id===CO))CO=DB.companies[0].id;
-  const DIAL={"معاذ":"ye","عبد الرحمن جبريل":"ye","عبدالرحمن جبريل":"ye","ahmed":"eg","احمد":"eg","أحمد":"eg","mofarag":"eg"};
+  const DIAL={"معاذ":"ye","عبد الرحمن جبريل":"ye","عبدالرحمن جبريل":"ye","ابو جنه":"eg","أبو جنة":"eg","ابو جنة":"eg","أبو جنه":"eg","ahmed":"eg","احمد":"eg","أحمد":"eg","mofarag":"eg"};
   DB.users.forEach(u=>{if(u.active===undefined)u.active=1;if(u.username===undefined)u.username="";if(u.fbUid===undefined)u.fbUid="";
-    if(u.dialect===undefined)u.dialect=DIAL[(u.name||"").trim()]||DIAL[(u.name||"").trim().toLowerCase()]||DIAL[(u.username||"").toLowerCase()]||"";
+    const dm=DIAL[(u.name||"").trim()]||DIAL[(u.name||"").trim().toLowerCase()]||DIAL[(u.username||"").toLowerCase()]||"";
+    if(u.dialect===undefined||u.dialect==="")u.dialect=dm;   // يطبّق اللهجة المعروفة حتى على الحسابات القائمة
     if(u.pwTemp===undefined)u.pwTemp=(u.pass===hash("admin123")||u.pass===hash("store123"))?1:0;
     if(!u.perms){u.perms=preset(u.role);}else{PERM_KEYS.forEach(k=>{if(u.perms[k[0]]===undefined)u.perms[k[0]]=preset(u.role)[k[0]];});}});
 }
@@ -373,11 +374,12 @@ function startApp(){
   if(Number(ME.pwTemp))forceChangePassword();else showWelcome(ME);
 }
 function printScreen(){window.print();}
+function dayPart(){const h=new Date().getHours();return (h>=5&&h<12)?"صباح":"مساء";}
 function greet(u){
-  const n=esc(u.name||"");
-  if(u.dialect==="ye")return `هلا وغلا يا ${n} 🌟<br>حيّاك الله، نوّرت النظام`;
-  if(u.dialect==="eg")return `أهلاً يا ${n} 🌟<br>نوّرت النظام، يومك سعيد`;
-  return `مرحباً ${n} 🌟<br>أهلاً بك في النظام`;
+  const n=esc(u.name||"");const p=dayPart();
+  if(u.dialect==="ye")return `${p==="صباح"?"صبّحك الله بالخير":"مسّاك الله بالخير"} يا ${n} 🌟<br>هلا وغلا، حيّاك الله ونوّرت النظام`;
+  if(u.dialect==="eg")return `${p} الفل يا ${n} 🌟<br>نوّرت النظام، يومك سعيد وشغل موفّق`;
+  return `${p} الخير يا ${n} 🌟<br>أهلاً بك، نتمنى لك يوماً موفقاً`;
 }
 function showWelcome(u){
   const old=$("#welcome");if(old)old.remove();
@@ -386,6 +388,7 @@ function showWelcome(u){
   w.innerHTML=`<div style="background:linear-gradient(135deg,#0d9488,#0f766e);color:#fff;border-radius:20px;padding:34px 28px;text-align:center;max-width:420px;box-shadow:0 20px 50px rgba(0,0,0,.35);animation:wpop .3s ease">
     <div style="font-size:46px;margin-bottom:6px">👋</div>
     <div style="font-size:22px;font-weight:800;line-height:1.6">${greet(u)}</div>
+    <div style="display:inline-block;margin-top:12px;background:rgba(255,255,255,.15);padding:5px 14px;border-radius:20px;font-size:13px">${roleAr(u.role)}</div>
     <div style="margin-top:14px;font-size:12px;opacity:.85">اضغط للمتابعة</div></div>`;
   document.body.appendChild(w);
   clearTimeout(window._welc);window._welc=setTimeout(()=>{const el=$("#welcome");if(el)el.remove();},3500);
