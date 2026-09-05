@@ -1170,6 +1170,7 @@ html[data-theme="dark"] .rt td.hl{background:#2e2814;color:var(--accent)}
       <span style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
         <button class="btn btn-outline btn-sm" id="frt-mode-sum" onclick="setFrtMode('summary')">ملخص</button>
         <button class="btn btn-outline btn-sm" id="frt-mode-det" onclick="setFrtMode('detail')">تفصيلي</button>
+        <button class="btn btn-outline btn-sm" onclick="printFreightAcct()">🖨️ طباعة</button>
         <input id="frt-from" type="date" onchange="renderFreight()" style="width:135px" title="من تاريخ">
         <span style="font-size:.8rem;color:var(--muted)">إلى</span>
         <input id="frt-to" type="date" onchange="renderFreight()" style="width:135px" title="إلى تاريخ">
@@ -1230,6 +1231,7 @@ html[data-theme="dark"] .rt td.hl{background:#2e2814;color:var(--accent)}
       <span style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
         <button class="btn btn-outline btn-sm" id="sa-mode-sum" onclick="setSaMode('summary')">ملخص</button>
         <button class="btn btn-outline btn-sm" id="sa-mode-det" onclick="setSaMode('detail')">تفصيلي</button>
+        <button class="btn btn-outline btn-sm" onclick="printSupAcct()">🖨️ طباعة</button>
         <input id="sa-from" type="date" onchange="renderSupAcct()" style="width:135px" title="من تاريخ">
         <span style="font-size:.8rem;color:var(--muted)">إلى</span>
         <input id="sa-to" type="date" onchange="renderSupAcct()" style="width:135px" title="إلى تاريخ">
@@ -3387,9 +3389,11 @@ function cloudApply(data){
   cloudApplying=true;
   try{
     var inc=data||{};
-    // حماية من المسح: المستخدمون، الشركة النشطة، والسجل لا تُحذف محلياً إن غابت عن السحابة
+    // حماية من المسح: المستخدمون، الشركة النشطة، والسجل + كل بيانات الشركات المالية/التشغيلية
+    // لا تُحذف محلياً لمجرد غيابها عن لقطة سحابية قد تكون قديمة/جزئية (يمنع فقد دفعات/بيانات لم تُزامَن بعد)
     var PROTECT={scs_users:1, scs_active:1, scs_log:1};
-    scsKeys().forEach(function(k){ if(!(k in inc) && !PROTECT[k]) _lsRemove(k); });
+    var PROTECT_RE=/^scs_(db|cfg|pay|freightpay|suppliers|supplierpay|modelb|cmpcfg)_/;
+    scsKeys().forEach(function(k){ if(!(k in inc) && !PROTECT[k] && !PROTECT_RE.test(k)) _lsRemove(k); });
     Object.keys(inc).forEach(function(k){
       if(!cloudSyncable(k)) return;
       if(k==='scs_log'){ _lsSet(k, cloudMergeLog(localStorage.getItem(k), inc[k])); } // دمج السجل (اتحاد كل الأجهزة)
@@ -5197,6 +5201,32 @@ function cmpPrintWindow(title, inner){
     '<h1>'+title+'</h1><div class=\"sub\">'+escH(pname)+' — '+new Date().toLocaleString('ar')+'</div>'+inner+
     '<script>window.onload=function(){window.print();}<\/script></body></html>');
   w.document.close();
+}
+// طباعة كشف حساب (مورد أو شحن) بصيغة: التاريخ | الوصف | مدين | دائن | الرصيد + رصيد افتتاحي + الإجمالي + الرصيد الحالي
+function printAccountStatement(title, sub, ledgerRows){
+  var totDr=ledgerRows.reduce(function(s,r){return s+r.dr;},0);
+  var totCr=ledgerRows.reduce(function(s,r){return s+r.cr;},0);
+  var bal=ledgerRows.length?ledgerRows[ledgerRows.length-1].bal:0;
+  var trs=ledgerRows.map(function(r){ return '<tr'+(r.kind==='carry'||r.kind==='open'?' style="background:#fff8e6"':'')+'>'+
+    '<td>'+escH(r.date||'—')+'</td><td style="text-align:right">'+escH(r.label||'')+'</td>'+
+    '<td class=num>'+(r.dr?fmtD(r.dr):'')+'</td><td class=num>'+(r.cr?fmtD(r.cr):'')+'</td><td class=num>'+fmtD(r.bal)+'</td></tr>'; }).join('');
+  var inner='<div style="font-weight:700;margin-bottom:6px">'+escH(sub)+'</div>'+
+    '<table><thead><tr><th>التاريخ</th><th>الوصف</th><th>مدين</th><th>دائن</th><th>الرصيد</th></tr></thead><tbody>'+
+    (trs||'<tr><td colspan=5>لا توجد حركات</td></tr>')+
+    '<tr class=tot><td colspan=2>الإجمالي</td><td class=num>'+fmtD(totDr)+'</td><td class=num>'+fmtD(totCr)+'</td><td class=num>'+fmtD(bal)+'</td></tr></tbody></table>'+
+    '<div style="display:inline-block;border:2px solid #1a3a5c;border-radius:8px;padding:8px 16px;font-weight:800;font-size:15px">الرصيد الحالي: '+fmtD(bal)+' SAR '+(bal>0?'(مدين)':(bal<0?'(دائن)':''))+'</div>';
+  cmpPrintWindow(title, inner);
+}
+function printSupAcct(){
+  var name=(document.getElementById('sa-supplier')||{}).value||''; if(!name){ toast('اختر مورداً أولاً',true); return; }
+  var from=(document.getElementById('sa-from')||{}).value||'', to=(document.getElementById('sa-to')||{}).value||'';
+  var per=(from||to)?('الفترة: '+(from||'البداية')+' — '+(to||'النهاية')):'كل الفترات';
+  printAccountStatement('كشف حساب المورد: '+name, per, supAcctLedger(name,from,to));
+}
+function printFreightAcct(){
+  var from=(document.getElementById('frt-from')||{}).value||'', to=(document.getElementById('frt-to')||{}).value||'';
+  var per=(from||to)?('الفترة: '+(from||'البداية')+' — '+(to||'النهاية')):'كل الفترات';
+  printAccountStatement('كشف حساب الشحن', per, frtLedger(from,to));
 }
 function printCmpSummary(){
   var L=cmpLabels(); var rows=cmpTotalsRows(); var gA=0,gB=0;
