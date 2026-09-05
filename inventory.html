@@ -105,6 +105,7 @@ tr:hover td{background:#f8fafc}
 .typebtns button.out{border-color:#fdba74;color:var(--amber);background:#fff7ed;background:#fff7ed}
 .typebtns button.adj{border-color:#cbd5e1;color:#64748b}
 .typebtns button small{display:block;font-size:12px;font-weight:600;opacity:.9;margin-top:3px}
+.typebtns button .ar{font-size:26px;line-height:1;vertical-align:middle;display:inline-block;font-weight:900}
 .typebtns button.on.in{background:var(--green);border-color:var(--green);color:#fff;box-shadow:0 4px 12px rgba(22,163,74,.35);transform:translateY(-1px)}
 .typebtns button.on.out{background:var(--amber);border-color:var(--amber);color:#fff;box-shadow:0 4px 12px rgba(217,119,6,.35);transform:translateY(-1px)}
 .typebtns button.on.adj{background:#64748b;border-color:#64748b;color:#fff}
@@ -683,8 +684,8 @@ function pMove(){
       <label class="btn amber no-print" style="margin:0">⬆ استيراد حركات<input type="file" accept=".csv,text/csv" style="display:none" onchange="importMovesFile(event)"></label>`:""}</div></div>
   <div class="card"><div id="mMsg"></div>
     <div class="typebtns" style="margin-bottom:12px">
-      <button type="button" class="in" id="tbIn"  onclick="setType('inbound')">📥 وارد (بضاعة داخلة)<small>استلام من مورد ➕ يزيد الرصيد</small></button>
-      <button type="button" class="out" id="tbOut" onclick="setType('outbound')">📤 منصرف (بضاعة خارجة)<small>بيع / صرف للعميل ➖ ينقص الرصيد</small></button>
+      <button type="button" class="in" id="tbIn"  onclick="setType('inbound')"><span class="ar" style="color:var(--green)">⬇️</span> وارد (بضاعة داخلة)<small>استلام من مورد ➕ يزيد الرصيد</small></button>
+      <button type="button" class="out" id="tbOut" onclick="setType('outbound')"><span class="ar" style="color:var(--red)">⬆️</span> منصرف (بضاعة خارجة)<small>بيع / صرف للعميل ➖ ينقص الرصيد</small></button>
       <button type="button" class="adj" id="tbAdj" onclick="setType('adjustment')">⚙ تسوية جرد<small>تصحيح الرصيد يدويًا</small></button>
     </div>
     <div class="balbox" id="mBal" style="display:none">
@@ -1216,53 +1217,53 @@ function exportLedger(id){
 
 /* ============ 5) الأصناف ============ */
 function itemStatus(i){if(i.qty<0)return "neg";if(i.qty===0)return "zero";if(i.reorder>0&&i.qty<=i.reorder)return "low";return "ok";}
-/* مصادر توريد الصنف — كل الموردين وأرقام الفسح (الأحدث أولاً) */
-function itemSources(id){
-  const inb=DB.movements.filter(m=>m.companyId===CO&&m.itemId===id&&m.type==="inbound");
-  inb.sort((a,b)=>(a.date<b.date?1:a.date>b.date?-1:b.id-a.id));
-  const seen=new Set(),out=[];
-  inb.forEach(m=>{
+/* دفعات الوارد للصنف مع المتبقي منها (نظام: الأقدم يُباع أولاً FIFO) */
+function itemBatches(id){
+  const inb=DB.movements.filter(m=>m.companyId===CO&&m.itemId===id&&m.type==="inbound")
+    .sort((a,b)=>(a.date<b.date?-1:a.date>b.date?1:a.id-b.id)); // الأقدم أولاً
+  let out=DB.movements.filter(m=>m.companyId===CO&&m.itemId===id&&m.type==="outbound").reduce((s,m)=>s+m.qty,0);
+  return inb.map(m=>{
+    const take=Math.min(m.qty,Math.max(out,0));out-=take;
     const s=DB.suppliers.find(x=>x.id===m.supplierId);
-    const sup=s?s.name:"—",customs=m.customs||"";
-    const key=sup+"|"+customs;if(seen.has(key))return;seen.add(key);
-    out.push({sup,customs});
+    return{id:m.id,date:m.date,qty:m.qty,left:m.qty-take,invoice:m.invoice||"",customs:m.customs||"",sup:s?s.name:"—",supplierId:m.supplierId||0};
   });
-  return out;
 }
-/* دمج المصادر في نصّين للعرض/التصدير (سطر لكل مورد) */
+/* الدفعات المتبقية فعلياً في المخزون (الأحدث أولاً) — الفسح القديم المُباع لا يظهر */
+function activeBatches(id){
+  return itemBatches(id).filter(b=>b.left>0).sort((a,b)=>(a.date<b.date?1:a.date>b.date?-1:b.id-a.id));
+}
+/* دمج المصادر المتبقية نصّاً للتصدير */
 function itemSource(id){
-  const list=itemSources(id);
-  if(!list.length)return{sup:"",customs:"",multi:false};
-  return{sup:list.map(x=>x.sup).join(" / "),customs:list.map(x=>x.customs||"—").join(" / "),multi:list.length>1,list};
+  const a=activeBatches(id);
+  if(!a.length)return{sup:"",customs:""};
+  return{sup:[...new Set(a.map(b=>b.sup))].join(" / "),customs:a.map(b=>b.customs||"—").join(" / ")};
 }
-/* عدد الموردين المختلفين للصنف */
-function supplierCount(id){
-  return new Set(DB.movements.filter(m=>m.companyId===CO&&m.itemId===id&&m.type==="inbound").map(m=>m.supplierId||0)).size;
-}
-/* خلية عمود المورد في جدول الأصناف */
+/* خلية عمود المورد في جدول الأصناف — تعرض فقط الفسوحات المتبقية */
 function supCell(i){
-  const list=itemSources(i.id);const nSup=supplierCount(i.id);
-  if(!list.length)return`<td>—</td><td style="font-family:monospace">—</td>`;
-  if(nSup>1)return`<td colspan="2" style="text-align:center"><button class="btn ghost sm" onclick="showItemSources(${i.id})">👁 تفاصيل الموردين (${nSup})</button></td>`;
-  return`<td>${esc(list[0].sup)}</td><td style="font-family:monospace">${list.map(s=>esc(s.customs||"—")).join("<br>")}</td>`;
+  const a=activeBatches(i.id);
+  if(!a.length)return`<td>—</td><td style="font-family:monospace">—</td>`;
+  const distinct=new Set(a.map(b=>b.supplierId+"|"+b.customs)).size;
+  if(distinct>1)return`<td colspan="2" style="text-align:center"><button class="btn ghost sm" onclick="showItemSources(${i.id})">👁 تفاصيل الموردين (${distinct})</button></td>`;
+  return`<td>${esc(a[0].sup)}</td><td style="font-family:monospace">${a.map(b=>esc(b.customs||"—")).join("<br>")}</td>`;
 }
-/* نافذة تفاصيل موردي الصنف وفسوحاتهم */
+/* نافذة تفاصيل دفعات الصنف — الكل مع الكمية والمتبقي */
 function showItemSources(id){
   const it=DB.items.find(x=>x.id===id)||{};
-  const inb=DB.movements.filter(m=>m.companyId===CO&&m.itemId===id&&m.type==="inbound")
-    .sort((a,b)=>(a.date<b.date?1:a.date>b.date?-1:b.id-a.id));
-  const rows=inb.map(m=>{const s=DB.suppliers.find(x=>x.id===m.supplierId);
-    return`<tr><td>${esc(s?s.name:"—")}</td><td style="font-family:monospace">${esc(m.customs||"—")}</td>
-      <td style="font-weight:700;color:var(--green)">${m.qty}</td><td>${esc(m.date||"")}</td><td>${esc(m.invoice||"")}</td></tr>`;}).join("")
-    ||`<tr><td colspan="5" class="empty">لا حركات وارد.</td></tr>`;
-  const tot=inb.reduce((s,m)=>s+m.qty,0);
+  const batches=itemBatches(id).sort((a,b)=>(a.date<b.date?1:a.date>b.date?-1:b.id-a.id));
+  const rows=batches.map(b=>{const done=b.left<=0;
+    return`<tr style="${done?'opacity:.5':''}"><td>${esc(b.sup)}</td><td style="font-family:monospace">${esc(b.customs||"—")}</td>
+      <td>${b.qty}</td><td style="font-weight:800;color:${b.left>0?'var(--green)':'var(--muted)'}">${b.left}${done?' (نفدت)':''}</td>
+      <td>${esc(b.date||"")}</td><td>${esc(b.invoice||"")}</td></tr>`;}).join("")
+    ||`<tr><td colspan="6" class="empty">لا حركات وارد.</td></tr>`;
+  const tot=batches.reduce((s,b)=>s+b.qty,0);
   const m=document.createElement("div");m.className="modal";
-  m.innerHTML=`<div class="box" style="max-width:640px">
-    <h3>📦 موردو الصنف: ${esc(itemModel(it))}</h3>
-    <p style="color:var(--muted);font-size:13px;margin-bottom:10px">الرصيد الحالي: <b>${it.qty}</b> — إجمالي الوارد: <b>${tot}</b></p>
-    <div class="table-wrap"><table><thead><tr><th>المورد</th><th>رقم الفسح</th><th>الكمية</th><th>التاريخ</th><th>الفاتورة</th></tr></thead>
+  m.innerHTML=`<div class="box" style="max-width:680px">
+    <h3>📦 دفعات الصنف: ${esc(itemModel(it))}</h3>
+    <p style="color:var(--muted);font-size:13px;margin-bottom:10px">الرصيد الحالي: <b>${it.qty}</b> — إجمالي الوارد: <b>${tot}</b> — <span style="color:var(--green)">الملوّن = فسح ما زال متوفراً</span></p>
+    <div class="table-wrap"><table><thead><tr><th>المورد</th><th>رقم الفسح</th><th>الوارد</th><th>المتبقي</th><th>التاريخ</th><th>الفاتورة</th></tr></thead>
       <tbody>${rows}</tbody></table></div>
-    <div style="display:flex;gap:8px;margin-top:12px"><button class="btn gray" onclick="this.closest('.modal').remove()">إغلاق</button></div></div>`;
+    <p style="font-size:12px;color:var(--muted);margin-top:8px">ملاحظة: يُحتسب أن الأقدم يُباع أولاً، فالفسح القديم يختفي من القائمة عند بيع كميته.</p>
+    <div style="display:flex;gap:8px;margin-top:10px"><button class="btn gray" onclick="this.closest('.modal').remove()">إغلاق</button></div></div>`;
   document.body.appendChild(m);
 }
 const STATUS_AR={ok:"متوفر",low:"تحت حد الطلب",zero:"نفد (صفر)",neg:"بالسالب"};
