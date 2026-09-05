@@ -4448,14 +4448,25 @@ function clearFrtDates(){ var f=document.getElementById('frt-from'), t=document.
 
 // بناء صفوف الأستاذ (مدين/دائن) مرتبة بالتاريخ مع الرصيد الجاري — مطابقة لدالة ledger
 function frtLedger(from,to){
-  var ok=function(d){ return (!from|| (d||'')>=from) && (!to|| (d||'')<=to); };
-  var ships=dbLoad().filter(function(s){ return shipFreightSar(s)>0 && ok(s.shipmentDate); })
+  var ships=dbLoad().filter(function(s){ return shipFreightSar(s)>0; })
     .map(function(s){ var nc=((s.containers)||[]).length; return {date:s.shipmentDate||'', kind:'ship', label:'شحنة '+(s.shipmentNo||'—')+(nc?' ('+nc+' حاوية)':''), dr:shipFreightSar(s), cr:0}; });
-  var pays=frtLoad().filter(function(p){ return ok(p.date); })
+  var pays=frtLoad()
     .map(function(p){ var m=(p.method==='transfer')?('تحويل'+(p.bank?' — '+p.bank:'')):'نقدًا';
       return {date:p.date||'', kind:'pay', id:p.id, label:'دفعة ('+m+')'+(p.ref?' #'+p.ref:'')+(p.notes?' — '+p.notes:''), dr:0, cr:frtPayToSar(p)}; });
-  var rows=ships.concat(pays).sort(function(a,b){ return (a.date<b.date)?-1:((a.date>b.date)?1:0); });
-  var run=0; return rows.map(function(r){ run+=r.dr-r.cr; return Object.assign({},r,{bal:run}); });
+  var all=ships.concat(pays).sort(function(a,b){ return (a.date<b.date)?-1:((a.date>b.date)?1:0); });
+  // ترحيل ما قبل «من» كرصيد افتتاحي للفترة (للحفاظ على المطابقة الحسابية)
+  var carried=0, kept=[];
+  all.forEach(function(e){
+    var before = from && (e.date==='' || e.date < from);
+    if(before){ carried += (e.dr-e.cr); return; }
+    if(to && e.date!=='' && e.date > to) return;
+    kept.push(e);
+  });
+  var out=[];
+  if(from){ out.push({date:from, kind:'carry', label:'رصيد مُرحّل (ما قبل '+from+')', dr:(carried>0?carried:0), cr:(carried<0?-carried:0), bal:carried}); }
+  var run=carried;
+  kept.forEach(function(e){ run+=e.dr-e.cr; out.push(Object.assign({},e,{bal:run})); });
+  return out;
 }
 
 function renderFreight(){
@@ -4490,16 +4501,21 @@ function renderFreight(){
     return;
   }
   tb.innerHTML=rows.map(function(r,i){
-    return '<tr>'+
+    var isCarry=r.kind==='carry';
+    return '<tr'+(isCarry?' style="background:#fff8e6"':'')+'>'+
       '<td>'+(i+1)+'</td>'+
       '<td>'+escH(r.date||'—')+'</td>'+
-      '<td>'+escH(r.label||'')+'</td>'+
+      '<td>'+(isCarry?'<em>':'')+escH(r.label||'')+(isCarry?'</em>':'')+'</td>'+
       '<td class="num">'+(r.dr?fmtD(r.dr):'—')+'</td>'+
       '<td class="num" style="color:var(--success)">'+(r.cr?fmtD(r.cr):'—')+'</td>'+
       '<td class="num" style="font-weight:700;color:'+(r.bal>0?'var(--danger)':'var(--success)')+'">'+fmtD(r.bal)+'</td>'+
       '<td>'+(r.kind==='pay'?'<button class="del-btn" onclick="deleteFreightPayment(\''+r.id+'\')">✕</button>':'')+'</td>'+
     '</tr>';
-  }).join('');
+  }).join('')+
+    '<tr style="background:#e3f2fd;font-weight:800"><td colspan="3">الإجمالي</td>'+
+    '<td class="num">'+fmtD(totDr)+'</td>'+
+    '<td class="num" style="color:var(--success)">'+fmtD(totCr)+'</td>'+
+    '<td class="num" style="color:'+(bal>0?'var(--danger)':'var(--success)')+'">'+fmtD(bal)+'</td><td></td></tr>';
 }
 
 function addFreightPayment(){
@@ -4614,19 +4630,32 @@ function clearSaDates(){ var f=document.getElementById('sa-from'), t=document.ge
 function saOpeningSar(sup){ if(!sup) return 0; var a=parseFloat(sup.opening)||0; return (sup.openingCur==='USD')?a*(S.fxUsdSar||3.756):a; }
 
 function supAcctLedger(name, from, to){
-  var ok=function(d){ return (!from||(d||'')>=from) && (!to||(d||'')<=to); };
   var lname=String(name||'').toLowerCase();
-  var ships=dbLoad().filter(function(s){ return String(s.supplierName||'').toLowerCase()===lname && shipFobSar(s)>0 && ok(s.shipmentDate); })
+  // كل الحركات بلا فلترة تاريخ (نفلتر لاحقاً مع ترحيل ما قبل الفترة)
+  var ships=dbLoad().filter(function(s){ return String(s.supplierName||'').toLowerCase()===lname && shipFobSar(s)>0; })
     .map(function(s){ var nc=((s.containers)||[]).length; return {date:s.shipmentDate||'', kind:'ship', label:'شحنة '+(s.shipmentNo||'—')+(nc?' ('+nc+' حاوية)':''), dr:shipFobSar(s), cr:0}; });
   // حساب نموذج أ يشمل الدفعات الموسومة «أ» أو «كلاهما» (والقديمة بلا وسم تُعامل كـ«أ»)
-  var pays=saPayLoad().filter(function(p){ var tg=p.target||'a'; return String(p.supplier||'').toLowerCase()===lname && (tg==='a'||tg==='both') && ok(p.date); })
+  var pays=saPayLoad().filter(function(p){ var tg=p.target||'a'; return String(p.supplier||'').toLowerCase()===lname && (tg==='a'||tg==='both'); })
     .map(function(p){ var m=(p.method==='transfer')?('تحويل'+(p.bank?' — '+p.bank:'')):'نقدًا'; var tgl=(p.target==='both')?' [أ+ب]':''; return {date:p.date||'', kind:'pay', id:p.id, label:'دفعة ('+m+')'+tgl+(p.ref?' #'+p.ref:'')+(p.notes?' — '+p.notes:''), dr:0, cr:saPayToSar(p)}; });
-  var rows=ships.concat(pays).sort(function(a,b){ return (a.date<b.date)?-1:((a.date>b.date)?1:0); });
-  // رصيد افتتاحي (إن وُجد) يُدرج كأول حركة مدينة
+  var all=ships.concat(pays);
+  // رصيد افتتاحي للمورد (تاريخ فارغ = أقدم حركة)
   var sup=supLoad().find(function(x){ return x.name.toLowerCase()===lname; });
   var op=saOpeningSar(sup);
-  if(op>0) rows.unshift({date:'', kind:'open', label:'رصيد افتتاحي', dr:op, cr:0});
-  var run=0; return rows.map(function(r){ run+=r.dr-r.cr; return Object.assign({},r,{bal:run}); });
+  if(op>0) all.push({date:'', kind:'open', label:'رصيد افتتاحي', dr:op, cr:0});
+  all.sort(function(a,b){ return (a.date<b.date)?-1:((a.date>b.date)?1:0); });
+  // ترحيل ما قبل «من»: يُجمع في رصيد افتتاحي للفترة حتى تبقى المطابقة الحسابية صحيحة
+  var carried=0, kept=[];
+  all.forEach(function(e){
+    var before = from && (e.date==='' || e.date < from);
+    if(before){ carried += (e.dr-e.cr); return; }
+    if(to && e.date!=='' && e.date > to) return;
+    kept.push(e);
+  });
+  var out=[];
+  if(from){ out.push({date:from, kind:'carry', label:'رصيد مُرحّل (ما قبل '+from+')', dr:(carried>0?carried:0), cr:(carried<0?-carried:0), bal:carried}); }
+  var run=carried;
+  kept.forEach(function(e){ run+=e.dr-e.cr; out.push(Object.assign({},e,{bal:run})); });
+  return out;
 }
 
 function renderSupAcct(){
@@ -4667,16 +4696,21 @@ function renderSupAcct(){
     return;
   }
   tb.innerHTML=rows.map(function(r,i){
-    return '<tr>'+
+    var isCarry=r.kind==='carry';
+    return '<tr'+(isCarry?' style="background:#fff8e6"':'')+'>'+
       '<td>'+(i+1)+'</td>'+
       '<td>'+escH(r.date||'—')+'</td>'+
-      '<td>'+escH(r.label||'')+'</td>'+
+      '<td>'+(isCarry?'<em>':'')+escH(r.label||'')+(isCarry?'</em>':'')+'</td>'+
       '<td class="num">'+(r.dr?fmtD(r.dr):'—')+'</td>'+
       '<td class="num" style="color:var(--success)">'+(r.cr?fmtD(r.cr):'—')+'</td>'+
       '<td class="num" style="font-weight:700;color:'+(r.bal>0?'var(--danger)':'var(--success)')+'">'+fmtD(r.bal)+'</td>'+
       '<td>'+(r.kind==='pay'?'<button class="del-btn" onclick="deleteSupplierPayment(\''+r.id+'\')">✕</button>':'')+'</td>'+
     '</tr>';
-  }).join('');
+  }).join('')+
+    '<tr style="background:#e3f2fd;font-weight:800"><td colspan="3">الإجمالي</td>'+
+    '<td class="num">'+fmtD(totDr)+'</td>'+
+    '<td class="num" style="color:var(--success)">'+fmtD(totCr)+'</td>'+
+    '<td class="num" style="color:'+(bal>0?'var(--danger)':'var(--success)')+'">'+fmtD(bal)+'</td><td></td></tr>';
 }
 
 function addSupplierPayment(){
