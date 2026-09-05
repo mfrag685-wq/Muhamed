@@ -127,6 +127,7 @@ tr:hover td{background:#f8fafc}
 .brandlogo{max-height:44px;max-width:120px;border-radius:8px;object-fit:contain}
 .hidden{display:none!important}
 @keyframes wpop{from{transform:scale(.85);opacity:0}to{transform:scale(1);opacity:1}}
+@keyframes wshine{0%{left:-60%}60%,100%{left:130%}}
 #printModal{position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:120;display:flex;align-items:center;justify-content:center;padding:14px}
 #printModal .sheet{background:#fff;border-radius:14px;max-width:600px;width:100%;max-height:92vh;overflow:auto;padding:22px}
 #printArea h2{margin:6px 0}#printArea .co{display:flex;align-items:center;gap:10px;margin-bottom:8px}#printArea .co img{max-height:50px;border-radius:8px}
@@ -375,23 +376,65 @@ function startApp(){
 }
 function printScreen(){window.print();}
 function dayPart(){const h=new Date().getHours();return (h>=5&&h<12)?"صباح":"مساء";}
-function greet(u){
-  const n=esc(u.name||"");const p=dayPart();
-  if(u.dialect==="ye")return `${p==="صباح"?"صبّحك الله بالخير":"مسّاك الله بالخير"} يا ${n} 🌟<br>هلا وغلا، حيّاك الله ونوّرت النظام`;
-  if(u.dialect==="eg")return `${p} الفل يا ${n} 🌟<br>نوّرت النظام، يومك سعيد وشغل موفّق`;
-  return `${p} الخير يا ${n} 🌟<br>أهلاً بك، نتمنى لك يوماً موفقاً`;
+/* رسائل ترحيب مخصّصة تتدوّر تتابعياً مع كل دخول (مستوحاة من نظام التوريد) */
+const WELCOME_MSGS={
+  "عبد الرحمن جبريل":[
+    "هلا وغلا يا عبد الرحمن، حيّاك الله. دقتك في إدخال البيانات هي أساس نجاح العمل.",
+    "صبّحك الله بالخير يا عبد الرحمن. انتظامك في تسجيل الحركات يختصر علينا جهداً كبيراً.",
+    "أهلاً بك يا أبا جبريل. كل صنف تُدخِله بعناية يجعل أرقامنا سليمة ومطمئنة.",
+    "حيّاك الله يا عبد الرحمن. إتقانك في العمل بصمة واضحة نفخر بها كل يوم.",
+    "مرحبا مية يا عبد الرحمن. جاهزون ليوم إدخالٍ منظّم ودقيق، وفّقك الله.",
+    "نوّرت النظام يا عبد الرحمن. أمانتك في حفظ التفاصيل تستحق كل تقدير."
+  ],
+  "ابو جنه":[
+    "أهلاً يا أبو جنة يا محاسبنا الشاطر. أرقامك مظبوطة والحسابات في أمان معاك.",
+    "صباح الفل يا أبو جنة. متابعتك للحسابات هي اللي بتخلّي الصورة واضحة قدامنا.",
+    "نوّرت النظام يا أبو جنة. دقتك في المراجعة بتوفّر علينا وقت ومجهود كبير.",
+    "إزيّك يا أبو جنة، نوّرت. يومك فل وشغلك دايمًا متقن ومرتّب.",
+    "أهلاً بأستاذ الحسابات أبو جنة. تحليلك للأرصدة بيدّينا قرارات صح.",
+    "مرحب يا أبو جنة. تعاونك وسرعتك في الإقفال بتفرق معانا كتير."
+  ]
+};
+function welcomeFlag(u){return u.dialect==="ye"?"🇾🇪":u.dialect==="eg"?"🇪🇬":"🌟";}
+function welcomePool(u){
+  const nm=(u.name||"").trim(),un=(u.username||"").toLowerCase(),p=dayPart(),who=nm||"صديقنا";
+  let pool=WELCOME_MSGS[nm]||WELCOME_MSGS[nm.replace(/[أإآ]/g,"ا").replace(/ة/g,"ه")]||WELCOME_MSGS[un];
+  if(pool)return pool;
+  if(u.dialect==="ye")return [
+    `${p==="صباح"?"صبّحك الله بالخير":"مسّاك الله بالخير"} يا ${who}. حيّاك الله ونوّرت النظام.`,
+    `هلا وغلا يا ${who}. يومك موفّق وشغلك متبارك بإذن الله.`,
+    `حيّاك الله يا ${who}. سعدنا بحضورك، وبالتوفيق في مهامك.`,
+    `مرحبا مية يا ${who}. جاهزون ليوم عمل منظّم ودقيق.`];
+  if(u.dialect==="eg")return [
+    `${p} الفل يا ${who}. نوّرت النظام، يومك سعيد وشغل موفّق.`,
+    `إزيّك يا ${who}، نوّرت. يلا نعمل يوم منتج وجميل.`,
+    `أهلاً يا ${who}. حضورك إضافة للفريق، بالتوفيق في مهامك.`,
+    `صباح الخير يا ${who}. ربنا يبارك في شغلك ويسهّل يومك.`];
+  return [
+    `${p} الخير يا ${who}. أهلاً بك، نتمنى لك يوماً موفقاً ومثمراً.`,
+    `مرحباً يا ${who}. حضورك إضافة للفريق، بالتوفيق في مهامك اليوم.`,
+    `أهلاً بك يا ${who}. جاهزون ليوم عمل منظّم ودقيق، شكراً لجهودك.`];
 }
 function showWelcome(u){
   const old=$("#welcome");if(old)old.remove();
+  const pool=welcomePool(u),flag=welcomeFlag(u),key="wlc_"+((u.username||u.name||"")+"");
+  let n=0;try{n=parseInt(localStorage.getItem(key)||"0",10)||0;}catch(e){}
+  const msg=pool[n%pool.length];
+  try{localStorage.setItem(key,String(n+1));}catch(e){}
+  const co=curCompany().name||"نظام المخزون";
   const w=document.createElement("div");w.id="welcome";w.onclick=()=>w.remove();
-  w.style.cssText="position:fixed;inset:0;z-index:150;display:flex;align-items:center;justify-content:center;background:rgba(15,23,42,.45);padding:16px";
-  w.innerHTML=`<div style="background:linear-gradient(135deg,#0d9488,#0f766e);color:#fff;border-radius:20px;padding:34px 28px;text-align:center;max-width:420px;box-shadow:0 20px 50px rgba(0,0,0,.35);animation:wpop .3s ease">
-    <div style="font-size:46px;margin-bottom:6px">👋</div>
-    <div style="font-size:22px;font-weight:800;line-height:1.6">${greet(u)}</div>
-    <div style="display:inline-block;margin-top:12px;background:rgba(255,255,255,.15);padding:5px 14px;border-radius:20px;font-size:13px">${roleAr(u.role)}</div>
-    <div style="margin-top:14px;font-size:12px;opacity:.85">اضغط للمتابعة</div></div>`;
+  w.style.cssText="position:fixed;inset:0;z-index:150;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at center,rgba(0,0,0,.34),rgba(0,0,0,.64));backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);padding:18px";
+  w.innerHTML=`<div style="position:relative;overflow:hidden;background:linear-gradient(135deg,#0d9488 0%,#0f3b34 100%);color:#fff;border-radius:22px;padding:30px 30px;max-width:460px;width:94%;text-align:center;line-height:1.9;box-shadow:0 26px 64px rgba(0,0,0,.5),0 0 0 1px rgba(212,175,55,.55),0 0 44px rgba(212,175,55,.16);animation:wpop .35s ease">
+    <div style="font-size:12px;letter-spacing:2px;color:#f5d67a;font-weight:800;margin-bottom:10px">${esc(co)}</div>
+    <div style="font-size:56px;line-height:1;margin-bottom:10px">${flag}</div>
+    <div style="font-size:20px;font-weight:800;margin-bottom:4px">${esc(u.name||"")}</div>
+    <div style="display:inline-block;margin-bottom:12px;background:rgba(255,255,255,.15);padding:4px 14px;border-radius:20px;font-size:12px">${roleAr(u.role)}</div>
+    <div style="font-size:16px;font-weight:600;color:#f7f7f7">${esc(msg)}</div>
+    <div style="margin:16px auto 0;height:3px;width:64px;background:linear-gradient(90deg,transparent,#f5d67a,transparent);border-radius:2px"></div>
+    <div style="margin-top:12px;font-size:11px;opacity:.8">اضغط للمتابعة</div>
+    <div style="position:absolute;top:0;left:-60%;width:45%;height:100%;pointer-events:none;transform:skewX(-20deg);background:linear-gradient(120deg,transparent,rgba(255,255,255,.14),transparent);animation:wshine 2.2s ease .2s"></div></div>`;
   document.body.appendChild(w);
-  clearTimeout(window._welc);window._welc=setTimeout(()=>{const el=$("#welcome");if(el)el.remove();},3500);
+  clearTimeout(window._welc);window._welc=setTimeout(()=>{const el=$("#welcome");if(el)el.remove();},4200);
 }
 /* إلزام تغيير كلمة المرور بعد أول دخول (تُبطَل الكلمة الافتراضية) */
 function forceChangePassword(){
