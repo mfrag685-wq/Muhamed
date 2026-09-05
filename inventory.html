@@ -1032,12 +1032,12 @@ function pDashboard(){
   </div>
   <div class="card">
     <div class="card-title" style="display:flex;justify-content:space-between;align-items:center"><span>جرد الأرصدة الحالية</span>
-      <button class="btn ghost sm" onclick="exportCSV('الارصدة.csv',['الموديل','الوصف','الفئة','الوحدة','الرصيد','حد الطلب'],citems().map(i=>[itemModel(i),i.name||'',i.category||'',i.unit||'',i.qty,i.reorder||'']))">⬇ Excel</button></div>
+      <button class="btn ghost sm" onclick="exportCSV('الارصدة.csv',['الموديل','الوصف','الفئة','الوحدة','الرصيد','حد الطلب','المورد','رقم الفسح'],citems().map(i=>{const s=itemSource(i.id);return [itemModel(i),i.name||'',i.category||'',i.unit||'',i.qty,i.reorder||'',s.sup,s.customs];}))">⬇ Excel</button></div>
     <div class="row"><div class="field"><input id="dashSearch" placeholder="🔍 بحث بالكود أو الاسم أو الموديل..." value="${esc(q)}" oninput="renderBalances()"></div>
       <div class="field" style="max-width:220px"><select id="dashStatus" onchange="renderBalances()">
         <option value="all">كل الحالات</option><option value="ok">متوفر</option><option value="low">تحت حد الطلب</option><option value="zero">نفد (صفر)</option><option value="neg">بالسالب</option></select></div></div>
     <div class="table-wrap"><table><thead><tr><th>الموديل</th><th>الوصف</th><th>الفئة</th>
-      <th>الوحدة</th><th>الرصيد الحالي</th><th>حد الطلب</th><th>الحالة</th></tr></thead>
+      <th>الوحدة</th><th>الرصيد الحالي</th><th>حد الطلب</th><th>الحالة</th><th>المورد</th><th>رقم الفسح</th></tr></thead>
       <tbody id="balTbl"></tbody></table></div></div>`;
   renderBalances();
 }
@@ -1045,12 +1045,13 @@ function renderBalances(){
   const q=($("#dashSearch")?.value||"").toLowerCase();const sf=$("#dashStatus")?.value||"all";
   const rows=citems().filter(i=>(i.code+i.name+(i.model||"")+(i.category||"")).toLowerCase().includes(q)&&(sf==="all"||itemStatus(i)===sf));
   $("#balTbl").innerHTML=rows.map(i=>{
-    const st=itemStatus(i),low=st==="low"||st==="neg";const state=[STATUS_AR[st],STATUS_COLOR[st]];
+    const st=itemStatus(i),low=st==="low"||st==="neg";const state=[STATUS_AR[st],STATUS_COLOR[st]];const src=itemSource(i.id);
     return `<tr><td style="font-family:monospace;font-weight:700">${i.image?`<img src="${i.image}" onclick="viewImg(this.src)" style="width:34px;height:34px;object-fit:cover;border-radius:7px;vertical-align:middle;margin-left:6px;cursor:zoom-in">`:""}${esc(itemModel(i))}</td><td>${esc(i.name&&i.name!==itemModel(i)?i.name:"")}</td>
       <td>${esc(i.category||"")}</td><td>${esc(i.unit||"")}</td>
       <td style="font-weight:800;font-size:15px;color:${low||i.qty<=0?'var(--red)':'inherit'}">${i.qty}</td>
-      <td>${i.reorder||"—"}</td><td><span class="tag" style="background:${state[1]}">${state[0]}</span></td></tr>`;
-  }).join("")||`<tr><td colspan="7" class="empty">لا أصناف.</td></tr>`;
+      <td>${i.reorder||"—"}</td><td><span class="tag" style="background:${state[1]}">${state[0]}</span></td>
+      <td>${esc(src.sup||"—")}</td><td style="font-family:monospace">${esc(src.customs||"—")}</td></tr>`;
+  }).join("")||`<tr><td colspan="9" class="empty">لا أصناف.</td></tr>`;
 }
 
 /* ============ 3) تقرير فترة — وارد/منصرف لكل صنف خلال مدة ============ */
@@ -1215,6 +1216,14 @@ function exportLedger(id){
 
 /* ============ 5) الأصناف ============ */
 function itemStatus(i){if(i.qty<0)return "neg";if(i.qty===0)return "zero";if(i.reorder>0&&i.qty<=i.reorder)return "low";return "ok";}
+/* آخر مصدر توريد للصنف (المورد ورقم الفسح) */
+function itemSource(id){
+  const inb=DB.movements.filter(m=>m.companyId===CO&&m.itemId===id&&m.type==="inbound");
+  if(!inb.length)return{sup:"",customs:""};
+  inb.sort((a,b)=>(a.date<b.date?1:a.date>b.date?-1:b.id-a.id));
+  const m=inb[0];const s=DB.suppliers.find(x=>x.id===m.supplierId);
+  return{sup:s?s.name:"",customs:m.customs||""};
+}
 const STATUS_AR={ok:"متوفر",low:"تحت حد الطلب",zero:"نفد (صفر)",neg:"بالسالب"};
 const STATUS_COLOR={ok:"var(--green)",low:"var(--red)",zero:"var(--amber)",neg:"#7c3aed"};
 let itemFilter="all";
@@ -1223,7 +1232,7 @@ function pItems(){
   const cats=[...new Set(CI.map(i=>i.category).filter(Boolean))];
   const chip=(k,lbl,c)=>`<button class="btn ${itemFilter===k?"":"ghost"} sm" style="${itemFilter===k&&c?`background:${c}`:""}" onclick="setItemFilter('${k}')">${lbl} <b>${cnt[k]}</b></button>`;
   $("#view").innerHTML=`<div class="pagehead"><h1>🏷️ الأصناف (الموديلات)</h1><div style="display:flex;gap:8px;flex-wrap:wrap">
-    <button class="btn ghost" onclick="exportCSV('الموديلات.csv',['الموديل','الوصف','الفئة','الوحدة','الرصيد','حد الطلب','الحالة'],filteredItems().map(i=>[itemModel(i),i.name||'',i.category||'',i.unit||'',i.qty,i.reorder||'',STATUS_AR[itemStatus(i)]]))">⬇ Excel</button>
+    <button class="btn ghost" onclick="exportCSV('الموديلات.csv',['الموديل','الوصف','الفئة','الوحدة','الرصيد','حد الطلب','الحالة','المورد','رقم الفسح'],filteredItems().map(i=>{const s=itemSource(i.id);return [itemModel(i),i.name||'',i.category||'',i.unit||'',i.qty,i.reorder||'',STATUS_AR[itemStatus(i)],s.sup,s.customs];}))">⬇ Excel</button>
     ${can("canAdd")?`<button class="btn amber" onclick="importModels()">📥 استيراد موديلات</button>`:""}
     ${can("canAdd")?`<button class="btn" onclick="itemForm(0)">+ إضافة موديل</button>`:""}</div></div>
   <div class="card">
@@ -1233,29 +1242,32 @@ function pItems(){
     <div class="row">
       <div class="field"><input id="itemSearch" placeholder="🔍 بحث بالموديل أو الوصف أو الفئة..." oninput="renderItems()"></div>
       <div class="field" style="max-width:200px"><select id="itemCat" onchange="renderItems()"><option value="">كل الفئات</option>${cats.map(c=>`<option>${esc(c)}</option>`).join("")}</select></div>
+      <div class="field" style="max-width:200px"><select id="itemSup" onchange="renderItems()"><option value="">كل الموردين</option>${csups().map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join("")}</select></div>
     </div>
     <div class="table-wrap"><table><thead><tr><th>الموديل</th><th>الوصف</th><th>الفئة</th><th>الوحدة</th>
-      <th>الرصيد</th><th>حد الطلب</th><th>الحالة</th><th></th></tr></thead>
+      <th>الرصيد</th><th>حد الطلب</th><th>الحالة</th><th>المورد</th><th>رقم الفسح</th><th></th></tr></thead>
       <tbody id="itemsTbl"></tbody></table></div></div>`;
   renderItems();
 }
 function setItemFilter(k){itemFilter=k;pItems();}
 function filteredItems(){
-  const q=($("#itemSearch")?.value||"").toLowerCase();const cat=$("#itemCat")?.value||"";
+  const q=($("#itemSearch")?.value||"").toLowerCase();const cat=$("#itemCat")?.value||"";const sup=$("#itemSup")?.value||"";
   return citems().filter(i=>((i.code+i.name+(i.model||"")+(i.category||"")).toLowerCase().includes(q))
-    &&(!cat||i.category===cat)&&(itemFilter==="all"||itemStatus(i)===itemFilter));
+    &&(!cat||i.category===cat)&&(itemFilter==="all"||itemStatus(i)===itemFilter)
+    &&(!sup||DB.movements.some(m=>m.companyId===CO&&m.itemId===i.id&&m.type==="inbound"&&m.supplierId===+sup)));
 }
 function renderItems(){
   const rows=filteredItems();
   $("#itemsTbl").innerHTML=rows.map(i=>{
-    const st=itemStatus(i),low=st==="low"||st==="neg";
+    const st=itemStatus(i),low=st==="low"||st==="neg";const src=itemSource(i.id);
     return `<tr><td style="font-family:monospace;font-weight:700">${i.image?`<img src="${i.image}" onclick="viewImg(this.src)" style="width:34px;height:34px;object-fit:cover;border-radius:7px;vertical-align:middle;margin-left:6px;cursor:zoom-in">`:""}${esc(itemModel(i))}</td><td>${esc(i.name&&i.name!==itemModel(i)?i.name:"")}</td>
       <td>${esc(i.category||"")}</td><td>${esc(i.unit||"")}</td>
       <td style="color:${low?'var(--red)':'inherit'};font-weight:${low?700:400}">${i.qty}</td><td>${i.reorder||"—"}</td>
       <td><span class="tag" style="background:${STATUS_COLOR[st]}">${STATUS_AR[st]}</span></td>
+      <td>${esc(src.sup||"—")}</td><td style="font-family:monospace">${esc(src.customs||"—")}</td>
       <td style="white-space:nowrap">${can("canEdit")?`<button class="btn blue sm" onclick="itemForm(${i.id})">تعديل</button>`:""}
         ${can("canDelete")?`<button class="btn red sm" onclick="delItem(${i.id})">حذف</button>`:""}</td></tr>`;
-  }).join("")||`<tr><td colspan="8" class="empty">لا موديلات مطابقة.</td></tr>`;
+  }).join("")||`<tr><td colspan="10" class="empty">لا موديلات مطابقة.</td></tr>`;
 }
 function itemForm(id){
   if(!guard(id?"canEdit":"canAdd"))return;
