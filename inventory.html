@@ -1045,12 +1045,12 @@ function renderBalances(){
   const q=($("#dashSearch")?.value||"").toLowerCase();const sf=$("#dashStatus")?.value||"all";
   const rows=citems().filter(i=>(i.code+i.name+(i.model||"")+(i.category||"")).toLowerCase().includes(q)&&(sf==="all"||itemStatus(i)===sf));
   $("#balTbl").innerHTML=rows.map(i=>{
-    const st=itemStatus(i),low=st==="low"||st==="neg";const state=[STATUS_AR[st],STATUS_COLOR[st]];const src=itemSource(i.id);
+    const st=itemStatus(i),low=st==="low"||st==="neg";const state=[STATUS_AR[st],STATUS_COLOR[st]];const srcL=itemSources(i.id);
     return `<tr><td style="font-family:monospace;font-weight:700">${i.image?`<img src="${i.image}" onclick="viewImg(this.src)" style="width:34px;height:34px;object-fit:cover;border-radius:7px;vertical-align:middle;margin-left:6px;cursor:zoom-in">`:""}${esc(itemModel(i))}</td><td>${esc(i.name&&i.name!==itemModel(i)?i.name:"")}</td>
       <td>${esc(i.category||"")}</td><td>${esc(i.unit||"")}</td>
       <td style="font-weight:800;font-size:15px;color:${low||i.qty<=0?'var(--red)':'inherit'}">${i.qty}</td>
       <td>${i.reorder||"—"}</td><td><span class="tag" style="background:${state[1]}">${state[0]}</span></td>
-      <td>${esc(src.sup||"—")}</td><td style="font-family:monospace">${esc(src.customs||"—")}</td></tr>`;
+      <td>${srcL.length?srcL.map(s=>esc(s.sup)).join("<br>"):"—"}</td><td style="font-family:monospace">${srcL.length?srcL.map(s=>esc(s.customs||"—")).join("<br>"):"—"}</td></tr>`;
   }).join("")||`<tr><td colspan="9" class="empty">لا أصناف.</td></tr>`;
 }
 
@@ -1216,13 +1216,24 @@ function exportLedger(id){
 
 /* ============ 5) الأصناف ============ */
 function itemStatus(i){if(i.qty<0)return "neg";if(i.qty===0)return "zero";if(i.reorder>0&&i.qty<=i.reorder)return "low";return "ok";}
-/* آخر مصدر توريد للصنف (المورد ورقم الفسح) */
-function itemSource(id){
+/* مصادر توريد الصنف — كل الموردين وأرقام الفسح (الأحدث أولاً) */
+function itemSources(id){
   const inb=DB.movements.filter(m=>m.companyId===CO&&m.itemId===id&&m.type==="inbound");
-  if(!inb.length)return{sup:"",customs:""};
   inb.sort((a,b)=>(a.date<b.date?1:a.date>b.date?-1:b.id-a.id));
-  const m=inb[0];const s=DB.suppliers.find(x=>x.id===m.supplierId);
-  return{sup:s?s.name:"",customs:m.customs||""};
+  const seen=new Set(),out=[];
+  inb.forEach(m=>{
+    const s=DB.suppliers.find(x=>x.id===m.supplierId);
+    const sup=s?s.name:"—",customs=m.customs||"";
+    const key=sup+"|"+customs;if(seen.has(key))return;seen.add(key);
+    out.push({sup,customs});
+  });
+  return out;
+}
+/* دمج المصادر في نصّين للعرض/التصدير (سطر لكل مورد) */
+function itemSource(id){
+  const list=itemSources(id);
+  if(!list.length)return{sup:"",customs:"",multi:false};
+  return{sup:list.map(x=>x.sup).join(" / "),customs:list.map(x=>x.customs||"—").join(" / "),multi:list.length>1,list};
 }
 const STATUS_AR={ok:"متوفر",low:"تحت حد الطلب",zero:"نفد (صفر)",neg:"بالسالب"};
 const STATUS_COLOR={ok:"var(--green)",low:"var(--red)",zero:"var(--amber)",neg:"#7c3aed"};
@@ -1259,12 +1270,12 @@ function filteredItems(){
 function renderItems(){
   const rows=filteredItems();
   $("#itemsTbl").innerHTML=rows.map(i=>{
-    const st=itemStatus(i),low=st==="low"||st==="neg";const src=itemSource(i.id);
+    const st=itemStatus(i),low=st==="low"||st==="neg";const srcL=itemSources(i.id);
     return `<tr><td style="font-family:monospace;font-weight:700">${i.image?`<img src="${i.image}" onclick="viewImg(this.src)" style="width:34px;height:34px;object-fit:cover;border-radius:7px;vertical-align:middle;margin-left:6px;cursor:zoom-in">`:""}${esc(itemModel(i))}</td><td>${esc(i.name&&i.name!==itemModel(i)?i.name:"")}</td>
       <td>${esc(i.category||"")}</td><td>${esc(i.unit||"")}</td>
       <td style="color:${low?'var(--red)':'inherit'};font-weight:${low?700:400}">${i.qty}</td><td>${i.reorder||"—"}</td>
       <td><span class="tag" style="background:${STATUS_COLOR[st]}">${STATUS_AR[st]}</span></td>
-      <td>${esc(src.sup||"—")}</td><td style="font-family:monospace">${esc(src.customs||"—")}</td>
+      <td>${srcL.length?srcL.map(s=>esc(s.sup)).join("<br>"):"—"}</td><td style="font-family:monospace">${srcL.length?srcL.map(s=>esc(s.customs||"—")).join("<br>"):"—"}</td>
       <td style="white-space:nowrap">${can("canEdit")?`<button class="btn blue sm" onclick="itemForm(${i.id})">تعديل</button>`:""}
         ${can("canDelete")?`<button class="btn red sm" onclick="delItem(${i.id})">حذف</button>`:""}</td></tr>`;
   }).join("")||`<tr><td colspan="10" class="empty">لا موديلات مطابقة.</td></tr>`;
