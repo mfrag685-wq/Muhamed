@@ -1707,11 +1707,13 @@ function pEmployees(){
         <div class="cell c2"><label>من</label><input id="acFrom" type="date" onchange="renderActivity()"></div>
         <div class="cell c2"><label>إلى</label><input id="acTo" type="date" onchange="renderActivity()"></div>
       </div>
-      <div class="table-wrap"><table><thead><tr><th>الوقت</th><th>الموظف</th><th>العملية</th><th>التفاصيل</th></tr></thead>
+      <div class="table-wrap"><table><thead><tr><th>الوقت</th><th>الموظف</th><th>العملية</th><th>التفاصيل</th>${canManage?"<th></th>":""}</tr></thead>
       <tbody id="acTbl"></tbody></table></div>
-      <div style="display:flex;gap:8px;margin-top:10px">
+      <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
         <button class="btn ghost sm" onclick="exportActivity()">⬇ تصدير المعروض Excel</button>
-        ${canManage?`<button class="btn red sm" onclick="clearActivity()">🗑️ تفريغ السجل</button>`:""}</div></div>
+        ${canManage?`<button class="btn amber sm" onclick="deleteFilteredActivity()">🗑️ حذف السجلات المعروضة (حسب الفلتر)</button>
+        <button class="btn red sm" onclick="clearActivity()">🗑️ تفريغ السجل بالكامل</button>`:""}</div>
+        ${canManage?`<p style="font-size:12px;color:var(--muted);margin-top:6px">لحذف سجلات موظف معيّن تحت بند معيّن (مثل «تسجيل الدخول»): اختر الموظف ونوع العملية من الفلاتر أعلاه ثم اضغط «حذف السجلات المعروضة».</p>`:""}</div>
   </div>
   <div id="joinReqBox"></div>`;
   renderActivity();
@@ -1724,7 +1726,26 @@ function filteredActivity(){
 }
 function renderActivity(){
   const tb=$("#acTbl");if(!tb)return;
-  tb.innerHTML=filteredActivity().slice(0,300).map(a=>`<tr><td>${fmt(a.at)}</td><td>${esc(a.userName)}</td><td>${esc(a.action)}</td><td>${esc(a.detail||"")}</td></tr>`).join("")||`<tr><td colspan="4" class="empty">لا نتائج مطابقة.</td></tr>`;
+  const canManage=(ME.role==="admin"||ME.role==="supervisor");
+  tb.innerHTML=filteredActivity().slice(0,300).map(a=>`<tr><td>${fmt(a.at)}</td><td>${esc(a.userName)}</td><td>${esc(a.action)}</td><td>${esc(a.detail||"")}</td>${canManage?`<td><button class="btn red sm" onclick="delActivity(${a.id})">حذف</button></td>`:""}</tr>`).join("")||`<tr><td colspan="${canManage?5:4}" class="empty">لا نتائج مطابقة.</td></tr>`;
+}
+/* حذف سجل واحد */
+function delActivity(id){
+  if(!(ME.role==="admin"||ME.role==="supervisor"))return;
+  if(!confirm("حذف هذا السجل؟"))return;
+  DB.activity=DB.activity.filter(a=>a.id!==id);save();renderActivity();toast("تم حذف السجل");
+}
+/* حذف كل السجلات المطابقة للفلتر الحالي (موظف/نوع عملية/تاريخ) */
+function deleteFilteredActivity(){
+  if(!(ME.role==="admin"||ME.role==="supervisor"))return;
+  const sel=filteredActivity();
+  if(!sel.length)return toast("لا سجلات مطابقة للحذف");
+  const u=$("#acUser")?.value||"",ac=$("#acAction")?.value||"";
+  const scope=[u?`الموظف «${u}»`:"",ac?`بند «${ac}»`:""].filter(Boolean).join(" — ")||"المعروض حالياً";
+  if(!confirm(`حذف ${sel.length} سجلاً (${scope})؟ لا يمكن التراجع.`))return;
+  const ids=new Set(sel.map(a=>a.id));
+  DB.activity=DB.activity.filter(a=>!ids.has(a.id));save();renderActivity();
+  toast(`تم حذف ${sel.length} سجلاً`);
 }
 function exportActivity(){
   exportCSV("نشاط-الموظفين.csv",["الوقت","الموظف","العملية","التفاصيل"],filteredActivity().map(a=>[fmt(a.at),a.userName,a.action,a.detail||""]));
