@@ -100,11 +100,11 @@ tr:hover td{background:#f8fafc}
 
 /* أزرار كبيرة لنوع الحركة — وارد / منصرف */
 .typebtns{display:flex;gap:8px}
-.typebtns button{flex:1;border:2px solid var(--line);background:#fff;color:var(--muted);border-radius:10px;padding:12px;font-weight:700;font-size:15px;line-height:1.35;transition:transform .1s}
+.typebtns button{flex:1;border:2px solid var(--line);background:#fff;color:var(--muted);border-radius:10px;padding:14px 10px;font-weight:800;font-size:16px;line-height:1.4;transition:transform .1s;cursor:pointer}
 .typebtns button.in{border-color:#86efac;color:var(--green);background:#f0fdf4}
 .typebtns button.out{border-color:#fdba74;color:var(--amber);background:#fff7ed;background:#fff7ed}
 .typebtns button.adj{border-color:#cbd5e1;color:#64748b}
-.typebtns button small{display:block;font-size:11px;font-weight:600;opacity:.85}
+.typebtns button small{display:block;font-size:12px;font-weight:600;opacity:.9;margin-top:3px}
 .typebtns button.on.in{background:var(--green);border-color:var(--green);color:#fff;box-shadow:0 4px 12px rgba(22,163,74,.35);transform:translateY(-1px)}
 .typebtns button.on.out{background:var(--amber);border-color:var(--amber);color:#fff;box-shadow:0 4px 12px rgba(217,119,6,.35);transform:translateY(-1px)}
 .typebtns button.on.adj{background:#64748b;border-color:#64748b;color:#fff}
@@ -683,9 +683,9 @@ function pMove(){
       <label class="btn amber no-print" style="margin:0">⬆ استيراد حركات<input type="file" accept=".csv,text/csv" style="display:none" onchange="importMovesFile(event)"></label>`:""}</div></div>
   <div class="card"><div id="mMsg"></div>
     <div class="typebtns" style="margin-bottom:12px">
-      <button type="button" class="in" id="tbIn"  onclick="setType('inbound')">⬇ وارد<small>استلام / إضافة للمخزون</small></button>
-      <button type="button" class="out" id="tbOut" onclick="setType('outbound')">⬆ منصرف<small>صرف / بيع من المخزون</small></button>
-      <button type="button" class="adj" id="tbAdj" onclick="setType('adjustment')">⚙ تسوية<small>تصحيح رصيد</small></button>
+      <button type="button" class="in" id="tbIn"  onclick="setType('inbound')">📥 وارد (بضاعة داخلة)<small>استلام من مورد ➕ يزيد الرصيد</small></button>
+      <button type="button" class="out" id="tbOut" onclick="setType('outbound')">📤 منصرف (بضاعة خارجة)<small>بيع / صرف للعميل ➖ ينقص الرصيد</small></button>
+      <button type="button" class="adj" id="tbAdj" onclick="setType('adjustment')">⚙ تسوية جرد<small>تصحيح الرصيد يدويًا</small></button>
     </div>
     <div class="balbox" id="mBal" style="display:none">
       <div style="display:flex;align-items:center;gap:12px">
@@ -733,8 +733,8 @@ function pMove(){
       <span>🕒 آخر الحركات</span>
       <div class="typebtns" style="max-width:360px">
         <button type="button" id="rfAll" onclick="setRecentFilter('')">الكل</button>
-        <button type="button" class="in" id="rfIn" onclick="setRecentFilter('inbound')">⬇ وارد</button>
-        <button type="button" class="out" id="rfOut" onclick="setRecentFilter('outbound')">⬆ منصرف</button>
+        <button type="button" class="in" id="rfIn" onclick="setRecentFilter('inbound')">📥 وارد</button>
+        <button type="button" class="out" id="rfOut" onclick="setRecentFilter('outbound')">📤 منصرف</button>
       </div></div>
     <div class="table-wrap"><table><thead><tr><th>التاريخ</th><th>الصنف/الموديل</th><th>النوع</th><th>الكمية</th>
       <th>الرصيد بعدها</th><th>فسح/فاتورة</th><th>المورد</th><th>الموظف</th><th></th></tr></thead>
