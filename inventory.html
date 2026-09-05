@@ -714,7 +714,7 @@ function pMove(){
     <!-- حقول المنصرف: فاتورة + عمولة + إمكانية عدة أصناف -->
     <div id="rowOut" style="margin-top:6px">
       <div class="formgrid">
-        <div class="cell c3"><label>رقم فاتورة البيع</label><input id="mInvoice" placeholder="رقم الفاتورة"></div>
+        <div class="cell c3"><label>رقم فاتورة البيع * (إجباري)</label><input id="mInvoice" placeholder="رقم الفاتورة"></div>
         <div class="cell c3"><label>العمولة ﷼ (لكامل الفاتورة)</label><input id="mComm" type="number" inputmode="decimal" step="0.01" placeholder="0.00"></div>
         <div class="cell c3"><label>العنوان</label><input id="mAddress" placeholder="العنوان"></div>
         <div class="cell c3"><label>ملاحظات</label><input id="mNoteOut" placeholder="ملاحظة"></div>
@@ -821,7 +821,9 @@ function saveMove(){
     if(!lines.length)return show("أضِف صنفاً واحداً على الأقل للفاتورة.","err");
     const need={};lines.forEach(l=>need[l.itemId]=(need[l.itemId]||0)+l.qty);
     for(const id in need){const it=DB.items.find(x=>x.id===+id);if(need[id]>it.qty)return show(`الرصيد غير كافٍ للصنف «${itemModel(it)}» (المتاح ${it.qty}).`,"err");}
-    const gid="INV"+Date.now();const invNo=($("#mInvoice").value||"").trim()||gid;
+    const invNo=($("#mInvoice").value||"").trim();
+    if(!invNo)return show("أدخل رقم الفاتورة (إجباري للمنصرف).","err");
+    const gid="INV"+Date.now();
     const comm=parseFloat($("#mComm").value)||0,addr=$("#mAddress").value||"",note=$("#mNoteOut").value||"";
     lines.forEach((l,idx)=>{const it=DB.items.find(x=>x.id===l.itemId);it.qty-=l.qty;
       DB.movements.unshift({id:nid("movement"),companyId:CO,itemId:it.id,type:"outbound",qty:l.qty,price:l.price||0,
@@ -960,6 +962,10 @@ function saveMovement(id){
   if(m.type==="inbound"&&!($("#em_ref").value||"").trim()){
     if(oldIt)oldIt.qty+=isIn(m.type)?m.qty:-m.qty;
     $("#em_msg").textContent="أدخل رقم الفسح (إجباري للوارد).";return;
+  }
+  if(m.type==="outbound"&&!($("#em_ref").value||"").trim()){
+    if(oldIt)oldIt.qty+=isIn(m.type)?m.qty:-m.qty;
+    $("#em_msg").textContent="أدخل رقم الفاتورة (إجباري للمنصرف).";return;
   }
   newIt.qty+=isIn(m.type)?nq:-nq;
   m.itemId=newIt.id;m.model=itemModel(newIt);m.qty=nq;m.price=parseFloat($("#em_price").value)||0;
