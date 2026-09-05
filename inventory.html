@@ -819,8 +819,10 @@ function renderRecent(){
 /* ---------- استيراد حركات وارد/منصرف من Excel ---------- */
 function downloadMovesTemplate(){
   const rows=[["النوع (وارد/منصرف)","الموديل","الكمية","السعر","المورد (للوارد)","رقم الفسح/الفاتورة","التاريخ"],
-    ["وارد","غرفة كلاسيك","3","3200","مورد الرياض للأثاث","111","2026-08-30"],
-    ["منصرف","غرفة كلاسيك","1","4500","","INV-500","2026-08-30"]];
+    ["وارد","غرفة كلاسيك","3","3200","مورد الرياض للأثاث","111","2026-08-10"],
+    ["وارد","مرتبة مفردة","10","600","مورد الرياض للأثاث","112","2026-08-15"],
+    ["منصرف","غرفة كلاسيك","1","4500","","INV-500","2026-08-20"],
+    ["وارد","غرفة مودرن","2","4100","مورد جدة","113","2026-08-28"]];
   const csv=rows.map(r=>r.map(v=>/[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v).join(",")).join("\r\n");
   const blob=new Blob(["﻿"+csv],{type:"text/csv;charset=utf-8"});
   const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="قالب-حركات.csv";a.click();
@@ -1311,7 +1313,10 @@ function delItem(id){
 /* ============ 6) الموردون ============ */
 function pImport(){
   $("#view").innerHTML=`<div class="pagehead"><h1>🚚 الموردون</h1>
-    <button class="btn blue" onclick="suppliersSummary()">📊 كشف حساب مجمّع</button></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn blue" onclick="suppliersSummary()">📊 كشف حساب مجمّع</button>
+      ${can("canEdit")?`<button class="btn ghost" onclick="downloadPaymentsTemplate()">⬇ قالب دفعات</button>
+      <label class="btn amber" style="margin:0">⬆ استيراد دفعات<input type="file" accept=".csv,text/csv" style="display:none" onchange="importPaymentsFile(event)"></label>`:""}</div></div>
   <div class="card" style="max-width:640px">
     <div class="card-title">➕ إضافة مورد</div>
     <div class="row"><div class="field"><label>اسم المورد *</label><input id="sName"></div>
@@ -1353,6 +1358,39 @@ function suppliersSummary(){
       <td style="color:var(--green)">${money(r.paid)}</td><td style="font-weight:700;color:${r.bal>0?'var(--red)':'inherit'}">${money(r.bal)}</td>
       <td class="no-print"><button class="btn blue sm" onclick="supplierStatement(${r.s.id})">كشف</button></td></tr>`).join("")||`<tr><td colspan="7" class="empty">لا موردين.</td></tr>`}
     ${rows.length?`<tr style="background:#f1f5f9;font-weight:700"><td colspan="2">الإجمالي</td><td>${money(T.sup)}</td><td>${money(T.opn)}</td><td style="color:var(--green)">${money(T.paid)}</td><td style="color:${T.bal>0?'var(--red)':'inherit'}">${money(T.bal)}</td><td class="no-print"></td></tr>`:""}</tbody></table></div></div>`;
+}
+/* ---------- استيراد دفعات/تخفيضات الموردين من Excel ---------- */
+function downloadPaymentsTemplate(){
+  const rows=[["المورد","المبلغ","التاريخ","النوع (دفعة/خصم/مرتجع)","ملاحظة"],
+    ["مورد الرياض للأثاث","5000","2026-08-12","دفعة","تحويل بنكي"],
+    ["مورد الرياض للأثاث","1200","2026-08-20","خصم","خصم كمية"],
+    ["مورد جدة","3000","2026-08-25","دفعة","نقد"]];
+  const csv=rows.map(r=>r.map(v=>/[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v).join(",")).join("\r\n");
+  const blob=new Blob(["﻿"+csv],{type:"text/csv;charset=utf-8"});
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="قالب-دفعات-الموردين.csv";a.click();
+  toast("كل سطر يخفّض رصيد المورد — يمكن اختلاف التواريخ");
+}
+function importPaymentsFile(e){
+  if(!guard("canEdit"))return;const f=e.target.files[0];if(!f)return;
+  if(/\.xlsx$/i.test(f.name)){alert("احفظ الملف من Excel بصيغة CSV ثم ارفعه.");return;}
+  const r=new FileReader();
+  r.onload=()=>{const lines=String(r.result||"").split(/\r?\n/).filter(l=>l.trim());
+    if(lines[0]&&/المورد|supplier/i.test(lines[0]))lines.shift();
+    let ok=0,skip=0,errs=[];
+    lines.forEach((line,idx)=>{
+      const p=line.split(/,(?=(?:[^"]*"[^"]*")*[^"]*$)/).map(x=>x.replace(/^"|"$/g,"").replace(/""/g,'"').trim());
+      const supName=(p[0]||"").trim();const amt=parseFloat(p[1])||0;const date=(p[2]||"").trim()||today();
+      const method=(p[3]||"دفعة").trim();const note=(p[4]||"").trim();
+      if(!supName||amt<=0){skip++;errs.push(`سطر ${idx+1}: بيانات ناقصة`);return;}
+      const sup=csups().find(s=>s.name.toLowerCase()===supName.toLowerCase());
+      if(!sup){skip++;errs.push(`سطر ${idx+1}: المورد «${supName}» غير موجود`);return;}
+      DB.payments.unshift({id:nid("payment"),companyId:CO,supplierId:sup.id,kind:"payment",amount:amt,method,date,note,userId:ME.id,userName:ME.name,at:new Date().toISOString()});
+      ok++;});
+    logAct("استيراد دفعات",`${ok} دفعة${skip?` — تخطّي ${skip}`:""}`);save();
+    if($("#supTbl"))renderSuppliers();
+    alert(`تم استيراد ${ok} دفعة وتخفيضها من أرصدة الموردين.${skip?`\nتخطّي ${skip}:\n`+errs.slice(0,15).join("\n"):""}`);
+  };
+  r.readAsText(f,"utf-8");
 }
 /* ---------- دفعات وأرصدة افتتاحية للمورد ---------- */
 function makePayment(id){
