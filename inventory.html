@@ -707,7 +707,7 @@ function pMove(){
     <div class="formgrid" id="rowIn" style="margin-top:6px">
       <div class="cell c4"><label>المورد * (إجباري للوارد)</label><select id="mSupplier"><option value="">— اختر المورد —</option>
         ${csups().map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join("")}</select></div>
-      <div class="cell c4"><label>رقم الفسح الجمركي (للوارد)</label><input id="mCustoms" placeholder="رقم الفسح"></div>
+      <div class="cell c4"><label>رقم الفسح الجمركي * (إجباري للوارد)</label><input id="mCustoms" placeholder="رقم الفسح"></div>
       <div class="cell c4"><label>ملاحظات</label><input id="mNoteIn" placeholder="ملاحظة"></div>
     </div>
 
@@ -761,7 +761,7 @@ function setType(t){
   if(rin)rin.style.display=(t==="inbound")?"grid":"none";
   if(rout)rout.style.display=(t==="outbound")?"block":"none";
   if(wp)wp.style.display=(t==="adjustment")?"none":"block";
-  if(lp)lp.textContent=(t==="inbound")?"سعر التكلفة ﷼":"سعر البيع ﷼";
+  if(lp)lp.textContent=(t==="inbound")?"سعر التكلفة * ﷼":"سعر البيع ﷼";
   if(sb)sb.textContent=(t==="outbound")?"✓ حفظ الفاتورة":"✓ حفظ الحركة";
   renderCart();
   if($("#rfAll")&&(t==="inbound"||t==="outbound"))setRecentFilter(t);   // يفلتر آخر الحركات حسب النوع المختار
@@ -836,6 +836,8 @@ function saveMove(){
   if(!picked)return show("اختر صنفاً أولاً.","err");
   const qty=parseFloat($("#mQty").value);if(!qty||qty<=0)return show("أدخل كمية صحيحة.","err");
   if(mType==="inbound"&&!(+($("#mSupplier")?.value)))return show("اختر المورد (إجباري للوارد).","err");
+  if(mType==="inbound"&&!(parseFloat($("#mPrice").value)>0))return show("أدخل سعر التكلفة (إجباري للوارد).","err");
+  if(mType==="inbound"&&!($("#mCustoms").value||"").trim())return show("أدخل رقم الفسح (إجباري للوارد).","err");
   const item=DB.items.find(i=>i.id===picked.id);
   item.qty+=qty;
   DB.movements.unshift({id:nid("movement"),companyId:CO,itemId:item.id,type:mType,qty,price:parseFloat($("#mPrice").value)||0,
@@ -950,6 +952,14 @@ function saveMovement(id){
   if(m.type==="inbound"&&!(+($("#em_sup")?.value))){
     if(oldIt)oldIt.qty+=isIn(m.type)?m.qty:-m.qty;   // تراجع عن العكس
     $("#em_msg").textContent="اختر المورد (إجباري للوارد).";return;
+  }
+  if(m.type==="inbound"&&!(parseFloat($("#em_price").value)>0)){
+    if(oldIt)oldIt.qty+=isIn(m.type)?m.qty:-m.qty;
+    $("#em_msg").textContent="أدخل سعر التكلفة (إجباري للوارد).";return;
+  }
+  if(m.type==="inbound"&&!($("#em_ref").value||"").trim()){
+    if(oldIt)oldIt.qty+=isIn(m.type)?m.qty:-m.qty;
+    $("#em_msg").textContent="أدخل رقم الفسح (إجباري للوارد).";return;
   }
   newIt.qty+=isIn(m.type)?nq:-nq;
   m.itemId=newIt.id;m.model=itemModel(newIt);m.qty=nq;m.price=parseFloat($("#em_price").value)||0;
