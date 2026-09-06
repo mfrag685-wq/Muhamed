@@ -962,12 +962,16 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
     المخزون المتبقي يبقى أصلاً ولا يُحمّل على أرباح الفترة.
   </div>
   <div class="filters no-print">
+    <div class="field"><label>اختر الشهر</label><input type="month" id="f_month" onchange="pickIncomeMonth()"></div>
+    <div class="field"><label>مستوى التفصيل</label><select id="incLevel" onchange="setIncomeLevel()">
+      <option value="1">المستوى 1 — ملخّص</option>
+      <option value="2">المستوى 2 — حسب الفئة</option>
+      <option value="3">المستوى 3 — تفصيل كامل + الفروع</option></select></div>
     <div class="field"><label>توزيع المصروفات المشتركة</label><select id="allocMethod" onchange="changeAlloc()">
       <option value="sales">بنسبة المبيعات</option><option value="gp">بنسبة مجمل الربح</option>
       <option value="equal">بالتساوي بين الفروع</option><option value="weight">بنسبة الأوزان المباعة</option></select></div>
-    <div class="field"><label>من</label><input type="date" id="f_from2" onchange="syncRange(this,'f_from')"></div>
-    <div class="field"><label>إلى</label><input type="date" id="f_to2" onchange="syncRange(this,'f_to')"></div>
-    <button class="btn-alt" id="incDetailBtn" onclick="toggleIncomeDetail()">عرض تفصيلي ▼</button>
+    <div class="field"><label>من</label><input type="date" id="f_from2" onchange="clrMonth();syncRange(this,'f_from')"></div>
+    <div class="field"><label>إلى</label><input type="date" id="f_to2" onchange="clrMonth();syncRange(this,'f_to')"></div>
     <button class="btn-alt" onclick="exportTable('income')">تصدير Excel</button>
     <button class="btn" onclick="window.print()">طباعة</button>
   </div>
@@ -1379,7 +1383,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-06-n';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-06-o';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -3869,17 +3873,26 @@ function renderIncome(){
     +'<tr class="total-row"><td>صافي الربح / (الخسارة)</td><td>'+sign(T.net)+'</td><td>'+pct(T.net,T.nrev)+'</td></tr>';
   renderIncomeDetail(P);
 }
-var incomeDetailOpen=false;
-function toggleIncomeDetail(){
-  incomeDetailOpen=!incomeDetailOpen;
-  var box=document.getElementById('incomeDetailBox'), btn=document.getElementById('incDetailBtn');
-  if(box) box.style.display=incomeDetailOpen?'':'none';
-  if(btn) btn.textContent=incomeDetailOpen?'إخفاء التفصيل ▲':'عرض تفصيلي ▼';
-  if(incomeDetailOpen){ renderIncomeDetail(); if(box) box.scrollIntoView({behavior:'smooth',block:'start'}); }
+/* اختيار الشهر: يملأ الفترة من أول الشهر إلى آخره تلقائياً */
+function pickIncomeMonth(){
+  var m=val('f_month'); if(!m) return;
+  var r=monthRangeOf(m+'-01');
+  setVal('f_from',r.from); setVal('f_to',r.to); setVal('f_from2',r.from); setVal('f_to2',r.to);
+  renderAll();
 }
-/* العرض التفصيلي لقائمة الدخل: مصروفات الفترة وتوزيعها الزمني + تفصيل كل فرع */
+function clrMonth(){ var e=document.getElementById('f_month'); if(e) e.value=''; }
+var incomeLevel=1;
+function setIncomeLevel(){
+  incomeLevel=parseInt(val('incLevel'),10)||1;
+  var box=document.getElementById('incomeDetailBox'); if(box) box.style.display=(incomeLevel>=2)?'':'none';
+  renderIncomeDetail();
+  if(incomeLevel>=2&&box) box.scrollIntoView({behavior:'smooth',block:'start'});
+}
+/* العرض التفصيلي لقائمة الدخل حسب المستوى: 2=حسب الفئة، 3=تفصيل كامل + الفروع */
 function renderIncomeDetail(P){
-  var box=document.getElementById('incomeDetailBox'); if(!box||!incomeDetailOpen||!can('income')) return;
+  var box=document.getElementById('incomeDetailBox'); if(!box||!can('income')) return;
+  if(incomeLevel<2){ box.style.display='none'; box.innerHTML=''; return; }
+  box.style.display='';
   var r=rg(), from=r.from, to=r.to;
   if(!P) P=pnl(from,to);
   var rows=P.rows;
@@ -3916,7 +3929,12 @@ function renderIncomeDetail(P){
     +(catRows||'<tr><td colspan="3" class="empty">لا يوجد.</td></tr>')
     +(catRows?'<tr class="total-row"><td>الإجمالي</td><td>'+money(totPortion)+'</td><td>100%</td></tr>':'')
     +'</tbody></table></div>';
-  /* ===== 3) تفصيل كل فرع: مباشرة (بالفئة) + خصومات ونسبتها + حصة مشتركة ===== */
+  /* ===== طريقة توزيع المصروفات المشتركة الحالية ===== */
+  var methTxt={sales:'بنسبة المبيعات',gp:'بنسبة مجمل الربح',equal:'بالتساوي بين الفروع',weight:'بنسبة الأوزان المباعة'}[db.settings.alloc||'sales'];
+  var methNote='<div class="note no-print"><b>طريقة توزيع المصروفات المشتركة الحالية:</b> '+esc(methTxt)+'. (صافي الضريبة عند تفعيله يُوزَّع دائماً بنسبة المبيعات.)</div>';
+  /* ===== المستوى 2: حسب الفئة فقط ===== */
+  if(incomeLevel<3){ box.innerHTML='<div class="note no-print" style="border-right-color:var(--teal,#2c7a52)">المستوى 2: ملخّص المصروفات حسب الفئة للفترة ('+esc(per)+'). ارفع المستوى إلى 3 لعرض تفاصيل كل مصروف وتفصيل ربحية كل فرع.</div>'+catTbl+methNote; return; }
+  /* ===== المستوى 3: تفصيل كل فرع: مباشرة (بالفئة) + خصومات ونسبتها + حصة مشتركة ===== */
   var brDirectCat={};   /* clientId -> {cat:amt} */
   db.expenses.forEach(function(x){
     if(x.type!=='direct') return; var portion=expenseAmountInRange(x,from,to); if(portion<=0.0000001) return;
@@ -3950,9 +3968,6 @@ function renderIncomeDetail(P){
       +'<tr class="total-row"><td>صافي ربح/خسارة الفرع</td><td>'+sign(x.net)+'</td><td>'+pct(x.net,x.net_rev)+'</td></tr>'
       +'</tbody></table></div>';
   }).join('');
-  /* ===== طريقة توزيع المصروفات المشتركة الحالية ===== */
-  var methTxt={sales:'بنسبة المبيعات',gp:'بنسبة مجمل الربح',equal:'بالتساوي بين الفروع',weight:'بنسبة الأوزان المباعة'}[db.settings.alloc||'sales'];
-  var methNote='<div class="note no-print"><b>طريقة توزيع المصروفات المشتركة الحالية:</b> '+esc(methTxt)+'. (صافي الضريبة عند تفعيله يُوزَّع دائماً بنسبة المبيعات.)</div>';
   box.innerHTML=exTbl+catTbl+methNote+'<div class="sec-title">تفصيل ربحية كل فرع</div>'+(brBlocks||'<div class="note">لا توجد فروع (عملاء لهم مستودع).</div>');
 }
 
