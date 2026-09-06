@@ -431,8 +431,9 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
   <div class="print-head"><span class="print-logo"></span><h3 id="ph1">تقرير الملخص</h3><p>إعداد محمد فرج</p></div>
   <div class="panel-title">ملخص الأداء <span class="hint" id="dashRange"></span></div>
   <div class="filters no-print">
-    <div class="field"><label>من تاريخ</label><input type="date" id="f_from" onchange="renderAll()"></div>
-    <div class="field"><label>إلى تاريخ</label><input type="date" id="f_to" onchange="renderAll()"></div>
+    <div class="field"><label>اختر الشهر</label><input type="month" id="f_month_dash" onchange="pickDashMonth()"></div>
+    <div class="field"><label>من تاريخ</label><input type="date" id="f_from" onchange="clrDashMonth();renderAll()"></div>
+    <div class="field"><label>إلى تاريخ</label><input type="date" id="f_to" onchange="clrDashMonth();renderAll()"></div>
     <button class="btn" onclick="setRange('month')">الشهر الحالي</button>
     <button class="btn" onclick="setRange('quarter')">آخر 3 أشهر</button>
     <button class="btn" onclick="setRange('year')">السنة الحالية</button>
@@ -1390,7 +1391,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-06-r';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-06-s';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -3159,6 +3160,7 @@ function inRange(d,f,t){ if(f&&d<f) return false; if(t&&d>t) return false; retur
 function syncRange(el,target){ setVal(target,el.value); renderAll(); }
 function setRange(k){
   var n=new Date(),a,b;
+  clrDashMonth(); clrMonth();   /* أزرار الفترة السريعة تُلغي منتقي الشهر */
   if(k==='all'){ setVal('f_from',''); setVal('f_to',''); renderAll(); return; }
   if(k==='month'){ a=new Date(n.getFullYear(),n.getMonth(),1); b=new Date(n.getFullYear(),n.getMonth()+1,0); }
   if(k==='quarter'){ a=new Date(n.getFullYear(),n.getMonth()-2,1); b=new Date(n.getFullYear(),n.getMonth()+1,0); }
@@ -3420,24 +3422,37 @@ function financialAdvice(from,to){
   if(!A.length) A.push({level:'good',title:'كل المؤشرات جيدة',text:'لا توجد تنبيهات — أداء مالي سليم خلال الفترة المختارة.'});
   return A;
 }
-/* تنبيهات تشغيلية بسيطة لكل الموظفين (تأخر تسجيل اليوم…) */
-function operationalAlerts(){
+/* تنبيهات تشغيلية بسيطة لكل الموظفين — خاصة بالفترة المحددة */
+function operationalAlerts(from,to){
   var A=[], td=today();
-  if(!db.sales.some(function(s){return s.date===td;}))
-    A.push({level:'warn',title:'لم تُسجَّل مبيعات اليوم بعد',text:'إن كنت قد بعت بضاعة اليوم فسجّل فواتير البيع الآن، حتى تكون الأرقام والمخزون صحيحة. (تاريخ اليوم: '+td+')'});
-  if(!db.purchases.some(function(p){return p.date===td;}))
-    A.push({level:'tip',title:'لم تُسجَّل مشتريات اليوم بعد',text:'إن استلمت بضاعة من المورد اليوم فسجّل فاتورة الشراء أولاً بأول، حتى يزيد المخزون بشكل صحيح.'});
-  var dts=[]; db.sales.forEach(function(s){dts.push(s.date);}); db.purchases.forEach(function(p){dts.push(p.date);});
-  if(dts.length){ dts.sort(); var last=dts[dts.length-1];
-    var gap=Math.round((new Date(td)-new Date(last))/86400000);
-    if(gap>=2) A.push({level:'warn',title:'تأخّر في تسجيل الحركات',text:'آخر فاتورة مسجّلة بتاريخ '+last+' — مضى '+gap+' يوم بلا تسجيل. سجّل حركات الأيام الفائتة حتى لا تختلط الحسابات.'});
+  var inP=function(d){ return (!from||d>=from)&&(!to||d<=to); };
+  var includesToday=(!from||from<=td)&&(!to||to>=td);   /* الفترة تشمل اليوم (أو مفتوحة) */
+  if(includesToday){
+    /* الفترة الجارية: تنبيهات اليوم والتأخّر مقارنةً بتاريخ اليوم */
+    if(!db.sales.some(function(s){return s.date===td;}))
+      A.push({level:'warn',title:'لم تُسجَّل مبيعات اليوم بعد',text:'إن كنت قد بعت بضاعة اليوم فسجّل فواتير البيع الآن، حتى تكون الأرقام والمخزون صحيحة. (تاريخ اليوم: '+td+')'});
+    if(!db.purchases.some(function(p){return p.date===td;}))
+      A.push({level:'tip',title:'لم تُسجَّل مشتريات اليوم بعد',text:'إن استلمت بضاعة من المورد اليوم فسجّل فاتورة الشراء أولاً بأول، حتى يزيد المخزون بشكل صحيح.'});
+    var dts=[]; db.sales.forEach(function(s){if(s.date<=td)dts.push(s.date);}); db.purchases.forEach(function(p){if(p.date<=td)dts.push(p.date);});
+    if(dts.length){ dts.sort(); var last=dts[dts.length-1];
+      var gap=Math.round((new Date(td)-new Date(last))/86400000);
+      if(gap>=2) A.push({level:'warn',title:'تأخّر في تسجيل الحركات',text:'آخر فاتورة مسجّلة بتاريخ '+last+' — مضى '+gap+' يوم بلا تسجيل. سجّل حركات الأيام الفائتة حتى لا تختلط الحسابات.'});
+    }
+  } else {
+    /* فترة مغلقة (ماضية): تنبيهات تخص محتوى الفترة نفسها */
+    var per='('+(from||'البداية')+' ← '+(to||'')+')';
+    if(!db.sales.some(function(s){return inP(s.date);}))
+      A.push({level:'warn',title:'لا توجد مبيعات في الفترة المحددة',text:'الفترة '+per+' لا تحتوي أي فاتورة بيع. تأكد من تسجيل مبيعات هذه الفترة إن وُجدت.'});
+    if(!db.purchases.some(function(p){return inP(p.date);}))
+      A.push({level:'tip',title:'لا توجد مشتريات في الفترة المحددة',text:'الفترة '+per+' لا تحتوي أي فاتورة شراء.'});
   }
   return A;
 }
 function renderAdvisor(){
   var box=document.getElementById('advisorBox'); if(!box) return;
-  var A=operationalAlerts();   /* تنبيهات تشغيلية لكل الموظفين */
-  if(canSeeProfit()){ var r=rg(); A=A.concat(financialAdvice(r.from,r.to)); }   /* التحليل المالي لأصحاب صلاحية الأرباح */
+  var r=rg();
+  var A=operationalAlerts(r.from,r.to);   /* تنبيهات تشغيلية خاصة بالفترة المحددة */
+  if(canSeeProfit()){ A=A.concat(financialAdvice(r.from,r.to)); }   /* التحليل المالي لأصحاب صلاحية الأرباح */
   if(!A.length){ box.innerHTML=''; return; }
   var col={danger:'#dc2626',warn:'#d97706',tip:'#2563eb',good:'#059669'}, ic={danger:'⛔',warn:'⚠️',tip:'💡',good:'✅'}, ord={danger:0,warn:1,tip:2,good:3};
   A.sort(function(a,b){ return ord[a.level]-ord[b.level]; });
@@ -3920,6 +3935,15 @@ function pickIncomeMonth(){
   renderAll();
 }
 function clrMonth(){ var e=document.getElementById('f_month'); if(e) e.value=''; }
+/* منتقي الشهر في الملخص — يملأ الفترة من أول الشهر لآخره */
+function pickDashMonth(){
+  var m=val('f_month_dash'); if(!m) return;
+  var r=monthRangeOf(m+'-01');
+  setVal('f_from',r.from); setVal('f_to',r.to); setVal('f_from2',r.from); setVal('f_to2',r.to);
+  var mi=document.getElementById('f_month'); if(mi) mi.value=m;   /* مزامنة مع منتقي قائمة الدخل */
+  renderAll();
+}
+function clrDashMonth(){ var e=document.getElementById('f_month_dash'); if(e) e.value=''; }
 var incomeLevel=1;
 function setIncomeLevel(){
   incomeLevel=parseInt(val('incLevel'),10)||1;
