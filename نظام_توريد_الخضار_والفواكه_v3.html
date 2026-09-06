@@ -412,7 +412,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 
 
 <nav class="tabs" id="tabsNav">
-  <button class="tab-btn active" data-tab="dash" data-perm="reports">الملخص</button>
+  <button class="tab-btn active" data-tab="dash" data-perm="dash">الملخص</button>
   <button class="tab-btn" data-tab="purchases" data-perm="purchases">المشتريات</button>
   <button class="tab-btn" data-tab="sales" data-perm="sales">المبيعات</button>
   <button class="tab-btn" data-tab="returns" data-perm="returns">المرتجعات</button>
@@ -1390,7 +1390,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-06-q';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-06-r';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -1420,6 +1420,7 @@ function uid(){ var t=Date.now()*1000; if(t<=_uidSeq) t=_uidSeq+1; _uidSeq=t; re
 
 var ROLES={admin:'مدير النظام',manager:'مدير عام',accountant:'محاسب',entry:'مدخل بيانات',viewer:'مطّلع',custom:'مخصص'};
 var PERM_KEYS=[
+ ['dash','عرض الملخص (لوحة المؤشرات)'],
  ['purchases','المشتريات'],['sales','المبيعات'],['returns','المرتجعات'],['stock','المخزون'],
  ['expenses','المصروفات'],['accounts','الحسابات والسداد (كامل)'],['reports','التقارير'],['income','قائمة الدخل'],
  ['master','البيانات الأساسية'],['users','المستخدمون'],['settings','الإعدادات'],
@@ -1430,9 +1431,9 @@ function preset(role){
   var p={}; PERM_KEYS.forEach(function(k){p[k[0]]=false;});
   if(role==='admin'){ PERM_KEYS.forEach(function(k){p[k[0]]=true;}); }
   else if(role==='manager'){ PERM_KEYS.forEach(function(k){p[k[0]]=true;}); p.users=false; }
-  else if(role==='accountant'){ ['purchases','sales','returns','stock','expenses','accounts','reports','income','master','canAdd','canEdit','canExport'].forEach(function(k){p[k]=true;}); }
-  else if(role==='entry'){ ['purchases','sales','returns','stock','reports','canAdd'].forEach(function(k){p[k]=true;}); }
-  else if(role==='viewer'){ ['stock','reports','income','canExport'].forEach(function(k){p[k]=true;}); }
+  else if(role==='accountant'){ ['dash','purchases','sales','returns','stock','expenses','accounts','reports','income','master','canAdd','canEdit','canExport'].forEach(function(k){p[k]=true;}); }
+  else if(role==='entry'){ ['dash','purchases','sales','returns','stock','reports','canAdd'].forEach(function(k){p[k]=true;}); }
+  else if(role==='viewer'){ ['dash','stock','reports','income','canExport'].forEach(function(k){p[k]=true;}); }
   return p;
 }
 function emptyDB(){
@@ -1547,6 +1548,13 @@ function ensureDbShape(){
   if(!db.meta) db.meta={author:AUTHOR,version:APP_VERSION};
   db.meta.author=AUTHOR;
   if(!db.users.length) db.users=emptyDB().users;
+  /* ترحيل صلاحية «عرض الملخص» (dash): من كان يرى التقارير كان يرى الملخص — نحافظ على وصوله */
+  db.users.forEach(function(u){
+    if(u&&u.perms&&u.perms.dash===undefined) u.perms.dash=!!u.perms.reports;
+    if(u&&u.deptPerms) Object.keys(u.deptPerms).forEach(function(dk){
+      var dp=u.deptPerms[dk]; if(dp&&dp.dash===undefined) dp.dash=!!dp.reports;
+    });
+  });
   /* ترحيل: إن لم توجد أقسام، تُنقل الدفاتر الحالية إلى «الفاكهة»، ويُنشأ «الخضار» فارغاً */
   if(!db.departments||typeof db.departments!=='object'||!Object.keys(db.departments).length){
     db.departments={fruits:{name:'الفاكهة'},veg:{name:'الخضار'}};
