@@ -1262,6 +1262,20 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
     </div>
   </div>
 
+  <div class="sec-title">رسائل الترحيب المخصّصة <span class="hint">تظهر عند الدخول بالتناوب مع الرسائل الجاهزة</span></div>
+  <div class="note">اكتب رسائلك الخاصة (كل سطر = رسالة). تُعرض <b>بالتوازي مع الرسائل الموجودة</b> بالتناوب مع كل دخول. اختر مستخدماً بعينه، أو «الكل» لتظهر لجميع المستخدمين. تُحفظ وتُزامَن لكل الأجهزة.</div>
+  <div class="doc-box no-print">
+    <div class="grid-2">
+      <div class="field"><label>المستخدم المستهدف</label><select id="wm_target" onchange="loadWelcomeMsgs()"></select></div>
+      <div class="field"><label>عدد الرسائل المخصّصة الحالية</label><input type="text" id="wm_count" readonly></div>
+    </div>
+    <div class="field"><label>الرسائل (كل سطر رسالة مستقلة)</label>
+      <textarea id="wm_text" rows="5" style="width:100%;resize:vertical;font:inherit;padding:10px;border:1px solid var(--line);border-radius:8px" placeholder="مثال:&#10;أهلاً بك، نتمنى لك يوماً موفقاً.&#10;سعدنا بعودتك، بالتوفيق في مهامك."></textarea></div>
+    <div class="form-foot"><button class="btn-main" onclick="saveWelcomeMsgs()">حفظ الرسائل المخصّصة</button>
+      <button class="btn" onclick="previewWelcomeMsg()">معاينة</button>
+      <span class="editing-note" id="wm_note"></span></div>
+  </div>
+
   <div class="sec-title">إدارة الأقسام</div>
   <div class="note">تحكّم في <b>اسم كل قسم</b> و<b>صورته</b> (تظهر على أزرار التبديل أعلى الصفحة). يمكنك أيضاً إضافة قسم جديد. تُطبَّق التغييرات لكل المستخدمين فور الحفظ.</div>
   <div id="deptImagesBox"></div>
@@ -1391,7 +1405,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-06-u';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-06-v';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -1546,6 +1560,7 @@ function ensureDbShape(){
   ['users','audit','units','interTransfers'].forEach(function(k){ if(!Array.isArray(db[k])) db[k]=[]; });   /* مشترك */
   if(!db.settings) db.settings=emptyDB().settings;
   if(db.settings.vatRate===undefined||db.settings.vatRate===null||db.settings.vatRate==='') db.settings.vatRate=15;
+  if(!db.settings.welcomeMsgs||typeof db.settings.welcomeMsgs!=='object') db.settings.welcomeMsgs={};
   if(!db.meta) db.meta={author:AUTHOR,version:APP_VERSION};
   db.meta.author=AUTHOR;
   if(!db.users.length) db.users=emptyDB().users;
@@ -1796,6 +1811,7 @@ function welcomeUser(){
           'مرحباً يا '+who+'. حضورك إضافة للفريق، بالتوفيق في مهامك اليوم.',
           'أهلاً بك يا '+who+'. جاهزون ليوم عمل منظّم ودقيق، شكراً لجهودك.'];
   }
+  pool=pool.concat(customWelcomeFor(un,nm));   /* دمج الرسائل المكتوبة يدوياً بالتوازي */
   var key='wlc_'+(un||nm), n=0;
   try{ n=parseInt(localStorage.getItem(key)||'0',10)||0; }catch(e){}
   var msg=pool[n%pool.length];
@@ -1834,6 +1850,49 @@ function showWelcome(flag,msg){
   if(fl) fl.animate([{transform:'scale(.35) rotate(-14deg)',opacity:0},{transform:'scale(1.28) rotate(7deg)',opacity:1,offset:.6},{transform:'scale(1) rotate(0)',opacity:1}],{duration:850,delay:160,easing:'cubic-bezier(.34,1.56,.64,1)',fill:'backwards'});
   shine.animate([{left:'-60%'},{left:'130%'}],{duration:1300,delay:450,easing:'ease-in-out',fill:'forwards'});
   setTimeout(dismiss,5200);
+}
+/* ---------- رسائل الترحيب المخصّصة (يكتبها المستخدم وتُخزَّن وتُزامَن) ---------- */
+function customWelcomeFor(un,nm){
+  var wm=(db.settings&&db.settings.welcomeMsgs)||{}, out=[];
+  var push=function(arr){ if(Array.isArray(arr)) arr.forEach(function(m){ m=String(m||'').trim(); if(m) out.push(m); }); };
+  push(wm['*']);                        /* رسائل تخص كل المستخدمين */
+  if(un) push(wm[un]);                  /* حسب اسم المستخدم */
+  if(nm) push(wm[(nm||'').toLowerCase()]);   /* حسب الاسم (توافق) */
+  return out;
+}
+function wmFillTarget(){
+  var sel=document.getElementById('wm_target'); if(!sel) return;
+  var opts='<option value="*">الكل (لكل المستخدمين)</option>';
+  (db.users||[]).forEach(function(u){
+    var k=(u.username||u.name||'').toLowerCase(); if(!k) return;
+    opts+='<option value="'+esc(k)+'">'+esc(u.name||u.username)+' ('+esc(u.username||'—')+')</option>';
+  });
+  var cur=sel.value; sel.innerHTML=opts; if(cur) sel.value=cur;
+}
+function loadWelcomeMsgs(){
+  var sel=document.getElementById('wm_target'), ta=document.getElementById('wm_text'), cnt=document.getElementById('wm_count');
+  if(!sel||!ta) return;
+  var key=sel.value||'*', arr=((db.settings.welcomeMsgs||{})[key])||[];
+  ta.value=arr.join('\n'); if(cnt) cnt.value=arr.filter(function(m){return String(m||'').trim();}).length+' رسالة';
+  var n=document.getElementById('wm_note'); if(n) n.textContent='';
+}
+function saveWelcomeMsgs(){
+  if(!guard('settings')) return;
+  var sel=document.getElementById('wm_target'), ta=document.getElementById('wm_text'); if(!sel||!ta) return;
+  var key=sel.value||'*';
+  var arr=ta.value.split('\n').map(function(m){return m.trim();}).filter(function(m){return m;});
+  if(!db.settings.welcomeMsgs||typeof db.settings.welcomeMsgs!=='object') db.settings.welcomeMsgs={};
+  if(arr.length) db.settings.welcomeMsgs[key]=arr; else delete db.settings.welcomeMsgs[key];
+  var who=(key==='*')?'كل المستخدمين':key;
+  log('data','الإعدادات','تحديث رسائل الترحيب المخصّصة ('+who+') — '+arr.length+' رسالة');
+  commit('تم حفظ الرسائل المخصّصة'); loadWelcomeMsgs();
+}
+function previewWelcomeMsg(){
+  var ta=document.getElementById('wm_text'); if(!ta) return;
+  var arr=ta.value.split('\n').map(function(m){return m.trim();}).filter(function(m){return m;});
+  if(!arr.length){ toast('اكتب رسالة واحدة على الأقل للمعاينة'); return; }
+  var flag=(ME&&isYahya(ME))?'🇵🇸':'🇪🇬';
+  showWelcome(flag,arr[Math.floor(Math.random()*arr.length)]);
 }
 /* ---------- الأقسام: التبديل والصلاحيات ---------- */
 function userDepts(){ /* الأقسام المسموح بها للمستخدم الحالي */
@@ -4563,6 +4622,7 @@ function renderSettingsForm(){
   setVal('set_company',db.settings.company); setVal('set_currency',db.settings.currency);
   setVal('set_vat',db.settings.vat||''); setVal('set_phone',db.settings.phone||'');
   setVal('set_vatrate',db.settings.vatRate!=null?db.settings.vatRate:15);
+  wmFillTarget(); loadWelcomeMsgs();
   var lp=document.getElementById('logoPreview');
   if(lp) lp.innerHTML=db.settings.logo?'<img src="'+db.settings.logo+'" alt="شعار المنشأة">':'🥬';
   renderDeptImages(); renderMergeItemsUI(); renderStockResetUI();
