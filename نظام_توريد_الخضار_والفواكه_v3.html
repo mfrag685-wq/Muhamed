@@ -967,6 +967,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
       <option value="equal">بالتساوي بين الفروع</option><option value="weight">بنسبة الأوزان المباعة</option></select></div>
     <div class="field"><label>من</label><input type="date" id="f_from2" onchange="syncRange(this,'f_from')"></div>
     <div class="field"><label>إلى</label><input type="date" id="f_to2" onchange="syncRange(this,'f_to')"></div>
+    <button class="btn-alt" id="incDetailBtn" onclick="toggleIncomeDetail()">عرض تفصيلي ▼</button>
     <button class="btn-alt" onclick="exportTable('income')">تصدير Excel</button>
     <button class="btn" onclick="window.print()">طباعة</button>
   </div>
@@ -981,6 +982,9 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
     <thead><tr><th class="name">البيان</th><th>القيمة</th><th>النسبة من المبيعات</th></tr></thead>
     <tbody id="tbIncomeTotal"></tbody></table></div>
   <div class="note no-print" style="border-right-color:var(--citrus)">قائمة الدخل تُظهر <b>تكلفة البضاعة المُباعة</b> فقط (تكلفة ما بِيع فعلاً). أما <b>المخزون المتبقّي</b> فهو <b>أصل</b> يظهر في <b>«قائمة المركز المالي»</b> (تبويب التقارير ← قائمة المركز المالي)، وليس في قائمة الدخل — وهذا موافق للمعايير المحاسبية.</div>
+
+  <!-- ===== العرض التفصيلي: مصروفات الفترة + توزيعها + تفصيل كل فرع ===== -->
+  <div id="incomeDetailBox" style="display:none"></div>
 
   <!-- ===== أدوات الأرباح والخسائر: الخصومات + خيار الضريبة ===== -->
   <div class="sec-title no-print" id="incToolsTitle">أدوات الأرباح والخسائر</div>
@@ -1374,7 +1378,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-06-l';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-06-m';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -3840,6 +3844,93 @@ function renderIncome(){
     +((P.vatNet>0.009)?'<tr class="sub-row"><td class="name muted">— منها: صافي ضريبة القيمة المضافة المستحقة للسداد (خسارة)</td><td class="muted neg">'+money(P.vatNet)+'</td><td class="muted">'+pct(P.vatNet,T.nrev)+'</td></tr>':'')
     +((P.vatNet<-0.009)?'<tr class="sub-row"><td class="name muted">— منها: رصيد ضريبة القيمة المضافة لصالحك (ربح يقلّل المصروفات)</td><td class="muted">'+money(-P.vatNet)+'</td><td class="muted">'+pct(-P.vatNet,T.nrev)+'</td></tr>':'')
     +'<tr class="total-row"><td>صافي الربح / (الخسارة)</td><td>'+sign(T.net)+'</td><td>'+pct(T.net,T.nrev)+'</td></tr>';
+  renderIncomeDetail(P);
+}
+var incomeDetailOpen=false;
+function toggleIncomeDetail(){
+  incomeDetailOpen=!incomeDetailOpen;
+  var box=document.getElementById('incomeDetailBox'), btn=document.getElementById('incDetailBtn');
+  if(box) box.style.display=incomeDetailOpen?'':'none';
+  if(btn) btn.textContent=incomeDetailOpen?'إخفاء التفصيل ▲':'عرض تفصيلي ▼';
+  if(incomeDetailOpen){ renderIncomeDetail(); if(box) box.scrollIntoView({behavior:'smooth',block:'start'}); }
+}
+/* العرض التفصيلي لقائمة الدخل: مصروفات الفترة وتوزيعها الزمني + تفصيل كل فرع */
+function renderIncomeDetail(P){
+  var box=document.getElementById('incomeDetailBox'); if(!box||!incomeDetailOpen||!can('income')) return;
+  var r=rg(), from=r.from, to=r.to;
+  if(!P) P=pnl(from,to);
+  var rows=P.rows;
+  var per=(from||'البداية')+' ← '+(to||'اليوم');
+  /* ===== 1) جدول مصروفات الفترة مع التوزيع الزمني ===== */
+  var exRows=[], catTot={}, totOrig=0, totPortion=0;
+  db.expenses.slice().sort(function(a,b){return a.date<b.date?-1:1;}).forEach(function(x){
+    var portion=expenseAmountInRange(x,from,to); if(portion<=0.0000001) return;
+    var cat=x.cat||'غير مصنّف', typeLabel, dest;
+    if(x.type==='direct'){ typeLabel='مباشر لفرع'; dest=rows[x.clientId]?clientName(x.clientId):'غير مخصّص ← مشترك'; }
+    else if(x.type==='percents'){ typeLabel='موزّع بنسب محددة'; dest='حسب النسب'; }
+    else if(x.type==='amounts'){ typeLabel='موزّع بمبالغ محددة'; dest='حسب المبالغ'; }
+    else if(x.type==='shared_ex'){ typeLabel='مشترك (باستثناء فرع)'; dest='باستثناء '+clientName(+x.exclClientId); }
+    else { typeLabel='مشترك'; dest='كل الفروع'; }
+    var a=amortInfo(x), amortTxt=a?amortLabel(x):'كامل في الفترة';
+    catTot[cat]=(catTot[cat]||0)+portion; totOrig+=(+x.amount||0); totPortion+=portion;
+    exRows.push('<tr><td>'+esc(x.date)+'</td><td class="name">'+esc(x.desc||'—')+'</td><td class="name">'+esc(cat)+'</td>'
+      +'<td>'+esc(typeLabel)+'</td><td class="name">'+esc(dest)+'</td><td>'+money(+x.amount||0)+'</td>'
+      +'<td class="'+(a?'':'muted')+'">'+esc(amortTxt)+'</td><td><b>'+money(portion)+'</b></td></tr>');
+  });
+  var exTbl='<div class="sec-title">تفصيل مصروفات الفترة والتوزيع الزمني <span class="hint">'+esc(per)+'</span></div>'
+    +'<div class="note no-print" style="border-right-color:var(--citrus)">«المبلغ الأصلي» هو قيمة المصروف كاملاً كما أُدخل. «التوزيع الزمني» يبيّن إن كان موزّعاً (مثلاً على 365 يوم). «الحصة في الفترة» هي ما يخصّ الفترة المختارة فقط — وهو ما يدخل فعلاً في حساب الربح. تحقّق: الحصة = المبلغ الأصلي ÷ عدد الوحدات × عدد الوحدات الواقعة داخل الفترة.</div>'
+    +'<div class="table-scroll"><table><thead><tr><th>التاريخ</th><th class="name">البيان</th><th class="name">الفئة</th>'
+    +'<th>النوع</th><th class="name">الوجهة</th><th>المبلغ الأصلي</th><th>التوزيع الزمني</th><th>الحصة في الفترة</th></tr></thead><tbody>'
+    +(exRows.length?exRows.join(''):'<tr><td colspan="8" class="empty">لا توجد مصروفات في الفترة.</td></tr>')
+    +(exRows.length?'<tr class="total-row"><td colspan="5">الإجمالي</td><td>'+money(totOrig)+'</td><td>—</td><td>'+money(totPortion)+'</td></tr>':'')
+    +'</tbody></table></div>';
+  /* ===== 2) ملخّص المصروفات حسب الفئة (إيجار/إقامات/تعبئة…) ===== */
+  var catRows=Object.keys(catTot).sort(function(a,b){return catTot[b]-catTot[a];}).map(function(c){
+    return '<tr><td class="name">'+esc(c)+'</td><td>'+money(catTot[c])+'</td><td class="muted">'+pct(catTot[c],totPortion)+'</td></tr>';
+  }).join('');
+  var catTbl='<div class="sec-title">إجمالي المصروفات حسب الفئة (الحصة في الفترة)</div>'
+    +'<div class="table-scroll"><table><thead><tr><th class="name">الفئة</th><th>القيمة</th><th>النسبة من المصروفات</th></tr></thead><tbody>'
+    +(catRows||'<tr><td colspan="3" class="empty">لا يوجد.</td></tr>')
+    +(catRows?'<tr class="total-row"><td>الإجمالي</td><td>'+money(totPortion)+'</td><td>100%</td></tr>':'')
+    +'</tbody></table></div>';
+  /* ===== 3) تفصيل كل فرع: مباشرة (بالفئة) + خصومات ونسبتها + حصة مشتركة ===== */
+  var brDirectCat={};   /* clientId -> {cat:amt} */
+  db.expenses.forEach(function(x){
+    if(x.type!=='direct') return; var portion=expenseAmountInRange(x,from,to); if(portion<=0.0000001) return;
+    var cid=x.clientId; if(!rows[cid]) return;
+    brDirectCat[cid]=brDirectCat[cid]||{}; var cat=x.cat||'غير مصنّف';
+    brDirectCat[cid][cat]=(brDirectCat[cid][cat]||0)+portion;
+  });
+  var brBlocks=db.clients.filter(function(c){return isBranch(c.id);}).map(function(c){
+    var x=rows[c.id]; if(!x) return '';
+    var grossSales=x.rev-x.ret;   /* المبيعات قبل الخصم */
+    var discPct=grossSales>0.009?(x.disc/grossSales*100):0;
+    var dc=brDirectCat[c.id]||{};
+    var dcRows=Object.keys(dc).sort(function(a,b){return dc[b]-dc[a];}).map(function(cat){
+      return '<tr><td class="name" style="padding-right:24px">— '+esc(cat)+'</td><td>'+money(dc[cat])+'</td><td class="muted"></td></tr>'; }).join('');
+    var L2=function(k,v,cls,pctBase){ return '<tr><td class="name">'+k+'</td><td class="'+(cls||'')+'">'+money(v)+'</td><td class="muted">'+(pctBase?pct(Math.abs(v),pctBase):'')+'</td></tr>'; };
+    return '<div class="sec-title alt">تفصيل الفرع: '+esc(c.name)+'</div>'
+      +'<div class="table-scroll"><table><thead><tr><th class="name">البند</th><th>القيمة</th><th>النسبة من صافي المبيعات</th></tr></thead><tbody>'
+      +L2('إجمالي المبيعات',x.rev,'')
+      +L2('يُخصم: المرتجعات',x.ret,'neg')
+      +L2('يُخصم: الخصومات المتفق عليها',x.disc,'neg')
+      +'<tr class="sub-row"><td class="name">نسبة الخصم من المبيعات</td><td colspan="2"><b>'+num(discPct)+'%</b> من مبيعات الفرع ('+money(grossSales)+')</td></tr>'
+      +'<tr class="sub-row"><td class="name">صافي المبيعات</td><td>'+money(x.net_rev)+'</td><td>100%</td></tr>'
+      +L2('يُخصم: تكلفة المبيعات',x.cogs,'neg',x.net_rev)
+      +L2('يُخصم: الفاقد',x.waste,'neg',x.net_rev)
+      +'<tr class="sub-row"><td class="name">مجمل الربح</td><td>'+sign(x.gp)+'</td><td>'+pct(x.gp,x.net_rev)+'</td></tr>'
+      +L2('يُخصم: المصروفات المباشرة',x.direct,'neg',x.net_rev)
+      +(dcRows||'<tr><td class="name muted" style="padding-right:24px">— لا مصروفات مباشرة</td><td class="muted">0</td><td></td></tr>')
+      +L2('يُخصم: حصة المصروفات المشتركة',x.shared,'neg',x.net_rev)
+      +((x.excludedAmt>0.009)?'<tr class="sub-row"><td class="name muted">مبلغ أُعفي منه هذا الفرع (توزيع باستثناء)</td><td class="muted">'+money(x.excludedAmt)+'</td><td></td></tr>':'')
+      +((P.vatNet!=null&&db.settings.vatAsLoss&&Math.abs(x.vatShare||0)>0.009)?'<tr class="sub-row"><td class="name muted">— منها: حصة صافي الضريبة ('+(x.vatShare>0?'خسارة':'ربح')+')</td><td class="muted">'+money(x.vatShare)+'</td><td></td></tr>':'')
+      +'<tr class="total-row"><td>صافي ربح/خسارة الفرع</td><td>'+sign(x.net)+'</td><td>'+pct(x.net,x.net_rev)+'</td></tr>'
+      +'</tbody></table></div>';
+  }).join('');
+  /* ===== طريقة توزيع المصروفات المشتركة الحالية ===== */
+  var methTxt={sales:'بنسبة المبيعات',gp:'بنسبة مجمل الربح',equal:'بالتساوي بين الفروع',weight:'بنسبة الأوزان المباعة'}[db.settings.alloc||'sales'];
+  var methNote='<div class="note no-print"><b>طريقة توزيع المصروفات المشتركة الحالية:</b> '+esc(methTxt)+'. (صافي الضريبة عند تفعيله يُوزَّع دائماً بنسبة المبيعات.)</div>';
+  box.innerHTML=exTbl+catTbl+methNote+'<div class="sec-title">تفصيل ربحية كل فرع</div>'+(brBlocks||'<div class="note">لا توجد فروع (عملاء لهم مستودع).</div>');
 }
 
 function card(k,v,n,dark){ return '<div class="card'+(dark?' dark':'')+'"><div class="k">'+k+'</div><div class="v">'+v+'</div><div class="n">'+n+'</div></div>'; }
