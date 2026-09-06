@@ -997,17 +997,18 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
   </div>
 
   <div class="sec-title no-print" id="accDiscTitle">الخصومات المتفق عليها (توالف / خصم على المبيعات)</div>
-  <div class="note no-print" id="accDiscNote" style="border-right-color:var(--citrus)">خصم متفق عليه على مبيعات فرع/عميل (مثل خصم ~10% توالف وخصم شهري لبندة). يمكن إدخاله <b>مبلغاً ثابتاً</b> أو <b>نسبة مئوية من مبيعات الفترة</b> — ويُخصم من <b>صافي مبيعات الفرع</b> ومن <b>رصيد العميل المستحق</b> فيؤثر مباشرة على الأرباح والخسائر.</div>
+  <div class="note no-print" id="accDiscNote" style="border-right-color:var(--citrus)">خصم متفق عليه على مبيعات فرع/عميل (مثل خصم ~10% توالف وخصم شهري لبندة). يمكن إدخاله <b>مبلغاً ثابتاً</b> أو <b>نسبة مئوية</b>. عند اختيار النسبة تُحسب على مبيعات <b>شهر التاريخ المحدَّد افتراضياً</b> (يمكنك تعديل فترة الاحتساب) — راجع سطر المعاينة قبل الحفظ للتأكد من المبلغ. ويُخصم من <b>صافي مبيعات الفرع</b> ومن <b>رصيد العميل المستحق</b> فيؤثر مباشرة على الأرباح والخسائر.</div>
   <div class="doc-box no-print" id="discFormBox">
     <div class="grid">
-      <div class="field"><label>التاريخ</label><input type="date" id="disc_date"></div>
-      <div class="field"><label>الفرع / العميل</label><select id="disc_client"></select></div>
+      <div class="field"><label>التاريخ</label><input type="date" id="disc_date" onchange="onDiscDate()"></div>
+      <div class="field"><label>الفرع / العميل</label><select id="disc_client" onchange="updateDiscPreview()"></select></div>
       <div class="field"><label>نوع الخصم</label><select id="disc_kind" onchange="onDiscKind()">
         <option value="amount">مبلغ ثابت</option><option value="pct">نسبة % من المبيعات</option></select></div>
       <div class="field" id="disc_amountWrap"><label>مبلغ الخصم</label><input type="number" id="disc_amount" step="0.01" min="0" placeholder="أدخل الرقم يدوياً"></div>
       <div class="field" id="disc_pctWrap" style="display:none"><label>النسبة %</label><input type="number" id="disc_pct" step="0.01" min="0" max="100" placeholder="مثال: 10" oninput="updateDiscPreview()"></div>
-      <div class="field" id="disc_pfromWrap" style="display:none;min-width:150px"><label>من (فترة الاحتساب)</label><input type="date" id="disc_pfrom" onchange="updateDiscPreview()"></div>
+      <div class="field" id="disc_pfromWrap" style="display:none;min-width:150px"><label>من (فترة احتساب النسبة)</label><input type="date" id="disc_pfrom" onchange="updateDiscPreview()"></div>
       <div class="field" id="disc_ptoWrap" style="display:none;min-width:150px"><label>إلى</label><input type="date" id="disc_pto" onchange="updateDiscPreview()"></div>
+      <div class="field" id="disc_monthWrap" style="display:none"><label>&nbsp;</label><button type="button" class="btn" onclick="setDiscMonthFromDate()">شهر التاريخ</button></div>
       <div class="field" style="min-width:220px"><label>البيان / السبب</label><input type="text" id="disc_note" placeholder="مثال: خصم توالف بندة — سبتمبر"></div>
     </div>
     <div class="note no-print" id="disc_preview" style="display:none;border-right-color:var(--citrus)"></div>
@@ -1378,7 +1379,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-06-m';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-06-n';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -2720,26 +2721,46 @@ function clientNetSales(clientId,from,to){
   (db.sreturns||[]).forEach(function(r){ if(r.clientId===clientId&&inP(r.date)) s-=+r.total||0; });
   return round2(s);
 }
+/* نطاق الشهر الميلادي لتاريخ ما {from,to} */
+function monthRangeOf(dateStr){
+  var d=parseDate(dateStr)||new Date();
+  var y=d.getFullYear(), m=d.getMonth();
+  var f=new Date(y,m,1), l=new Date(y,m+1,0);
+  var fmt=function(x){ return new Date(x.getTime()-x.getTimezoneOffset()*60000).toISOString().slice(0,10); };
+  return {from:fmt(f),to:fmt(l)};
+}
+function setDiscMonthFromDate(){
+  var r=monthRangeOf(val('disc_date')||today());
+  setVal('disc_pfrom',r.from); setVal('disc_pto',r.to); updateDiscPreview();
+}
+function onDiscDate(){
+  /* عند تغيير التاريخ ونوع الخصم نسبة: إن لم تُحدَّد فترة يدوياً بعد، اجعلها شهر التاريخ */
+  if(val('disc_kind')==='pct' && !editId.disc){ setDiscMonthFromDate(); }
+}
 function onDiscKind(){
   var pct=val('disc_kind')==='pct';
   var tg=function(id,show){ var e=document.getElementById(id); if(e) e.style.display=show?'':'none'; };
-  tg('disc_amountWrap',!pct); tg('disc_pctWrap',pct); tg('disc_pfromWrap',pct); tg('disc_ptoWrap',pct);
-  if(pct){ if(!val('disc_pfrom')) setVal('disc_pfrom',val('f_from')||''); if(!val('disc_pto')) setVal('disc_pto',val('f_to')||''); }
+  tg('disc_amountWrap',!pct); tg('disc_pctWrap',pct); tg('disc_pfromWrap',pct); tg('disc_ptoWrap',pct); tg('disc_monthWrap',pct);
+  /* فترة النسبة تُحسب دائماً على شهر التاريخ افتراضياً (وليس كل الفترات) لتفادي احتساب النسبة على كل المبيعات */
+  if(pct && (!val('disc_pfrom')||!val('disc_pto'))){ setDiscMonthFromDate(); }
   updateDiscPreview();
 }
 function discComputedAmount(){
   if(val('disc_kind')!=='pct') return fnum('disc_amount');
   var cid=+val('disc_client'), pct=fnum('disc_pct'); if(!cid||pct<=0) return 0;
-  return round2(clientNetSales(cid,val('disc_pfrom'),val('disc_pto'))*pct/100);
+  var pf=val('disc_pfrom'), pt=val('disc_pto');
+  if(!pf||!pt){ var r=monthRangeOf(val('disc_date')||today()); pf=pf||r.from; pt=pt||r.to; }
+  return round2(clientNetSales(cid,pf,pt)*pct/100);
 }
 function updateDiscPreview(){
   var el=document.getElementById('disc_preview'); if(!el) return;
   if(val('disc_kind')!=='pct'){ el.style.display='none'; return; }
   var cid=+val('disc_client'), pct=fnum('disc_pct');
   if(!cid||pct<=0){ el.style.display='none'; return; }
-  var base=clientNetSales(cid,val('disc_pfrom'),val('disc_pto')), amt=round2(base*pct/100);
-  var per=(val('disc_pfrom')||'البداية')+' ← '+(val('disc_pto')||'اليوم');
-  el.style.display=''; el.innerHTML='صافي مبيعات «'+esc(clientName(cid))+'» خلال ('+esc(per)+') = <b>'+money(base)+'</b> — '
+  var pf=val('disc_pfrom'), pt=val('disc_pto');
+  if(!pf||!pt){ var r=monthRangeOf(val('disc_date')||today()); pf=pf||r.from; pt=pt||r.to; }
+  var base=clientNetSales(cid,pf,pt), amt=round2(base*pct/100);
+  el.style.display=''; el.innerHTML='صافي مبيعات «'+esc(clientName(cid))+'» خلال ('+esc(pf)+' ← '+esc(pt)+') = <b>'+money(base)+'</b> — '
     +'الخصم '+num(pct)+'% = <b>'+money(amt)+'</b>';
 }
 function saveDiscount(){
@@ -2751,9 +2772,11 @@ function saveDiscount(){
   var note=val('disc_note').trim();
   var rec={id:editId.disc||uid(),date:val('disc_date')||today(),clientId:+val('disc_client'),amount:a,
     kind:kind,note:note,uid:ME.id,ts:nowTs()};
-  if(kind==='pct'){ rec.pct=fnum('disc_pct'); rec.pfrom=val('disc_pfrom'); rec.pto=val('disc_pto');
-    rec.base=clientNetSales(rec.clientId,rec.pfrom,rec.pto);
-    if(!note) rec.note='خصم '+num(rec.pct)+'% من مبيعات ('+(rec.pfrom||'البداية')+' ← '+(rec.pto||'اليوم')+')'; }
+  if(kind==='pct'){ rec.pct=fnum('disc_pct');
+    var pf=val('disc_pfrom'), pt=val('disc_pto');
+    if(!pf||!pt){ var mr=monthRangeOf(val('disc_date')||today()); pf=pf||mr.from; pt=pt||mr.to; }
+    rec.pfrom=pf; rec.pto=pt; rec.base=clientNetSales(rec.clientId,pf,pt);
+    if(!note) rec.note='خصم '+num(rec.pct)+'% من مبيعات ('+pf+' ← '+pt+')'; }
   var who=clientName(rec.clientId);
   if(editId.disc){ var i=db.discounts.findIndex(function(x){return x.id===editId.disc;}); if(i>=0) db.discounts[i]=rec;
     log('edit','قائمة الدخل','تعديل خصم متفق عليه — '+who+' بمبلغ '+num(a)); }
@@ -6243,9 +6266,16 @@ function cloudPush(s){
   cloudPushTimer=setTimeout(function(){
     var data; try{ data=JSON.parse(s); }catch(e){ return; }
     cloudLastPushed=s; setCloudStatus('sync');
-    cloudRef.set({data:data,updatedAt:firebase.database.ServerValue.TIMESTAMP,updatedBy:(ME?ME.name:'')})
-      .then(function(){ setCloudStatus('ok'); })
-      .catch(function(){ setCloudStatus('err'); });
+    var payload={data:data,updatedAt:firebase.database.ServerValue.TIMESTAMP,updatedBy:(ME?ME.name:'')};
+    function attempt(tries){
+      cloudRef.set(payload)
+        .then(function(){ setCloudStatus('ok'); })
+        .catch(function(){
+          if(tries>0){ setCloudStatus('sync'); setTimeout(function(){ attempt(tries-1); },2500); }
+          else setCloudStatus('err');   /* البيانات محفوظة محلياً؛ ستُرفع عند عودة الاتصال أو الحفظ التالي */
+        });
+    }
+    attempt(2);
   },600);
 }
 /* تطبيق بيانات وردت من السحابة على النسخة المحلية وإعادة العرض */
