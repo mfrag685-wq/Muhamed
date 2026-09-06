@@ -152,7 +152,9 @@ tr:hover td{background:#f8fafc}
       <input id="lg_user" autocomplete="username" placeholder="اسم المستخدم" onkeydown="if(event.key==='Enter')doLogin()">
       <label style="margin-top:12px">كلمة المرور</label>
       <input id="lg_pass" type="password" autocomplete="current-password" placeholder="••••••" onkeydown="if(event.key==='Enter')doLogin()">
-      <button class="btn block" style="margin-top:16px" onclick="doLogin()">دخول</button>
+      <label style="display:flex;align-items:center;gap:8px;margin-top:12px;font-size:13px;cursor:pointer;font-weight:500">
+        <input type="checkbox" id="lg_remember" style="width:auto"> تذكّر بياناتي للدخول التلقائي</label>
+      <button class="btn block" style="margin-top:14px" onclick="doLogin()">دخول</button>
     </div>
     <div id="joinFields" style="display:none">
       <label>الاسم الكامل</label><input id="jn_name" placeholder="اسمك">
@@ -355,17 +357,39 @@ function logAct(action,detail){DB.activity.unshift({id:nid("activity"),userName:
 /* ---------- Login ---------- */
 let CURRENT_PAGE="move";
 function loginErr(m){const e=$("#loginErr");if(e){e.textContent=m;e.style.display=m?"block":"none";}}
-function initLogin(){/* الدخول أصبح بالاسم وكلمة المرور */}
+function initLogin(){/* الدخول بالاسم وكلمة المرور */ prefillLogin();}
+const REMEMBER_KEY="inv_remember_login";
+let _pendingLogin=null;
+/* يُحفظ فقط بعد نجاح الدخول (يُستدعى من startApp) */
+function commitRememberLogin(){
+  try{
+    const d=_pendingLogin;_pendingLogin=null;if(!d)return;
+    if(d.remember)localStorage.setItem(REMEMBER_KEY,JSON.stringify({u:d.u,p:d.p}));
+    else localStorage.removeItem(REMEMBER_KEY);
+  }catch(e){}
+}
+/* تعبئة الحقول تلقائياً من البيانات المحفوظة */
+function prefillLogin(){
+  try{
+    const raw=localStorage.getItem(REMEMBER_KEY);if(!raw)return;
+    const d=JSON.parse(raw);
+    if($("#lg_user"))$("#lg_user").value=d.u||"";
+    if($("#lg_pass"))$("#lg_pass").value=d.p||"";
+    if($("#lg_remember"))$("#lg_remember").checked=true;
+  }catch(e){}
+}
 function doLogin(){
   const u=($("#lg_user").value||"").trim(),p=$("#lg_pass").value||"";
   loginErr("");
   if(!u){loginErr("أدخل اسم المستخدم.");return;}
+  _pendingLogin={u,p,remember:!!($("#lg_remember")&&$("#lg_remember").checked)};
   if(cloudAccounts()){cloudLogin(u,p);return;}
   const usr=DB.users.find(x=>(x.username||"").toLowerCase()===u.toLowerCase());
   if(usr&&usr.pass===hash(p)&&Number(usr.active)!==0){usr.lastLogin=new Date().toISOString();ME=usr;save();startApp();}
   else loginErr("اسم المستخدم أو كلمة المرور غير صحيحة.");
 }
 function startApp(){
+  commitRememberLogin();
   $("#login").style.display="none";$("#app").style.display="block";
   $("#who").textContent=`${ME.name} · ${roleAr(ME.role)}`;
   if(!mayAccessCompany(CO)){const a=allowedCompanies();if(a[0])CO=a[0].id;}
