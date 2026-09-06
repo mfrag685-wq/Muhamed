@@ -1217,9 +1217,9 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
   <div class="field" style="max-width:640px;margin-top:6px">
     <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
       <input type="checkbox" id="set_vatAsLoss" style="width:auto;margin:0">
-      <span>احتساب صافي ضريبة القيمة المضافة المستحقة كخسارة (اختياري)</span>
+      <span>احتساب صافي ضريبة القيمة المضافة ضمن الأرباح والخسائر (اختياري)</span>
     </label>
-    <div class="note" style="margin-top:6px">عند التفعيل: إذا كانت ضريبة المبيعات (المخرجات) أكبر من ضريبة المشتريات (المدخلات) خلال الفترة، يُعامَل صافي الضريبة المستحق للسداد كمصروف يُخصم من الأرباح ويُوزَّع على الفروع بنفس طريقة توزيع المصروفات المشتركة.</div>
+    <div class="note" style="margin-top:6px">عند التفعيل يُحتسب صافي الضريبة خلال الفترة (ضريبة المبيعات − ضريبة المشتريات): إذا كانت ضريبة <b>المبيعات أكبر</b> فالصافي مستحق للسداد ويُعامَل <b>كخسارة</b>، وإذا كانت ضريبة <b>المشتريات أكبر</b> فالصافي رصيد لصالحك ويُعامَل <b>كربح</b>. ويُوزَّع على الفروع <b>حسب مبيعات كل فرع</b> (وليس بالتساوي).</div>
   </div>
   <div class="form-foot"><button class="btn-main" onclick="saveSettings()">حفظ الإعدادات</button></div>
 
@@ -1364,7 +1364,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-06-j';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-06-k';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -3167,15 +3167,18 @@ function pnl(from,to){
     else if(x.type==='shared_ex'&&x.exclClientId){ var ex=+x.exclClientId; poolEx[ex]=(poolEx[ex]||0)+amt; }
     else pool+=amt;
   });
-  /* اختياري: احتساب صافي ضريبة القيمة المضافة المستحقة (مخرجات > مدخلات) كمصروف مشترك */
-  var vatDue=0;
+  /* اختياري: صافي ضريبة القيمة المضافة = ضريبة المبيعات − ضريبة المشتريات
+     · موجب (مخرجات > مدخلات) ⇒ ضريبة مستحقة للسداد = خسارة
+     · سالب (مدخلات > مخرجات) ⇒ رصيد ضريبي لك = ربح
+     تُوزَّع على الفروع حسب مبيعات كل فرع (وليس بالتساوي) — تُحسب بعد صافي الإيراد */
+  var vatNet=0;
   if(db.settings.vatAsLoss){
     var oV=0,iV=0;
     db.sales.forEach(function(s){ if(inP(s.date)) oV+=docVat(s); });
     (db.sreturns||[]).forEach(function(r){ if(inP(r.date)) oV-=docVat(r); });
     db.purchases.forEach(function(p){ if(inP(p.date)) iV+=docVat(p); });
     (db.preturns||[]).forEach(function(r){ if(inP(r.date)) iV-=docVat(r); });
-    vatDue=oV-iV; if(vatDue>0.009) pool+=vatDue; else vatDue=0;
+    vatNet=round2(oV-iV);
   }
   db.clients.forEach(function(c){ var r=res[c.id];
     r.net_rev=r.rev-r.ret-r.disc; r.gp=r.net_rev-r.cogs-r.waste; });
@@ -3203,8 +3206,17 @@ function pnl(from,to){
     if(!tg.length) tg=branchTargets;   /* لو استُثني الفرع الوحيد، يعود للكل تفادياً لضياع المبلغ */
     distributeShared(poolEx[exId],tg,true);
   });
+  /* توزيع صافي الضريبة (ربح/خسارة) على الفروع حسب مبيعات كل فرع تحديداً — يقبل القيم السالبة (ربح) */
+  if(db.settings.vatAsLoss && Math.abs(vatNet)>0.009 && branchTargets.length){
+    var tRevV=0; branchTargets.forEach(function(c){ tRevV+=res[c.id].net_rev; });
+    var nnV=branchTargets.length;
+    branchTargets.forEach(function(c){ var r=res[c.id];
+      var share=(tRevV>0? r.net_rev/tRevV : 1/nnV);
+      r.shared+=vatNet*share; r.vatShare=(r.vatShare||0)+vatNet*share;
+    });
+  }
   db.clients.forEach(function(c){ var r=res[c.id]; r.exp=r.direct+r.shared; r.net=r.gp-r.exp; });
-  return {rows:res,pool:pool,vatDue:vatDue};
+  return {rows:res,pool:pool,vatNet:vatNet};
 }
 
 /* ==========================================================================
@@ -3770,7 +3782,8 @@ function renderIncome(){
     +line('يُخصم: تكلفة البضاعة المباعة',T.cogs,1)+line('يُخصم: الفاقد والتوالف',T.waste,1)
     +'<tr class="sub-row"><td class="name">مجمل الربح</td><td>'+sign(T.gp)+'</td><td>'+pct(T.gp,T.nrev)+'</td></tr>'
     +line('يُخصم: المصروفات المباشرة',T.direct,1)+line('يُخصم: المصروفات المشتركة',T.shared,1)
-    +((P.vatDue>0.009)?'<tr class="sub-row"><td class="name muted">— منها: صافي ضريبة القيمة المضافة المستحقة (محتسبة كخسارة)</td><td class="muted">'+money(P.vatDue)+'</td><td class="muted">'+pct(P.vatDue,T.nrev)+'</td></tr>':'')
+    +((P.vatNet>0.009)?'<tr class="sub-row"><td class="name muted">— منها: صافي ضريبة القيمة المضافة المستحقة للسداد (خسارة)</td><td class="muted neg">'+money(P.vatNet)+'</td><td class="muted">'+pct(P.vatNet,T.nrev)+'</td></tr>':'')
+    +((P.vatNet<-0.009)?'<tr class="sub-row"><td class="name muted">— منها: رصيد ضريبة القيمة المضافة لصالحك (ربح يقلّل المصروفات)</td><td class="muted">'+money(-P.vatNet)+'</td><td class="muted">'+pct(-P.vatNet,T.nrev)+'</td></tr>':'')
     +'<tr class="total-row"><td>صافي الربح / (الخسارة)</td><td>'+sign(T.net)+'</td><td>'+pct(T.net,T.nrev)+'</td></tr>';
 }
 
