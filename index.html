@@ -507,7 +507,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
       <tbody id="tbPLines"></tbody></table></div>
     <div class="doc-total">
       <div class="field" style="min-width:170px"><label>طريقة الضريبة</label><select id="p_vatmode" onchange="renderDraft('p')">
-        <option value="add">تُضاف فوق السعر</option><option value="incl">السعر شامل الضريبة</option><option value="none">بدون ضريبة</option></select></div>
+        <option value="incl">السعر شامل الضريبة</option><option value="add">تُضاف فوق السعر</option><option value="none">بدون ضريبة</option></select></div>
       <div>الصافي قبل الضريبة: <span class="v" id="p_docTotal">0.00</span></div>
       <div class="field" style="min-width:110px"><label>نسبة الضريبة %</label><input type="number" id="p_vatrate" step="0.01" min="0" oninput="renderDraft('p')"></div>
       <div>ضريبة القيمة المضافة: <span class="v" id="p_docVat">0.00</span></div>
@@ -1335,7 +1335,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-08-15-e';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-08-15-f';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -2260,7 +2260,7 @@ function cancelDoc(k){
     draft[k]={lines:[],editId:null}; renderDraft(k);
     setVal(k==='p'?'p_no':'s_no',''); setVal(k==='p'?'p_note':'s_note','');
     setVal(k==='p'?'p_paid':'s_recv',0);
-    setVal(k+'_vatmode','add'); setVal(k+'_vatrate',vatRate());
+    setVal(k+'_vatmode',k==='p'?'incl':'add'); setVal(k+'_vatrate',vatRate());   /* الشراء افتراضياً: السعر شامل الضريبة */
     setVal(k==='p'?'p_supplierSearch':'s_clientSearch',''); filterInvoiceParty(k);   /* إعادة قائمة الجهات كاملة */
     document.getElementById(k==='p'?'p_editing':'s_editing').textContent='';
   } else {
