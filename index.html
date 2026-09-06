@@ -1151,10 +1151,11 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
             <input type="number" id="it_uw" step="0.01" min="0" placeholder="10" list="dl_it_uw">
             <datalist id="dl_it_uw"></datalist>
             <span class="mini" id="it_uwHint"></span></div>
-          <div class="field"><label>طريقة تتبّع المخزون</label><select id="it_bykg">
+          <div class="field"><label>طريقة تتبّع المخزون</label><select id="it_bykg" onchange="onItemTrackChange()">
             <option value="0">بالوحدة (صندوق/شوال…)</option>
-            <option value="1">بالكيلو — يُخزَّن ويُسحب بالكيلوجرام</option></select>
-            <span class="mini">للأصناف ذات أوزان صناديق مختلفة (بطاطس…): تُدخِل الصناديق فيُحوَّل المخزون تلقائياً إلى كيلو.</span></div>
+            <option value="1">بالكيلو — يُخزَّن ويُسحب بالكيلوجرام</option>
+            <option value="service">خدمي — بلا وزن (طبالي خشب/رول تغليف/أكياس…)</option></select>
+            <span class="mini">«بالكيلو» للأصناف ذات أوزان صناديق مختلفة (بطاطس…). «خدمي» لأصناف تُباع بالعدد بلا وزن (طبالي، رولات، أكياس، مستلزمات) — لا يُطلب لها وزن.</span></div>
           <div class="field"><label>مستودع/فرع الصنف (لتمييز الجودات)</label><select id="it_wh" onchange="onItemWhPick()"></select>
             <span class="mini">اختر مستودعاً ليظهر هذا الصنف عند الشراء/البيع من ذلك المستودع فقط. «عام» = يظهر لكل المستودعات.</span></div>
           <div class="field"><label>حد إعادة الطلب (وحدات)</label><input type="number" id="it_min" step="0.01" min="0" placeholder="0"></div>
@@ -1383,7 +1384,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-06-o';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-06-p';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -2176,9 +2177,15 @@ function rememberBoxWeight(itemId,w){
 }
 /* يعيد تسمية حقول السطر حسب طريقة تتبّع الصنف (وحدة/كيلو) + استعادة أوزان الصناديق المقترحة */
 function applyItemTracking(p,it){
-  var byKg=!!(it&&it.byKg);
+  var byKg=!!(it&&it.byKg), service=!!(it&&it.service);
   var uL=document.getElementById('lbl_'+p+'_units'), wL=document.getElementById('lbl_'+p+'_uw');
-  if(uL) uL.textContent=(byKg?'عدد الصناديق':'عدد الوحدات')+' *';
+  if(uL) uL.textContent=(service?'العدد':(byKg?'عدد الصناديق':'عدد الوحدات'))+' *';
+  /* الأصناف الخدمية بلا وزن: إخفاء حقلي وزن الوحدة والوزن الإجمالي وتثبيت أساس السعر على الوحدة */
+  var uwEl=document.getElementById(p+'_uw'), uwWrap=uwEl?uwEl.closest('.field'):null;
+  var twEl=document.getElementById(p+'_tw'), twWrap=twEl?twEl.closest('.field'):null;
+  if(uwWrap) uwWrap.style.display=service?'none':'';
+  if(twWrap) twWrap.style.display=service?'none':'';
+  if(service){ setVal(p+'_uw',''); setVal(p+'_basis','unit'); calcLine(p); return; }
   if(wL) wL.textContent=(byKg?'وزن الصندوق (كغ)':(p==='pl'?'معامل التحويل — وزن الوحدة (كغ)':'وزن الوحدة (كغ)'))+' *';
   /* اقتراح الأوزان المتعددة لكل الأصناف (بالكيلو أو بالوحدة) — إدخال حرّ + حفظ الجديد */
   var ws=itemBoxWeights(it.id), dl=document.getElementById('dl_'+p+'_uw');
@@ -2225,9 +2232,10 @@ function addLine(k){
   var p=k==='p'?'pl':'sl';
   var itemId=+val(p+'_item'), units=fnum(p+'_units'), uw=fnum(p+'_uw'), price=fnum(p+'_price'), b=val(p+'_basis');
   if(!itemId){ toast('اختر الصنف'); return; }
-  var it0=byId(db.items,itemId), byKg=!!(it0&&it0.byKg);
-  if(units<=0){ toast(byKg?'أدخل عدد الصناديق (إلزامي)':'أدخل الكمية (إلزامي)'); return; }
-  if(uw<=0){ toast(byKg?'أدخل وزن الصندوق بالكيلو (إلزامي)':'أدخل وزن الوحدة بالكيلو (إلزامي)'); return; }
+  var it0=byId(db.items,itemId), byKg=!!(it0&&it0.byKg), service=!!(it0&&it0.service);
+  if(service){ uw=0; b='unit'; }   /* صنف خدمي: بلا وزن، السعر بالعدد */
+  if(units<=0){ toast(service?'أدخل العدد (إلزامي)':(byKg?'أدخل عدد الصناديق (إلزامي)':'أدخل الكمية (إلزامي)')); return; }
+  if(!service&&uw<=0){ toast(byKg?'أدخل وزن الصندوق بالكيلو (إلزامي)':'أدخل وزن الوحدة بالكيلو (إلزامي)'); return; }
   if(price<=0){ toast('أدخل السعر (إلزامي)'); return; }
   /* فحص منطقية السعر مقارنة بالتاريخ لنفس الصنف — تنبيه لا يمنع */
   var _net0=(b==='kg'?units*uw*price:units*price), _su=byKg?units*uw:units, _perU=_su>0?_net0/_su:price;
@@ -2964,23 +2972,34 @@ function saveItem(){
   var n=val('it_name').trim(); if(!n){ toast('أدخل اسم الصنف'); return; }
   if(db.items.filter(function(i){return i.name===n&&i.id!==editId.it;}).length){ toast('اسم الصنف مستخدم'); return; }
   if(!val('it_unit')){ toast('اختر وحدة للصنف — أضف وحدة جديدة إن لم تكن موجودة'); return; }
-  var rec={name:n,unit:val('it_unit'),uw:fnum('it_uw')||1,min:fnum('it_min'),active:Number(val('it_active')),byKg:Number(val('it_bykg'))||0,whId:(+val('it_wh')||null)};
+  var trk=val('it_bykg'), isKg=(trk==='1'), isSrv=(trk==='service');
+  var rec={name:n,unit:val('it_unit'),uw:isSrv?0:(fnum('it_uw')||1),min:fnum('it_min'),active:Number(val('it_active')),byKg:isKg?1:0,service:isSrv?1:0,whId:(+val('it_wh')||null)};
   var uRec=db.units.filter(function(x){return x.name===rec.unit;})[0];   /* الوزن الجديد يُضاف لقائمة أوزان الوحدة */
   if(uRec&&rec.uw>0&&uRec.weights.indexOf(rec.uw)<0){ uRec.weights.push(rec.uw); uRec.weights.sort(function(a,b){return a-b;}); }
-  if(editId.it){ var it=byId(db.items,editId.it); it.name=rec.name; it.unit=rec.unit; it.uw=rec.uw; it.min=rec.min; it.active=rec.active; it.byKg=rec.byKg; it.whId=rec.whId;
-    log('edit','البيانات الأساسية','تعديل الصنف '+n+' — '+(rec.active?'نشط':'موقوف')+(rec.byKg?' — تتبّع بالكيلو':'')+(rec.whId?' — مستودع '+whName(rec.whId):'')); }
+  if(editId.it){ var it=byId(db.items,editId.it); it.name=rec.name; it.unit=rec.unit; it.uw=rec.uw; it.min=rec.min; it.active=rec.active; it.byKg=rec.byKg; it.service=rec.service; it.whId=rec.whId;
+    log('edit','البيانات الأساسية','تعديل الصنف '+n+' — '+(rec.active?'نشط':'موقوف')+(rec.byKg?' — تتبّع بالكيلو':'')+(rec.service?' — خدمي بلا وزن':'')+(rec.whId?' — مستودع '+whName(rec.whId):'')); }
   else { rec.id=uid(); db.items.push(rec); log('add','البيانات الأساسية','إضافة صنف: '+n+' — وحدة '+rec.unit+' بوزن '+rec.uw+' كغ'); }
   cancelDoc('it'); commit('تم حفظ الصنف'); renderMaster();
 }
 function onItemWhPick(){   /* ضبط طريقة التتبّع تلقائياً حسب المستودع المختار — للأصناف الجديدة فقط */
   if(editId.it) return;
+  if(val('it_bykg')==='service') return;   /* لا نغيّر الأصناف الخدمية تلقائياً */
   var w=byId(db.warehouses,+val('it_wh'));
   if(w&&w.track) setVal('it_bykg', w.track==='kg'?'1':'0');
 }
+/* إظهار/إخفاء حقل الوزن حسب نوع التتبّع — الأصناف الخدمية بلا وزن */
+function onItemTrackChange(){
+  var srv=val('it_bykg')==='service';
+  var f=document.getElementById('it_uw'), wrap=f?f.closest('.field'):null;
+  if(wrap) wrap.style.display=srv?'none':'';
+  if(srv) setVal('it_uw','');
+}
+function itemService(id){ var it=byId(db.items,id); return !!(it&&it.service); }
 function editItem(id){ if(!guard('canEdit'))return; var i=byId(db.items,id); if(!i)return;
   editId.it=id; setVal('it_name',i.name); setVal('it_unit',i.unit); refreshUW('it');
   setVal('it_uw',i.uw); setVal('it_min',i.min||0);
-  setVal('it_active',String(i.active===0?0:1)); setVal('it_bykg',String(i.byKg?1:0)); setVal('it_wh',i.whId||'');
+  setVal('it_active',String(i.active===0?0:1)); setVal('it_bykg',i.service?'service':String(i.byKg?1:0)); setVal('it_wh',i.whId||'');
+  onItemTrackChange();
   document.getElementById('it_editing').textContent='وضع التعديل'; showTab('master'); }
 function toggleItemActive(id){
   if(!guard('canEdit')) return;
@@ -4224,7 +4243,7 @@ function renderMaster(){
     var u=0; Object.keys(L.stock).forEach(function(k){ if(L.stock[k].itemId===i.id) u+=L.stock[k].units; });
     var isActive=i.active!==0;
     var bw=i.byKg?itemBoxWeights(i.id):[];
-    return '<tr><td class="name"><b>'+esc(i.name)+'</b>'+(i.code?' <span class="mini">('+esc(i.code)+')</span>':'')+(i.byKg?' <span class="pill pill-info">كيلو</span>':'')+(i.whId?' <span class="pill pill-warn">'+esc(whName(i.whId))+'</span>':'')+'</td><td>'+(i.byKg?'كيلو':esc(i.unit))+'</td><td>'+(i.byKg?(bw.length?'صناديق '+bw.join('/')+' كغ':'بالكيلو'):(qty(i.uw)+' كغ'))+'</td>'
+    return '<tr><td class="name"><b>'+esc(i.name)+'</b>'+(i.code?' <span class="mini">('+esc(i.code)+')</span>':'')+(i.byKg?' <span class="pill pill-info">كيلو</span>':'')+(i.service?' <span class="pill pill-info">خدمي</span>':'')+(i.whId?' <span class="pill pill-warn">'+esc(whName(i.whId))+'</span>':'')+'</td><td>'+(i.byKg?'كيلو':esc(i.unit))+'</td><td>'+(i.service?'<span class="muted">— بلا وزن</span>':(i.byKg?(bw.length?'صناديق '+bw.join('/')+' كغ':'بالكيلو'):(qty(i.uw)+' كغ')))+'</td>'
       +'<td>'+qty(i.min||0)+'</td><td>'+qty(u)+(i.min>0&&u<i.min?' <span class="pill pill-warn">تحت الحد</span>':'')+'</td>'
       +'<td><span class="pill '+(isActive?'pill-ok':'pill-bad')+'">'+(isActive?'نشط':'متوقف')+'</span></td>'
       +'<td>'+(can('canEdit')?'<button class="btn-sm" onclick="editItem('+i.id+')">تعديل</button> '
@@ -5513,10 +5532,11 @@ var TPL={
           {k:'name',h:'اسم الصنف',alias:['اسم الصنف','الصنف','item','name'],req:1},
           {k:'unit',h:'الوحدة',alias:['الوحدة','وحدة','unit']},
           {k:'uw',h:'وزن الوحدة بالكيلو',alias:['وزن الوحدة','وزن','weight'],num:1},
+          {k:'track',h:'التتبّع (وحدة/كيلو/خدمي)',alias:['التتبع','التتبّع','طريقة التتبع','tracking','track','النوع']},
           {k:'min',h:'حد إعادة الطلب',alias:['حد','طلب','reorder','min'],num:1},
           {k:'active',h:'الحالة (نشط/متوقف)',alias:['الحالة','status']},
           {k:'wh',h:'المستودع/الفرع (فارغ=عام)',alias:['المستودع','مستودع','فرع','warehouse','branch']}],
-    samples:[['20213','بطاطس كبير','صندوق','10','20','نشط','المستودع الرئيسي'],['20211','بصل كبير','شوال','25','10','نشط','عام'],['448660','بصل ابيض','كيس','7','5','نشط','']]},
+    samples:[['20213','بطاطس كبير','صندوق','10','كيلو','20','نشط','المستودع الرئيسي'],['20211','بصل كبير','شوال','25','كيلو','10','نشط','عام'],['448660','بصل ابيض','كيس','7','وحدة','5','نشط',''],['70001','طبالي خشب','طبلية','','خدمي','20','نشط',''],['70002','رول تغليف','رول','','خدمي','10','نشط','']]},
   suppliers:{name:'نموذج_الموردين',title:'الموردين',arr:'suppliers',
     cols:[{k:'name',h:'اسم المورد',alias:['اسم المورد','المورد','supplier','name'],req:1},
           {k:'group',h:'المجموعة',alias:['المجموعة','مجموعه','مجموعة','group','category']},
@@ -5707,13 +5727,17 @@ function importRow(k,v){
     if(!ur){ ur={id:uid(),name:un,weights:[]}; db.units.push(ur); }
     if(uw>0&&ur.weights.indexOf(uw)<0){ ur.weights.push(uw); ur.weights.sort(function(a,b){return a-b;}); }
     var act=(String(v.active||'').indexOf('متوقف')>-1||String(v.active||'')==='0')?0:1;
+    var trk=String(v.track==null?'':v.track).trim().toLowerCase();
+    var isSrv=(trk.indexOf('خدم')>-1||trk==='service'||trk==='srv');
+    var isKg=(!isSrv&&(trk.indexOf('كيلو')>-1||trk.indexOf('كجم')>-1||trk==='kg'||trk==='kilo'));
+    if(isSrv) uw=0;
     var whn=(v.wh==null?'':String(v.wh)).trim();
     var iwh=(whn&&whn!=='عام'&&whn!=='الكل')?findOrCreate(db.warehouses,whn,function(n){return {name:n,clientId:null};}):null;
     var code=String(v.code==null?'':v.code).trim();
     var it=code?db.items.filter(function(x){return String(x.code||'')===code;})[0]:null;
     if(!it) it=db.items.filter(function(x){return x.name===nm;})[0];
-    if(it){ it.name=nm; if(code) it.code=code; it.unit=un; it.uw=uw; it.min=v.min||0; it.active=act; it.whId=iwh; return 'update'; }
-    db.items.push({id:uid(),name:nm,code:code,unit:un,uw:uw,min:v.min||0,active:act,whId:iwh}); return 'add';
+    if(it){ it.name=nm; if(code) it.code=code; it.unit=un; it.uw=uw; it.min=v.min||0; it.active=act; it.whId=iwh; it.byKg=isKg?1:0; it.service=isSrv?1:0; return 'update'; }
+    db.items.push({id:uid(),name:nm,code:code,unit:un,uw:uw,min:v.min||0,active:act,whId:iwh,byKg:isKg?1:0,service:isSrv?1:0}); return 'add';
   }
   if(k==='suppliers'||k==='clients'){
     var name=needTxt(v.name,k==='suppliers'?'اسم المورد':'اسم العميل');
@@ -5751,9 +5775,11 @@ function importRow(k,v){
     var uw=(v.uw&&v.uw>0)?v.uw:0, basis=(String(v.basis||'').indexOf('كيلو')>-1)?'kg':'unit';
     var itemId=resolveItem(v.item,v.code,uw);
     var itRec=byId(db.items,itemId);
+    var isSrv=!!(itRec&&itRec.service);
+    if(isSrv){ uw=0; basis='unit'; }   /* صنف خدمي: بلا وزن، السعر بالعدد */
     if(itRec&&itRec.byKg&&!uw) throw new Error('وزن الصندوق إلزامي لصنف «'+itemName(itemId)+'» (بالكيلو) — املأ عمود وزن الوحدة/الصندوق');
-    if(!uw){ uw=(itRec&&itRec.uw>0)?itRec.uw:0; }   /* وزن الوحدة من تعريف الصنف إن لم يُذكر */
-    if(!uw) throw new Error('الوزن إلزامي — أدخل وزن الوحدة/الصندوق بالكيلو للصنف «'+itemName(itemId)+'»');
+    if(!isSrv&&!uw){ uw=(itRec&&itRec.uw>0)?itRec.uw:0; }   /* وزن الوحدة من تعريف الصنف إن لم يُذكر */
+    if(!isSrv&&!uw) throw new Error('الوزن إلزامي — أدخل وزن الوحدة/الصندوق بالكيلو للصنف «'+itemName(itemId)+'» (أو اجعله صنفاً خدمياً بلا وزن)');
     var whId=(v.wh&&String(v.wh).trim())?findOrCreate(db.warehouses,String(v.wh).trim(),function(n){return {name:n,clientId:null};}):defaultWh();
     var total=basis==='kg'?units*uw*price:units*price;
     var line;
@@ -5761,7 +5787,7 @@ function importRow(k,v){
       var kg=units*uw; rememberBoxWeight(itemId,uw);
       line={itemId:itemId,unit:'كيلو',units:kg,uw:1,basis:'kg',price:(kg>0?total/kg:0),total:total,whId:whId,boxes:units,boxW:uw};
     } else {
-      rememberBoxWeight(itemId,uw);
+      if(!isSrv) rememberBoxWeight(itemId,uw);
       line={itemId:itemId,unit:itemUnit(itemId),units:units,uw:uw,basis:basis,price:price,total:total,whId:whId};
     }
     var arr2=k==='purchases'?db.purchases:db.sales;
@@ -5792,6 +5818,7 @@ function exportForEdit(k){
       if(k==='units'&&c.k==='weights') return (o.weights||[]).join(', ');
       if(c.k==='active') return (o.active===0)?'متوقف':'نشط';
       if(k==='items'&&c.k==='wh') return o.whId?whName(o.whId):'عام';   /* اسم مستودع الصنف */
+      if(k==='items'&&c.k==='track') return o.service?'خدمي':(o.byKg?'كيلو':'وحدة');
       var v=o[c.k]; return v==null?'':v;
     }));
   });
