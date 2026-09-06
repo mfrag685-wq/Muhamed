@@ -167,6 +167,7 @@ td.name,th.name{text-align:right;white-space:normal;min-width:120px}
 tr.total-row td{background:var(--surface-2);font-weight:700;border-top:2px solid var(--line)}
 tr.day-row td{background:#eef3ec;font-weight:700;text-align:right;color:var(--ink)}
 tr.sub-row td{background:#f7faf6;font-weight:700;font-size:12.5px;color:var(--ink-2)}
+table.mini-months{font-size:12px}table.mini-months th,table.mini-months td{padding:5px 7px;text-align:center;white-space:nowrap}table.mini-months td.name,table.mini-months th.name{text-align:right;position:sticky;right:0;background:var(--surface);z-index:1;min-width:150px}table.mini-months thead th:last-child,table.mini-months tbody td:last-child{background:var(--surface-2);font-weight:700}
 .empty{text-align:center;color:var(--ink-3);padding:26px;font-size:14px}
 .pos{color:var(--leaf-dark);font-weight:700}.neg{color:var(--tomato);font-weight:700}.muted{color:var(--ink-3)}
 .pill{display:inline-block;padding:2px 9px;border-radius:20px;font-size:11.5px;font-weight:700}
@@ -364,6 +365,9 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
     <div id="loginFields">
       <div class="field"><label>اسم المستخدم</label><input type="text" id="lg_user" autocomplete="username"></div>
       <div class="field"><label>كلمة المرور</label><input type="password" id="lg_pass" autocomplete="current-password"></div>
+      <label style="display:flex;align-items:center;gap:8px;margin:10px 2px 2px;cursor:pointer;font-size:13px">
+        <input type="checkbox" id="lg_remember" checked style="width:auto;margin:0">
+        <span>تذكّرني على هذا الجهاز (دخول تلقائي بلا كلمة مرور)</span></label>
       <button type="submit" class="btn-main" style="width:100%;margin-top:8px">دخول</button>
     </div>
     <div id="joinFields" class="hidden">
@@ -972,9 +976,11 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
       <option value="equal">بالتساوي بين الفروع</option><option value="weight">بنسبة الأوزان المباعة</option></select></div>
     <div class="field"><label>من</label><input type="date" id="f_from2" onchange="clrMonth();syncRange(this,'f_from')"></div>
     <div class="field"><label>إلى</label><input type="date" id="f_to2" onchange="clrMonth();syncRange(this,'f_to')"></div>
+    <button class="btn-alt" id="incMonthlyBtn" onclick="toggleIncomeMonthly()">📅 الأعمدة الشهرية</button>
     <button class="btn-alt" onclick="exportTable('income')">تصدير Excel</button>
     <button class="btn" onclick="window.print()">طباعة</button>
   </div>
+  <div id="incomeMonthlyBox" style="display:none"></div>
   <div class="note no-print">«الفرع» = عميل له مستودع خاص (مركز تكلفة). أما العملاء بدون مستودع فيُجمّعون في سطر واحد «عملاء آخرون» ولا يظهر كل واحد كفرع مستقل.</div>
   <div class="table-scroll"><table>
     <thead><tr><th class="name">الفرع / العميل</th><th>المبيعات</th><th>مرتجعات</th><th>خصومات</th><th>صافي المبيعات</th><th>تكلفة المبيعات</th>
@@ -1384,7 +1390,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-06-p';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-06-q';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -1393,7 +1399,7 @@ window.onerror=function(msg,src,line){
       +'<br><br>جرّب تحديث الصفحة. إن تكرر الخطأ، نزّل نسخة احتياطية من جهاز آخر يعمل عليه النظام واستوردها هنا.'; }
   return false;
 };
-var KEY='veg_erp_v3', SKEY='veg_erp_session', memStore=null, storageOK=true;
+var KEY='veg_erp_v3', SKEY='veg_erp_session', RKEY='veg_erp_remember', memStore=null, storageOK=true;
 
 function lsGet(k){
   try{ var v=localStorage.getItem(k); return v; }
@@ -1403,6 +1409,7 @@ function lsSet(k,v){
   if(k===KEY) memStore=v;                 /* نسخة في الذاكرة دائماً كشبكة أمان */
   try{ localStorage.setItem(k,v); }catch(e){ storageOK=false; }
 }
+function lsRemove(k){ try{ localStorage.removeItem(k); }catch(e){} }
 function persist(){ var s=JSON.stringify(serializeDB()); lsSet(KEY,s); if(typeof cloudPush==='function') cloudPush(s); }
 
 /* ---------- قاعدة البيانات ---------- */
@@ -1708,7 +1715,9 @@ function doLogin(e){
   err.style.display='none';
   user.lastLogin=nowTs(); ME=user;
   try{ sessionStorage.setItem(SKEY,String(user.id)); }catch(ex){}
-  log('auth','الدخول','تسجيل دخول');
+  var rem=document.getElementById('lg_remember');
+  try{ if(rem&&rem.checked) lsSet(RKEY,String(user.id)); else lsRemove(RKEY); }catch(ex2){}
+  log('auth','الدخول','تسجيل دخول'+(rem&&rem.checked?' (تذكّر الجهاز)':''));
   persist(); startApp();
   if(user.username==='admin'&&user.pass===hash('admin123'))
     setTimeout(function(){ toast('غيّر كلمة مرور المدير من شاشة المستخدمين'); },900);
@@ -1716,6 +1725,8 @@ function doLogin(e){
 function doLogout(){
   log('auth','الخروج','تسجيل خروج'); persist();
   try{ sessionStorage.removeItem(SKEY); }catch(e){}
+  lsRemove(RKEY);   /* الخروج يُلغي التذكّر على الجهاز */
+  var rem=document.getElementById('lg_remember'); if(rem) rem.checked=false;
   if(cloudAccounts()){ cloudDetach();
     try{ if(firebase.auth().currentUser) firebase.auth().signOut(); }catch(e){}
     setCloudStatus('auth'); }
@@ -3891,6 +3902,7 @@ function renderIncome(){
     +((P.vatNet<-0.009)?'<tr class="sub-row"><td class="name muted">— منها: رصيد ضريبة القيمة المضافة لصالحك (ربح يقلّل المصروفات)</td><td class="muted">'+money(-P.vatNet)+'</td><td class="muted">'+pct(-P.vatNet,T.nrev)+'</td></tr>':'')
     +'<tr class="total-row"><td>صافي الربح / (الخسارة)</td><td>'+sign(T.net)+'</td><td>'+pct(T.net,T.nrev)+'</td></tr>';
   renderIncomeDetail(P);
+  if(incomeMonthlyOpen) renderIncomeMonthly();
 }
 /* اختيار الشهر: يملأ الفترة من أول الشهر إلى آخره تلقائياً */
 function pickIncomeMonth(){
@@ -3906,6 +3918,73 @@ function setIncomeLevel(){
   var box=document.getElementById('incomeDetailBox'); if(box) box.style.display=(incomeLevel>=2)?'':'none';
   renderIncomeDetail();
   if(incomeLevel>=2&&box) box.scrollIntoView({behavior:'smooth',block:'start'});
+}
+/* ===== الأعمدة الشهرية: قائمة دخل الشركة شهراً بشهر خلال سنة ===== */
+var incomeMonthlyOpen=false, incomeYear=null;
+function toggleIncomeMonthly(){
+  incomeMonthlyOpen=!incomeMonthlyOpen;
+  var box=document.getElementById('incomeMonthlyBox'), btn=document.getElementById('incMonthlyBtn');
+  if(box) box.style.display=incomeMonthlyOpen?'':'none';
+  if(btn) btn.textContent=incomeMonthlyOpen?'إخفاء الشهري ▲':'📅 الأعمدة الشهرية';
+  if(incomeMonthlyOpen){ renderIncomeMonthly(); if(box) box.scrollIntoView({behavior:'smooth',block:'start'}); }
+}
+function changeIncomeYear(){ incomeYear=parseInt(val('incYear'),10)||null; renderIncomeMonthly(); }
+/* السنوات المتاحة من تواريخ الحركات */
+function incomeYears(){
+  var ys={}; function add(d){ if(d&&d.length>=4){ var y=parseInt(d.slice(0,4),10); if(y) ys[y]=1; } }
+  db.sales.forEach(function(x){add(x.date);}); db.purchases.forEach(function(x){add(x.date);});
+  db.expenses.forEach(function(x){add(x.date);}); (db.sreturns||[]).forEach(function(x){add(x.date);});
+  var arr=Object.keys(ys).map(Number).sort(function(a,b){return a-b;});
+  var cur=new Date().getFullYear(); if(arr.indexOf(cur)<0) arr.push(cur);
+  return arr;
+}
+/* إجماليات الشركة (كل الفروع) لفترة */
+function pnlTotals(from,to){
+  var P=pnl(from,to), T={rev:0,ret:0,disc:0,net_rev:0,cogs:0,waste:0,gp:0,direct:0,shared:0,exp:0,net:0,vatNet:P.vatNet||0};
+  db.clients.forEach(function(c){ var x=P.rows[c.id]; if(!x) return;
+    T.rev+=x.rev;T.ret+=x.ret;T.disc+=(x.disc||0);T.net_rev+=x.net_rev;T.cogs+=x.cogs;T.waste+=x.waste;
+    T.gp+=x.gp;T.direct+=x.direct;T.shared+=x.shared;T.exp+=x.exp;T.net+=x.net; });
+  return T;
+}
+function renderIncomeMonthly(){
+  var box=document.getElementById('incomeMonthlyBox'); if(!box||!incomeMonthlyOpen||!can('income')) return;
+  var years=incomeYears();
+  if(!incomeYear||years.indexOf(incomeYear)<0) incomeYear=years[years.length-1];
+  var mNames=['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
+  var M=[], TT={rev:0,ret:0,disc:0,net_rev:0,cogs:0,waste:0,gp:0,direct:0,shared:0,exp:0,net:0,vatNet:0};
+  for(var m=0;m<12;m++){ var mm=('0'+(m+1)).slice(-2), r=monthRangeOf(incomeYear+'-'+mm+'-01'), t=pnlTotals(r.from,r.to);
+    M.push(t); ['rev','ret','disc','net_rev','cogs','gp','waste','direct','shared','exp','net','vatNet'].forEach(function(k){ TT[k]+=t[k]; }); }
+  var hasVat=M.some(function(t){return Math.abs(t.vatNet)>0.009;});
+  var yearOpts=years.map(function(y){return '<option value="'+y+'"'+(y===incomeYear?' selected':'')+'>'+y+'</option>';}).join('');
+  /* صف: label + 12 شهر + الإجمالي */
+  function row(lbl,key,opt){ opt=opt||{};
+    var tds=''; for(var i=0;i<12;i++){ var v=M[i][key]||0; tds+='<td class="'+(opt.neg&&v>0.009?'neg':'')+'">'+(Math.abs(v)<0.005?'<span class="muted">0</span>':money(v))+'</td>'; }
+    var tot=TT[key]||0;
+    return '<tr class="'+(opt.cls||'')+'"><td class="name">'+(opt.bold?'<b>'+lbl+'</b>':lbl)+'</td>'+tds+'<td class="'+(opt.neg&&tot>0.009?'neg':'')+'"><b>'+(opt.sign?sign(tot):money(tot))+'</b></td></tr>'; }
+  var thM=''; for(var i2=0;i2<12;i2++) thM+='<th>'+mNames[i2]+'</th>';
+  var tbl='<div class="table-scroll"><table class="mini-months"><thead><tr><th class="name">البند / الشهر</th>'+thM+'<th>الإجمالي '+incomeYear+'</th></tr></thead><tbody>'
+    +row('إجمالي المبيعات','rev')
+    +row('يُخصم: المرتجعات','ret',{neg:1})
+    +row('يُخصم: الخصومات','disc',{neg:1})
+    +row('صافي المبيعات','net_rev',{bold:1,cls:'sub-row'})
+    +row('يُخصم: تكلفة المبيعات','cogs',{neg:1})
+    +row('يُخصم: الفاقد','waste',{neg:1})
+    +row('مجمل الربح','gp',{bold:1,cls:'sub-row',sign:1})
+    +row('يُخصم: مصروفات مباشرة','direct',{neg:1})
+    +row('يُخصم: مصروفات مشتركة','shared',{neg:1})
+    +(hasVat?row('— منها: صافي الضريبة','vatNet',{}):'')
+    +row('صافي الربح / (الخسارة)','net',{bold:1,cls:'total-row',sign:1})
+    +'</tbody></table></div>';
+  /* رسم الربح/الخسارة الشهري */
+  var cats=mNames.map(function(n){return n.slice(0,3);});
+  var chart=barChart('الربح والخسارة الشهري — '+incomeYear,'أعمدة خضراء ربح · حمراء خسارة',cats,[
+    {name:'ربح',color:'#2c7a52',vals:M.map(function(t){return t.net>0?t.net:0;})},
+    {name:'خسارة',color:'#c0392b',vals:M.map(function(t){return t.net<0?-t.net:0;})}
+  ]);
+  box.innerHTML='<div class="sec-title">قائمة الدخل الشهرية <span class="hint">مقارنة الأشهر جنباً إلى جنب</span></div>'
+    +'<div class="filters no-print"><div class="field"><label>السنة</label><select id="incYear" onchange="changeIncomeYear()">'+yearOpts+'</select></div>'
+    +'<div class="note" style="flex:1;min-width:220px">كل عمود شهر كامل (من أوله لآخره). عمود «الإجمالي» = مجموع الأشهر = ربح/خسارة السنة. القيم السالبة (بالأحمر) تعني خسارة الشهر.</div></div>'
+    +tbl+chart;
 }
 /* العرض التفصيلي لقائمة الدخل حسب المستوى: 2=حسب الفئة، 3=تفصيل كامل + الفروع */
 function renderIncomeDetail(P){
@@ -6432,7 +6511,11 @@ function cloudLogin(username,password){
   cloudInteractive=true; setCloudStatus('connecting');
   var appu=db.users.filter(function(x){return x.username.toLowerCase()===String(username).toLowerCase();})[0];
   var email=appu?emailForUser(appu):synthEmail(username);
-  firebase.auth().signInWithEmailAndPassword(email,password)
+  /* التذكّر: LOCAL يبقي الجلسة بعد إغلاق المتصفح · بدونه SESSION تنتهي بإغلاق التبويب */
+  var rem=document.getElementById('lg_remember'), remOn=!!(rem&&rem.checked);
+  var persist=(function(){ try{ return firebase.auth().setPersistence(remOn?firebase.auth.Auth.Persistence.LOCAL:firebase.auth.Auth.Persistence.SESSION); }catch(e){ return null; } })();
+  var proceed=function(){ return firebase.auth().signInWithEmailAndPassword(email,password); };
+  (persist&&persist.then?persist.then(proceed):proceed())
     .then(function(cred){ afterCloudAuth(cred.user,username); })
     .catch(function(e){
       var code=e&&e.code;
@@ -6577,12 +6660,15 @@ function cloudInit(){
     if(pu&&Number(pu.active)){ ME=pu; pu.lastLogin=nowTs(); log('auth','الدخول','دخول تلقائي من نسخة مُصدَّرة'); persist(); startApp(); onExpenseType(); return; }
   }
   var sid=null; try{ sid=sessionStorage.getItem(SKEY); }catch(e){}
-  var u=sid?byId(db.users,+sid):null;
-  if(u&&Number(u.active)){ ME=u; startApp(); }
+  var rid=lsGet(RKEY);   /* مستخدم متذكَّر على الجهاز — دخول تلقائي بلا كلمة مرور */
+  var u=sid?byId(db.users,+sid):(rid?byId(db.users,+rid):null);
+  if(u&&Number(u.active)){ ME=u; u.lastLogin=nowTs(); try{ sessionStorage.setItem(SKEY,String(u.id)); }catch(e2){}
+    if(rid) log('auth','الدخول','دخول تلقائي (جهاز متذكَّر)'); startApp(); }
   else {
     document.getElementById('loginCo').textContent=db.settings.company||'نظام توريد الخضار والفواكه';
-    if(window.__PRESET_LOGIN__) setVal('lg_user',window.__PRESET_LOGIN__);
-    setTimeout(function(){ var e=document.getElementById(window.__PRESET_LOGIN__?'lg_pass':'lg_user'); if(e) e.focus(); },200);
+    var lru=rid?byId(db.users,+rid):null;   /* لو المستخدم المتذكَّر موقوف: عبّئ اسمه فقط */
+    if(lru) setVal('lg_user',lru.username); else if(window.__PRESET_LOGIN__) setVal('lg_user',window.__PRESET_LOGIN__);
+    setTimeout(function(){ var e=document.getElementById((lru||window.__PRESET_LOGIN__)?'lg_pass':'lg_user'); if(e) e.focus(); },200);
   }
   onExpenseType();
 })();
