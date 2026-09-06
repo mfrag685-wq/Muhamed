@@ -1260,6 +1260,17 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
     <div class="note" id="ns_stockInfo" style="margin-top:8px"></div>
   </div>
 
+  <div class="sec-title">تصفير المخزون كبضاعة تالفة / مفقودة <span class="hint">شطب محاسبي صحيح دون حذف الحركات</span></div>
+  <div class="note" style="border-right-color:var(--citrus)">يُخرِج <b>كل رصيد المخزون الحالي</b> من المستودعات ويُسجّله <b>فاقداً/تالفاً</b> بتكلفته — فتظهر التكلفة كـ<b>خسارة في قائمة الدخل</b> (يتحمّل النشاط تكلفة البضاعة غير المباعة) ويصبح المخزون صفراً، <b>دون حذف أي حركة سابقة</b>. بعدها أنشئ أرصدة افتتاحية جديدة (كمية محددة أو صفر) من تبويب «المخزون الافتتاحي». <b>نزّل نسخة احتياطية أولاً.</b></div>
+  <div class="doc-box no-print" style="margin-top:10px">
+    <div class="grid-2">
+      <div class="field"><label>تاريخ الشطب</label><input type="date" id="nw_date"></div>
+      <div class="field"><label>السبب/البيان</label><input type="text" id="nw_reason" placeholder="تسوية جرد — بضاعة غير مباعة (تالف/مفقود)"></div>
+    </div>
+    <div class="form-foot"><button class="btn-del" onclick="runStockWriteOff()">تصفير المخزون كتالف/مفقود</button>
+      <span class="mini" id="nw_info"></span></div>
+  </div>
+
   <div class="sec-title">البيانات والنسخ الاحتياطي</div>
   <div class="form-foot">
     <button class="btn-alt" onclick="exportBackup()">تنزيل نسخة احتياطية شاملة (JSON)</button>
@@ -1324,7 +1335,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-08-15-d';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-08-15-e';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -4134,6 +4145,7 @@ function nsMonthStart(){ var d=new Date(); return d.getFullYear()+'-'+('0'+(d.ge
 function renderStockResetUI(){
   var box=document.getElementById('ns_pctGrid'); if(!box) return;
   if(!val('ns_date')) setVal('ns_date',nsMonthStart());
+  if(document.getElementById('nw_date')&&!val('nw_date')) setVal('nw_date',today());
   box.innerHTML=db.warehouses.map(function(w){
     var lbl=w.name+(w.clientId?' — '+clientName(w.clientId):' (عام)');
     return '<div class="field"><label>'+esc(lbl)+'</label><input type="number" id="ns_pct_'+w.id+'" step="0.01" min="0" max="100" value="0" oninput="updateNsSummary()"></div>';
@@ -4144,6 +4156,8 @@ function renderStockResetUI(){
   Object.keys(L.stock).forEach(function(k){ var s=L.stock[k]; if(Math.abs(s.units)<0.0001&&Math.abs(s.cost)<0.01) return; totC+=s.cost; items[s.itemId]=1; });
   var info=document.getElementById('ns_stockInfo');
   if(info) info.textContent='المخزون الحالي: '+Object.keys(items).length+' صنف بقيمة '+money(totC)+' — سيُرحَّل كأرصدة افتتاحية بتاريخ '+(val('ns_date')||'—')+'.';
+  var nwi=document.getElementById('nw_info');
+  if(nwi) nwi.textContent='المخزون الحالي بقيمة '+money(totC)+' سيُحمَّل كفاقد/تالف.';
 }
 function updateNsSummary(){
   var sum=0; db.warehouses.forEach(function(w){ sum+=fnum('ns_pct_'+w.id); });
@@ -4181,6 +4195,20 @@ function runStockReset(){
   log('data','المخزون','تصفير وترحيل المخزون كأرصدة افتتاحية بتاريخ '+date+' ('+nItems+' صنف على '+parts.length+' مستودع)'+(keepBal?' مع ترحيل الأرصدة':' وتصفير الأرصدة'));
   refreshLedger(); commit('تم تصفير وترحيل المخزون'); renderAll(); renderMaster(); renderSettingsForm();
   alert('اكتمل التصفير والترحيل ✅\n\n• '+nItems+' صنف رُحّل كأرصدة افتتاحية بتاريخ '+date+'.\n• حُذفت كل الحركات السابقة.\n• أرصدة الموردين/العملاء '+(keepBal?'رُحّلت.':'صُفّرت.')+'\n\nراجع المخزون وكشوف الحسابات.');
+}
+function runStockWriteOff(){
+  if(!guard('settings')) return;
+  var date=val('nw_date')||today();
+  var reason=(val('nw_reason')||'').trim()||'تصفير المخزون — بضاعة غير مباعة (تالف/مفقود)';
+  if(!L) refreshLedger();
+  var cells=[],totC=0;
+  Object.keys(L.stock).forEach(function(k){ var s=L.stock[k]; if(s.units>0.0001){ cells.push({whId:s.whId,itemId:s.itemId,units:s.units,cost:s.cost}); totC+=s.cost; } });
+  if(!cells.length){ toast('لا يوجد رصيد مخزون لتصفيره'); return; }
+  if(!confirm('تصفير المخزون كبضاعة تالفة/مفقودة:\n\n• '+cells.length+' رصيد بقيمة '+num(totC)+' سيُخرَج من المخزون بتاريخ '+date+' ويُحمَّل كخسارة (فاقد) في قائمة الدخل.\n• لا تُحذف أي حركة سابقة، ويصبح المخزون صفراً.\n\n⚠ لا يمكن التراجع. هل نزّلت نسخة احتياطية؟ المتابعة؟')) return;
+  cells.forEach(function(c){ db.waste.push({id:uid(),date:date,whId:c.whId,itemId:c.itemId,units:round2(c.units),reason:reason,uid:ME.id,ts:nowTs()}); });
+  log('data','المخزون','تصفير المخزون كتالف/مفقود بتاريخ '+date+' ('+cells.length+' رصيد بتكلفة '+num(totC)+')');
+  refreshLedger(); commit('تم تصفير المخزون كتالف/مفقود'); renderAll(); renderMaster(); renderSettingsForm();
+  alert('تم التصفير ✅\n\n• أُخرج المخزون بتكلفة '+num(totC)+' وسُجّل كفاقد/تالف في قائمة الدخل.\n• المخزون الآن صفر.\n\nلإنشاء أرصدة افتتاحية جديدة (بكمية محددة أو صفر): افتح تبويب «المخزون» ← «المخزون الافتتاحي».');
 }
 function renderMergeItemsUI(){
   var box=document.getElementById('mergeSrcBox'); if(!box) return;
