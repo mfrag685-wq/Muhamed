@@ -900,23 +900,6 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
     <thead><tr><th>التاريخ</th><th>النوع</th><th class="name">الجهة</th><th>المبلغ</th><th>الطريقة</th>
       <th class="name">ملاحظة</th><th class="name">أدخلها</th><th>إجراء</th></tr></thead>
     <tbody id="tbPayments"></tbody></table></div>
-  <div class="sec-title" id="accDiscTitle">الخصومات المتفق عليها (توالف / خصم على المبيعات)</div>
-  <div class="note no-print" id="accDiscNote" style="border-right-color:var(--citrus)">تُستخدم لتسجيل خصم متفق عليه على مبيعات فرع/عميل (مثل خصم ~10% توالف وخصم شهري). المبلغ يُخصم من <b>صافي مبيعات الفرع</b> في قائمة الدخل ومن <b>رصيد العميل المستحق</b> — فيظهر أثره مباشرة على الأرباح والخسائر.</div>
-  <div class="doc-box no-print" id="discFormBox">
-    <div class="grid">
-      <div class="field"><label>التاريخ</label><input type="date" id="disc_date"></div>
-      <div class="field"><label>الفرع / العميل</label><select id="disc_client"></select></div>
-      <div class="field"><label>مبلغ الخصم</label><input type="number" id="disc_amount" step="0.01" min="0" placeholder="أدخل الرقم يدوياً"></div>
-      <div class="field" style="min-width:220px"><label>البيان / السبب</label><input type="text" id="disc_note" placeholder="مثال: خصم توالف بندة — سبتمبر"></div>
-    </div>
-    <div class="form-foot"><button class="btn-main" onclick="saveDiscount()">حفظ الخصم</button>
-      <button class="btn" onclick="cancelDiscount()">إلغاء</button>
-      <span class="editing-note" id="disc_editing"></span></div>
-  </div>
-  <div class="table-scroll" id="discListBox"><table>
-    <thead><tr><th>التاريخ</th><th class="name">الفرع / العميل</th><th>المبلغ</th>
-      <th class="name">البيان</th><th class="name">أدخلها</th><th>إجراء</th></tr></thead>
-    <tbody id="tbDiscounts"></tbody></table></div>
 </section>
 
 <!-- ======================= التقارير ======================= -->
@@ -998,6 +981,40 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
     <thead><tr><th class="name">البيان</th><th>القيمة</th><th>النسبة من المبيعات</th></tr></thead>
     <tbody id="tbIncomeTotal"></tbody></table></div>
   <div class="note no-print" style="border-right-color:var(--citrus)">قائمة الدخل تُظهر <b>تكلفة البضاعة المُباعة</b> فقط (تكلفة ما بِيع فعلاً). أما <b>المخزون المتبقّي</b> فهو <b>أصل</b> يظهر في <b>«قائمة المركز المالي»</b> (تبويب التقارير ← قائمة المركز المالي)، وليس في قائمة الدخل — وهذا موافق للمعايير المحاسبية.</div>
+
+  <!-- ===== أدوات الأرباح والخسائر: الخصومات + خيار الضريبة ===== -->
+  <div class="sec-title no-print" id="incToolsTitle">أدوات الأرباح والخسائر</div>
+  <div class="doc-box no-print" id="incVatBox">
+    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:600">
+      <input type="checkbox" id="inc_vatAsLoss" onchange="toggleVatAsLoss()" style="width:auto;margin:0">
+      <span>احتساب صافي ضريبة القيمة المضافة ضمن الأرباح والخسائر</span>
+    </label>
+    <div class="note" style="margin-top:6px">عند التفعيل يُحتسب صافي الضريبة خلال الفترة (ضريبة المبيعات − ضريبة المشتريات): إذا كانت ضريبة <b>المبيعات أكبر</b> فالصافي مستحق للسداد ويُعامَل <b>كخسارة</b>، وإذا كانت ضريبة <b>المشتريات أكبر</b> فالصافي رصيد لصالحك ويُعامَل <b>كربح</b>. ويُوزَّع على الفروع <b>حسب مبيعات كل فرع</b>.</div>
+  </div>
+
+  <div class="sec-title no-print" id="accDiscTitle">الخصومات المتفق عليها (توالف / خصم على المبيعات)</div>
+  <div class="note no-print" id="accDiscNote" style="border-right-color:var(--citrus)">خصم متفق عليه على مبيعات فرع/عميل (مثل خصم ~10% توالف وخصم شهري لبندة). يمكن إدخاله <b>مبلغاً ثابتاً</b> أو <b>نسبة مئوية من مبيعات الفترة</b> — ويُخصم من <b>صافي مبيعات الفرع</b> ومن <b>رصيد العميل المستحق</b> فيؤثر مباشرة على الأرباح والخسائر.</div>
+  <div class="doc-box no-print" id="discFormBox">
+    <div class="grid">
+      <div class="field"><label>التاريخ</label><input type="date" id="disc_date"></div>
+      <div class="field"><label>الفرع / العميل</label><select id="disc_client"></select></div>
+      <div class="field"><label>نوع الخصم</label><select id="disc_kind" onchange="onDiscKind()">
+        <option value="amount">مبلغ ثابت</option><option value="pct">نسبة % من المبيعات</option></select></div>
+      <div class="field" id="disc_amountWrap"><label>مبلغ الخصم</label><input type="number" id="disc_amount" step="0.01" min="0" placeholder="أدخل الرقم يدوياً"></div>
+      <div class="field" id="disc_pctWrap" style="display:none"><label>النسبة %</label><input type="number" id="disc_pct" step="0.01" min="0" max="100" placeholder="مثال: 10" oninput="updateDiscPreview()"></div>
+      <div class="field" id="disc_pfromWrap" style="display:none;min-width:150px"><label>من (فترة الاحتساب)</label><input type="date" id="disc_pfrom" onchange="updateDiscPreview()"></div>
+      <div class="field" id="disc_ptoWrap" style="display:none;min-width:150px"><label>إلى</label><input type="date" id="disc_pto" onchange="updateDiscPreview()"></div>
+      <div class="field" style="min-width:220px"><label>البيان / السبب</label><input type="text" id="disc_note" placeholder="مثال: خصم توالف بندة — سبتمبر"></div>
+    </div>
+    <div class="note no-print" id="disc_preview" style="display:none;border-right-color:var(--citrus)"></div>
+    <div class="form-foot"><button class="btn-main" onclick="saveDiscount()">حفظ الخصم</button>
+      <button class="btn" onclick="cancelDiscount()">إلغاء</button>
+      <span class="editing-note" id="disc_editing"></span></div>
+  </div>
+  <div class="table-scroll no-print" id="discListBox"><table>
+    <thead><tr><th>التاريخ</th><th class="name">الفرع / العميل</th><th>المبلغ</th>
+      <th class="name">البيان</th><th class="name">أدخلها</th><th>إجراء</th></tr></thead>
+    <tbody id="tbDiscounts"></tbody></table></div>
 </section>
 
 <!-- ======================= البيانات الأساسية ======================= -->
@@ -1214,13 +1231,6 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
     <div class="field"><label>نسبة ضريبة القيمة المضافة %</label><input type="number" id="set_vatrate" step="0.01" min="0" placeholder="15"></div>
     <div class="field"><label>الهاتف</label><input type="text" id="set_phone" placeholder="اختياري"></div>
   </div>
-  <div class="field" style="max-width:640px;margin-top:6px">
-    <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
-      <input type="checkbox" id="set_vatAsLoss" style="width:auto;margin:0">
-      <span>احتساب صافي ضريبة القيمة المضافة ضمن الأرباح والخسائر (اختياري)</span>
-    </label>
-    <div class="note" style="margin-top:6px">عند التفعيل يُحتسب صافي الضريبة خلال الفترة (ضريبة المبيعات − ضريبة المشتريات): إذا كانت ضريبة <b>المبيعات أكبر</b> فالصافي مستحق للسداد ويُعامَل <b>كخسارة</b>، وإذا كانت ضريبة <b>المشتريات أكبر</b> فالصافي رصيد لصالحك ويُعامَل <b>كربح</b>. ويُوزَّع على الفروع <b>حسب مبيعات كل فرع</b> (وليس بالتساوي).</div>
-  </div>
   <div class="form-foot"><button class="btn-main" onclick="saveSettings()">حفظ الإعدادات</button></div>
 
   <div class="sec-title">شعار المنشأة</div>
@@ -1364,7 +1374,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-06-k';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-06-l';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -2698,48 +2708,93 @@ function editPayment(id){
   var fb=document.getElementById('paymentFormBox'); if(fb) fb.scrollIntoView({behavior:'smooth',block:'center'});
 }
 
-/* ---------- الخصومات المتفق عليها (توالف / خصم على المبيعات) ---------- */
+/* ---------- الخصومات المتفق عليها (توالف / خصم على المبيعات) — في شاشة قائمة الدخل ---------- */
+/* صافي مبيعات عميل/فرع خلال فترة (قبل الضريبة، بعد المرتجعات) — أساس احتساب النسبة */
+function clientNetSales(clientId,from,to){
+  var inP=function(d){ return (!from||d>=from)&&(!to||d<=to); }, s=0;
+  db.sales.forEach(function(x){ if(x.clientId===clientId&&inP(x.date)) s+=+x.total||0; });
+  (db.sreturns||[]).forEach(function(r){ if(r.clientId===clientId&&inP(r.date)) s-=+r.total||0; });
+  return round2(s);
+}
+function onDiscKind(){
+  var pct=val('disc_kind')==='pct';
+  var tg=function(id,show){ var e=document.getElementById(id); if(e) e.style.display=show?'':'none'; };
+  tg('disc_amountWrap',!pct); tg('disc_pctWrap',pct); tg('disc_pfromWrap',pct); tg('disc_ptoWrap',pct);
+  if(pct){ if(!val('disc_pfrom')) setVal('disc_pfrom',val('f_from')||''); if(!val('disc_pto')) setVal('disc_pto',val('f_to')||''); }
+  updateDiscPreview();
+}
+function discComputedAmount(){
+  if(val('disc_kind')!=='pct') return fnum('disc_amount');
+  var cid=+val('disc_client'), pct=fnum('disc_pct'); if(!cid||pct<=0) return 0;
+  return round2(clientNetSales(cid,val('disc_pfrom'),val('disc_pto'))*pct/100);
+}
+function updateDiscPreview(){
+  var el=document.getElementById('disc_preview'); if(!el) return;
+  if(val('disc_kind')!=='pct'){ el.style.display='none'; return; }
+  var cid=+val('disc_client'), pct=fnum('disc_pct');
+  if(!cid||pct<=0){ el.style.display='none'; return; }
+  var base=clientNetSales(cid,val('disc_pfrom'),val('disc_pto')), amt=round2(base*pct/100);
+  var per=(val('disc_pfrom')||'البداية')+' ← '+(val('disc_pto')||'اليوم');
+  el.style.display=''; el.innerHTML='صافي مبيعات «'+esc(clientName(cid))+'» خلال ('+esc(per)+') = <b>'+money(base)+'</b> — '
+    +'الخصم '+num(pct)+'% = <b>'+money(amt)+'</b>';
+}
 function saveDiscount(){
   if(!guard('canAdd')) return;
   if(editId.disc&&!guard('canEdit')) return;
-  var a=fnum('disc_amount');
   if(!val('disc_client')){ toast('اختر الفرع/العميل'); return; }
-  if(a<=0){ toast('أدخل مبلغ الخصم'); return; }
+  var kind=val('disc_kind')||'amount', a=discComputedAmount();
+  if(a<=0){ toast(kind==='pct'?'أدخل نسبة صحيحة (ولا بد من وجود مبيعات في الفترة)':'أدخل مبلغ الخصم'); return; }
+  var note=val('disc_note').trim();
   var rec={id:editId.disc||uid(),date:val('disc_date')||today(),clientId:+val('disc_client'),amount:a,
-    note:val('disc_note').trim(),uid:ME.id,ts:nowTs()};
+    kind:kind,note:note,uid:ME.id,ts:nowTs()};
+  if(kind==='pct'){ rec.pct=fnum('disc_pct'); rec.pfrom=val('disc_pfrom'); rec.pto=val('disc_pto');
+    rec.base=clientNetSales(rec.clientId,rec.pfrom,rec.pto);
+    if(!note) rec.note='خصم '+num(rec.pct)+'% من مبيعات ('+(rec.pfrom||'البداية')+' ← '+(rec.pto||'اليوم')+')'; }
   var who=clientName(rec.clientId);
   if(editId.disc){ var i=db.discounts.findIndex(function(x){return x.id===editId.disc;}); if(i>=0) db.discounts[i]=rec;
-    log('edit','الحسابات','تعديل خصم متفق عليه — '+who+' بمبلغ '+num(a)); }
+    log('edit','قائمة الدخل','تعديل خصم متفق عليه — '+who+' بمبلغ '+num(a)); }
   else { db.discounts.push(rec);
-    log('add','الحسابات','خصم متفق عليه — '+who+' بمبلغ '+num(a)); }
+    log('add','قائمة الدخل','خصم متفق عليه — '+who+' بمبلغ '+num(a)); }
   cancelDiscount(); commit('تم حفظ الخصم');
 }
 function cancelDiscount(){
-  editId.disc=null; setVal('disc_amount',''); setVal('disc_note','');
+  editId.disc=null; setVal('disc_amount',''); setVal('disc_note',''); setVal('disc_pct','');
+  setVal('disc_kind','amount'); onDiscKind();
   var n=document.getElementById('disc_editing'); if(n) n.textContent='';
 }
 function editDiscount(id){
   if(!guard('canEdit')) return;
   var x=byId(db.discounts,id); if(!x) return;
-  editId.disc=id; setVal('disc_date',x.date); setVal('disc_client',x.clientId);
-  setVal('disc_amount',x.amount); setVal('disc_note',x.note||'');
+  editId.disc=id; setVal('disc_date',x.date); fillSelect('disc_client',opts(db.clients,'id',function(o){return o.name;}),true);
+  setVal('disc_client',x.clientId); setVal('disc_kind',x.kind||'amount');
+  setVal('disc_amount',x.amount); setVal('disc_pct',x.pct||''); setVal('disc_pfrom',x.pfrom||''); setVal('disc_pto',x.pto||'');
+  setVal('disc_note',x.note||''); onDiscKind();
   var n=document.getElementById('disc_editing'); if(n) n.textContent='وضع التعديل — خصم متفق عليه';
-  showTab('accounts');
+  showTab('income');
   var fb=document.getElementById('discFormBox'); if(fb) fb.scrollIntoView({behavior:'smooth',block:'center'});
 }
+function toggleVatAsLoss(){
+  if(!guard('income')) return;
+  var el=document.getElementById('inc_vatAsLoss'); db.settings.vatAsLoss=!!(el&&el.checked);
+  log('data','قائمة الدخل',''+(db.settings.vatAsLoss?'تفعيل':'إيقاف')+' احتساب صافي الضريبة ضمن الأرباح والخسائر');
+  commit(db.settings.vatAsLoss?'تم تفعيل احتساب الضريبة ضمن الأرباح':'تم الإيقاف');
+}
 function renderDiscounts(){
-  var full=can('accounts');
+  var full=can('income');
   var tg=function(id,show){ var e=document.getElementById(id); if(e) e.style.display=show?'':'none'; };
-  tg('accDiscTitle',full); tg('accDiscNote',full); tg('discListBox',full);
+  tg('incToolsTitle',full); tg('incVatBox',full); tg('accDiscTitle',full); tg('accDiscNote',full); tg('discListBox',full);
   tg('discFormBox',full&&can('canAdd'));
+  var vc=document.getElementById('inc_vatAsLoss'); if(vc) vc.checked=!!db.settings.vatAsLoss;
   if(!full) return;
-  if(!byId(db.discounts,editId.disc)) { /* لا شيء */ }
   fillSelect('disc_client',opts(db.clients,'id',function(o){return o.name;}),true);
   if(!val('disc_date')) setVal('disc_date',today());
+  if(!val('disc_kind')) setVal('disc_kind','amount');
+  onDiscKind();
   var h='';
   db.discounts.slice().sort(function(a,b){return a.date<b.date?1:-1;}).forEach(function(x){
+    var lbl=x.kind==='pct'?(esc(x.note||'')+' <span class="muted">('+num(x.pct)+'%)</span>'):esc(x.note||'');
     h+='<tr><td>'+esc(x.date)+'</td><td class="name">'+esc(clientName(x.clientId))+'</td>'
-      +'<td class="neg">'+money(x.amount)+'</td><td class="name">'+esc(x.note||'')+'</td>'
+      +'<td class="neg">'+money(x.amount)+'</td><td class="name">'+lbl+'</td>'
       +'<td class="name muted">'+esc(userName(x.uid))+'</td>'
       +'<td>'+actionBtns('discounts',x.id,'editDiscount('+x.id+')')+'</td></tr>';
   });
@@ -3003,7 +3058,7 @@ function delUnit(id){
 /* ---------- الحذف العام ---------- */
 var ENT={purchases:['المشتريات','فاتورة شراء'],sales:['المبيعات','فاتورة بيع'],preturns:['المرتجعات','مرتجع شراء'],
   sreturns:['المرتجعات','مرتجع بيع'],transfers:['المخزون','تحويل'],waste:['المخزون','فاقد'],
-  expenses:['المصروفات','مصروف'],payments:['الحسابات','حركة سداد'],discounts:['الحسابات','خصم متفق عليه'],openingStock:['المخزون','رصيد افتتاحي']};
+  expenses:['المصروفات','مصروف'],payments:['الحسابات','حركة سداد'],discounts:['قائمة الدخل','خصم متفق عليه'],openingStock:['المخزون','رصيد افتتاحي']};
 function delRec(type,id){
   if(!guard('canDelete','لا تملك صلاحية الحذف')) return;
   var e=ENT[type]||['',''];
@@ -3703,7 +3758,6 @@ function renderAccounts(){
       +'<td>'+money(p.amount)+'</td><td>'+esc(p.method||'')+'</td><td class="name">'+esc(p.note||'')+'</td>'
       +'<td class="name muted">'+esc(userName(p.uid))+'</td><td>'+actionBtns('payments',p.id,'editPayment('+p.id+')')+'</td></tr>'; });
   document.getElementById('tbPayments').innerHTML=hp||'<tr><td colspan="8" class="empty">لا توجد حركات سداد.</td></tr>';
-  renderDiscounts();
   if(ledgerView.type) showLedger(ledgerView.type,ledgerView.id,true);
 }
 /* حركات كشف الحساب لجهة (مورد/عميل) — مصدر واحد لكشف الشاشة وتقرير الطباعة */
@@ -3774,6 +3828,7 @@ function renderIncome(){
     +'<td>'+money(T.cogs)+'</td><td>'+sign(T.gp)+'</td><td>'+money(T.waste)+'</td><td>'+money(T.direct)+'</td>'
     +'<td>'+money(T.shared)+'</td><td>'+money(T.exp)+'</td><td>'+sign(T.net)+'</td><td>'+pct(T.net,T.nrev)+'</td></tr>';
   document.getElementById('tbIncome').innerHTML=h||'<tr><td colspan="13" class="empty">أضف عملاء لعرض قائمة الدخل.</td></tr>';
+  renderDiscounts();
   var line=function(k,v,neg){ return '<tr><td class="name">'+k+'</td><td class="'+(neg?'neg':'')+'">'+money(v)+'</td><td class="muted">'+pct(Math.abs(v),T.nrev)+'</td></tr>'; };
   document.getElementById('tbIncomeTotal').innerHTML=
      line('إجمالي المبيعات',T.rev)+line('يُخصم: مرتجعات المبيعات',T.ret,1)
@@ -4226,7 +4281,6 @@ function renderSettingsForm(){
   setVal('set_company',db.settings.company); setVal('set_currency',db.settings.currency);
   setVal('set_vat',db.settings.vat||''); setVal('set_phone',db.settings.phone||'');
   setVal('set_vatrate',db.settings.vatRate!=null?db.settings.vatRate:15);
-  var vlc=document.getElementById('set_vatAsLoss'); if(vlc) vlc.checked=!!db.settings.vatAsLoss;
   var lp=document.getElementById('logoPreview');
   if(lp) lp.innerHTML=db.settings.logo?'<img src="'+db.settings.logo+'" alt="شعار المنشأة">':'🥬';
   renderDeptImages(); renderMergeItemsUI(); renderStockResetUI();
@@ -4237,7 +4291,6 @@ function saveSettings(){
   db.settings.currency=val('set_currency').trim()||'ر.س';
   db.settings.vat=val('set_vat').trim(); db.settings.phone=val('set_phone').trim();
   var vr=Number(val('set_vatrate')); db.settings.vatRate=(isFinite(vr)&&vr>=0)?vr:15;
-  var vlc=document.getElementById('set_vatAsLoss'); db.settings.vatAsLoss=!!(vlc&&vlc.checked);
   ['p_vatrate','s_vatrate','r_vatrate'].forEach(function(id){ setVal(id,db.settings.vatRate); });
   log('data','الإعدادات','تعديل بيانات المنشأة');
   commit('تم حفظ الإعدادات');
