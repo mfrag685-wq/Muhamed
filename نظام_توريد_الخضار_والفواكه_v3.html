@@ -1060,6 +1060,10 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
         <div class="grid-2">
           <div class="field"><label>اسم المستودع</label><input type="text" id="wh_name" placeholder="مستودع جدة"></div>
           <div class="field"><label>تابع لـ</label><select id="wh_client"></select></div>
+          <div class="field"><label>طريقة تتبّع المخزون الافتراضية</label><select id="wh_track">
+            <option value="unit">بالوحدة/الكمية (عدد)</option>
+            <option value="kg">بالوزن (كيلوجرام)</option></select>
+            <span class="mini">تُضبط تلقائياً طريقة تتبّع أي صنف جديد يُخصَّص لهذا المستودع (يمكن تغييرها للصنف).</span></div>
         </div>
         <div class="form-foot"><button class="btn-main" onclick="saveWarehouse()">حفظ المستودع</button>
           <button class="btn" onclick="cancelDoc('wh')">إلغاء</button><span class="editing-note" id="wh_editing"></span></div>
@@ -1107,7 +1111,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
             <option value="0">بالوحدة (صندوق/شوال…)</option>
             <option value="1">بالكيلو — يُخزَّن ويُسحب بالكيلوجرام</option></select>
             <span class="mini">للأصناف ذات أوزان صناديق مختلفة (بطاطس…): تُدخِل الصناديق فيُحوَّل المخزون تلقائياً إلى كيلو.</span></div>
-          <div class="field"><label>مستودع/فرع الصنف (لتمييز الجودات)</label><select id="it_wh"></select>
+          <div class="field"><label>مستودع/فرع الصنف (لتمييز الجودات)</label><select id="it_wh" onchange="onItemWhPick()"></select>
             <span class="mini">اختر مستودعاً ليظهر هذا الصنف عند الشراء/البيع من ذلك المستودع فقط. «عام» = يظهر لكل المستودعات.</span></div>
           <div class="field"><label>حد إعادة الطلب (وحدات)</label><input type="number" id="it_min" step="0.01" min="0" placeholder="0"></div>
           <div class="field"><label>الحالة</label><select id="it_active"><option value="1">نشط — يظهر عند الإضافة</option><option value="0">متوقف — يبقى في السجلات فقط</option></select></div>
@@ -1335,7 +1339,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-08-15-f';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-08-15-g';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -2765,13 +2769,13 @@ function delClient(id){
 function saveWarehouse(){
   if(!guard('canAdd')) return;
   var n=val('wh_name').trim(); if(!n){ toast('أدخل اسم المستودع'); return; }
-  var cid=val('wh_client')?+val('wh_client'):null;
-  if(editId.wh){ var w=byId(db.warehouses,editId.wh); w.name=n; w.clientId=cid; log('edit','البيانات الأساسية','تعديل المستودع '+n); }
-  else { db.warehouses.push({id:uid(),name:n,clientId:cid}); log('add','البيانات الأساسية','إضافة مستودع: '+n); }
+  var cid=val('wh_client')?+val('wh_client'):null, trk=val('wh_track')||'unit';
+  if(editId.wh){ var w=byId(db.warehouses,editId.wh); w.name=n; w.clientId=cid; w.track=trk; log('edit','البيانات الأساسية','تعديل المستودع '+n); }
+  else { db.warehouses.push({id:uid(),name:n,clientId:cid,track:trk}); log('add','البيانات الأساسية','إضافة مستودع: '+n+' — تتبّع '+(trk==='kg'?'بالوزن':'بالوحدة')); }
   cancelDoc('wh'); commit('تم حفظ المستودع'); renderMaster();
 }
 function editWarehouse(id){ if(!guard('canEdit'))return; var w=byId(db.warehouses,id); if(!w)return;
-  editId.wh=id; setVal('wh_name',w.name); setVal('wh_client',w.clientId||'');
+  editId.wh=id; setVal('wh_name',w.name); setVal('wh_client',w.clientId||''); setVal('wh_track',w.track||'unit');
   document.getElementById('wh_editing').textContent='وضع التعديل'; showTab('master'); }
 function delWarehouse(id){
   if(!guard('canDelete')) return;
@@ -2796,6 +2800,11 @@ function saveItem(){
     log('edit','البيانات الأساسية','تعديل الصنف '+n+' — '+(rec.active?'نشط':'موقوف')+(rec.byKg?' — تتبّع بالكيلو':'')+(rec.whId?' — مستودع '+whName(rec.whId):'')); }
   else { rec.id=uid(); db.items.push(rec); log('add','البيانات الأساسية','إضافة صنف: '+n+' — وحدة '+rec.unit+' بوزن '+rec.uw+' كغ'); }
   cancelDoc('it'); commit('تم حفظ الصنف'); renderMaster();
+}
+function onItemWhPick(){   /* ضبط طريقة التتبّع تلقائياً حسب المستودع المختار — للأصناف الجديدة فقط */
+  if(editId.it) return;
+  var w=byId(db.warehouses,+val('it_wh'));
+  if(w&&w.track) setVal('it_bykg', w.track==='kg'?'1':'0');
 }
 function editItem(id){ if(!guard('canEdit'))return; var i=byId(db.items,id); if(!i)return;
   editId.it=id; setVal('it_name',i.name); setVal('it_unit',i.unit); refreshUW('it');
@@ -3810,7 +3819,7 @@ function renderMaster(){
 
   document.getElementById('tbWhMaster').innerHTML=db.warehouses.map(function(w){
     var v=0; Object.keys(L.stock).forEach(function(k){ if(L.stock[k].whId===w.id) v+=L.stock[k].cost; });
-    return '<tr><td class="name"><b>'+esc(w.name)+'</b></td><td class="name muted">'+(w.clientId?esc(clientName(w.clientId)):'عام لكل الفروع')+'</td>'
+    return '<tr><td class="name"><b>'+esc(w.name)+'</b> <span class="pill '+(w.track==='kg'?'pill-info':'pill-ok')+'">'+(w.track==='kg'?'وزن':'كمية')+'</span></td><td class="name muted">'+(w.clientId?esc(clientName(w.clientId)):'عام لكل الفروع')+'</td>'
       +'<td>'+money(v)+'</td>'
       +'<td>'+(can('canEdit')?'<button class="btn-sm" onclick="editWarehouse('+w.id+')">تعديل</button> ':'')
       +(can('canDelete')?'<button class="btn-sm btn-del" onclick="delWarehouse('+w.id+')">حذف</button>':'')+'</td></tr>';
