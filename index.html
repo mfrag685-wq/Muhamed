@@ -435,6 +435,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
     <button class="btn" onclick="setRange('all')">كل الفترات</button>
   </div>
   <div id="dashWarn"></div>
+  <div id="advisorBox" class="no-print"></div>
   <div class="cards" id="kpiCards"></div>
   <div class="chart-grid" id="dashCharts"></div>
   <div class="profit-only">
@@ -1339,7 +1340,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-08-15-g';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-08-15-h';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -3120,11 +3121,79 @@ function renderAll(){
   document.getElementById('incRange').textContent=txt;
   setVal('f_from2',r.from); setVal('f_to2',r.to); setVal('allocMethod',db.settings.alloc||'sales');
   renderPurchases(); renderSales(); renderReturns(); renderStock(); renderInterTransfers(); renderExpenses();
-  renderAccounts(); renderIncome(); renderDash(); renderReport(); renderAudit();
+  renderAccounts(); renderIncome(); renderDash(); renderAdvisor(); renderReport(); renderAudit();
   renderDraft('p'); renderDraft('s');
   document.getElementById('storageNote').innerHTML = storageOK
     ? 'البيانات تُحفظ تلقائياً في متصفح هذا الجهاز بعد كل عملية. نزّل نسخة احتياطية دورياً — مسح بيانات المتصفح يمحو السجلات.'
     : '<b>تنبيه:</b> المتصفح لا يسمح بالحفظ الدائم في هذا الوضع. احفظ الملف على جهازك وافتحه مباشرة، ونزّل نسخة احتياطية قبل الإغلاق.';
+}
+/* ===== المستشار المالي — تحليل وتنبيهات وحلول ===== */
+function financialAdvice(from,to){
+  var A=[], P=pnl(from,to), rows=P.rows;
+  var inP=function(d){ return (!from||d>=from)&&(!to||d<=to); };
+  var netTot=0,gpTot=0,expTot=0,revTot=0,cogsTot=0;
+  db.clients.forEach(function(c){ var x=rows[c.id]; if(!x) return; netTot+=x.net; gpTot+=x.gp; expTot+=x.exp; revTot+=x.net_rev; cogsTot+=x.cogs; });
+  if(revTot>0.5||expTot>0.5){
+    if(netTot<-0.5) A.push({level:'danger',title:'خسارة صافية خلال الفترة',text:'النشاط يحقق خسارة صافية بمقدار '+money(-netTot)+'. عالج الأصناف الخاسرة والمصروفات الزائدة أدناه: ارفع الأسعار أو خفّض التكاليف.'});
+    else if(netTot>0.5) A.push({level:'good',title:'ربح صافٍ',text:'النشاط رابح بصافي '+money(netTot)+' خلال الفترة. حافظ على الأصناف عالية الهامش وراقب المصروفات.'});
+  }
+  if(gpTot>0.5 && expTot>gpTot+0.5) A.push({level:'danger',title:'المصروفات تتجاوز مجمل الربح',text:'إجمالي المصروفات ('+money(expTot)+') أكبر من مجمل الربح ('+money(gpTot)+') — خسارة تشغيلية. قلّل المصروفات غير الضرورية أو ارفع المبيعات والهوامش.'});
+  /* أصناف بخسارة / هامش ضعيف خلال الفترة */
+  var it={}; db.sales.forEach(function(s){ if(!inP(s.date)) return; (s.lines||[]).forEach(function(l,i){ var o=it[l.itemId]||(it[l.itemId]={rev:0,cost:0}); o.rev+=+l.total||0; o.cost+=L.cogsLine[s.id+'#'+i]||0; }); });
+  var lossItems=[],lowItems=[];
+  Object.keys(it).forEach(function(id){ var o=it[id],gp=o.rev-o.cost,m=o.rev>0?gp/o.rev*100:-100;
+    if(gp<-0.5) lossItems.push({id:+id,gp:gp}); else if(o.rev>0&&m<8) lowItems.push({id:+id,m:m}); });
+  if(lossItems.length){ lossItems.sort(function(a,b){return a.gp-b.gp;});
+    A.push({level:'danger',title:'أصناف تُباع بخسارة ('+lossItems.length+')',text:'تكلفتها أعلى من سعر بيعها: '+lossItems.slice(0,5).map(function(x){return itemName(x.id)+' ('+money(x.gp)+')';}).join('، ')+'. الحل: ارفع سعر البيع، أو تفاوض على تكلفة شراء أقل، أو أوقف بيعها بخسارة.'}); }
+  if(lowItems.length){ lowItems.sort(function(a,b){return a.m-b.m;});
+    A.push({level:'warn',title:'أصناف بهامش ربح ضعيف (<8%)',text:lowItems.slice(0,5).map(function(x){return itemName(x.id)+' ('+num(x.m)+'%)';}).join('، ')+'. راجع التسعير — الهامش الضعيف يحوّلها لخسارة مع أي مصروف بسيط.'}); }
+  /* تكاليف التغليف */
+  var packCats={'تعبئة وتغليف':1,'أجولة وعبوات':1,'صناديق وكراتين':1,'مستلزمات إنتاج':1}, pack=0;
+  db.expenses.forEach(function(e){ var amt=expenseAmountInRange(e,from,to); if(amt>0&&packCats[e.cat]) pack+=amt; });
+  if(pack>0.5 && revTot>0.5){ var pr=pack/revTot*100;
+    if(pr>5) A.push({level:'warn',title:'تكاليف التغليف مرتفعة',text:'مصروفات التعبئة/التغليف ('+money(pack)+') تمثل '+num(pr)+'% من صافي المبيعات. الحل: اشترِ العبوات بالجملة، ووحّد المورد، وقلّل الهدر في التغليف.'});
+  }
+  /* الفاقد */
+  var wcost=0; db.waste.forEach(function(w){ if(inP(w.date)) wcost+=L.wasteCost[w.id]||0; });
+  if(wcost>0.5){ var wr=cogsTot>0?wcost/cogsTot*100:100;
+    if(wr>3) A.push({level:'warn',title:'الفاقد/التوالف مرتفع',text:'قيمة الفاقد ('+money(wcost)+') تمثل '+num(wr)+'% من تكلفة المبيعات. الحل: حسّن التخزين والتبريد، وقلّل مدة بقاء البضاعة، وراجع جودة الشراء.'}); }
+  /* فروع خاسرة */
+  var lb=db.clients.filter(function(c){ return isBranch(c.id)&&rows[c.id]&&rows[c.id].net<-0.5; });
+  if(lb.length) A.push({level:'warn',title:'فروع خاسرة ('+lb.length+')',text:lb.map(function(c){return c.name+' ('+money(rows[c.id].net)+')';}).join('، ')+'. راجع مصروفات هذه الفروع وأسعار بيعها.'});
+  /* ذمم العملاء */
+  var pt=partyTotals(), AR=0, topC=null;
+  db.clients.forEach(function(c){ var v=pt.cl[c.id], bal=v.sell-v.ret+v.opening-v.recv; if(bal>0.5){ AR+=bal; if(!topC||bal>topC.bal) topC={name:c.name,bal:bal}; } });
+  if(AR>0.5) A.push({level:'tip',title:'ذمم لدى العملاء',text:'المستحق لك من العملاء '+money(AR)+(topC?('، أكبرها: '+topC.name+' ('+money(topC.bal)+')'):'')+'. تابع التحصيل لتحسين السيولة.'});
+  /* مخزون راكد */
+  var sold={}; db.sales.forEach(function(s){ if(inP(s.date))(s.lines||[]).forEach(function(l){ sold[l.itemId]=1; }); });
+  var stItems={},staleVal=0; Object.keys(L.stock).forEach(function(k){ var s=L.stock[k]; if(s.units>0.0001&&!sold[s.itemId]){ stItems[s.itemId]=1; staleVal+=s.cost; } });
+  var nStale=Object.keys(stItems).length;
+  if(nStale) A.push({level:'tip',title:'مخزون راكد ('+nStale+' صنف)',text:'أصناف عليها رصيد بقيمة '+money(staleVal)+' دون أي مبيعات في الفترة — رأس مال مجمّد. فكّر بعروض/خصومات لتصريفها قبل تلفها.'});
+  /* رصيد سالب */
+  var neg=[]; Object.keys(L.stock).forEach(function(k){ var s=L.stock[k]; if(s.units<-0.001) neg.push(itemName(s.itemId)+' @ '+whName(s.whId)); });
+  if(neg.length) A.push({level:'danger',title:'رصيد مخزون سالب',text:'بيع أكثر من المتاح في: '+neg.slice(0,5).join('، ')+'. صحّح بإدخال المشتريات/المخزون الافتتاحي الناقص حتى تكون التكلفة دقيقة.'});
+  /* تحت حد الطلب */
+  var low=db.items.filter(function(i){ if(!(i.min>0)) return false; var u=0; Object.keys(L.stock).forEach(function(k){ if(L.stock[k].itemId===i.id) u+=L.stock[k].units; }); return u<i.min; });
+  if(low.length) A.push({level:'tip',title:'أصناف تحت حد الطلب ('+low.length+')',text:low.slice(0,6).map(function(i){return i.name;}).join('، ')+'. جهّز أمر شراء لتفادي نفاد المخزون.'});
+  /* ضريبة مستحقة */
+  var oV=0,iV=0; db.sales.forEach(function(s){ if(inP(s.date)) oV+=docVat(s); }); (db.sreturns||[]).forEach(function(r){ if(inP(r.date)) oV-=docVat(r); });
+  db.purchases.forEach(function(p){ if(inP(p.date)) iV+=docVat(p); }); (db.preturns||[]).forEach(function(r){ if(inP(r.date)) iV-=docVat(r); });
+  if(oV-iV>0.5) A.push({level:'tip',title:'ضريبة مستحقة للسداد',text:'صافي ضريبة القيمة المضافة للفترة '+money(oV-iV)+' — جنّبها الآن لتفادي ضغط السيولة عند السداد.'});
+  if(!A.length) A.push({level:'good',title:'كل المؤشرات جيدة',text:'لا توجد تنبيهات — أداء مالي سليم خلال الفترة المختارة.'});
+  return A;
+}
+function renderAdvisor(){
+  var box=document.getElementById('advisorBox'); if(!box) return;
+  if(!canSeeProfit()){ box.innerHTML=''; return; }   /* المستشار يكشف التكاليف والهوامش — لأصحاب صلاحية الأرباح */
+  var r=rg(), A=financialAdvice(r.from,r.to);
+  var col={danger:'#dc2626',warn:'#d97706',tip:'#2563eb',good:'#059669'}, ic={danger:'⛔',warn:'⚠️',tip:'💡',good:'✅'}, ord={danger:0,warn:1,tip:2,good:3};
+  A.sort(function(a,b){ return ord[a.level]-ord[b.level]; });
+  box.innerHTML='<div class="sec-title">🧠 المستشار المالي — تنبيهات وحلول</div>'
+    +'<div style="display:grid;gap:10px;margin-bottom:14px">'+A.map(function(a){
+      return '<div style="background:var(--surface,#fff);border:1px solid var(--line);border-right:5px solid '+col[a.level]+';border-radius:10px;padding:11px 14px">'
+        +'<div style="font-weight:800;margin-bottom:3px">'+ic[a.level]+' '+esc(a.title)+'</div>'
+        +'<div style="font-size:13px;color:#475569;line-height:1.7">'+esc(a.text)+'</div></div>';
+    }).join('')+'</div>';
 }
 function actionBtns(type,id,editFn){
   var h='';
