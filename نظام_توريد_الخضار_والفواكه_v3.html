@@ -1391,7 +1391,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-06-t';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-06-u';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -3998,18 +3998,25 @@ function renderIncomeMonthly(){
   var years=incomeYears();
   if(!incomeYear||years.indexOf(incomeYear)<0) incomeYear=years[years.length-1];
   var mNames=['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
-  var M=[], TT={rev:0,ret:0,disc:0,net_rev:0,cogs:0,waste:0,gp:0,direct:0,shared:0,exp:0,net:0,vatNet:0};
-  for(var m=0;m<12;m++){ var mm=('0'+(m+1)).slice(-2), r=monthRangeOf(incomeYear+'-'+mm+'-01'), t=pnlTotals(r.from,r.to);
+  /* الأشهر المستقبلية لم تبدأ بعد — لا تُحتسب حتى لا تظهر خسائر وهمية من مصروفات موزّعة بلا مبيعات */
+  var _now=new Date(), _cy=_now.getFullYear(), _cm=_now.getMonth();
+  var lastM=(incomeYear<_cy)?11:(incomeYear>_cy?-1:_cm);
+  var zero={rev:0,ret:0,disc:0,net_rev:0,cogs:0,waste:0,gp:0,direct:0,shared:0,exp:0,net:0,vatNet:0};
+  var M=[], FUT=[], TT={rev:0,ret:0,disc:0,net_rev:0,cogs:0,waste:0,gp:0,direct:0,shared:0,exp:0,net:0,vatNet:0};
+  for(var m=0;m<12;m++){ var future=(m>lastM); FUT.push(future);
+    var t; if(future){ t=zero; } else { var mm=('0'+(m+1)).slice(-2), r=monthRangeOf(incomeYear+'-'+mm+'-01'); t=pnlTotals(r.from,r.to); }
     M.push(t); ['rev','ret','disc','net_rev','cogs','gp','waste','direct','shared','exp','net','vatNet'].forEach(function(k){ TT[k]+=t[k]; }); }
   var hasVat=M.some(function(t){return Math.abs(t.vatNet)>0.009;});
+  var anyFuture=FUT.some(function(f){return f;});
   var yearOpts=years.map(function(y){return '<option value="'+y+'"'+(y===incomeYear?' selected':'')+'>'+y+'</option>';}).join('');
   /* صف: label + 12 شهر + الإجمالي */
   function row(lbl,key,opt){ opt=opt||{};
-    var tds=''; for(var i=0;i<12;i++){ var v=M[i][key]||0; tds+='<td class="'+(opt.neg&&v>0.009?'neg':'')+'">'+(Math.abs(v)<0.005?'<span class="muted">0</span>':money(v))+'</td>'; }
+    var tds=''; for(var i=0;i<12;i++){ if(FUT[i]){ tds+='<td class="muted">—</td>'; continue; } var v=M[i][key]||0; tds+='<td class="'+(opt.neg&&v>0.009?'neg':'')+'">'+(Math.abs(v)<0.005?'<span class="muted">0</span>':money(v))+'</td>'; }
     var tot=TT[key]||0;
     return '<tr class="'+(opt.cls||'')+'"><td class="name">'+(opt.bold?'<b>'+lbl+'</b>':lbl)+'</td>'+tds+'<td class="'+(opt.neg&&tot>0.009?'neg':'')+'"><b>'+(opt.sign?sign(tot):money(tot))+'</b></td></tr>'; }
-  var thM=''; for(var i2=0;i2<12;i2++) thM+='<th>'+mNames[i2]+'</th>';
-  var tbl='<div class="table-scroll"><table class="mini-months"><thead><tr><th class="name">البند / الشهر</th>'+thM+'<th>الإجمالي '+incomeYear+'</th></tr></thead><tbody>'
+  var thM=''; for(var i2=0;i2<12;i2++) thM+='<th class="'+(FUT[i2]?'muted':'')+'">'+mNames[i2]+'</th>';
+  var totLbl=anyFuture?('الإجمالي حتى الآن'):('الإجمالي '+incomeYear);
+  var tbl='<div class="table-scroll"><table class="mini-months"><thead><tr><th class="name">البند / الشهر</th>'+thM+'<th>'+totLbl+'</th></tr></thead><tbody>'
     +row('إجمالي المبيعات','rev')
     +row('يُخصم: المرتجعات','ret',{neg:1})
     +row('يُخصم: الخصومات','disc',{neg:1})
@@ -4030,7 +4037,8 @@ function renderIncomeMonthly(){
   ]);
   box.innerHTML='<div class="sec-title">قائمة الدخل الشهرية <span class="hint">مقارنة الأشهر جنباً إلى جنب</span></div>'
     +'<div class="filters no-print"><div class="field"><label>السنة</label><select id="incYear" onchange="changeIncomeYear()">'+yearOpts+'</select></div>'
-    +'<div class="note" style="flex:1;min-width:220px">كل عمود شهر كامل (من أوله لآخره). عمود «الإجمالي» = مجموع الأشهر = ربح/خسارة السنة. القيم السالبة (بالأحمر) تعني خسارة الشهر.</div></div>'
+    +'<div class="note" style="flex:1;min-width:220px">كل عمود شهر كامل (من أوله لآخره). عمود «الإجمالي» = مجموع الأشهر المعروضة. القيم السالبة (بالأحمر) تعني خسارة الشهر.'
+    +(anyFuture?' <b>الأشهر القادمة لم تبدأ بعد فتظهر «—» ولا تُحتسب</b> (حتى لا تظهر خسائر وهمية من مصروفات موزّعة قبل تحقّق مبيعاتها).':'')+'</div></div>'
     +tbl+chart;
 }
 /* العرض التفصيلي لقائمة الدخل حسب المستوى: 2=حسب الفئة، 3=تفصيل كامل + الفروع */
