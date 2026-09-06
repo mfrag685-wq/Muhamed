@@ -1391,7 +1391,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-06-s';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-06-t';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -3463,6 +3463,22 @@ function renderAdvisor(){
         +'<div style="font-size:13px;color:#475569;line-height:1.7">'+esc(a.text)+'</div></div>';
     }).join('')+'</div>';
 }
+/* تنبيهات المخزون — قابلة للتوسيع بزر «عرض الكل» في الملخص وتبويب المخزون */
+var stockWarnExpanded=false;
+function stockWarnHtml(){
+  if(!L||!L.warn||!L.warn.length) return '';
+  var list=stockWarnExpanded?L.warn:L.warn.slice(0,6);
+  var more='';
+  if(L.warn.length>6) more='<br><a href="#" onclick="toggleStockWarn(event)" style="color:var(--leaf-dark);font-weight:800;cursor:pointer;text-decoration:none">'
+    +(stockWarnExpanded?'▲ عرض أقل':'▼ عرض الكل ('+L.warn.length+' تنبيه)')+'</a>';
+  return '<div class="alert"><b>تنبيهات المخزون ('+L.warn.length+')</b><br>'+list.map(esc).join('<br>')+more+'</div>';
+}
+function toggleStockWarn(e){
+  if(e&&e.preventDefault) e.preventDefault();
+  stockWarnExpanded=!stockWarnExpanded;
+  var h=stockWarnHtml(), a=document.getElementById('stockWarn'), b=document.getElementById('dashWarn');
+  if(a) a.innerHTML=h; if(b) b.innerHTML=h;
+}
 function actionBtns(type,id,editFn){
   var h='';
   if(editFn&&can('canEdit')) h+='<button class="btn-sm" onclick="'+editFn+'">تعديل</button> ';
@@ -3719,8 +3735,7 @@ function renderStock(){
    +card('إجمالي الأوزان',qty(totW)+' كغ','الرصيد المتاح')
    +card('عدد المستودعات',String(db.warehouses.length),'منها '+generalWhs().length+' عام')
    +card('أصناف تحت حد الطلب',String(low),low?'تحتاج إعادة طلب':'كل الأصناف ضمن الحد');
-  var w=L.warn.length?'<div class="alert"><b>تنبيهات المخزون ('+L.warn.length+')</b><br>'
-    +L.warn.slice(0,6).map(esc).join('<br>')+(L.warn.length>6?'<br>…والمزيد':'')+'</div>':'';
+  var w=stockWarnHtml();
   document.getElementById('stockWarn').innerHTML=w;
   document.getElementById('dashWarn').innerHTML=w;
 
