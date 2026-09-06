@@ -396,17 +396,8 @@ const WELCOME_MSGS={
     "مرحب يا أبو جنة. تعاونك وسرعتك في الإقفال بتفرق معانا كتير."
   ]
 };
-/* علم مرسوم بـ SVG يظهر على كل الأجهزة (لأن رموز الأعلام لا تُعرض على بعض الأجهزة) */
-function flagSVG(dialect){
-  if(dialect==="ye"||dialect==="eg"){
-    const stripes=`<rect width="72" height="16" y="0" fill="#CE1126"/><rect width="72" height="16" y="16" fill="#fff"/><rect width="72" height="16" y="32" fill="#000"/>`;
-    // علم مصر واليمن متطابقان في الألوان؛ التمييز باسم الدولة الظاهر أسفل العلم
-    return `<svg width="92" height="61" viewBox="0 0 72 48" style="border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,.45);border:1px solid rgba(255,255,255,.6)">${stripes}</svg>`;
-  }
-  return `<div style="font-size:56px;line-height:1">🌟</div>`;
-}
 function countryName(dialect){return dialect==="ye"?"اليمن":dialect==="eg"?"مصر":"";}
-function welcomeFlag(u){return flagSVG(u.dialect);}
+function welcomeFlag(u){return u.dialect==="ye"?"🇾🇪":u.dialect==="eg"?"🇪🇬":"🌟";}
 function welcomePool(u){
   const nm=(u.name||"").trim(),un=(u.username||"").toLowerCase(),p=dayPart(),who=nm||"صديقنا";
   let pool=WELCOME_MSGS[nm]||WELCOME_MSGS[nm.replace(/[أإآ]/g,"ا").replace(/ة/g,"ه")]||WELCOME_MSGS[un];
@@ -437,7 +428,7 @@ function showWelcome(u){
   w.style.cssText="position:fixed;inset:0;z-index:150;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at center,rgba(0,0,0,.34),rgba(0,0,0,.64));backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);padding:18px";
   w.innerHTML=`<div style="position:relative;overflow:hidden;background:linear-gradient(135deg,#0d9488 0%,#0f3b34 100%);color:#fff;border-radius:22px;padding:30px 30px;max-width:460px;width:94%;text-align:center;line-height:1.9;box-shadow:0 26px 64px rgba(0,0,0,.5),0 0 0 1px rgba(212,175,55,.55),0 0 44px rgba(212,175,55,.16);animation:wpop .35s ease">
     <div style="font-size:12px;letter-spacing:2px;color:#f5d67a;font-weight:800;margin-bottom:10px">${esc(co)}</div>
-    <div style="line-height:1;margin-bottom:8px;display:flex;justify-content:center">${flag}</div>
+    <div style="font-size:54px;line-height:1;margin-bottom:8px">${flag}</div>
     ${countryName(u.dialect)?`<div style="font-size:12px;color:#f5d67a;font-weight:700;margin-bottom:8px">${countryName(u.dialect)}</div>`:""}
     <div style="font-size:20px;font-weight:800;margin-bottom:4px">${esc(u.name||"")}</div>
     <div style="display:inline-block;margin-bottom:12px;background:rgba(255,255,255,.15);padding:4px 14px;border-radius:20px;font-size:12px">${roleAr(u.role)}</div>
