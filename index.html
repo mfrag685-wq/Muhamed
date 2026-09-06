@@ -1244,6 +1244,22 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
       <span class="mini">بجانب كل صنف عدد حركاته — للتأكد أين توجد الكميات قبل الدمج. «استعادة حركات مفقودة» تُرجع أي حركة فقدت صنفها.</span></div>
   </div>
 
+  <div class="sec-title">بدء فترة جديدة — تصفير المخزون وترحيله كأرصدة افتتاحية <span class="hint">لبدء صفحة نظيفة من تاريخ محدد</span></div>
+  <div class="note" style="border-right-color:var(--citrus)">يأخذ <b>رصيد المخزون الحالي</b> لكل صنف ويعيد ترحيله كأرصدة <b>افتتاحية</b> موزّعة على المستودعات بالنِسب التي تحددها، ثم <b>يحذف كل الحركات السابقة</b> (مشتريات/مبيعات/مرتجعات/تحويلات/فاقد/مصروفات/سداد) لتبدأ صفحة نظيفة. <b>العملية لا تُلغى — نزّل نسخة احتياطية أولاً.</b></div>
+  <div class="doc-box no-print" style="margin-top:10px">
+    <div class="grid-2">
+      <div class="field"><label>تاريخ بدء الفترة (الرصيد الافتتاحي)</label><input type="date" id="ns_date"></div>
+      <div class="field"><label style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="ns_keepBal" checked style="width:auto"> ترحيل أرصدة الموردين والعملاء الحالية كأرصدة افتتاحية (يحافظ على الذمم)</label></div>
+    </div>
+    <div class="sec-title" style="margin-top:8px">نِسب التوزيع على المستودعات/الفروع (يجب أن يكون المجموع 100%)</div>
+    <div class="grid" id="ns_pctGrid"></div>
+    <div class="doc-total" id="ns_pctSummary" style="margin-top:8px"></div>
+    <div class="form-foot"><button class="btn" onclick="nsFillEqual()">توزيع بالتساوي</button>
+      <button class="btn-del" onclick="runStockReset()">تنفيذ التصفير والترحيل</button>
+      <span class="mini">حدّد النِسب ثم نفّذ. سيظهر ملخّص المخزون الحالي أدناه.</span></div>
+    <div class="note" id="ns_stockInfo" style="margin-top:8px"></div>
+  </div>
+
   <div class="sec-title">البيانات والنسخ الاحتياطي</div>
   <div class="form-foot">
     <button class="btn-alt" onclick="exportBackup()">تنزيل نسخة احتياطية شاملة (JSON)</button>
@@ -1308,7 +1324,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-08-15-c';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-08-15-d';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -3986,7 +4002,7 @@ function renderSettingsForm(){
   setVal('set_vatrate',db.settings.vatRate!=null?db.settings.vatRate:15);
   var lp=document.getElementById('logoPreview');
   if(lp) lp.innerHTML=db.settings.logo?'<img src="'+db.settings.logo+'" alt="شعار المنشأة">':'🥬';
-  renderDeptImages(); renderMergeItemsUI();
+  renderDeptImages(); renderMergeItemsUI(); renderStockResetUI();
 }
 function saveSettings(){
   if(!guard('settings')) return;
@@ -4112,6 +4128,59 @@ function itemMoveCount(id){
   [db.preturns,db.sreturns,db.transfers,db.waste,db.openingStock].forEach(function(arr){(arr||[]).forEach(function(r){ if(r.itemId===id) n++; });});
   (db.interTransfers||[]).forEach(function(x){ if(x.fromItemId===id||x.toItemId===id) n++; });
   return n;
+}
+/* ===== تصفير المخزون وترحيله كأرصدة افتتاحية (بدء فترة جديدة) ===== */
+function nsMonthStart(){ var d=new Date(); return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-01'; }
+function renderStockResetUI(){
+  var box=document.getElementById('ns_pctGrid'); if(!box) return;
+  if(!val('ns_date')) setVal('ns_date',nsMonthStart());
+  box.innerHTML=db.warehouses.map(function(w){
+    var lbl=w.name+(w.clientId?' — '+clientName(w.clientId):' (عام)');
+    return '<div class="field"><label>'+esc(lbl)+'</label><input type="number" id="ns_pct_'+w.id+'" step="0.01" min="0" max="100" value="0" oninput="updateNsSummary()"></div>';
+  }).join('')||'<span class="empty">لا توجد مستودعات.</span>';
+  updateNsSummary();
+  if(!L) refreshLedger();
+  var totC=0,items={};
+  Object.keys(L.stock).forEach(function(k){ var s=L.stock[k]; if(Math.abs(s.units)<0.0001&&Math.abs(s.cost)<0.01) return; totC+=s.cost; items[s.itemId]=1; });
+  var info=document.getElementById('ns_stockInfo');
+  if(info) info.textContent='المخزون الحالي: '+Object.keys(items).length+' صنف بقيمة '+money(totC)+' — سيُرحَّل كأرصدة افتتاحية بتاريخ '+(val('ns_date')||'—')+'.';
+}
+function updateNsSummary(){
+  var sum=0; db.warehouses.forEach(function(w){ sum+=fnum('ns_pct_'+w.id); });
+  var el=document.getElementById('ns_pctSummary');
+  if(el) el.innerHTML='مجموع النِسب: <b>'+num(sum)+'%</b>'+(Math.abs(sum-100)<0.01?' ✓':' — يُفضّل 100% (وإلا سيُطبَّع تلقائياً)');
+}
+function nsFillEqual(){ var whs=db.warehouses; if(!whs.length) return; var p=Math.round(10000/whs.length)/100;
+  whs.forEach(function(w){ setVal('ns_pct_'+w.id,p); }); updateNsSummary(); }
+function runStockReset(){
+  if(!guard('settings')) return;
+  var date=val('ns_date'); if(!date){ toast('اختر تاريخ بدء الفترة'); return; }
+  var parts=[], sum=0;
+  db.warehouses.forEach(function(w){ var p=fnum('ns_pct_'+w.id); if(p>0){ parts.push({wh:w.id,p:p}); sum+=p; } });
+  if(!parts.length||sum<=0){ toast('حدّد نِسب التوزيع على مستودع واحد على الأقل'); return; }
+  if(!L) refreshLedger();
+  var snap={};
+  Object.keys(L.stock).forEach(function(k){ var s=L.stock[k]; if(Math.abs(s.units)<0.0001&&Math.abs(s.cost)<0.01) return;
+    if(!snap[s.itemId]) snap[s.itemId]={units:0,cost:0,weight:0}; snap[s.itemId].units+=s.units; snap[s.itemId].cost+=s.cost; snap[s.itemId].weight+=s.weight; });
+  var iids=Object.keys(snap), nItems=iids.length, totVal=0; iids.forEach(function(i){ totVal+=snap[i].cost; });
+  var keepBal=document.getElementById('ns_keepBal').checked, pt=partyTotals(), supBal={},clBal={};
+  if(keepBal){
+    db.suppliers.forEach(function(s){ var v=pt.sup[s.id]; supBal[s.id]=round2(v.buy-v.ret+v.opening-v.paid); });
+    db.clients.forEach(function(c){ var v=pt.cl[c.id]; clBal[c.id]=round2(v.sell-v.ret+v.opening-v.recv); });
+  }
+  if(!confirm('تصفير وترحيل المخزون:\n\n• '+nItems+' صنف بقيمة '+num(totVal)+' سيُرحَّل كأرصدة افتتاحية بتاريخ '+date+' موزّعة على '+parts.length+' مستودع (المجموع '+num(sum)+'% — يُطبَّع لـ100%).\n'
+    +'• ستُحذف كل الحركات: مشتريات/مبيعات/مرتجعات/تحويلات/فاقد/مصروفات/سداد.\n'
+    +'• أرصدة الموردين/العملاء: '+(keepBal?'تُرحَّل كأرصدة افتتاحية (تبقى الذمم).':'تُصفَّر بالكامل.')+'\n\n⚠ لا يمكن التراجع. هل نزّلت نسخة احتياطية؟ المتابعة؟')) return;
+  ['purchases','sales','preturns','sreturns','transfers','waste','openingStock','payments','expenses'].forEach(function(kk){ db[kk]=[]; });
+  if(db.interTransfers) db.interTransfers=db.interTransfers.filter(function(x){ return x.fromDept!==db.activeDept&&x.toDept!==db.activeDept; });
+  db.suppliers.forEach(function(s){ s.opening=keepBal?(supBal[s.id]||0):0; s.openingDate=date; });
+  db.clients.forEach(function(c){ c.opening=keepBal?(clBal[c.id]||0):0; c.openingDate=date; });
+  iids.forEach(function(iid){ var s=snap[iid], avgUW=s.units>0?s.weight/s.units:0, perU=s.units>0?s.cost/s.units:0;
+    parts.forEach(function(pp){ var frac=pp.p/sum, u=round2(s.units*frac); if(u<=0) return;
+      db.openingStock.push({id:uid(),date:date,whId:pp.wh,itemId:+iid,units:u,uw:round2(avgUW*1000)/1000,basis:'unit',price:round2(perU),total:round2(s.cost*frac),uid:ME.id,ts:nowTs()}); }); });
+  log('data','المخزون','تصفير وترحيل المخزون كأرصدة افتتاحية بتاريخ '+date+' ('+nItems+' صنف على '+parts.length+' مستودع)'+(keepBal?' مع ترحيل الأرصدة':' وتصفير الأرصدة'));
+  refreshLedger(); commit('تم تصفير وترحيل المخزون'); renderAll(); renderMaster(); renderSettingsForm();
+  alert('اكتمل التصفير والترحيل ✅\n\n• '+nItems+' صنف رُحّل كأرصدة افتتاحية بتاريخ '+date+'.\n• حُذفت كل الحركات السابقة.\n• أرصدة الموردين/العملاء '+(keepBal?'رُحّلت.':'صُفّرت.')+'\n\nراجع المخزون وكشوف الحسابات.');
 }
 function renderMergeItemsUI(){
   var box=document.getElementById('mergeSrcBox'); if(!box) return;
