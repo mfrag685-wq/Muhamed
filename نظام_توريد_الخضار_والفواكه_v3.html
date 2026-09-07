@@ -1314,6 +1314,29 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
       <span class="mini">بجانب كل صنف عدد حركاته — للتأكد أين توجد الكميات قبل الدمج. «استعادة حركات مفقودة» تُرجع أي حركة فقدت صنفها.</span></div>
   </div>
 
+  <div class="sec-title">تصحيح أوزان العبوات (خطأ إدخال الأوزان) <span class="hint">دون المساس بالمبلغ المدفوع</span></div>
+  <div class="note" style="border-right-color:var(--citrus)">يُصحّح <b>وزن العبوة (الصندوق/الكيس)</b> في الحركات دون تغيير <b>المبلغ المدفوع</b> — فيُعاد حساب الكمية بالكيلو وتكلفة الكيلو بدقّة، ويختفي <b>المخزون الوهمي</b> الناتج عن أوزان مبالغ فيها. يعمل على أصناف <b>الكيلو</b> فقط. لا خسارة وهمية — فقط تصحيح القياس. <b>عاين قبل التطبيق، ونزّل نسخة احتياطية أولاً.</b></div>
+  <div class="doc-box no-print" style="margin-top:10px">
+    <div class="grid-2">
+      <div class="field"><label>المستندات</label><select id="wc_scope">
+        <option value="p">المشتريات فقط</option><option value="s">المبيعات فقط</option><option value="both">المشتريات والمبيعات</option></select></div>
+      <div class="field"><label>الصنف</label><select id="wc_item"><option value="">كل أصناف الكيلو</option></select></div>
+      <div class="field"><label>طريقة التصحيح</label><select id="wc_mode" onchange="wcModeUI()">
+        <option value="ratio">معامل نسبة (يُضرب في الوزن الحالي)</option>
+        <option value="replace">استبدال وزن مسجّل بآخر صحيح</option></select></div>
+      <div class="field" id="wc_ratioWrap"><label>المعامل (مثال: 0.76 = 3.8÷5)</label><input type="number" id="wc_ratio" step="0.0001" min="0" placeholder="0.76"></div>
+      <div class="field" id="wc_oldWrap" style="display:none"><label>الوزن المسجّل الحالي (فارغ = الكل)</label><input type="number" id="wc_old" step="0.01" min="0" placeholder="5"></div>
+      <div class="field" id="wc_newWrap" style="display:none"><label>الوزن الصحيح</label><input type="number" id="wc_new" step="0.01" min="0" placeholder="3.8"></div>
+      <div class="field"><label>من تاريخ (اختياري)</label><input type="date" id="wc_from"></div>
+      <div class="field"><label>إلى تاريخ (اختياري)</label><input type="date" id="wc_to"></div>
+      <div class="field"><label>مُدخِل البيانات (اختياري)</label><select id="wc_user"><option value="">الكل</option></select></div>
+    </div>
+    <div class="form-foot"><button class="btn" onclick="previewWeightFix()">معاينة قبل/بعد</button>
+      <button class="btn-del" onclick="applyWeightFix()">تطبيق التصحيح</button>
+      <span class="mini">المبلغ المدفوع لا يتغيّر — تُصحَّح الكمية وتكلفة الكيلو فقط.</span></div>
+    <div id="wc_preview" style="margin-top:10px"></div>
+  </div>
+
   <div class="sec-title">بدء فترة جديدة — تصفير المخزون وترحيله كأرصدة افتتاحية <span class="hint">لبدء صفحة نظيفة من تاريخ محدد</span></div>
   <div class="note" style="border-right-color:var(--citrus)">يأخذ <b>رصيد المخزون الحالي</b> لكل صنف ويعيد ترحيله كأرصدة <b>افتتاحية</b> موزّعة على المستودعات بالنِسب التي تحددها، ثم <b>يحذف كل الحركات السابقة</b> (مشتريات/مبيعات/مرتجعات/تحويلات/فاقد/مصروفات/سداد) لتبدأ صفحة نظيفة. <b>العملية لا تُلغى — نزّل نسخة احتياطية أولاً.</b></div>
   <div class="doc-box no-print" style="margin-top:10px">
@@ -1405,7 +1428,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-06-v';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-07-a';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -4770,6 +4793,92 @@ function renderStockResetUI(){
   if(info) info.textContent='المخزون الحالي: '+Object.keys(items).length+' صنف بقيمة '+money(totC)+' — سيُرحَّل كأرصدة افتتاحية بتاريخ '+(val('ns_date')||'—')+'.';
   var nwi=document.getElementById('nw_info');
   if(nwi) nwi.textContent='المخزون الحالي بقيمة '+money(totC)+' سيُحمَّل كفاقد/تالف.';
+  renderWeightFixUI();
+}
+/* ===== تصحيح أوزان العبوات — يعالج المخزون الوهمي من أوزان مبالغ فيها ===== */
+function renderWeightFixUI(){
+  var isel=document.getElementById('wc_item'); if(!isel) return;
+  var kgItems=db.items.filter(function(i){return i.byKg;});
+  var cur=isel.value;
+  isel.innerHTML='<option value="">كل أصناف الكيلو</option>'+kgItems.map(function(i){
+    return '<option value="'+i.id+'">'+esc(i.name)+(i.whId?' — '+esc(whName(i.whId)):'')+'</option>'; }).join('');
+  if(cur) isel.value=cur;
+  var usel=document.getElementById('wc_user');
+  if(usel){ var cu=usel.value; usel.innerHTML='<option value="">الكل</option>'+(db.users||[]).map(function(u){
+    return '<option value="'+u.id+'">'+esc(u.name||u.username)+'</option>'; }).join(''); if(cu) usel.value=cu; }
+  wcModeUI();
+}
+function wcModeUI(){
+  var ratio=(val('wc_mode')||'ratio')==='ratio';
+  var tg=function(id,show){ var e=document.getElementById(id); if(e) e.style.display=show?'':'none'; };
+  tg('wc_ratioWrap',ratio); tg('wc_oldWrap',!ratio); tg('wc_newWrap',!ratio);
+}
+function _wcR3(x){ return Math.round((+x||0)*1000)/1000; }
+/* يجمع الحركات المطابقة للفلاتر (أصناف الكيلو ذات الصناديق فقط) */
+function weightFixMatches(){
+  var scope=val('wc_scope')||'p', itemF=+val('wc_item')||0, uF=+val('wc_user')||0;
+  var from=val('wc_from'), to=val('wc_to');
+  var mode=val('wc_mode')||'ratio', ratio=fnum('wc_ratio'), oldW=fnum('wc_old'), newW=fnum('wc_new');
+  var inRg=function(d){ return (!from||d>=from)&&(!to||d<=to); };
+  var arrs=[]; if(scope==='p'||scope==='both') arrs.push(['p',db.purchases]); if(scope==='s'||scope==='both') arrs.push(['s',db.sales]);
+  var out=[];
+  arrs.forEach(function(pair){ var dt=pair[0];
+    pair[1].forEach(function(doc){
+      if(!inRg(doc.date)) return; if(uF&&doc.uid!==uF) return;
+      (doc.lines||[]).forEach(function(l,idx){
+        if(itemF&&l.itemId!==itemF) return;
+        if(!itemByKg(l.itemId)) return;
+        if(!(+l.boxes>0)||!(+l.boxW>0)) return;   /* نحتاج عدد الصناديق ووزن الصندوق لإعادة الحساب */
+        var nb;
+        if(mode==='ratio'){ if(!(ratio>0)) return; nb=_wcR3(l.boxW*ratio); }
+        else { if(!(newW>0)) return; if(oldW>0&&Math.abs((+l.boxW)-oldW)>0.001) return; nb=_wcR3(newW); }
+        if(Math.abs(nb-(+l.boxW))<0.0005) return;   /* لا تغيير */
+        var newKg=_wcR3((+l.boxes)*nb);
+        out.push({dt:dt,doc:doc,l:l,idx:idx,oldBoxW:+l.boxW,newBoxW:nb,oldKg:+l.units||0,newKg:newKg});
+      });
+    });
+  });
+  return out;
+}
+function previewWeightFix(){
+  var m=weightFixMatches();
+  var box=document.getElementById('wc_preview'); if(!box) return;
+  if(!m.length){ box.innerHTML='<div class="note">لا توجد حركات مطابقة للفلاتر المحددة. تأكد من الطريقة والقيم والصنف والفترة.</div>'; return; }
+  var byItem={}, totOld=0,totNew=0,totMoney=0;
+  m.forEach(function(x){ var k=x.l.itemId; var o=byItem[k]||(byItem[k]={n:0,oldKg:0,newKg:0,money:0});
+    o.n++; o.oldKg+=x.oldKg; o.newKg+=x.newKg; o.money+=(+x.l.total||0);
+    totOld+=x.oldKg; totNew+=x.newKg; totMoney+=(+x.l.total||0); });
+  var rows=Object.keys(byItem).map(function(k){ var o=byItem[k];
+    var oc=o.oldKg>0?o.money/o.oldKg:0, ncst=o.newKg>0?o.money/o.newKg:0;
+    return '<tr><td class="name">'+esc(itemName(+k))+'</td><td>'+o.n+'</td><td>'+qty(o.oldKg)+'</td><td><b>'+qty(o.newKg)+'</b></td>'
+      +'<td>'+money(oc)+'</td><td><b>'+money(ncst)+'</b></td><td>'+money(o.money)+'</td></tr>'; }).join('');
+  box.innerHTML='<div class="note" style="border-right-color:var(--citrus)">ستتأثر <b>'+m.length+'</b> حركة. الكمية بالكيلو ستنخفض من <b>'+qty(totOld)+'</b> إلى <b>'+qty(totNew)+'</b> كجم (فرق '+qty(totOld-totNew)+' كجم)، والمبلغ المدفوع <b>'+money(totMoney)+'</b> لا يتغيّر — فترتفع تكلفة الكيلو للقيمة الصحيحة.</div>'
+    +'<div class="table-scroll"><table><thead><tr><th class="name">الصنف</th><th>عدد الحركات</th><th>كمية قبل (كجم)</th><th>كمية بعد (كجم)</th><th>تكلفة/كجم قبل</th><th>تكلفة/كجم بعد</th><th>المبلغ (ثابت)</th></tr></thead><tbody>'+rows
+    +'<tr class="total-row"><td>الإجمالي</td><td>'+m.length+'</td><td>'+qty(totOld)+'</td><td>'+qty(totNew)+'</td><td colspan="2"></td><td>'+money(totMoney)+'</td></tr></tbody></table></div>';
+}
+function applyWeightFix(){
+  if(!guard('canEdit','تحتاج صلاحية التعديل لتصحيح الأوزان')) return;
+  var m=weightFixMatches();
+  if(!m.length){ toast('لا توجد حركات مطابقة — اضغط «معاينة» أولاً'); return; }
+  var totOld=0,totNew=0; m.forEach(function(x){ totOld+=x.oldKg; totNew+=x.newKg; });
+  if(!confirm('تصحيح أوزان العبوات:\n\n• عدد الحركات: '+m.length+'\n• الكمية: من '+qty(totOld)+' إلى '+qty(totNew)+' كجم\n• المبلغ المدفوع لا يتغيّر (تُصحَّح تكلفة الكيلو تلقائياً)\n\n⚠ نزّل نسخة احتياطية أولاً. هل تريد المتابعة؟')) return;
+  var docs={};
+  m.forEach(function(x){
+    var l=x.l; l.boxW=x.newBoxW; l.units=x.newKg; l.uw=1; l.basis='kg';
+    l.price=(x.newKg>0? _wcR3((+l.total||0)/x.newKg):0);
+    docs[x.dt+'#'+x.doc.id]={dt:x.dt,doc:x.doc};
+    rememberBoxWeight(l.itemId,x.newBoxW);
+  });
+  /* إعادة حساب وزن كل مستند متأثّر */
+  Object.keys(docs).forEach(function(k){ var doc=docs[k].doc;
+    var w=0; (doc.lines||[]).forEach(function(l){ w+=(+l.units||0)*(+l.uw||0); }); doc.weight=_wcR3(w);
+  });
+  log('edit','المخزون','تصحيح أوزان العبوات — '+m.length+' حركة، الكمية من '+qty(totOld)+' إلى '+qty(totNew)+' كجم');
+  refreshLedger(); commit('تم تصحيح الأوزان — راجع المخزون والتكاليف الآن');
+  /* منع التطبيق المزدوج (خصوصاً في وضع النسبة): نُفرغ المدخلات ونعرض ملخّص نجاح بدل معاينة جديدة */
+  setVal('wc_ratio',''); setVal('wc_old',''); setVal('wc_new','');
+  var box=document.getElementById('wc_preview');
+  if(box) box.innerHTML='<div class="note" style="border-right-color:var(--leaf-dark)">✅ تم التصحيح بنجاح: '+m.length+' حركة، والكمية أصبحت '+qty(totNew)+' كجم. أعِد إدخال القيم إن رغبت في تصحيح آخر. <b>لا تُعِد الضغط على «تطبيق» بنفس المعامل حتى لا يُضرب مرتين.</b></div>';
 }
 function updateNsSummary(){
   var sum=0; db.warehouses.forEach(function(w){ sum+=fnum('ns_pct_'+w.id); });
