@@ -1335,6 +1335,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
       <button class="btn-del" onclick="applyWeightFix()">تطبيق التصحيح</button>
       <span class="mini">المبلغ المدفوع لا يتغيّر — تُصحَّح الكمية وتكلفة الكيلو فقط.</span></div>
     <div id="wc_preview" style="margin-top:10px"></div>
+    <div id="wc_log" style="margin-top:10px"></div>
   </div>
 
   <div class="sec-title">بدء فترة جديدة — تصفير المخزون وترحيله كأرصدة افتتاحية <span class="hint">لبدء صفحة نظيفة من تاريخ محدد</span></div>
@@ -1428,7 +1429,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-07-a';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-07-b';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -1584,6 +1585,7 @@ function ensureDbShape(){
   if(!db.settings) db.settings=emptyDB().settings;
   if(db.settings.vatRate===undefined||db.settings.vatRate===null||db.settings.vatRate==='') db.settings.vatRate=15;
   if(!db.settings.welcomeMsgs||typeof db.settings.welcomeMsgs!=='object') db.settings.welcomeMsgs={};
+  if(!Array.isArray(db.settings.weightFixLog)) db.settings.weightFixLog=[];
   if(!db.meta) db.meta={author:AUTHOR,version:APP_VERSION};
   db.meta.author=AUTHOR;
   if(!db.users.length) db.users=emptyDB().users;
@@ -4806,7 +4808,7 @@ function renderWeightFixUI(){
   var usel=document.getElementById('wc_user');
   if(usel){ var cu=usel.value; usel.innerHTML='<option value="">الكل</option>'+(db.users||[]).map(function(u){
     return '<option value="'+u.id+'">'+esc(u.name||u.username)+'</option>'; }).join(''); if(cu) usel.value=cu; }
-  wcModeUI();
+  wcModeUI(); renderWeightFixLog();
 }
 function wcModeUI(){
   var ratio=(val('wc_mode')||'ratio')==='ratio';
@@ -4863,22 +4865,66 @@ function applyWeightFix(){
   var totOld=0,totNew=0; m.forEach(function(x){ totOld+=x.oldKg; totNew+=x.newKg; });
   if(!confirm('تصحيح أوزان العبوات:\n\n• عدد الحركات: '+m.length+'\n• الكمية: من '+qty(totOld)+' إلى '+qty(totNew)+' كجم\n• المبلغ المدفوع لا يتغيّر (تُصحَّح تكلفة الكيلو تلقائياً)\n\n⚠ نزّل نسخة احتياطية أولاً. هل تريد المتابعة؟')) return;
   var docs={};
+  /* سجل التراجع: نحفظ القيم الأصلية قبل التعديل لإمكان استعادتها لاحقاً */
+  var op={id:uid(),ts:nowTs(),when:today(),by:(ME?ME.name:''),count:m.length,scope:val('wc_scope')||'p',
+    fromKg:_wcR3(totOld),toKg:_wcR3(totNew),entries:[],docWeights:{}};
   m.forEach(function(x){
-    var l=x.l; l.boxW=x.newBoxW; l.units=x.newKg; l.uw=1; l.basis='kg';
+    var l=x.l, dk=x.dt+'#'+x.doc.id;
+    if(op.docWeights[dk]===undefined) op.docWeights[dk]=+x.doc.weight||0;
+    op.entries.push({dt:x.dt,docId:x.doc.id,idx:x.idx,boxW:+l.boxW||0,units:+l.units||0,uw:+l.uw||0,basis:l.basis||'',price:+l.price||0});
+    l.boxW=x.newBoxW; l.units=x.newKg; l.uw=1; l.basis='kg';
     l.price=(x.newKg>0? _wcR3((+l.total||0)/x.newKg):0);
-    docs[x.dt+'#'+x.doc.id]={dt:x.dt,doc:x.doc};
+    docs[dk]={dt:x.dt,doc:x.doc};
     rememberBoxWeight(l.itemId,x.newBoxW);
   });
   /* إعادة حساب وزن كل مستند متأثّر */
   Object.keys(docs).forEach(function(k){ var doc=docs[k].doc;
     var w=0; (doc.lines||[]).forEach(function(l){ w+=(+l.units||0)*(+l.uw||0); }); doc.weight=_wcR3(w);
   });
+  db.settings.weightFixLog=db.settings.weightFixLog||[];
+  db.settings.weightFixLog.unshift(op);
+  if(db.settings.weightFixLog.length>10) db.settings.weightFixLog=db.settings.weightFixLog.slice(0,10);
   log('edit','المخزون','تصحيح أوزان العبوات — '+m.length+' حركة، الكمية من '+qty(totOld)+' إلى '+qty(totNew)+' كجم');
   refreshLedger(); commit('تم تصحيح الأوزان — راجع المخزون والتكاليف الآن');
   /* منع التطبيق المزدوج (خصوصاً في وضع النسبة): نُفرغ المدخلات ونعرض ملخّص نجاح بدل معاينة جديدة */
   setVal('wc_ratio',''); setVal('wc_old',''); setVal('wc_new','');
   var box=document.getElementById('wc_preview');
-  if(box) box.innerHTML='<div class="note" style="border-right-color:var(--leaf-dark)">✅ تم التصحيح بنجاح: '+m.length+' حركة، والكمية أصبحت '+qty(totNew)+' كجم. أعِد إدخال القيم إن رغبت في تصحيح آخر. <b>لا تُعِد الضغط على «تطبيق» بنفس المعامل حتى لا يُضرب مرتين.</b></div>';
+  if(box) box.innerHTML='<div class="note" style="border-right-color:var(--leaf-dark)">✅ تم التصحيح بنجاح: '+m.length+' حركة، والكمية أصبحت '+qty(totNew)+' كجم. أعِد إدخال القيم إن رغبت في تصحيح آخر. <b>لا تُعِد الضغط على «تطبيق» بنفس المعامل حتى لا يُضرب مرتين.</b> يمكنك التراجع من «سجل التصحيحات» أدناه.</div>';
+  renderWeightFixLog();
+}
+/* سجل التصحيحات مع إمكان الاستعادة */
+function renderWeightFixLog(){
+  var box=document.getElementById('wc_log'); if(!box) return;
+  var lg=db.settings.weightFixLog||[];
+  if(!lg.length){ box.innerHTML=''; return; }
+  var rows=lg.map(function(op){
+    var scope={p:'مشتريات',s:'مبيعات',both:'مشتريات ومبيعات'}[op.scope]||'—';
+    return '<tr><td>'+esc(op.when||'—')+'</td><td>'+esc(scope)+'</td><td>'+(op.count||0)+' حركة</td>'
+      +'<td>'+qty(op.fromKg||0)+' ← '+qty(op.toKg||0)+' كجم</td><td class="name muted">'+esc(op.by||'')+'</td>'
+      +'<td><button class="btn-sm" onclick="restoreWeightFix(\''+op.id+'\')">استعادة</button></td></tr>';
+  }).join('');
+  box.innerHTML='<div class="sec-title" style="margin-top:6px">سجل تصحيحات الأوزان <span class="hint">للتراجع واستعادة الحركات كما كانت</span></div>'
+    +'<div class="note">«استعادة» تُعيد الحركات إلى ما قبل ذلك التصحيح. إن أجريت عدّة تصحيحات على نفس الحركات، استعِدها <b>من الأحدث إلى الأقدم</b>.</div>'
+    +'<div class="table-scroll"><table><thead><tr><th>التاريخ</th><th>النطاق</th><th>العدد</th><th>الكمية (قبل←بعد)</th><th class="name">نفّذها</th><th>إجراء</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
+}
+function restoreWeightFix(opId){
+  if(!guard('canEdit','تحتاج صلاحية التعديل للاستعادة')) return;
+  var lg=db.settings.weightFixLog||[], op=lg.filter(function(o){return o.id===opId;})[0];
+  if(!op){ toast('التصحيح غير موجود'); return; }
+  if(!confirm('استعادة الحركات إلى ما قبل هذا التصحيح؟\n\n• التاريخ: '+op.when+'\n• عدد الحركات: '+op.count+'\n• الكمية ستعود من '+qty(op.toKg)+' إلى '+qty(op.fromKg)+' كجم\n\nمتابعة؟')) return;
+  var miss=0;
+  (op.entries||[]).forEach(function(e){
+    var arr=(e.dt==='p')?db.purchases:db.sales, doc=byId(arr,e.docId);
+    if(!doc){ miss++; return; }
+    var l=(doc.lines||[])[e.idx]; if(!l){ miss++; return; }
+    l.boxW=e.boxW; l.units=e.units; l.uw=e.uw; l.basis=e.basis; l.price=e.price;
+  });
+  Object.keys(op.docWeights||{}).forEach(function(dk){ var p=dk.split('#'), dt=p[0], id=+p[1];
+    var arr=(dt==='p')?db.purchases:db.sales, doc=byId(arr,id); if(doc) doc.weight=op.docWeights[dk]; });
+  db.settings.weightFixLog=lg.filter(function(o){return o.id!==opId;});
+  log('edit','المخزون','استعادة حركات قبل تصحيح أوزان بتاريخ '+op.when+' — '+op.count+' حركة'+(miss?(' ('+miss+' حركة لم تُوجد)'):''));
+  refreshLedger(); commit('تمت استعادة الحركات كما كانت'+(miss?(' — '+miss+' حركة تعذّر إيجادها'):''));
+  renderWeightFixUI();
 }
 function updateNsSummary(){
   var sum=0; db.warehouses.forEach(function(w){ sum+=fnum('ns_pct_'+w.id); });
