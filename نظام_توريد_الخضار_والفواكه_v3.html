@@ -1338,6 +1338,28 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
     <div id="wc_log" style="margin-top:10px"></div>
   </div>
 
+  <div class="sec-title">الجرد الفعلي — تسوية المخزون تلقائياً <span class="hint">يحسب الفرق ويشطبه عجز جرد أو يضيفه تصحيح رصيد</span></div>
+  <div class="note" style="border-right-color:var(--citrus)">أدخِل <b>الكمية الموجودة فعلياً</b> لكل صنف، فيحسب النظام الفرق مع الرصيد الدفتري: <b>النقص</b> يُسجَّل <b>عجز جرد</b> (خسارة بتكلفته في قائمة الدخل)، و<b>الزيادة</b> تُضاف <b>تصحيح رصيد</b> (أصل). تنعكس بدقّة في المخزون وكل التقارير. الحقول معبّأة بالرصيد الدفتري — عدّل ما اختلف فقط. <b>نزّل نسخة احتياطية أولاً.</b></div>
+  <div class="doc-box no-print" style="margin-top:10px">
+    <div class="grid-2">
+      <div class="field"><label>تاريخ الجرد</label><input type="date" id="sc_date"></div>
+      <div class="field"><label>المستودع (تصفية العرض)</label><select id="sc_whFilter" onchange="renderStockCountUI()"><option value="">كل المستودعات</option></select></div>
+    </div>
+    <div class="table-scroll" style="max-height:360px;overflow:auto"><table id="sc_table">
+      <thead><tr><th class="name">المستودع</th><th class="name">الصنف</th><th>الرصيد الدفتري</th><th>متوسط التكلفة</th><th>الجرد الفعلي</th></tr></thead>
+      <tbody id="sc_body"></tbody></table></div>
+    <div class="inline-add" style="margin-top:8px">
+      <select id="sc_addWh" style="max-width:180px"></select>
+      <select id="sc_addItem" style="max-width:220px"></select>
+      <button class="btn btn-sm" onclick="scAddRow()">➕ إضافة صنف للجرد (رصيد دفتري صفر)</button>
+    </div>
+    <div class="form-foot"><button class="btn" onclick="computeStockCount()">احتساب الفروقات</button>
+      <button class="btn-del" onclick="applyStockCount()">تطبيق التسوية</button>
+      <span class="mini">النقص = عجز جرد (خسارة) · الزيادة = تصحيح رصيد (أصل).</span></div>
+    <div id="sc_preview" style="margin-top:10px"></div>
+    <div id="sc_log" style="margin-top:10px"></div>
+  </div>
+
   <div class="sec-title">بدء فترة جديدة — تصفير المخزون وترحيله كأرصدة افتتاحية <span class="hint">لبدء صفحة نظيفة من تاريخ محدد</span></div>
   <div class="note" style="border-right-color:var(--citrus)">يأخذ <b>رصيد المخزون الحالي</b> لكل صنف ويعيد ترحيله كأرصدة <b>افتتاحية</b> موزّعة على المستودعات بالنِسب التي تحددها، ثم <b>يحذف كل الحركات السابقة</b> (مشتريات/مبيعات/مرتجعات/تحويلات/فاقد/مصروفات/سداد) لتبدأ صفحة نظيفة. <b>العملية لا تُلغى — نزّل نسخة احتياطية أولاً.</b></div>
   <div class="doc-box no-print" style="margin-top:10px">
@@ -1429,7 +1451,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-07-b';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-07-c';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -1586,6 +1608,7 @@ function ensureDbShape(){
   if(db.settings.vatRate===undefined||db.settings.vatRate===null||db.settings.vatRate==='') db.settings.vatRate=15;
   if(!db.settings.welcomeMsgs||typeof db.settings.welcomeMsgs!=='object') db.settings.welcomeMsgs={};
   if(!Array.isArray(db.settings.weightFixLog)) db.settings.weightFixLog=[];
+  if(!Array.isArray(db.settings.stockCountLog)) db.settings.stockCountLog=[];
   if(!db.meta) db.meta={author:AUTHOR,version:APP_VERSION};
   db.meta.author=AUTHOR;
   if(!db.users.length) db.users=emptyDB().users;
@@ -4795,7 +4818,7 @@ function renderStockResetUI(){
   if(info) info.textContent='المخزون الحالي: '+Object.keys(items).length+' صنف بقيمة '+money(totC)+' — سيُرحَّل كأرصدة افتتاحية بتاريخ '+(val('ns_date')||'—')+'.';
   var nwi=document.getElementById('nw_info');
   if(nwi) nwi.textContent='المخزون الحالي بقيمة '+money(totC)+' سيُحمَّل كفاقد/تالف.';
-  renderWeightFixUI();
+  renderWeightFixUI(); renderStockCountUI();
 }
 /* ===== تصحيح أوزان العبوات — يعالج المخزون الوهمي من أوزان مبالغ فيها ===== */
 function renderWeightFixUI(){
@@ -4925,6 +4948,112 @@ function restoreWeightFix(opId){
   log('edit','المخزون','استعادة حركات قبل تصحيح أوزان بتاريخ '+op.when+' — '+op.count+' حركة'+(miss?(' ('+miss+' حركة لم تُوجد)'):''));
   refreshLedger(); commit('تمت استعادة الحركات كما كانت'+(miss?(' — '+miss+' حركة تعذّر إيجادها'):''));
   renderWeightFixUI();
+}
+/* ===== الجرد الفعلي — تسوية المخزون تلقائياً (عجز/زيادة) ===== */
+var scExtraRows=[];
+function scItemAvgCost(itemId){
+  var su=0,sc=0;
+  db.purchases.forEach(function(p){(p.lines||[]).forEach(function(l){ if(l.itemId===itemId){ su+=+l.units||0; sc+=+l.total||0; }});});
+  db.openingStock.forEach(function(o){ if(o.itemId===itemId){ su+=+o.units||0; sc+=+o.total||0; }});
+  return su>0? sc/su : 0;
+}
+function scCells(){
+  if(!L) refreshLedger();
+  var cells=[], seen={};
+  Object.keys(L.stock).forEach(function(k){ var s=L.stock[k]; if(Math.abs(s.units)>0.0001||Math.abs(s.cost)>0.01){ cells.push({whId:s.whId,itemId:s.itemId,units:s.units,cost:s.cost,weight:s.weight}); seen[s.whId+'|'+s.itemId]=1; } });
+  scExtraRows.forEach(function(r){ var k=r.whId+'|'+r.itemId; if(!seen[k]){ cells.push({whId:r.whId,itemId:r.itemId,units:0,cost:0,weight:0}); seen[k]=1; } });
+  return cells;
+}
+function renderStockCountUI(){
+  var body=document.getElementById('sc_body'); if(!body) return;
+  if(!val('sc_date')) setVal('sc_date',today());
+  var whf=document.getElementById('sc_whFilter');
+  if(whf){ var cur=whf.value; whf.innerHTML='<option value="">كل المستودعات</option>'+db.warehouses.map(function(w){return '<option value="'+w.id+'">'+esc(whName(w.id))+'</option>';}).join(''); if(cur) whf.value=cur; }
+  fillSelect('sc_addWh', db.warehouses.map(function(w){return '<option value="'+w.id+'">'+esc(whName(w.id))+'</option>';}).join(''));
+  fillSelect('sc_addItem', db.items.map(function(i){return '<option value="'+i.id+'">'+esc(i.name)+'</option>';}).join(''));
+  var whFilter=+val('sc_whFilter')||0;
+  var cells=scCells().filter(function(c){ return !whFilter||c.whId===whFilter; });
+  cells.sort(function(a,b){ var wa=whName(a.whId),wb=whName(b.whId); if(wa!==wb) return wa<wb?-1:1; var ia=itemName(a.itemId),ib=itemName(b.itemId); return ia<ib?-1:(ia>ib?1:0); });
+  body.innerHTML=cells.map(function(c){ var it=byId(db.items,c.itemId), bk=!!(it&&it.byKg), ul=bk?'كغ':(it?(it.unit||'وحدة'):'وحدة');
+    var perU=c.units>0?c.cost/c.units:scItemAvgCost(c.itemId);
+    return '<tr><td class="name">'+esc(whName(c.whId))+'</td><td class="name">'+esc(itemName(c.itemId))+'</td>'
+      +'<td>'+qty(c.units)+' <span class="muted" style="font-size:11px">'+esc(ul)+'</span></td><td>'+money(perU)+'</td>'
+      +'<td><input type="number" step="0.001" min="0" id="sc_q_'+c.whId+'_'+c.itemId+'" value="'+_wcR3(c.units)+'" style="width:110px"></td></tr>';
+  }).join('')||'<tr><td colspan="5" class="empty">لا يوجد رصيد مخزون. أضِف صنفاً للجرد بالأسفل إن لزم.</td></tr>';
+  renderStockCountLog();
+}
+function scAddRow(){
+  var w=+val('sc_addWh'), i=+val('sc_addItem'); if(!w||!i){ toast('اختر المستودع والصنف'); return; }
+  if(scExtraRows.some(function(r){return r.whId===w&&r.itemId===i;})){ toast('الصنف مضاف بالفعل'); return; }
+  scExtraRows.push({whId:w,itemId:i}); renderStockCountUI();
+}
+function scComputeDiffs(){
+  var out=[];
+  scCells().forEach(function(c){
+    var el=document.getElementById('sc_q_'+c.whId+'_'+c.itemId); if(!el) return;
+    if(el.value===''||el.value==null) return;   /* حقل فارغ = لم يُجرَد (لا تسوية) */
+    var phys=_wcR3(fnum('sc_q_'+c.whId+'_'+c.itemId)), book=_wcR3(c.units), diff=_wcR3(phys-book);
+    if(Math.abs(diff)<0.001) return;
+    var it=byId(db.items,c.itemId), bk=!!(it&&it.byKg);
+    var perU=c.units>0?c.cost/c.units:scItemAvgCost(c.itemId);
+    var wPerU=c.units>0?(c.weight/c.units):(bk?1:(+((it&&it.uw))||0));
+    out.push({whId:c.whId,itemId:c.itemId,book:book,phys:phys,diff:diff,perU:perU,wPerU:wPerU,bk:bk,val:_wcR3(Math.abs(diff)*perU)});
+  });
+  return out;
+}
+function computeStockCount(){
+  var d=scComputeDiffs(), box=document.getElementById('sc_preview'); if(!box) return;
+  if(!d.length){ box.innerHTML='<div class="note">لا توجد فروقات — كل الأرصدة المُدخلة تطابق الدفتري.</div>'; return; }
+  var shortV=0,surV=0;
+  var rows=d.map(function(x){ var short=x.diff<0; if(short) shortV+=x.val; else surV+=x.val;
+    return '<tr><td class="name">'+esc(whName(x.whId))+'</td><td class="name">'+esc(itemName(x.itemId))+'</td>'
+      +'<td>'+qty(x.book)+'</td><td>'+qty(x.phys)+'</td><td class="'+(short?'neg':'pos')+'">'+(x.diff>0?'+':'')+qty(x.diff)+'</td>'
+      +'<td>'+money(x.val)+'</td><td>'+(short?'<span class="pill pill-bad">عجز جرد</span>':'<span class="pill pill-ok">زيادة (تصحيح)</span>')+'</td></tr>'; }).join('');
+  box.innerHTML='<div class="note" style="border-right-color:var(--citrus)"><b>'+d.length+'</b> صنف باختلاف. <b>عجز</b> بقيمة '+money(shortV)+' (خسارة) · <b>زيادة</b> بقيمة '+money(surV)+' (تُضاف للمخزون). صافي الأثر على الربح: '+money(surV-shortV)+'.</div>'
+    +'<div class="table-scroll"><table><thead><tr><th class="name">المستودع</th><th class="name">الصنف</th><th>دفتري</th><th>فعلي</th><th>الفرق</th><th>قيمة الفرق</th><th>النوع</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
+}
+function applyStockCount(){
+  if(!guard('canEdit','تحتاج صلاحية التعديل للجرد')) return;
+  var d=scComputeDiffs();
+  if(!d.length){ toast('لا توجد فروقات — اضغط «احتساب الفروقات» أولاً'); return; }
+  var date=val('sc_date')||today();
+  var shortV=0,surV=0; d.forEach(function(x){ if(x.diff<0) shortV+=x.val; else surV+=x.val; });
+  if(!confirm('تطبيق تسوية الجرد بتاريخ '+date+':\n\n• عجز (خسارة): '+num(shortV)+'\n• زيادة (تصحيح رصيد): '+num(surV)+'\n• صافي الأثر على الربح: '+num(surV-shortV)+'\n\n⚠ نزّل نسخة احتياطية أولاً. متابعة؟')) return;
+  var op={id:uid(),ts:nowTs(),when:date,by:(ME?ME.name:''),shortageVal:_wcR3(shortV),surplusVal:_wcR3(surV),count:d.length,wasteIds:[],openIds:[]};
+  d.forEach(function(x){
+    if(x.diff<0){ var wid=uid(); db.waste.push({id:wid,date:date,whId:x.whId,itemId:x.itemId,units:_wcR3(-x.diff),reason:'عجز جرد',uid:ME.id,ts:nowTs()}); op.wasteIds.push(wid); }
+    else { var oid=uid(); db.openingStock.push({id:oid,date:date,whId:x.whId,itemId:x.itemId,units:_wcR3(x.diff),uw:(x.bk?1:_wcR3(x.wPerU)),basis:(x.bk?'kg':'unit'),price:_wcR3(x.perU),total:_wcR3(x.diff*x.perU),reason:'زيادة جرد (تصحيح رصيد)',uid:ME.id,ts:nowTs()}); op.openIds.push(oid); }
+  });
+  db.settings.stockCountLog=db.settings.stockCountLog||[]; db.settings.stockCountLog.unshift(op);
+  if(db.settings.stockCountLog.length>10) db.settings.stockCountLog=db.settings.stockCountLog.slice(0,10);
+  scExtraRows=[];
+  log('data','المخزون','تسوية جرد فعلي بتاريخ '+date+' — عجز '+num(shortV)+' وزيادة '+num(surV)+' ('+d.length+' صنف)');
+  refreshLedger(); commit('تمت تسوية الجرد — المخزون والتقارير محدّثة');
+  var box=document.getElementById('sc_preview'); if(box) box.innerHTML='<div class="note" style="border-right-color:var(--leaf-dark)">✅ تمت التسوية: عجز '+money(shortV)+' وزيادة '+money(surV)+'. يمكنك التراجع من «سجل الجرد» أدناه.</div>';
+  renderStockCountUI();
+}
+function renderStockCountLog(){
+  var box=document.getElementById('sc_log'); if(!box) return;
+  var lg=db.settings.stockCountLog||[];
+  if(!lg.length){ box.innerHTML=''; return; }
+  var rows=lg.map(function(op){
+    return '<tr><td>'+esc(op.when||'—')+'</td><td>'+(op.count||0)+' صنف</td><td class="neg">'+money(op.shortageVal||0)+'</td><td class="pos">'+money(op.surplusVal||0)+'</td><td class="name muted">'+esc(op.by||'')+'</td><td><button class="btn-sm" onclick="restoreStockCount(\''+op.id+'\')">تراجع</button></td></tr>';
+  }).join('');
+  box.innerHTML='<div class="sec-title" style="margin-top:6px">سجل الجرد <span class="hint">للتراجع عن التسوية</span></div>'
+    +'<div class="table-scroll"><table><thead><tr><th>التاريخ</th><th>الأصناف</th><th>عجز</th><th>زيادة</th><th class="name">نفّذها</th><th>إجراء</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
+}
+function restoreStockCount(opId){
+  if(!guard('canEdit')) return;
+  var lg=db.settings.stockCountLog||[], op=lg.filter(function(o){return o.id===opId;})[0];
+  if(!op){ toast('التسوية غير موجودة'); return; }
+  if(!confirm('التراجع عن تسوية الجرد بتاريخ '+op.when+'؟ ستُحذف حركات العجز/الزيادة الناتجة عنها.')) return;
+  var wi=op.wasteIds||[], oi=op.openIds||[];
+  db.waste=db.waste.filter(function(w){ return wi.indexOf(w.id)<0; });
+  db.openingStock=db.openingStock.filter(function(o){ return oi.indexOf(o.id)<0; });
+  db.settings.stockCountLog=lg.filter(function(o){return o.id!==opId;});
+  log('data','المخزون','تراجع عن تسوية جرد بتاريخ '+op.when);
+  refreshLedger(); commit('تم التراجع عن تسوية الجرد');
+  renderStockCountUI();
 }
 function updateNsSummary(){
   var sum=0; db.warehouses.forEach(function(w){ sum+=fnum('ns_pct_'+w.id); });
