@@ -692,6 +692,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
   <div class="panel-title">أرصدة المخزون <span class="hint">التقييم بمتوسط التكلفة المرجح لكل مستودع</span></div>
   <div id="stockWarn"></div>
   <div class="filters no-print">
+    <div class="field"><label>الرصيد كما في نهاية شهر <span class="hint">افتراضياً الشهر الحالي</span></label><input type="month" id="st_month" onchange="renderStock()"></div>
     <div class="field"><label>المستودع</label><select id="st_wh" onchange="renderStock()"></select></div>
     <div class="field"><label>الصنف</label><select id="st_item" onchange="renderStock()"></select></div>
     <button class="btn" onclick="exportTable('stock')">تصدير Excel</button>
@@ -1008,13 +1009,15 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
       <div class="field"><label>أجرة العمالة للوحدة</label><input type="number" id="bm_labor" step="0.001" min="0" placeholder="0.75"></div>
       <div class="field" style="min-width:180px"><label>ملاحظة</label><input type="text" id="bm_note" placeholder="اختياري"></div>
     </div>
-    <div class="field"><label>المكوّنات (خام + تعبئة) — الكمية لكل وحدة ناتجة + نسبة الهدر %</label><div id="bm_compBox"></div>
-      <button class="btn btn-sm" onclick="bmAddComp()">➕ إضافة مكوّن</button></div>
+    <div class="field"><label>مكوّنات من المخزون (خام + تعبئة تُخصم فعلياً) — الكمية لكل وحدة ناتجة (تقبل الكسور مثل 3.5) + نسبة الهدر %</label><div id="bm_compBox"></div>
+      <button class="btn btn-sm" onclick="bmAddComp()">➕ إضافة مكوّن من المخزون</button></div>
+    <div class="field"><label>تكاليف ثابتة للوحدة الواحدة <span class="hint">مبلغ لكل كيس/وحدة تامة (كيس فارغ، رول تغليف، مصروف تعبئة…) — تُحمَّل على تكلفة المنتج دون خصم من المخزون</span></label><div id="bm_fixedBox"></div>
+      <button class="btn btn-sm" onclick="bmAddFixed()">➕ إضافة تكلفة ثابتة للوحدة</button></div>
     <div class="form-foot"><button class="btn-main" onclick="saveBom()">حفظ القائمة</button>
       <button class="btn" onclick="cancelBom()">إلغاء</button><span class="editing-note" id="bm_editing"></span></div>
   </div>
   <div class="table-scroll"><table>
-    <thead><tr><th class="name">القائمة</th><th class="name">الصنف التام</th><th class="name">المكوّنات</th><th>أجرة الوحدة</th><th>إجراء</th></tr></thead>
+    <thead><tr><th class="name">القائمة</th><th class="name">الصنف التام</th><th class="name">المكوّنات والتكاليف الثابتة</th><th>ثابتة+أجرة/وحدة</th><th>إجراء</th></tr></thead>
     <tbody id="tbBoms"></tbody></table></div>
 
   <div class="sec-title">٢) أوامر التغليف (الإنتاج)</div>
@@ -1614,7 +1617,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-08-m';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-08-n';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -2247,9 +2250,9 @@ function buildLedger(){
         consumed+=g.cost;
         moves.push({date:r.date,whId:wh,itemId:l.itemId,type:'استهلاك تغليف',ref:'#'+r.id,party:'إنتاج',inU:0,outU:need,val:g.cost});
       });
-      var addC=(+r.laborTotal||0)+(+r.manualTotal||0), total=consumed+addC;
+      var addC=(+r.laborTotal||0)+(+r.fixedTotal||0)+(+r.manualTotal||0), total=consumed+addC;
       put(r.whId,r.finishedItemId,+r.qty||0,total,+r.outputWeight||0);
-      prodCost[r.id]={consumed:round2(consumed),labor:+r.laborTotal||0,manual:+r.manualTotal||0,total:round2(total),unit:(r.qty>0?total/r.qty:0)};
+      prodCost[r.id]={consumed:round2(consumed),labor:+r.laborTotal||0,fixed:+r.fixedTotal||0,manual:+r.manualTotal||0,total:round2(total),unit:(r.qty>0?total/r.qty:0)};
       moves.push({date:r.date,whId:r.whId,itemId:r.finishedItemId,type:'إنتاج تام',ref:'#'+r.id,party:'تغليف',inU:+r.qty||0,outU:0,val:round2(total)});
     } else if(e.t===3){
       var g=take(r.from,r.itemId,+r.units||0);
@@ -2451,6 +2454,12 @@ function inPartyScope(kind,pid){
 function setDefaults(){
   ['p_date','s_date','r_date','t_date','w_date','e_date','pay_date','os_date','it2_date'].forEach(function(id){ if(!val(id)) setVal(id,today()); });
   ['p_vatrate','s_vatrate','r_vatrate'].forEach(function(id){ if(!val(id)) setVal(id,vatRate()); });
+  /* الملخص والمخزون يفتحان على الشهر الحالي افتراضياً (قابل للتغيير) */
+  var cm=curMonth();
+  if(!val('st_month')) setVal('st_month',cm);
+  if(!val('f_from')&&!val('f_to')&&!val('f_month_dash')){
+    var r=monthRangeOf(cm+'-01'); setVal('f_month_dash',cm); setVal('f_from',r.from); setVal('f_to',r.to);
+  }
 }
 
 /* ==========================================================================
@@ -3302,17 +3311,19 @@ function saveBom(){
   var n=val('bm_name').trim(); if(!n){ toast('أدخل اسم القائمة'); return; }
   var fi=+val('bm_finished'); if(!fi){ toast('اختر الصنف التام'); return; }
   var comps=bmComps.filter(function(c){return c.itemId&&+c.qty>0;}).map(function(c){return {itemId:+c.itemId,qtyPerUnit:+c.qty,wastePct:+c.waste||0};});
-  if(!comps.length){ toast('أضف مكوّناً واحداً على الأقل (خام/تعبئة)'); return; }
-  var rec={id:editId.bom||uid(),name:n,finishedItemId:fi,laborRate:fnum('bm_labor'),components:comps,note:val('bm_note').trim(),active:1};
+  var fixed=bmFixed.filter(function(f){return (f.name||'').trim()&&+f.amount>0;}).map(function(f){return {name:(f.name||'').trim(),amount:+f.amount};});
+  if(!comps.length&&!fixed.length&&!fnum('bm_labor')){ toast('أضف مكوّناً من المخزون أو تكلفة ثابتة أو أجرة عمالة'); return; }
+  var rec={id:editId.bom||uid(),name:n,finishedItemId:fi,laborRate:fnum('bm_labor'),components:comps,fixedCosts:fixed,note:val('bm_note').trim(),active:1};
   if(editId.bom){ var i=db.boms.findIndex(function(x){return x.id===editId.bom;}); if(i>=0){ rec.active=db.boms[i].active; db.boms[i]=rec; } log('edit','الإنتاج','تعديل قائمة مكوّنات '+n); }
   else { db.boms.push(rec); log('add','الإنتاج','قائمة مكوّنات '+n); }
   cancelBom(); commit('تم حفظ القائمة');
 }
-var bmComps=[];
-function cancelBom(){ editId.bom=null; bmComps=[]; ['bm_name','bm_labor','bm_note'].forEach(function(id){setVal(id,'');}); var n=document.getElementById('bm_editing'); if(n)n.textContent=''; renderBomForm(); }
+var bmComps=[], bmFixed=[];
+function cancelBom(){ editId.bom=null; bmComps=[]; bmFixed=[]; ['bm_name','bm_labor','bm_note'].forEach(function(id){setVal(id,'');}); var n=document.getElementById('bm_editing'); if(n)n.textContent=''; renderBomForm(); }
 function editBom(id){ if(!guard('canEdit'))return; var b=byId(db.boms,id); if(!b)return;
   editId.bom=id; setVal('bm_name',b.name); setVal('bm_finished',b.finishedItemId); setVal('bm_labor',b.laborRate||0); setVal('bm_note',b.note||'');
   bmComps=(b.components||[]).map(function(c){return {itemId:c.itemId,qty:c.qtyPerUnit,waste:c.wastePct||0};});
+  bmFixed=(b.fixedCosts||[]).map(function(f){return {name:f.name,amount:f.amount};});
   var n=document.getElementById('bm_editing'); if(n)n.textContent='وضع التعديل — قائمة مكوّنات';
   showTab('prod'); renderBomForm(); var fb=document.getElementById('bomFormBox'); if(fb) fb.scrollIntoView({behavior:'smooth',block:'center'});
 }
@@ -3324,24 +3335,39 @@ function delBom(id){ if(!guard('canDelete'))return; var b=byId(db.boms,id); if(!
 function bmAddComp(){ bmComps.push({itemId:'',qty:'',waste:0}); renderBomForm(); }
 function bmDelComp(i){ bmComps.splice(i,1); renderBomForm(); }
 function bmSetComp(i,f,v){ if(bmComps[i]) bmComps[i][f]=v; }
+function bmAddFixed(){ bmFixed.push({name:'',amount:''}); renderBomForm(); }
+function bmDelFixed(i){ bmFixed.splice(i,1); renderBomForm(); }
+function bmSetFixed(i,f,v){ if(bmFixed[i]) bmFixed[i][f]=v; }
 function renderBomForm(){
   var box=document.getElementById('bm_compBox'); if(!box) return;
   var itemOpts=function(sel){ return '<option value="">— اختر —</option>'+db.items.map(function(it){return '<option value="'+it.id+'"'+(+sel===it.id?' selected':'')+'>'+esc(it.name)+'</option>';}).join(''); };
   box.innerHTML=bmComps.map(function(c,i){
     return '<div class="inline-add" style="margin-bottom:6px;gap:6px;flex-wrap:wrap">'
       +'<select onchange="bmSetComp('+i+',\'itemId\',this.value)" style="min-width:160px">'+itemOpts(c.itemId)+'</select>'
-      +'<input type="number" step="0.001" min="0" placeholder="الكمية/وحدة" value="'+(c.qty!==''&&c.qty!=null?c.qty:'')+'" oninput="bmSetComp('+i+',\'qty\',this.value)" style="width:110px">'
+      +'<input type="number" step="0.001" min="0" placeholder="الكمية/وحدة (كسور مقبولة)" value="'+(c.qty!==''&&c.qty!=null?c.qty:'')+'" oninput="bmSetComp('+i+',\'qty\',this.value)" style="width:150px">'
       +'<input type="number" step="0.1" min="0" placeholder="هدر %" value="'+(c.waste||0)+'" oninput="bmSetComp('+i+',\'waste\',this.value)" style="width:90px" title="نسبة الهدر/الفرز">'
       +'<button class="btn btn-sm btn-del" onclick="bmDelComp('+i+')">×</button></div>';
-  }).join('')||'<span class="muted">لا مكوّنات — أضف الخام والتعبئة.</span>';
+  }).join('')||'<span class="muted">لا مكوّنات — أضف الخام والتعبئة من المخزون.</span>';
+  var fbox=document.getElementById('bm_fixedBox'); if(!fbox) return;
+  fbox.innerHTML=bmFixed.map(function(f,i){
+    return '<div class="inline-add" style="margin-bottom:6px;gap:6px;flex-wrap:wrap">'
+      +'<input type="text" placeholder="البند (كيس فارغ/رول تغليف/أجور…)" value="'+esc(f.name||'')+'" oninput="bmSetFixed('+i+',\'name\',this.value)" style="min-width:200px">'
+      +'<input type="number" step="0.001" min="0" placeholder="مبلغ/وحدة (مثل 0.35)" value="'+(f.amount!==''&&f.amount!=null?f.amount:'')+'" oninput="bmSetFixed('+i+',\'amount\',this.value)" style="width:150px">'
+      +'<button class="btn btn-sm btn-del" onclick="bmDelFixed('+i+')">×</button></div>';
+  }).join('')||'<span class="muted">لا تكاليف ثابتة للوحدة — أضف كيس فارغ/رول/أجور مقطوعة لكل وحدة.</span>';
 }
+/* إجمالي التكاليف الثابتة للوحدة في قائمة (مبلغ لكل وحدة تامة) */
+function bomFixedPerUnit(b){ var s=0; (b&&b.fixedCosts||[]).forEach(function(f){ s+=+f.amount||0; }); return s; }
 function renderBoms(){
   var full=can('opaccounts')||can('reports');
   fillSelect('bm_finished', '<option value="">— الصنف التام —</option>'+db.items.map(function(it){return '<option value="'+it.id+'">'+esc(it.name)+'</option>';}).join(''), true);
   var h=(db.boms||[]).map(function(b){
     var comps=(b.components||[]).map(function(c){return esc(itemName(c.itemId))+' ('+qty(c.qtyPerUnit)+(c.wastePct?' +'+num(c.wastePct)+'%':'')+')';}).join('، ');
+    var fx=(b.fixedCosts||[]).map(function(f){return esc(f.name)+' '+money(f.amount);}).join('، ');
+    if(fx) comps+=(comps?' | ':'')+'ثابتة/وحدة: '+fx;
+    var perUnitFixed=(b.laborRate||0)+bomFixedPerUnit(b);
     return '<tr><td class="name"><b>'+esc(b.name)+'</b></td><td class="name">'+esc(itemName(b.finishedItemId))+'</td>'
-      +'<td class="name muted">'+comps+'</td><td>'+money(b.laborRate||0)+'</td>'
+      +'<td class="name muted">'+comps+'</td><td>'+money(perUnitFixed)+'</td>'
       +'<td>'+((can('canEdit')?'<button class="btn-sm" onclick="editBom('+b.id+')">تعديل</button> ':'')+(can('canDelete')?'<button class="btn-sm btn-del" onclick="delBom('+b.id+')">حذف</button>':''))+'</td></tr>';
   }).join('');
   document.getElementById('tbBoms').innerHTML=h||'<tr><td colspan="5" class="empty">لا توجد قوائم مكوّنات.</td></tr>';
@@ -3366,17 +3392,19 @@ function prComputed(){
   var lines=(b.components||[]).map(function(c){ return {itemId:c.itemId,whId:whId,units:round2(qty*(+c.qtyPerUnit||0)*(1+(+c.wastePct||0)/100))}; });
   var rawCost=0; lines.forEach(function(l){ rawCost+=itemAvgUnitCost(l.itemId)*l.units; });
   var laborRate=fnum('pr_laborRate'), laborTotal=round2(qty*laborRate);
+  var fixedPerUnit=bomFixedPerUnit(b), fixedTotal=round2(qty*fixedPerUnit);   /* تكاليف ثابتة للوحدة (كيس/رول/أجور مقطوعة) */
   var manualTotal=0; prManual.forEach(function(m){ manualTotal+=+m.amount||0; }); manualTotal=round2(manualTotal);
   var oh=overheadRate(val('pr_date')?val('pr_date').slice(0,7):curMonth()), overheadTotal=round2(qty*oh);
-  var varTotal=round2(rawCost+laborTotal+manualTotal), compTotal=round2(varTotal+overheadTotal);
-  return {b:b,qty:qty,whId:whId,lines:lines,rawCost:round2(rawCost),laborRate:laborRate,laborTotal:laborTotal,manualTotal:manualTotal,
+  var varTotal=round2(rawCost+laborTotal+fixedTotal+manualTotal), compTotal=round2(varTotal+overheadTotal);
+  return {b:b,qty:qty,whId:whId,lines:lines,rawCost:round2(rawCost),laborRate:laborRate,laborTotal:laborTotal,
+    fixedPerUnit:fixedPerUnit,fixedTotal:fixedTotal,fixedCosts:(b.fixedCosts||[]),manualTotal:manualTotal,
     overheadRate:oh,overheadTotal:overheadTotal,varTotal:varTotal,varUnit:(qty>0?varTotal/qty:0),compTotal:compTotal,compUnit:(qty>0?compTotal/qty:0)};
 }
 function prPreview(){
   var el=document.getElementById('pr_preview'); if(!el) return;
   var c=prComputed(); if(!c){ el.style.display='none'; return; }
   el.style.display='';
-  el.innerHTML='الخام والتعبئة: <b>'+money(c.rawCost)+'</b> · عمالة: <b>'+money(c.laborTotal)+'</b> · يدوية: <b>'+money(c.manualTotal)+'</b>'
+  el.innerHTML='الخام والتعبئة (من المخزون): <b>'+money(c.rawCost)+'</b> · تكاليف ثابتة للوحدة: <b>'+money(c.fixedTotal)+'</b> ('+money(c.fixedPerUnit)+'/وحدة) · عمالة: <b>'+money(c.laborTotal)+'</b> · يدوية: <b>'+money(c.manualTotal)+'</b>'
     +' → تكلفة الإنتاج (متغيّرة): <b>'+money(c.varTotal)+'</b> ('+money(c.varUnit)+'/وحدة)'
     +(c.overheadRate>0?(' · تحميل ثابت: '+money(c.overheadTotal)+' → <b>التكلفة الشاملة '+money(c.compUnit)+'/وحدة</b>'):'')
     +'. <span class="muted">يُستهلك الخام/التعبئة من المخزون ويُضاف '+qty(c.qty)+' من «'+esc(itemName(c.b.finishedItemId))+'».</span>';
@@ -3388,6 +3416,7 @@ function saveProduction(){
   var workerAccId=+val('pr_worker')||null;
   var rec={id:editId.pr||uid(),date:val('pr_date')||today(),whId:c.whId,bomId:c.b.id,finishedItemId:c.b.finishedItemId,
     qty:c.qty,outputWeight:round2(c.qty*(itemUW(c.b.finishedItemId)||0)),laborRate:c.laborRate,laborTotal:c.laborTotal,
+    fixedPerUnit:c.fixedPerUnit,fixedTotal:c.fixedTotal,fixedCosts:c.fixedCosts,
     workerAccId:workerAccId,manual:prManual.filter(function(m){return +m.amount>0;}).map(function(m){return {desc:(m.desc||'').trim(),amount:+m.amount};}),
     manualTotal:c.manualTotal,overheadRate:c.overheadRate,overheadTotal:c.overheadTotal,lines:c.lines,note:val('pr_note').trim(),uid:ME.id,ts:nowTs()};
   /* أجور التغليف: تُقيَّد على حساب العامل (استحقاق مرسمَل cap=1 حتى لا تُصرَف مرتين — هي ضمن تكلفة الصنف) */
@@ -4180,6 +4209,18 @@ function financialAdvice(from,to){
   var stItems={},staleVal=0; Object.keys(stkAsOf).forEach(function(k){ var s=stkAsOf[k]; if(s.units>0.0001&&!sold[s.itemId]){ stItems[s.itemId]=1; staleVal+=s.cost; } });
   var nStale=Object.keys(stItems).length;
   if(nStale) A.push({level:'tip',title:'مخزون راكد ('+nStale+' صنف)',text:'أصناف عليها رصيد بقيمة '+money(staleVal)+' دون أي مبيعات في الفترة — رأس مال مجمّد. فكّر بعروض/خصومات لتصريفها قبل تلفها.'});
+  /* المنتجات التامة/المعبأة الجاهزة للبيع (مخرجات قوائم المكوّنات) */
+  var finItems={}; (db.boms||[]).forEach(function(b){ finItems[b.finishedItemId]=1; });
+  var finVal=0,finQty={},finSold={};
+  Object.keys(stkAsOf).forEach(function(k){ var s=stkAsOf[k]; if(finItems[s.itemId]&&s.units>0.0001){ finVal+=s.cost; finQty[s.itemId]=(finQty[s.itemId]||0)+s.units; } });
+  db.sales.forEach(function(sl){ if(inP(sl.date))(sl.lines||[]).forEach(function(l){ if(finItems[l.itemId]) finSold[l.itemId]=(finSold[l.itemId]||0)+(+l.units||0); }); });
+  var finList=Object.keys(finQty);
+  if(finList.length){
+    var topF=finList.map(function(id){return {id:+id,u:finQty[id]};}).sort(function(a,b){return b.u-a.u;});
+    A.push({level:'good',title:'منتجات معبأة جاهزة للبيع ('+finList.length+' صنف)',text:'قيمة المخزون التام الجاهز '+money(finVal)+' — '+topF.slice(0,5).map(function(x){return itemName(x.id)+': '+qty(x.u);}).join('، ')+'. بضاعة قابلة للبيع فوراً؛ راقب تصريفها قبل تلفها.'});
+  }
+  var finOut=[]; Object.keys(finSold).forEach(function(id){ if((finQty[id]||0)<0.0001) finOut.push(+id); });
+  if(finOut.length) A.push({level:'warn',title:'منتجات معبأة نفدت وعليها طلب ('+finOut.length+')',text:finOut.slice(0,5).map(function(id){return itemName(id);}).join('، ')+'. بيعت خلال الفترة ولا رصيد جاهز الآن — جهّز أمر تغليف جديد لتلبية الطلب.'});
   /* رصيد سالب */
   var neg=[]; Object.keys(stkAsOf).forEach(function(k){ var s=stkAsOf[k]; if(s.units<-0.001) neg.push(itemName(s.itemId)+' @ '+whName(s.whId)); });
   if(neg.length) A.push({level:'danger',title:'رصيد مخزون سالب',text:'بيع أكثر من المتاح في: '+neg.slice(0,5).join('، ')+'. صحّح بإدخال المشتريات/المخزون الافتتاحي الناقص حتى تكون التكلفة دقيقة.'});
@@ -4489,18 +4530,23 @@ function renderReturns(){
 
 function renderStock(){
   var fw=val('st_wh'), fi=val('st_item');
-  var keys=Object.keys(L.stock).filter(function(k){
-    var s=L.stock[k];
+  /* الرصيد كما في نهاية الشهر المختار (افتراضياً الحالي = الرصيد الآني) */
+  var mo=val('st_month'), cur=curMonth();
+  var asOf=(mo&&mo<cur)?monthRangeOf(mo+'-01').to:null;
+  var ST=asOf?stockAsOf(asOf):L.stock;
+  var wtOf=function(s){ if(!asOf) return s.weight; return itemByKg(s.itemId)?s.units:s.units*(itemUW(s.itemId)||0); };
+  var keys=Object.keys(ST).filter(function(k){
+    var s=ST[k];
     if(Math.abs(s.units)<0.001&&Math.abs(s.cost)<0.01) return false;
     if(fw&&s.whId!==+fw) return false;
     if(fi&&s.itemId!==+fi) return false;
     return true;
   });
-  keys.sort(function(a,b){ var x=L.stock[a],y=L.stock[b];
+  keys.sort(function(a,b){ var x=ST[a],y=ST[b];
     return whName(x.whId)===whName(y.whId)?(itemName(x.itemId)<itemName(y.itemId)?-1:1):(whName(x.whId)<whName(y.whId)?-1:1); });
   var h='',tot=0,totW=0,low=0;
   keys.forEach(function(k){
-    var s=L.stock[k], avg=s.units>0?s.cost/s.units:0, avgK=s.weight>0?s.cost/s.weight:0;
+    var s=ST[k]; s.weight=wtOf(s); var avg=s.units>0?s.cost/s.units:0, avgK=s.weight>0?s.cost/s.weight:0;
     var it=byId(db.items,s.itemId), isLow=it&&it.min>0&&s.units<it.min;
     if(isLow) low++;
     tot+=s.cost; totW+=s.weight;
