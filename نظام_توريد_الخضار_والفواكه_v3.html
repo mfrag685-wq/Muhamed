@@ -1432,6 +1432,8 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
     <div class="inline-add"><input type="text" id="newDeptName" placeholder="اسم قسم جديد (مثل: أعشاب)" style="flex:1">
       <button class="btn btn-sm" onclick="addDepartment()">➕ إضافة قسم</button></div>
   </div>
+  <div class="note" style="border-right-color:var(--citrus);margin-top:10px">🎓 <b>مثال حيّ للتعلّم:</b> أنشئ قسماً تجريبياً مستقلاً يحتوي دورة عمل كاملة (شراء خام ومواد تعبئة ← أمر تغليف بالعدد ← نقل للفروع ← بيع ← خصم ومصروفات موزّعة ← تحميل ثابت ونقطة تعادل ← حساب عامل وسيارة). <b>لا يمسّ بياناتك الحقيقية</b>، واحذفه متى شئت.
+    <div style="margin-top:8px"><button class="btn btn-sm" onclick="loadLiveDemo()">🚀 تحميل مثال حيّ (قسم تجريبي)</button></div></div>
   <input type="file" id="deptImgFile" accept="image/*" class="hidden" onchange="uploadDeptImage(event)">
 
   <div class="sec-title">توحيد بيانات الأقسام <span class="hint">عند اختلاط البيانات بين قسمين</span></div>
@@ -1608,7 +1610,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-08-g';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-08-h';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -2184,7 +2186,7 @@ function buildLedger(){
     }
     if(need>0.0001){
       cost+=need*fbCost(itemId);
-      warn.push(label+' '+date+': كمية '+itemName(itemId)+' تتجاوز رصيد '+whName(whId)+' — قُدّرت تكلفة '+qty(need)+' وحدة بمتوسط الشراء.');
+      warn.push({date:date,text:label+' '+date+': كمية '+itemName(itemId)+' تتجاوز رصيد '+whName(whId)+' — قُدّرت تكلفة '+qty(need)+' وحدة بمتوسط الشراء.'});
     }
     return cost;
   }
@@ -2237,7 +2239,7 @@ function buildLedger(){
       (r.lines||[]).forEach(function(l){
         var wh=l.whId||r.whId, need=+l.units||0, g=take(wh,l.itemId,need);
         if(g.taken<need-0.001){ var est=(need-g.taken)*fbCost(l.itemId); g.cost+=est;
-          warn.push('أمر تغليف '+r.date+': رصيد '+itemName(l.itemId)+' في '+whName(wh)+' غير كافٍ — قُدّر العجز بمتوسط الشراء.'); }
+          warn.push({date:r.date,text:'أمر تغليف '+r.date+': رصيد '+itemName(l.itemId)+' في '+whName(wh)+' غير كافٍ — قُدّر العجز بمتوسط الشراء.'}); }
         consumed+=g.cost;
         moves.push({date:r.date,whId:wh,itemId:l.itemId,type:'استهلاك تغليف',ref:'#'+r.id,party:'إنتاج',inU:0,outU:need,val:g.cost});
       });
@@ -2247,7 +2249,7 @@ function buildLedger(){
       moves.push({date:r.date,whId:r.whId,itemId:r.finishedItemId,type:'إنتاج تام',ref:'#'+r.id,party:'تغليف',inU:+r.qty||0,outU:0,val:round2(total)});
     } else if(e.t===3){
       var g=take(r.from,r.itemId,+r.units||0);
-      if(g.taken<(+r.units||0)-0.001) warn.push('تحويل '+r.date+': رصيد '+itemName(r.itemId)+' في '+whName(r.from)+' غير كافٍ.');
+      if(g.taken<(+r.units||0)-0.001) warn.push({date:r.date,text:'تحويل '+r.date+': رصيد '+itemName(r.itemId)+' في '+whName(r.from)+' غير كافٍ.'});
       put(r.to,r.itemId,g.taken,g.cost,g.weight);
       moves.push({date:r.date,whId:r.from,itemId:r.itemId,type:'تحويل صادر',ref:'#'+r.id,party:whName(r.to),inU:0,outU:g.taken,val:g.cost});
       moves.push({date:r.date,whId:r.to,itemId:r.itemId,type:'تحويل وارد',ref:'#'+r.id,party:whName(r.from),inU:g.taken,outU:0,val:g.cost});
@@ -2265,8 +2267,8 @@ function buildLedger(){
       var need5=+r.units||0, g5=take(r.whId,r.itemId,need5), c2=g5.cost;
       if(g5.taken<need5-0.001){
         c2+=(need5-g5.taken)*fbCost(r.itemId);
-        warn.push('مرتجع شراء '+r.date+': رصيد '+itemName(r.itemId)+' في '+whName(r.whId)
-          +' لا يكفي لإرجاع '+qty(need5)+' وحدة — العجز '+qty(need5-g5.taken)+' وحدة.');
+        warn.push({date:r.date,text:'مرتجع شراء '+r.date+': رصيد '+itemName(r.itemId)+' في '+whName(r.whId)
+          +' لا يكفي لإرجاع '+qty(need5)+' وحدة — العجز '+qty(need5-g5.taken)+' وحدة.'});
       }
       prCost[r.id]=c2;
       moves.push({date:r.date,whId:r.whId,itemId:r.itemId,type:'مرتجع شراء',ref:'#'+r.id,party:supName(r.supplierId),
@@ -2276,8 +2278,8 @@ function buildLedger(){
       var need6=+r.units||0, g6=take(r.whId,r.itemId,need6), c3=g6.cost;
       if(g6.taken<need6-0.001){
         c3+=(need6-g6.taken)*fbCost(r.itemId);
-        warn.push('فاقد '+r.date+': رصيد '+itemName(r.itemId)+' في '+whName(r.whId)
-          +' لا يكفي لتسجيل '+qty(need6)+' وحدة — العجز '+qty(need6-g6.taken)+' وحدة.');
+        warn.push({date:r.date,text:'فاقد '+r.date+': رصيد '+itemName(r.itemId)+' في '+whName(r.whId)
+          +' لا يكفي لتسجيل '+qty(need6)+' وحدة — العجز '+qty(need6-g6.taken)+' وحدة.'});
       }
       wasteCost[r.id]=c3;
       moves.push({date:r.date,whId:r.whId,itemId:r.itemId,type:'فاقد',ref:'#'+r.id,party:r.reason||'',inU:0,outU:+r.units||0,val:c3});
@@ -2286,8 +2288,8 @@ function buildLedger(){
          والوارد يُدخِل بتكلفة اللحظة المُسجّلة على السند (سعر تحويل متفق) */
       if(e.dir==='out'){
         var need7=+r.units||0, g7=take(r.fromWh,r.fromItemId,need7);
-        if(g7.taken<need7-0.001) warn.push('تحويل لقسم '+deptName(r.toDept)+' '+r.date+': رصيد '
-          +itemName(r.fromItemId)+' في '+whName(r.fromWh)+' غير كافٍ — العجز '+qty(need7-g7.taken)+' وحدة.');
+        if(g7.taken<need7-0.001) warn.push({date:r.date,text:'تحويل لقسم '+deptName(r.toDept)+' '+r.date+': رصيد '
+          +itemName(r.fromItemId)+' في '+whName(r.fromWh)+' غير كافٍ — العجز '+qty(need7-g7.taken)+' وحدة.'});
         moves.push({date:r.date,whId:r.fromWh,itemId:r.fromItemId,type:'تحويل صادر لقسم',
           ref:'#'+r.id,party:deptName(r.toDept),inU:0,outU:g7.taken,val:g7.cost});
       } else {
@@ -4225,11 +4227,16 @@ function renderAdvisor(){
 var stockWarnExpanded=false;
 function stockWarnHtml(){
   if(!L||!L.warn||!L.warn.length) return '';
-  var list=stockWarnExpanded?L.warn:L.warn.slice(0,6);
+  /* اعرض فقط التنبيهات التي تخص الفترة المختارة (تاريخ الحركة داخل النطاق) */
+  var r=rg(), W=L.warn.filter(function(w){ return inRange((w&&w.date)||'', r.from, r.to); });
+  if(!W.length) return '';
+  var scoped=!!(r.from||r.to);
+  var list=stockWarnExpanded?W:W.slice(0,6);
+  var txt=function(w){ return esc((w&&w.text)||String(w)); };
   var more='';
-  if(L.warn.length>6) more='<br><a href="#" onclick="toggleStockWarn(event)" style="color:var(--leaf-dark);font-weight:800;cursor:pointer;text-decoration:none">'
-    +(stockWarnExpanded?'▲ عرض أقل':'▼ عرض الكل ('+L.warn.length+' تنبيه)')+'</a>';
-  return '<div class="alert"><b>تنبيهات المخزون ('+L.warn.length+')</b><br>'+list.map(esc).join('<br>')+more+'</div>';
+  if(W.length>6) more='<br><a href="#" onclick="toggleStockWarn(event)" style="color:var(--leaf-dark);font-weight:800;cursor:pointer;text-decoration:none">'
+    +(stockWarnExpanded?'▲ عرض أقل':'▼ عرض الكل ('+W.length+' تنبيه)')+'</a>';
+  return '<div class="alert"><b>تنبيهات المخزون ('+W.length+')'+(scoped?' — ضمن الفترة المحددة':'')+'</b><br>'+list.map(txt).join('<br>')+more+'</div>';
 }
 function toggleStockWarn(e){
   if(e&&e.preventDefault) e.preventDefault();
@@ -5977,6 +5984,83 @@ function addDepartment(){
   log('add','الإعدادات','إضافة قسم جديد: '+name);
   setVal('newDeptName','');
   commit('تمت إضافة القسم «'+name+'»'); updateDeptUI(); renderDeptImages();
+}
+/* ===== مثال حيّ: قسم تجريبي كامل يوضّح دورة العمل من الشراء إلى التعبئة والبيع =====
+   يُنشأ في قسم مستقل «قسم تجريبي» فلا يمسّ بياناتك الحقيقية إطلاقاً. */
+function buildLiveDemo(){
+  var d={name:'قسم تجريبي (مثال حيّ)'}; DEPT_BOOKS.forEach(function(k){ d[k]=[]; });
+  d.warehouses=[{id:100,name:'المستودع الرئيسي',clientId:null},
+                {id:200,name:'مستودع فرع الرياض',clientId:300},
+                {id:201,name:'مستودع فرع جدة',clientId:301}];
+  d.clients=[{id:300,name:'فرع الرياض',opening:0,openingDate:''},{id:301,name:'فرع جدة',opening:0,openingDate:''}];
+  d.suppliers=[{id:400,name:'مزرعة الوادي',opening:0,openingDate:''},{id:401,name:'مصنع العبوات',opening:0,openingDate:''}];
+  d.items=[
+    {id:1,name:'بطاطس سائب',unit:'كيلو',uw:1,byKg:1,min:0,active:1},
+    {id:2,name:'كيس فارغ 10كغ',unit:'كيس',uw:0,byKg:0,min:100,active:1},
+    {id:3,name:'خيط تغليف',unit:'بكرة',uw:0,byKg:0,min:5,active:1},
+    {id:4,name:'بطاطس معبأة 10كغ (تام)',unit:'كيس',uw:10,byKg:0,min:0,active:1},
+    {id:5,name:'طماطم',unit:'صندوق',uw:10,byKg:0,min:15,active:1}];
+  /* مشتريات: خام + مواد تعبئة + صنف متاجرة */
+  d.purchases=[
+    {id:501,no:'ش-1001',date:'2026-08-01',supplierId:400,paid:6000,vat:0,total:6000,weight:3000,note:'بطاطس سائب',uid:1,ts:'',
+     lines:[{itemId:1,unit:'كيلو',units:3000,uw:1,basis:'kg',price:2,total:6000,whId:100}]},
+    {id:502,no:'ش-1002',date:'2026-08-01',supplierId:401,paid:0,vat:0,total:600,weight:0,note:'عبوات وخيط',uid:1,ts:'',
+     lines:[{itemId:2,unit:'كيس',units:500,uw:0,basis:'unit',price:0.6,total:300,whId:100},
+            {itemId:3,unit:'بكرة',units:20,uw:0,basis:'unit',price:15,total:300,whId:100}]},
+    {id:503,no:'ش-1003',date:'2026-08-02',supplierId:400,paid:1800,vat:0,total:1800,weight:1000,note:'طماطم',uid:1,ts:'',
+     lines:[{itemId:5,unit:'صندوق',units:100,uw:10,basis:'unit',price:18,total:1800,whId:100}]}];
+  /* حسابات تشغيلية: عامل تعبئة + سيارة نقل */
+  d.opAccounts=[{id:900,type:'worker',name:'عامل التعبئة — سالم',plate:'',rate:1.5,opening:0,note:'أجرة 1.5 ريال/كيس',active:1},
+                {id:901,type:'vehicle',name:'سيارة نقل',plate:'أ ب ج 1234',rate:0,opening:0,note:'',active:1}];
+  /* قائمة مكوّنات: كيس بطاطس 10كغ تام = 10كغ سائب (هدر 5%) + كيس فارغ + 0.03 بكرة خيط ، أجرة 1.5/كيس */
+  d.boms=[{id:800,name:'تعبئة بطاطس 10كغ',finishedItemId:4,laborRate:1.5,note:'من السائب إلى كيس 10كغ',active:1,
+    components:[{itemId:1,qtyPerUnit:10,wastePct:5},{itemId:2,qtyPerUnit:1,wastePct:0},{itemId:3,qtyPerUnit:0.03,wastePct:0}]}];
+  /* تحميل ثابت شهري لأغسطس: 6000 ريال على حجم متوقع 300 كيس ⇒ 20/كيس */
+  d.overheadPeriods=[{id:600,month:'2026-08',items:[{name:'إيجار مصنع التعبئة',amount:4000},{name:'رواتب إشراف',amount:2000}],total:6000,expectedVolume:300,rate:20}];
+  /* أمر تغليف: إنتاج 200 كيس تام */
+  var prLines=[{itemId:1,whId:100,units:round2(200*10*1.05)},{itemId:2,whId:100,units:200},{itemId:3,whId:100,units:round2(200*0.03)}];
+  d.productions=[{id:700,date:'2026-08-03',whId:100,bomId:800,finishedItemId:4,qty:200,outputWeight:2000,
+    laborRate:1.5,laborTotal:300,workerAccId:900,manual:[{desc:'ثلج وتبريد',amount:100}],manualTotal:100,
+    overheadRate:20,overheadTotal:4000,lines:prLines,note:'دفعة أغسطس',uid:1,ts:''}];
+  /* أجرة التغليف مقيّدة على حساب العامل (مرسمَلة داخل تكلفة الكيس) */
+  d.opTxns=[{id:701,accId:900,date:'2026-08-03',kind:'charge',amount:300,qty:200,cost:'unit',cap:1,prodId:700,note:'أجور تغليف أمر #700',uid:1,ts:''},
+    /* نقل للفروع: تكلفة تشغيل (لا تُحمَّل على البضاعة) */
+    {id:910,accId:901,date:'2026-08-04',kind:'charge',amount:500,qty:0,cost:'',note:'نقل الشحنات للفروع',uid:1,ts:''},
+    {id:911,accId:901,date:'2026-08-12',kind:'pay',amount:300,qty:0,cost:'',note:'دفعة وقود',uid:1,ts:''},
+    {id:912,accId:900,date:'2026-08-15',kind:'pay',amount:200,qty:0,cost:'',note:'سحب من مستحقات العامل',uid:1,ts:''}];
+  /* تحويل التام والطماطم إلى مستودعات الفروع */
+  d.transfers=[
+    {id:601,date:'2026-08-04',itemId:4,from:100,to:200,units:90,note:'تغذية فرع الرياض',uid:1,ts:''},
+    {id:602,date:'2026-08-04',itemId:4,from:100,to:201,units:70,note:'تغذية فرع جدة',uid:1,ts:''},
+    {id:603,date:'2026-08-04',itemId:5,from:100,to:200,units:50,note:'طماطم الرياض',uid:1,ts:''},
+    {id:604,date:'2026-08-04',itemId:5,from:100,to:201,units:40,note:'طماطم جدة',uid:1,ts:''}];
+  /* مبيعات من مستودعات الفروع */
+  d.sales=[
+    {id:701,no:'ب-2001',date:'2026-08-05',clientId:300,recv:2500,vat:0,total:2880,weight:1200,note:'',uid:1,ts:'',
+     lines:[{itemId:4,unit:'كيس',units:80,uw:10,basis:'unit',price:22,total:1760,whId:200},
+            {itemId:5,unit:'صندوق',units:40,uw:10,basis:'unit',price:28,total:1120,whId:200}]},
+    {id:702,no:'ب-2002',date:'2026-08-06',clientId:301,recv:0,vat:0,total:2325,weight:1050,note:'',uid:1,ts:'',
+     lines:[{itemId:4,unit:'كيس',units:60,uw:10,basis:'unit',price:23,total:1380,whId:201},
+            {itemId:5,unit:'صندوق',units:35,uw:10,basis:'unit',price:27,total:945,whId:201}]}];
+  /* خصم تعاقدي (يُخصم من إيراد الفرع) */
+  d.discounts=[{id:31,date:'2026-08-31',clientId:300,amount:200,kind:'amount',note:'خصم كمية شهري',uid:1,ts:1}];
+  /* مصروفات: موزّعة على السنة (إيجار) + فورية + مباشرة لفرع */
+  d.expenses=[
+    {id:1001,date:'2026-08-01',desc:'إيجار سنوي مقدّم',cat:'إيجار',type:'shared',clientId:null,amount:3650,amortUnit:'day',amortCount:365,uid:1,ts:''},
+    {id:1002,date:'2026-08-31',desc:'كهرباء ومياه',cat:'كهرباء ومياه',type:'shared',clientId:null,amount:800,uid:1,ts:''},
+    {id:1003,date:'2026-08-31',desc:'راتب مندوب الرياض',cat:'رواتب',type:'direct',clientId:300,amount:1200,uid:1,ts:''}];
+  d.payments=[{id:1101,date:'2026-08-10',type:'supplier',partyId:400,amount:3000,method:'تحويل بنكي',note:'دفعة مورد',uid:1,ts:''}];
+  return d;
+}
+function loadLiveDemo(){
+  if(!guard('settings')) return;
+  if(!confirm('سيتم إنشاء قسم مستقل باسم «قسم تجريبي (مثال حيّ)» يحتوي دورة عمل كاملة (شراء ← تعبئة ← نقل ← بيع ← مصروفات وتكاليف). لن تتأثر بياناتك الحقيقية. يمكنك حذف القسم لاحقاً من إدارة الأقسام. متابعة؟')) return;
+  if(!db.departments) db.departments={};
+  db.departments.demo=buildLiveDemo();
+  log('add','الإعدادات','تحميل مثال حيّ في قسم تجريبي');
+  persist();
+  switchDept('demo');
+  toast('تم تحميل المثال الحيّ — أنت الآن في «قسم تجريبي». تصفّح الشاشات ثم احذف القسم عند الانتهاء.');
 }
 function deptIsEmpty(key){
   var d=db.departments[key]; if(!d) return true;
