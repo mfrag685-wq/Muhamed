@@ -1608,7 +1608,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-08-f';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-08-g';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -4104,9 +4104,27 @@ function renderAll(){
     : '<b>تنبيه:</b> المتصفح لا يسمح بالحفظ الدائم في هذا الوضع. احفظ الملف على جهازك وافتحه مباشرة، ونزّل نسخة احتياطية قبل الإغلاق.';
 }
 /* ===== المستشار المالي — تحليل وتنبيهات وحلول ===== */
+/* لقطة رصيد المخزون كما كانت في نهاية الفترة (to) — تُبنى من الحركات فتعكس الفترة المختارة.
+   فترة مفتوحة/تشمل اليوم ⇒ الرصيد الحالي. أصنافٌ صُفِّرت لا تظهر لها ملاحظات خارج فترتها. */
+function stockAsOf(to){
+  if(!L) refreshLedger();
+  if(!to||to>=today()) return L.stock;
+  var snap={};
+  (L.moves||[]).forEach(function(m){
+    if(m.date>to) return;
+    var k=m.whId+'|'+m.itemId, s=snap[k]||(snap[k]={whId:m.whId,itemId:m.itemId,units:0,cost:0});
+    s.units+=(+m.inU||0)-(+m.outU||0);
+    s.cost +=((+m.inU||0)>0?(+m.val||0):0)-((+m.outU||0)>0?(+m.val||0):0);
+  });
+  Object.keys(snap).forEach(function(k){ var s=snap[k];
+    if(Math.abs(s.units)<0.0001) s.units=0;
+    if(Math.abs(s.cost)<0.0001||s.units===0) s.cost=(s.units===0?0:round2(s.cost)); });
+  return snap;
+}
 function financialAdvice(from,to){
   var A=[], P=pnl(from,to), rows=P.rows;
   var inP=function(d){ return (!from||d>=from)&&(!to||d<=to); };
+  var stkAsOf=stockAsOf(to);   /* رصيد نهاية الفترة — لملاحظات المخزون */
   var netTot=0,gpTot=0,expTot=0,revTot=0,cogsTot=0;
   db.clients.forEach(function(c){ var x=rows[c.id]; if(!x) return; netTot+=x.net; gpTot+=x.gp; expTot+=x.exp; revTot+=x.net_rev; cogsTot+=x.cogs; });
   if(revTot>0.5||expTot>0.5){
@@ -4142,14 +4160,16 @@ function financialAdvice(from,to){
   if(AR>0.5) A.push({level:'tip',title:'ذمم لدى العملاء',text:'المستحق لك من العملاء '+money(AR)+(topC?('، أكبرها: '+topC.name+' ('+money(topC.bal)+')'):'')+'. تابع التحصيل لتحسين السيولة.'});
   /* مخزون راكد */
   var sold={}; db.sales.forEach(function(s){ if(inP(s.date))(s.lines||[]).forEach(function(l){ sold[l.itemId]=1; }); });
-  var stItems={},staleVal=0; Object.keys(L.stock).forEach(function(k){ var s=L.stock[k]; if(s.units>0.0001&&!sold[s.itemId]){ stItems[s.itemId]=1; staleVal+=s.cost; } });
+  var stItems={},staleVal=0; Object.keys(stkAsOf).forEach(function(k){ var s=stkAsOf[k]; if(s.units>0.0001&&!sold[s.itemId]){ stItems[s.itemId]=1; staleVal+=s.cost; } });
   var nStale=Object.keys(stItems).length;
   if(nStale) A.push({level:'tip',title:'مخزون راكد ('+nStale+' صنف)',text:'أصناف عليها رصيد بقيمة '+money(staleVal)+' دون أي مبيعات في الفترة — رأس مال مجمّد. فكّر بعروض/خصومات لتصريفها قبل تلفها.'});
   /* رصيد سالب */
-  var neg=[]; Object.keys(L.stock).forEach(function(k){ var s=L.stock[k]; if(s.units<-0.001) neg.push(itemName(s.itemId)+' @ '+whName(s.whId)); });
+  var neg=[]; Object.keys(stkAsOf).forEach(function(k){ var s=stkAsOf[k]; if(s.units<-0.001) neg.push(itemName(s.itemId)+' @ '+whName(s.whId)); });
   if(neg.length) A.push({level:'danger',title:'رصيد مخزون سالب',text:'بيع أكثر من المتاح في: '+neg.slice(0,5).join('، ')+'. صحّح بإدخال المشتريات/المخزون الافتتاحي الناقص حتى تكون التكلفة دقيقة.'});
   /* تحت حد الطلب */
-  var low=db.items.filter(function(i){ if(!(i.min>0)) return false; var u=0; Object.keys(L.stock).forEach(function(k){ if(L.stock[k].itemId===i.id) u+=L.stock[k].units; }); return u<i.min; });
+  var low=db.items.filter(function(i){ if(!(i.min>0)) return false; var u=0; Object.keys(stkAsOf).forEach(function(k){ if(stkAsOf[k].itemId===i.id) u+=stkAsOf[k].units; });
+    /* صنفٌ رصيده صفر بسبب تصفير/جرد (لا مبيعات في الفترة) لا يُنبّه لإعادة الطلب — فقط ما نفد ببيع فعلي أو ما زال منخفضاً */
+    return u<i.min && (u>0.0001||sold[i.id]); });
   if(low.length) A.push({level:'tip',title:'أصناف تحت حد الطلب ('+low.length+')',text:low.slice(0,6).map(function(i){return i.name;}).join('، ')+'. جهّز أمر شراء لتفادي نفاد المخزون.'});
   /* ضريبة مستحقة */
   var oV=0,iV=0; db.sales.forEach(function(s){ if(inP(s.date)) oV+=docVat(s); }); (db.sreturns||[]).forEach(function(r){ if(inP(r.date)) oV-=docVat(r); });
