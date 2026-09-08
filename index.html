@@ -1540,7 +1540,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-08-d';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-08-e';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -1704,8 +1704,11 @@ function ensureDbShape(){
   /* ترحيل صلاحية «عرض الملخص» (dash): من كان يرى التقارير كان يرى الملخص — نحافظ على وصوله */
   db.users.forEach(function(u){
     if(u&&u.perms&&u.perms.dash===undefined) u.perms.dash=!!u.perms.reports;
+    /* ترحيل صلاحية «الحسابات التشغيلية»: تُمنح للمدير/المشرف ولمن يملك «الحسابات» */
+    if(u&&u.perms&&u.perms.opaccounts===undefined) u.perms.opaccounts=(u.role==='admin'||u.role==='manager'||!!u.perms.accounts);
     if(u&&u.deptPerms) Object.keys(u.deptPerms).forEach(function(dk){
       var dp=u.deptPerms[dk]; if(dp&&dp.dash===undefined) dp.dash=!!dp.reports;
+      if(dp&&dp.opaccounts===undefined) dp.opaccounts=!!dp.accounts;
     });
   });
   /* ترحيل: إن لم توجد أقسام، تُنقل الدفاتر الحالية إلى «الفاكهة»، ويُنشأ «الخضار» فارغاً */
