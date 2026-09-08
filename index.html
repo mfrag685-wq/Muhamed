@@ -1610,7 +1610,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-08-i';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-08-j';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -7570,11 +7570,12 @@ var CLOUD_CONFIG={
 };
 var CLOUD_AUTH_MODE="accounts";   /* "accounts" (حساب لكل مستخدم) أو "anonymous" (مساحة مشتركة بسيطة) */
 var cloudReady=false, cloudRef=null, cloudPushTimer=null, cloudLastPushed='', cloudSecondary=null,
-    cloudInteractive=false, cloudAuthBusy=false;
+    cloudInteractive=false, cloudAuthBusy=false,
+    cloudDirty=false, cloudInflight=false, cloudRetry=0, cloudRetryTimer=null, cloudConnWatched=false;
 function setCloudStatus(state){
   var el=document.getElementById('cloudStatus'); if(!el) return;
   var map={off:['غير مفعّل','off'],auth:['بانتظار الدخول','connecting'],connecting:['يتصل…','connecting'],
-    ok:['متصل ☁','ok'],sync:['يُزامن…','sync'],err:['تعذّر الاتصال','err']};
+    ok:['متصل ☁','ok'],sync:['يُزامن…','sync'],pending:['بانتظار الرفع ⏳','sync'],err:['تعذّر الاتصال','err']};
   var m=map[state]||map.off; el.textContent=m[0]; el.className='cloud-status '+m[1];
 }
 function cloudEnabled(){ return !!(CLOUD_CONFIG&&CLOUD_CONFIG.apiKey&&typeof firebase!=='undefined'); }
@@ -7584,25 +7585,40 @@ function cloudWid(){ return CLOUD_CONFIG.workspaceId||'main'; }
 function synthEmail(username){ return 'u'+hash(String(username||'').toLowerCase())+'@'+cloudWid()+'.vegerp.app'; }
 function emailForUser(u){ return (u&&u.email)?u.email:synthEmail(u?u.username:''); }
 
-/* دفع نسخة كاملة من قاعدة البيانات إلى السحابة (مؤجَّل لتجميع الحفظات المتتابعة) */
+/* دفع نسخة كاملة من قاعدة البيانات إلى السحابة.
+   ذاتيّ التعافي: يرفع دائماً أحدث نسخة، ويعيد المحاولة تلقائياً عند الفشل
+   (تراجع أسّي) أو عند عودة الاتصال، فلا تضيع أي حركة والبيانات محفوظة محلياً دوماً. */
+function cloudFlush(){
+  if(!cloudReady||!cloudRef||cloudInflight||!cloudDirty) return;
+  cloudInflight=true; cloudDirty=false;
+  var s=JSON.stringify(serializeDB());   /* أحدث نسخة وقت الرفع فعلياً */
+  var data; try{ data=JSON.parse(s); }catch(e){ cloudInflight=false; return; }
+  setCloudStatus('sync');
+  var payload={data:data,updatedAt:firebase.database.ServerValue.TIMESTAMP,updatedBy:(ME?ME.name:'')};
+  cloudRef.set(payload).then(function(){
+    cloudInflight=false; cloudLastPushed=s; cloudRetry=0;
+    if(cloudDirty) cloudFlush();          /* وردت حركة أثناء الرفع → ارفعها */
+    else setCloudStatus('ok');
+  }).catch(function(){
+    /* فشل الرفع: البيانات محفوظة محلياً؛ أعِد المحاولة تلقائياً دون إزعاج */
+    cloudInflight=false; cloudDirty=true; setCloudStatus('pending');
+    cloudRetry=Math.min(cloudRetry+1,6);
+    clearTimeout(cloudRetryTimer);
+    cloudRetryTimer=setTimeout(cloudFlush, Math.min(1000*Math.pow(2,cloudRetry),30000));
+  });
+}
 function cloudPush(s){
   if(!cloudReady||!cloudRef) return;
-  s=s||JSON.stringify(serializeDB());
+  cloudDirty=true;
   clearTimeout(cloudPushTimer);
-  cloudPushTimer=setTimeout(function(){
-    var data; try{ data=JSON.parse(s); }catch(e){ return; }
-    cloudLastPushed=s; setCloudStatus('sync');
-    var payload={data:data,updatedAt:firebase.database.ServerValue.TIMESTAMP,updatedBy:(ME?ME.name:'')};
-    function attempt(tries){
-      cloudRef.set(payload)
-        .then(function(){ setCloudStatus('ok'); })
-        .catch(function(){
-          if(tries>0){ setCloudStatus('sync'); setTimeout(function(){ attempt(tries-1); },2500); }
-          else setCloudStatus('err');   /* البيانات محفوظة محلياً؛ ستُرفع عند عودة الاتصال أو الحفظ التالي */
-        });
-    }
-    attempt(2);
-  },600);
+  cloudPushTimer=setTimeout(cloudFlush,600);   /* تجميع الحفظات المتتابعة */
+}
+/* مراقبة الاتصال: عند عودته ارفع أي تغييرات معلّقة فوراً */
+function cloudWatchConnection(){
+  if(cloudConnWatched) return; cloudConnWatched=true;
+  try{ firebase.database().ref('.info/connected').on('value',function(c){
+    if(c.val()===true && cloudDirty){ cloudRetry=0; cloudFlush(); }
+  }); }catch(e){ cloudConnWatched=false; }
 }
 /* تطبيق بيانات وردت من السحابة على النسخة المحلية وإعادة العرض */
 function cloudApplyRemote(remote){
@@ -7624,6 +7640,7 @@ function cloudAttach(cb){
     if(v&&v.data&&Array.isArray(v.data.users)){ cloudApplyRemote(v.data); cloudReady=true; }
     else { cloudReady=true; cloudPush(JSON.stringify(serializeDB())); }
     setCloudStatus('ok');
+    cloudWatchConnection();   /* رفع تلقائي للمعلّق عند عودة الاتصال */
     cloudRef.on('value',function(s2){
       var val=s2.val(); if(!val||!val.data||!Array.isArray(val.data.users)) return;
       var rs=JSON.stringify(val.data);
@@ -7633,7 +7650,10 @@ function cloudAttach(cb){
     if(cb) cb();
   }).catch(function(err){ setCloudStatus('err'); if(cb) cb(err||true); });
 }
-function cloudDetach(){ if(cloudRef){ try{cloudRef.off();}catch(e){} } cloudReady=false; }
+function cloudDetach(){ if(cloudRef){ try{cloudRef.off();}catch(e){} }
+  try{ if(cloudConnWatched) firebase.database().ref('.info/connected').off(); }catch(e){}
+  cloudReady=false; cloudConnWatched=false; cloudInflight=false; cloudDirty=false;
+  clearTimeout(cloudPushTimer); clearTimeout(cloudRetryTimer); }
 
 /* ---------- وضع الحسابات: العضوية والتوفير والدخول ---------- */
 function cloudWriteMember(uid,u){
