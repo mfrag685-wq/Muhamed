@@ -1314,6 +1314,14 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
       <span class="mini">بجانب كل صنف عدد حركاته — للتأكد أين توجد الكميات قبل الدمج. «استعادة حركات مفقودة» تُرجع أي حركة فقدت صنفها.</span></div>
   </div>
 
+  <div class="sec-title">تشخيص أرصدة الأصناف <span class="hint">لماذا يظهر رصيد لصنف بِيع بالكامل؟</span></div>
+  <div class="note" style="border-right-color:var(--citrus)">يقارن لكل صنف <b>المشترى بالمُباع بالرصيد</b> ويكشف السبب: <b>تباين وزن العبوة</b> بين الشراء والبيع (السبب الأشيع للرصيد الوهمي)، أو <b>البيع من مستودع غير مستودع الشراء</b>، أو <b>رصيد سالب</b>. الأصناف المشبوهة تظهر أولاً.</div>
+  <div class="doc-box no-print">
+    <div class="form-foot"><button class="btn" onclick="renderItemDiag()">🔍 فحص الأصناف</button>
+      <span class="mini">بعد معرفة السبب: استخدم «تصحيح أوزان العبوات» أو «الجرد الفعلي» أدناه.</span></div>
+    <div id="itemDiagBox" style="margin-top:10px"></div>
+  </div>
+
   <div class="sec-title">تصحيح أوزان العبوات (خطأ إدخال الأوزان) <span class="hint">دون المساس بالمبلغ المدفوع</span></div>
   <div class="note" style="border-right-color:var(--citrus)">يُصحّح <b>وزن العبوة (الصندوق/الكيس)</b> في الحركات دون تغيير <b>المبلغ المدفوع</b> — فيُعاد حساب الكمية بالكيلو وتكلفة الكيلو بدقّة، ويختفي <b>المخزون الوهمي</b> الناتج عن أوزان مبالغ فيها. يعمل على أصناف <b>الكيلو</b> فقط. لا خسارة وهمية — فقط تصحيح القياس. <b>عاين قبل التطبيق، ونزّل نسخة احتياطية أولاً.</b></div>
   <div class="doc-box no-print" style="margin-top:10px">
@@ -1451,7 +1459,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-08-a';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-08-b';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -4838,6 +4846,47 @@ function renderStockResetUI(){
   var nwi=document.getElementById('nw_info');
   if(nwi) nwi.textContent='المخزون الحالي بقيمة '+money(totC)+' سيُحمَّل كفاقد/تالف.';
   renderWeightFixUI(); renderStockCountUI();
+}
+/* ===== تشخيص أرصدة الأصناف — يكشف سبب الرصيد الوهمي لكل صنف ===== */
+function renderItemDiag(){
+  var box=document.getElementById('itemDiagBox'); if(!box) return;
+  if(!L) refreshLedger();
+  var agg={};
+  function A(id){ if(!agg[id]) agg[id]={pU:0,pBox:0,pKg:0,sU:0,sBox:0,sKg:0,retK:0,wasteK:0}; return agg[id]; }
+  db.purchases.forEach(function(p){(p.lines||[]).forEach(function(l){ var o=A(l.itemId); o.pU+=+l.units||0; o.pBox+=+l.boxes||0; o.pKg+=(+l.units||0)*(+l.uw||0); });});
+  db.sales.forEach(function(s){(s.lines||[]).forEach(function(l){ var o=A(l.itemId); o.sU+=+l.units||0; o.sBox+=+l.boxes||0; o.sKg+=(+l.units||0)*(+l.uw||0); });});
+  db.sreturns.forEach(function(r){ var o=A(r.itemId); o.retK+=(+r.units||0)*(+r.uw||0); });
+  db.waste.forEach(function(w){ var o=A(w.itemId); o.wasteK+=+w.units||0; });
+  var rem={}, remWh={};
+  Object.keys(L.stock).forEach(function(k){ var s=L.stock[k]; rem[s.itemId]=(rem[s.itemId]||0)+s.units;
+    if(!remWh[s.itemId]) remWh[s.itemId]=[]; if(Math.abs(s.units)>0.0001) remWh[s.itemId].push({wh:s.whId,u:s.units,c:s.cost}); });
+  var rows=Object.keys(agg).map(function(id){ id=+id; var o=agg[id], it=byId(db.items,id), bk=!!(it&&it.byKg), sv=!!(it&&it.service);
+    var remU=rem[id]||0, whs=remWh[id]||[], flags=[], sev=0;
+    if(bk && o.pBox>0 && o.sBox>0){ var pw=o.pKg/o.pBox, sw=o.sKg/o.sBox;
+      if(Math.abs(pw-sw)>0.15){ flags.push('⚠ تباين وزن العبوة: شراء '+num(pw)+' كجم · بيع '+num(sw)+' كجم'); sev=3; } }
+    if(bk && o.pBox>0 && o.sBox>0 && Math.abs(o.pBox-o.sBox)<0.5 && Math.abs(remU)>1){
+      flags.push('بِيع نفس عدد العبوات المشتراة ('+qty(o.pBox)+') لكن يظهر رصيد '+qty(remU)+' كجم ← تباين أوزان'); sev=Math.max(sev,3); }
+    var hasPos=whs.some(function(x){return x.u>0.001;}), hasNeg=whs.some(function(x){return x.u<-0.001;});
+    if(hasPos&&hasNeg){ flags.push('رصيد موجب وسالب في مستودعات مختلفة ← بيع من غير مستودع الشراء'); sev=Math.max(sev,2); }
+    if(remU<-0.001){ flags.push('رصيد سالب '+qty(remU)+' ← بيع أكثر من المتاح'); sev=Math.max(sev,2); }
+    return {id:id,o:o,bk:bk,sv:sv,remU:remU,whs:whs,flags:flags,sev:sev};
+  });
+  rows.sort(function(a,b){ return b.sev-a.sev || Math.abs(b.remU)-Math.abs(a.remU); });
+  var ul=function(r){ return r.bk?'كجم':(r.sv?'عدد':'وحدة'); };
+  var h=rows.map(function(r){ var o=r.o;
+    var boughtTxt=r.bk?(qty(o.pBox)+' عبوة / '+qty(o.pKg)+' كجم'):(qty(o.pU)+' '+ul(r));
+    var soldTxt=r.bk?(qty(o.sBox)+' عبوة / '+qty(o.sKg)+' كجم'):(qty(o.sU)+' '+ul(r));
+    var whTxt=r.whs.map(function(x){return esc(whName(x.wh))+': '+qty(x.u);}).join(' · ')||'—';
+    var flagTxt=r.flags.length?r.flags.map(function(f){return '<div class="pill '+(r.sev>=3?'pill-bad':(r.sev>=2?'pill-warn':'pill-info'))+'" style="display:block;margin:2px 0;white-space:normal">'+esc(f)+'</div>';}).join(''):'<span class="pill pill-ok">سليم</span>';
+    return '<tr><td class="name"><b>'+esc(itemName(r.id))+'</b></td><td>'+boughtTxt+'</td><td>'+soldTxt+'</td>'
+      +'<td class="'+(Math.abs(r.remU)>0.001?(r.remU<0?'neg':'pos'):'muted')+'">'+qty(r.remU)+' '+ul(r)+'</td>'
+      +'<td class="name muted" style="font-size:11px">'+whTxt+'</td><td class="name">'+flagTxt+'</td></tr>';
+  }).join('');
+  var nSusp=rows.filter(function(r){return r.sev>0;}).length;
+  box.innerHTML='<div class="note '+(nSusp?'':'no-print')+'" style="border-right-color:'+(nSusp?'var(--tomato)':'var(--leaf-dark)')+'">'
+    +(nSusp?('عُثر على <b>'+nSusp+'</b> صنف بأرصدة مشبوهة (تظهر أولاً بالأحمر). عالجها بأداة «تصحيح أوزان العبوات» أو «الجرد الفعلي».'):'كل الأصناف سليمة — لا أرصدة مشبوهة. ✅')+'</div>'
+    +'<div class="table-scroll"><table><thead><tr><th class="name">الصنف</th><th>اشتُري</th><th>بِيع</th><th>الرصيد الحالي</th><th class="name">توزيع المستودعات</th><th class="name">التشخيص / السبب</th></tr></thead><tbody>'
+    +(h||'<tr><td colspan="6" class="empty">لا توجد حركات أصناف.</td></tr>')+'</tbody></table></div>';
 }
 /* ===== تصحيح أوزان العبوات — يعالج المخزون الوهمي من أوزان مبالغ فيها ===== */
 function renderWeightFixUI(){
