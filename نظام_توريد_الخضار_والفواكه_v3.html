@@ -419,6 +419,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
   <button class="tab-btn" data-tab="stock" data-perm="stock">المخزون</button>
   <button class="tab-btn" data-tab="expenses" data-perm="expenses">المصروفات</button>
   <button class="tab-btn" data-tab="accounts" data-perm="accounts">الحسابات والسداد</button>
+  <button class="tab-btn" data-tab="opacc" data-perm="opaccounts">حسابات تشغيلية</button>
   <button class="tab-btn" data-tab="reports" data-perm="reports">التقارير</button>
   <button class="tab-btn" data-tab="income" data-perm="income">قائمة الدخل</button>
   <button class="tab-btn" data-tab="master" data-perm="master">البيانات الأساسية</button>
@@ -932,6 +933,59 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
     <thead><tr><th>التاريخ</th><th>العملية</th><th class="name">الطرف الأول</th><th class="name">الطرف الثاني</th><th>المبلغ</th>
       <th class="name">البيان</th><th>إجراء</th></tr></thead>
     <tbody id="tbJournals"></tbody></table></div>
+</section>
+
+<!-- ======================= الحسابات التشغيلية ======================= -->
+<section id="opacc" class="panel">
+  <div class="print-head"><span class="print-logo"></span><h3>الحسابات التشغيلية</h3><p>إعداد محمد فرج</p></div>
+  <div class="panel-title">حسابات سيارات النقل وعمال التعبئة <span class="hint">حساب جارٍ لكل جهة مع رصيد متبقٍّ</span></div>
+
+  <div class="sec-title">فتح حساب جديد</div>
+  <div class="doc-box no-print" id="opAccFormBox">
+    <div class="grid">
+      <div class="field"><label>النوع</label><select id="oa_type" onchange="onOaType()">
+        <option value="vehicle">سيارة نقل</option><option value="worker">عامل تعبئة</option></select></div>
+      <div class="field"><label id="oa_nameLbl">اسم السيارة/السائق</label><input type="text" id="oa_name" placeholder="مثال: إيسوزو النقل"></div>
+      <div class="field" id="oa_plateWrap"><label>رقم اللوحة</label><input type="text" id="oa_plate" placeholder="أ ب ج 1234"></div>
+      <div class="field" id="oa_rateWrap" style="display:none"><label>سعر تغليف الكيس (اختياري)</label><input type="number" id="oa_rate" step="0.001" min="0" placeholder="0.5"></div>
+      <div class="field"><label>رصيد افتتاحي (مستحق له)</label><input type="number" id="oa_opening" step="0.01" value="0"></div>
+      <div class="field" style="min-width:180px"><label>ملاحظة</label><input type="text" id="oa_note" placeholder="اختياري"></div>
+    </div>
+    <div class="form-foot"><button class="btn-main" onclick="saveOpAccount()">حفظ الحساب</button>
+      <button class="btn" onclick="cancelOpAccount()">إلغاء</button>
+      <span class="editing-note" id="oa_editing"></span></div>
+  </div>
+
+  <div class="sec-title">تسجيل حركة (استحقاق / دفعة)</div>
+  <div class="note no-print">«استحقاق» يزيد المستحق للجهة (تكلفة نقلة، أو أجرة تغليف = عدد الأكياس × السعر). «دفعة» تُنقص رصيده (ما أخذه من مستحقاته). أجور العمال وتكاليف النقل تُحمَّل على الأرباح: إما <b>على تكلفة الكيس/التعبئة</b> أو <b>كتكلفة تشغيل</b>.</div>
+  <div class="doc-box no-print" id="opTxnFormBox">
+    <div class="grid">
+      <div class="field"><label>الحساب</label><select id="ot_acc" onchange="onOtAcc()"></select></div>
+      <div class="field"><label>نوع الحركة</label><select id="ot_kind" onchange="onOtKind()">
+        <option value="charge">استحقاق (تحميل)</option><option value="payment">دفعة/سحب</option></select></div>
+      <div class="field"><label>التاريخ</label><input type="date" id="ot_date"></div>
+      <div class="field" id="ot_qtyWrap" style="display:none"><label>عدد الأكياس المغلّفة</label><input type="number" id="ot_qty" step="1" min="0" oninput="onOtCalc()"></div>
+      <div class="field" id="ot_rateWrap" style="display:none"><label>سعر الكيس</label><input type="number" id="ot_rate" step="0.001" min="0" oninput="onOtCalc()"></div>
+      <div class="field"><label>المبلغ</label><input type="number" id="ot_amount" step="0.01" min="0"></div>
+      <div class="field" id="ot_costWrap"><label>تحميل التكلفة</label><select id="ot_cost">
+        <option value="unit">على تكلفة الكيس/التعبئة</option><option value="opex">كتكلفة تشغيل</option></select></div>
+      <div class="field" style="min-width:180px"><label>البيان</label><input type="text" id="ot_note" placeholder="مثال: نقلة بضاعة / تغليف طلبية"></div>
+    </div>
+    <div class="form-foot"><button class="btn-main" onclick="saveOpTxn()">حفظ الحركة</button>
+      <button class="btn" onclick="cancelOpTxn()">إلغاء</button>
+      <span class="editing-note" id="ot_editing"></span></div>
+  </div>
+
+  <div id="opAccCards" class="cards no-print"></div>
+  <div class="sec-title">أرصدة الحسابات التشغيلية</div>
+  <div class="table-scroll"><table>
+    <thead><tr><th class="name">الجهة</th><th>النوع</th><th class="name">اللوحة/السعر</th><th>مستحقات</th><th>مدفوع</th><th>الرصيد المتبقّي</th><th class="name">تفصيل</th><th>إجراء</th></tr></thead>
+    <tbody id="tbOpAcc"></tbody></table></div>
+
+  <div class="sec-title" id="opStmtTitle" style="display:none">كشف حساب</div>
+  <div class="table-scroll" id="opStmtBox" style="display:none"><table>
+    <thead><tr><th>التاريخ</th><th class="name">البيان</th><th>مستحق (له)</th><th>مدفوع</th><th>الرصيد</th><th class="no-print">إجراء</th></tr></thead>
+    <tbody id="tbOpStmt"></tbody></table></div>
 </section>
 
 <!-- ======================= التقارير ======================= -->
@@ -1486,7 +1540,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-08-c';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-08-d';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -1518,7 +1572,7 @@ var ROLES={admin:'مدير النظام',manager:'مدير عام',accountant:'�
 var PERM_KEYS=[
  ['dash','عرض الملخص (لوحة المؤشرات)'],
  ['purchases','المشتريات'],['sales','المبيعات'],['returns','المرتجعات'],['stock','المخزون'],
- ['expenses','المصروفات'],['accounts','الحسابات والسداد (كامل)'],['reports','التقارير'],['income','قائمة الدخل'],
+ ['expenses','المصروفات'],['accounts','الحسابات والسداد (كامل)'],['opaccounts','الحسابات التشغيلية (سيارات/عمال)'],['reports','التقارير'],['income','قائمة الدخل'],
  ['master','البيانات الأساسية'],['users','المستخدمون'],['settings','الإعدادات'],
  ['accSuppliers','اطّلاع: أرصدة الموردين فقط'],['accClients','اطّلاع: أرصدة العملاء فقط'],
  ['canAdd','إضافة سجلات'],['canEdit','تعديل السجلات'],['canDelete','حذف السجلات'],['canExport','التصدير والطباعة']
@@ -1541,7 +1595,7 @@ function emptyDB(){
     units:[{id:1,name:'صندوق',weights:[8,10,12]},{id:2,name:'شوال',weights:[20,25,50]},
            {id:3,name:'كرتون',weights:[12,15,18]},{id:4,name:'كيس',weights:[5,7,10]},
            {id:5,name:'طبق',weights:[1,2]},{id:6,name:'كيلو',weights:[1]}],
-    purchases:[],sales:[],preturns:[],sreturns:[],transfers:[],waste:[],expenses:[],payments:[],discounts:[],journals:[],audit:[],openingStock:[]
+    purchases:[],sales:[],preturns:[],sreturns:[],transfers:[],waste:[],expenses:[],payments:[],discounts:[],journals:[],opAccounts:[],opTxns:[],audit:[],openingStock:[]
   };
 }
 function demoDB(){
@@ -1593,7 +1647,7 @@ if(!db||!db.settings) db=demoDB();
 /* تطبيع بنية قاعدة البيانات — يُستدعى عند الإقلاع وعند وصول بيانات جديدة من السحابة،
    لضمان وجود كل المصفوفات والحقول المطلوبة مهما كان مصدر البيانات أو قِدَمها */
 /* ===== الأقسام: دفاتر حسابات منفصلة (الفاكهة/الخضار) داخل نفس النظام ===== */
-var DEPT_BOOKS=['suppliers','clients','warehouses','items','purchases','sales','preturns','sreturns','transfers','waste','expenses','payments','discounts','journals','openingStock','supplierGroups','clientGroups'];
+var DEPT_BOOKS=['suppliers','clients','warehouses','items','purchases','sales','preturns','sreturns','transfers','waste','expenses','payments','discounts','journals','opAccounts','opTxns','openingStock','supplierGroups','clientGroups'];
 var DEFAULT_DEPTS=[['fruits','الفاكهة'],['veg','الخضار']];
 var curDept=null;   /* القسم النشط لهذا الجهاز (مستقل عن بقية الأجهزة) */
 function deptName(key){ return (db.departments&&db.departments[key]&&db.departments[key].name)||key; }
@@ -1688,7 +1742,7 @@ if(USING_PRESET) persist(); /* أول تشغيل لنسخة مستخدم مُص�
 
 var ME=null;
 var draft={p:{lines:[],editId:null},s:{lines:[],editId:null}};
-var editId={r:null,e:null,sup:null,cl:null,wh:null,it:null,u:null,un:null,os:null,pay:null,disc:null,jrn:null};
+var editId={r:null,e:null,sup:null,cl:null,wh:null,it:null,u:null,un:null,os:null,pay:null,disc:null,jrn:null,oa:null,ot:null};
 var ledgerView={type:null,id:null};
 
 /* ---------- أدوات عامة ---------- */
@@ -2962,6 +3016,157 @@ function renderJournals(){
   document.getElementById('tbJournals').innerHTML=h||'<tr><td colspan="7" class="empty">لا توجد قيود تسوية.</td></tr>';
 }
 
+/* ==========================================================================
+   الحسابات التشغيلية — سيارات النقل وعمال التعبئة (حساب جارٍ)
+   ========================================================================== */
+function opBalances(){
+  var m={};
+  (db.opAccounts||[]).forEach(function(a){ m[a.id]={charge:0,paid:0,bags:0,opening:+a.opening||0}; });
+  (db.opTxns||[]).forEach(function(t){ var o=m[t.accId]; if(!o) return;
+    if(t.kind==='charge'){ o.charge+=+t.amount||0; o.bags+=+t.qty||0; } else o.paid+=+t.amount||0; });
+  return m;
+}
+function opBal(o){ return (o.opening||0)+(o.charge||0)-(o.paid||0); }
+function opTxnCat(t){
+  var a=byId(db.opAccounts,t.accId);
+  if(a&&a.type==='vehicle') return (t.cost==='unit')?'نقل وشحن (على البضاعة)':'نقل ومواصلات';
+  return (t.cost==='unit')?'تعبئة وتغليف':'أجور تشغيل';
+}
+/* ----- إدارة الحسابات ----- */
+function onOaType(){
+  var v=val('oa_type')==='vehicle';
+  var tg=function(id,show){ var e=document.getElementById(id); if(e) e.style.display=show?'':'none'; };
+  tg('oa_plateWrap',v); tg('oa_rateWrap',!v);
+  var l=document.getElementById('oa_nameLbl'); if(l) l.textContent=v?'اسم السيارة/السائق':'اسم العامل';
+}
+function saveOpAccount(){
+  if(!guard('canAdd')) return;
+  if(editId.oa&&!guard('canEdit')) return;
+  var n=val('oa_name').trim(); if(!n){ toast('أدخل الاسم'); return; }
+  var type=val('oa_type');
+  var rec={id:editId.oa||uid(),type:type,name:n,plate:val('oa_plate').trim(),rate:fnum('oa_rate')||0,
+    opening:fnum('oa_opening'),note:val('oa_note').trim(),active:1};
+  if(editId.oa){ var i=db.opAccounts.findIndex(function(x){return x.id===editId.oa;}); if(i>=0){ rec.active=db.opAccounts[i].active; db.opAccounts[i]=rec; }
+    log('edit','الحسابات التشغيلية','تعديل حساب '+(type==='vehicle'?'سيارة':'عامل')+' '+n); }
+  else { db.opAccounts.push(rec); log('add','الحسابات التشغيلية','فتح حساب '+(type==='vehicle'?'سيارة':'عامل')+' '+n); }
+  cancelOpAccount(); commit('تم حفظ الحساب');
+}
+function cancelOpAccount(){
+  editId.oa=null; ['oa_name','oa_plate','oa_rate','oa_note'].forEach(function(id){setVal(id,'');}); setVal('oa_opening','0');
+  var n=document.getElementById('oa_editing'); if(n) n.textContent='';
+}
+function editOpAccount(id){
+  if(!guard('canEdit')) return;
+  var a=byId(db.opAccounts,id); if(!a) return;
+  editId.oa=id; setVal('oa_type',a.type); onOaType();
+  setVal('oa_name',a.name); setVal('oa_plate',a.plate||''); setVal('oa_rate',a.rate||''); setVal('oa_opening',a.opening||0); setVal('oa_note',a.note||'');
+  var n=document.getElementById('oa_editing'); if(n) n.textContent='وضع التعديل — حساب تشغيلي';
+  showTab('opacc'); var fb=document.getElementById('opAccFormBox'); if(fb) fb.scrollIntoView({behavior:'smooth',block:'center'});
+}
+function delOpAccount(id){
+  if(!guard('canDelete')) return;
+  var a=byId(db.opAccounts,id); if(!a) return;
+  if((db.opTxns||[]).some(function(t){return t.accId===id;})){ toast('للحساب حركات — احذف حركاته أولاً أو أوقفه'); return; }
+  if(!confirm('حذف الحساب «'+a.name+'»؟')) return;
+  db.opAccounts=db.opAccounts.filter(function(x){return x.id!==id;});
+  log('delete','الحسابات التشغيلية','حذف حساب '+a.name); commit('تم الحذف');
+}
+/* ----- الحركات ----- */
+function onOaTxnFields(){
+  var acc=byId(db.opAccounts,+val('ot_acc')), kind=val('ot_kind');
+  var worker=(acc&&acc.type==='worker'), charge=(kind==='charge');
+  var tg=function(id,show){ var e=document.getElementById(id); if(e) e.style.display=show?'':'none'; };
+  tg('ot_qtyWrap',worker&&charge); tg('ot_rateWrap',worker&&charge); tg('ot_costWrap',charge);
+}
+function onOtAcc(){ var acc=byId(db.opAccounts,+val('ot_acc')); if(acc&&acc.type==='worker'&&acc.rate&&!fnum('ot_rate')) setVal('ot_rate',acc.rate); onOaTxnFields(); onOtCalc(); }
+function onOtKind(){ onOaTxnFields(); }
+function onOtCalc(){ var acc=byId(db.opAccounts,+val('ot_acc')); if(acc&&acc.type==='worker'&&val('ot_kind')==='charge'){ var q=fnum('ot_qty'),r=fnum('ot_rate'); if(q>0&&r>0) setVal('ot_amount',round2(q*r)); } }
+function saveOpTxn(){
+  if(!guard('canAdd')) return;
+  if(editId.ot&&!guard('canEdit')) return;
+  var accId=+val('ot_acc'); if(!accId){ toast('اختر الحساب'); return; }
+  var kind=val('ot_kind'), a=fnum('ot_amount');
+  if(a<=0){ toast('أدخل المبلغ'); return; }
+  var rec={id:editId.ot||uid(),accId:accId,date:val('ot_date')||today(),kind:kind,amount:a,
+    qty:(kind==='charge'?fnum('ot_qty'):0),cost:(kind==='charge'?val('ot_cost'):''),note:val('ot_note').trim(),uid:ME.id,ts:nowTs()};
+  var who=(byId(db.opAccounts,accId)||{}).name||'';
+  if(editId.ot){ var i=db.opTxns.findIndex(function(x){return x.id===editId.ot;}); if(i>=0) db.opTxns[i]=rec;
+    log('edit','الحسابات التشغيلية','تعديل حركة '+(kind==='charge'?'استحقاق':'دفعة')+' — '+who+' '+num(a)); }
+  else { db.opTxns.push(rec); log('add','الحسابات التشغيلية',(kind==='charge'?'استحقاق':'دفعة')+' — '+who+' '+num(a)); }
+  cancelOpTxn(); commit('تم حفظ الحركة');
+}
+function cancelOpTxn(){
+  editId.ot=null; ['ot_qty','ot_rate','ot_amount','ot_note'].forEach(function(id){setVal(id,'');});
+  var n=document.getElementById('ot_editing'); if(n) n.textContent='';
+}
+function editOpTxn(id){
+  if(!guard('canEdit')) return;
+  var t=byId(db.opTxns,id); if(!t) return;
+  editId.ot=id; setVal('ot_acc',t.accId); setVal('ot_kind',t.kind); setVal('ot_date',t.date);
+  setVal('ot_qty',t.qty||''); setVal('ot_amount',t.amount); setVal('ot_cost',t.cost||'unit'); setVal('ot_note',t.note||'');
+  var acc=byId(db.opAccounts,t.accId); if(acc&&acc.type==='worker'&&acc.rate) setVal('ot_rate',acc.rate);
+  onOaTxnFields();
+  var n=document.getElementById('ot_editing'); if(n) n.textContent='وضع التعديل — حركة تشغيلية';
+  showTab('opacc'); var fb=document.getElementById('opTxnFormBox'); if(fb) fb.scrollIntoView({behavior:'smooth',block:'center'});
+}
+function delOpTxn(id){
+  if(!guard('canDelete')) return;
+  var t=byId(db.opTxns,id); if(!t) return;
+  if(!confirm('حذف هذه الحركة؟')) return;
+  db.opTxns=db.opTxns.filter(function(x){return x.id!==id;});
+  log('delete','الحسابات التشغيلية','حذف حركة تشغيلية'); commit('تم الحذف');
+}
+/* ----- العرض ----- */
+function renderOpAcc(){
+  var full=can('opaccounts');
+  var tg=function(id,show){ var e=document.getElementById(id); if(e) e.style.display=show?'':'none'; };
+  tg('opAccFormBox',full&&can('canAdd')); tg('opTxnFormBox',full&&can('canAdd'));
+  if(!full) return;
+  if(!val('ot_date')) setVal('ot_date',today());
+  onOaType();
+  fillSelect('ot_acc', (db.opAccounts||[]).map(function(a){return '<option value="'+a.id+'">'+esc(a.name)+(a.type==='vehicle'?(a.plate?' — '+esc(a.plate):' (سيارة)'):' (عامل)')+'</option>';}).join(''), true);
+  onOaTxnFields();
+  var m=opBalances(), totBal=0,totCharge=0,totPaid=0,totBags=0;
+  var h=(db.opAccounts||[]).map(function(a){ var o=m[a.id]||{charge:0,paid:0,bags:0,opening:+a.opening||0}, bal=opBal(o);
+    totBal+=bal; totCharge+=o.charge; totPaid+=o.paid; if(a.type==='worker') totBags+=o.bags;
+    var meta=a.type==='vehicle'?(a.plate||'—'):('سعر '+num(a.rate||0)+' · '+qty(o.bags)+' كيس');
+    return '<tr><td class="name"><b>'+esc(a.name)+'</b></td><td>'+(a.type==='vehicle'?'سيارة':'عامل')+'</td>'
+      +'<td class="name muted">'+esc(meta)+'</td><td>'+money(o.charge+ (o.opening||0))+'</td><td>'+money(o.paid)+'</td>'
+      +'<td class="'+balCls(bal)+'"><b>'+money(bal)+'</b></td>'
+      +'<td><button class="btn-sm" onclick="showOpStmt('+a.id+')">كشف</button></td>'
+      +'<td>'+((can('canEdit')?'<button class="btn-sm" onclick="editOpAccount('+a.id+')">تعديل</button> ':'')+(can('canDelete')?'<button class="btn-sm btn-del" onclick="delOpAccount('+a.id+')">حذف</button>':''))+'</td></tr>';
+  }).join('');
+  document.getElementById('tbOpAcc').innerHTML=h?h+'<tr class="total-row"><td>الإجمالي</td><td colspan="2"></td><td>'+money(totCharge)+'</td><td>'+money(totPaid)+'</td><td>'+money(totBal)+'</td><td colspan="2"></td></tr>'
+    :'<tr><td colspan="8" class="empty">لا توجد حسابات. افتح حساب سيارة أو عامل بالأعلى.</td></tr>';
+  var nVeh=(db.opAccounts||[]).filter(function(a){return a.type==='vehicle';}).length, nWrk=(db.opAccounts||[]).filter(function(a){return a.type==='worker';}).length;
+  document.getElementById('opAccCards').innerHTML=
+     card('إجمالي المستحق للجهات',money(totBal),'رصيد متبقٍّ',true)
+    +card('سيارات النقل',String(nVeh),'حساب')
+    +card('عمال التعبئة',String(nWrk),qty(totBags)+' كيس مغلّف')
+    +card('إجمالي المدفوع',money(totPaid),'ما أخذوه من مستحقاتهم');
+  if(opStmtView) showOpStmt(opStmtView,true);
+}
+var opStmtView=null;
+function showOpStmt(accId,silent){
+  opStmtView=accId; var a=byId(db.opAccounts,accId); if(!a) return;
+  var rows=[];
+  if(a.opening) rows.push({d:'0000-00-00',t:'رصيد افتتاحي',cr:+a.opening||0,dr:0,e:'editOpAccount('+a.id+')'});
+  (db.opTxns||[]).filter(function(t){return t.accId===accId;}).forEach(function(t){
+    if(t.kind==='charge') rows.push({d:t.date,t:'استحقاق'+(t.qty?' — '+qty(t.qty)+' كيس':'')+(t.note?' · '+t.note:''),cr:+t.amount||0,dr:0,e:'editOpTxn('+t.id+')',del:t.id});
+    else rows.push({d:t.date,t:'دفعة/سحب'+(t.note?' — '+t.note:''),cr:0,dr:+t.amount||0,e:'editOpTxn('+t.id+')',del:t.id});
+  });
+  rows.sort(function(x,y){return x.d<y.d?-1:1;});
+  var bal=0,h='',canEd=can('canEdit'),canD=can('canDelete');
+  rows.forEach(function(r){ bal+=(r.cr-r.dr);
+    h+='<tr><td>'+esc(r.d==='0000-00-00'?'—':r.d)+'</td><td class="name">'+esc(r.t)+'</td>'
+      +'<td>'+(r.cr?money(r.cr):'—')+'</td><td>'+(r.dr?money(r.dr):'—')+'</td><td class="'+balCls(bal)+'">'+money(bal)+'</td>'
+      +'<td class="no-print">'+((canEd&&r.e)?'<button class="btn-sm" onclick="'+r.e+'">تعديل</button> ':'')+((canD&&r.del)?'<button class="btn-sm btn-del" onclick="delOpTxn('+r.del+')">حذف</button>':'')+'</td></tr>'; });
+  document.getElementById('tbOpStmt').innerHTML=h||'<tr><td colspan="6" class="empty">لا توجد حركات.</td></tr>';
+  var t=document.getElementById('opStmtTitle'); t.textContent='كشف حساب: '+a.name+(a.plate?' ('+a.plate+')':'')+' — الرصيد '+num(bal)+' '+cur();
+  t.style.display='block'; document.getElementById('opStmtBox').style.display='block';
+  if(!silent) t.scrollIntoView({behavior:'smooth',block:'center'});
+}
+
 /* ---------- الخصومات المتفق عليها (توالف / خصم على المبيعات) — في شاشة قائمة الدخل ---------- */
 /* صافي مبيعات عميل/فرع خلال فترة (قبل الضريبة، بعد المرتجعات) — أساس احتساب النسبة */
 function clientNetSales(clientId,from,to){
@@ -3516,6 +3721,8 @@ function pnl(from,to){
     else if(x.type==='shared_ex'&&x.exclClientId){ var ex=+x.exclClientId; poolEx[ex]=(poolEx[ex]||0)+amt; }
     else pool+=amt;
   });
+  /* الحسابات التشغيلية (سيارات/عمال): استحقاقاتها تكلفة تشغيلية تُضاف للمصروفات المشتركة */
+  (db.opTxns||[]).forEach(function(t){ if(t.kind==='charge'&&inP(t.date)) pool+=+t.amount||0; });
   /* اختياري: صافي ضريبة القيمة المضافة = ضريبة المبيعات − ضريبة المشتريات
      · موجب (مخرجات > مدخلات) ⇒ ضريبة مستحقة للسداد = خسارة
      · سالب (مدخلات > مخرجات) ⇒ رصيد ضريبي لك = ربح
@@ -3590,7 +3797,7 @@ function renderAll(){
   document.getElementById('incRange').textContent=txt;
   setVal('f_from2',r.from); setVal('f_to2',r.to); setVal('allocMethod',db.settings.alloc||'sales');
   renderPurchases(); renderSales(); renderReturns(); renderStock(); renderInterTransfers(); renderExpenses();
-  renderAccounts(); renderIncome(); renderDash(); renderAdvisor(); renderReport(); renderAudit();
+  renderAccounts(); renderOpAcc(); renderIncome(); renderDash(); renderAdvisor(); renderReport(); renderAudit();
   renderDraft('p'); renderDraft('s');
   document.getElementById('storageNote').innerHTML = storageOK
     ? 'البيانات تُحفظ تلقائياً في متصفح هذا الجهاز بعد كل عملية. نزّل نسخة احتياطية دورياً — مسح بيانات المتصفح يمحو السجلات.'
@@ -4309,6 +4516,15 @@ function renderIncomeDetail(P){
     exRows.push('<tr><td>'+esc(x.date)+'</td><td class="name">'+esc(x.desc||'—')+'</td><td class="name">'+esc(cat)+'</td>'
       +'<td>'+esc(typeLabel)+'</td><td class="name">'+esc(dest)+'</td><td>'+money(+x.amount||0)+'</td>'
       +'<td class="'+(a?'':'muted')+'">'+esc(amortTxt)+'</td><td><b>'+money(portion)+'</b></td></tr>');
+  });
+  /* استحقاقات الحسابات التشغيلية (سيارات/عمال) ضمن مصروفات الفترة والفئات */
+  (db.opTxns||[]).slice().sort(function(a,b){return a.date<b.date?-1:1;}).forEach(function(t){
+    if(t.kind!=='charge'||!(t.date>=(from||'')&&(!to||t.date<=to))) return;
+    var amt=+t.amount||0; if(amt<=0.0000001) return;
+    var acc=byId(db.opAccounts,t.accId)||{}, cat=opTxnCat(t), dest=(acc.name||'')+(acc.plate?' ('+acc.plate+')':'');
+    catTot[cat]=(catTot[cat]||0)+amt; totOrig+=amt; totPortion+=amt;
+    exRows.push('<tr><td>'+esc(t.date)+'</td><td class="name">'+esc((acc.type==='vehicle'?'نقل: ':'تعبئة: ')+(t.note||(t.qty?qty(t.qty)+' كيس':'استحقاق')))+'</td><td class="name">'+esc(cat)+'</td>'
+      +'<td>حساب تشغيلي</td><td class="name">'+esc(dest)+'</td><td>'+money(amt)+'</td><td class="muted">كامل في الفترة</td><td><b>'+money(amt)+'</b></td></tr>');
   });
   var exTbl='<div class="sec-title">تفصيل مصروفات الفترة والتوزيع الزمني <span class="hint">'+esc(per)+'</span></div>'
     +'<div class="note no-print" style="border-right-color:var(--citrus)">«المبلغ الأصلي» هو قيمة المصروف كاملاً كما أُدخل. «التوزيع الزمني» يبيّن إن كان موزّعاً (مثلاً على 365 يوم). «الحصة في الفترة» هي ما يخصّ الفترة المختارة فقط — وهو ما يدخل فعلاً في حساب الربح. تحقّق: الحصة = المبلغ الأصلي ÷ عدد الوحدات × عدد الوحدات الواقعة داخل الفترة.</div>'
