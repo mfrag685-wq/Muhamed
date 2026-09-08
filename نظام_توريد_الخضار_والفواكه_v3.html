@@ -491,7 +491,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
         <option value="single">الكمية كاملة لمستودع واحد</option>
         <option value="units">توزيع بكميات محددة على الفروع</option>
         <option value="percents">توزيع بنسب مئوية على الفروع</option></select></div>
-      <div class="field" id="pl_whWrap"><label>المستودع المستلم</label><select id="pl_wh" onchange="fillPurchaseItems()"></select></div>
+      <div class="field" id="pl_whWrap"><label>المستودع المستلم</label><select id="pl_wh" onchange="onPurWh()"></select></div>
       <div class="field"><label>الصنف</label>
         <div class="inline-add"><select id="pl_item" onchange="onPickItem('pl')"></select><button class="btn btn-sm" onclick="quickAddItem('pl')" title="صنف جديد">+</button></div></div>
       <div class="field"><label>الوحدة</label>
@@ -1617,7 +1617,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-08-n';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-08-o';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -2493,16 +2493,21 @@ function rememberBoxWeight(itemId,w){
   if(it.boxWeights.indexOf(w)<0){ it.boxWeights.push(w); it.boxWeights.sort(function(a,b){return a-b;}); }
 }
 /* يعيد تسمية حقول السطر حسب طريقة تتبّع الصنف (وحدة/كيلو) + استعادة أوزان الصناديق المقترحة */
+function whTrackOf(whId){ var w=byId(db.warehouses,+whId); return (w&&w.track)||'unit'; }
+/* هل تُخفى الأوزان في هذا السطر؟ الأصناف الخدمية دائماً، أو أي صنف بالكمية داخل مستودع يتتبّع بالكمية
+   (الأوزان بلا قيمة إلا إذا اختير في إعدادات المستودع تتبّع بالوزن). أصناف الكيلو تبقى بأوزانها. */
+function lineWeightHidden(p,it){ if(it&&it.service) return true; if(it&&it.byKg) return false; return whTrackOf(val(p+'_wh'))!=='kg'; }
 function applyItemTracking(p,it){
   var byKg=!!(it&&it.byKg), service=!!(it&&it.service);
+  var noWt=lineWeightHidden(p,it);
   var uL=document.getElementById('lbl_'+p+'_units'), wL=document.getElementById('lbl_'+p+'_uw');
   if(uL) uL.textContent=(service?'العدد':(byKg?'عدد الصناديق':'عدد الوحدات'))+' *';
-  /* الأصناف الخدمية بلا وزن: إخفاء حقلي وزن الوحدة والوزن الإجمالي وتثبيت أساس السعر على الوحدة */
+  /* بلا وزن (خدمي أو تتبّع بالكمية): إخفاء حقلي وزن الوحدة والوزن الإجمالي وتثبيت أساس السعر على الوحدة */
   var uwEl=document.getElementById(p+'_uw'), uwWrap=uwEl?uwEl.closest('.field'):null;
   var twEl=document.getElementById(p+'_tw'), twWrap=twEl?twEl.closest('.field'):null;
-  if(uwWrap) uwWrap.style.display=service?'none':'';
-  if(twWrap) twWrap.style.display=service?'none':'';
-  if(service){ setVal(p+'_uw',''); setVal(p+'_basis','unit'); calcLine(p); return; }
+  if(uwWrap) uwWrap.style.display=noWt?'none':'';
+  if(twWrap) twWrap.style.display=noWt?'none':'';
+  if(noWt){ setVal(p+'_uw',''); setVal(p+'_basis','unit'); calcLine(p); return; }
   if(wL) wL.textContent=(byKg?'وزن الصندوق (كغ)':(p==='pl'?'معامل التحويل — وزن الوحدة (كغ)':'وزن الوحدة (كغ)'))+' *';
   /* اقتراح الأوزان المتعددة لكل الأصناف (بالكيلو أو بالوحدة) — إدخال حرّ + حفظ الجديد */
   var ws=itemBoxWeights(it.id), dl=document.getElementById('dl_'+p+'_uw');
@@ -2549,7 +2554,9 @@ function onSaleWh(){
     setVal('s_client',wh.clientId);
   }
   fillSaleItems(); showAvail();
+  var it=byId(db.items,+val('sl_item')); if(it) applyItemTracking('sl',it);   /* أخفِ/أظهر الأوزان حسب تتبّع المستودع */
 }
+function onPurWh(){ fillPurchaseItems(); var it=byId(db.items,+val('pl_item')); if(it) applyItemTracking('pl',it); }
 /* متوسط سعر الوحدة/الكيلو تاريخياً لصنف (من المشتريات أو المبيعات) لفحص منطقية الأسعار */
 function itemHistPerUnit(k,itemId){
   var arr=(k==='p')?db.purchases:db.sales, sum=0,n=0;
@@ -2561,9 +2568,11 @@ function addLine(k){
   var itemId=+val(p+'_item'), units=fnum(p+'_units'), uw=fnum(p+'_uw'), price=fnum(p+'_price'), b=val(p+'_basis');
   if(!itemId){ toast('اختر الصنف'); return; }
   var it0=byId(db.items,itemId), byKg=!!(it0&&it0.byKg), service=!!(it0&&it0.service);
+  var noWt=lineWeightHidden(p,it0);   /* بلا أوزان: خدمي أو تتبّع بالكمية */
   if(service){ uw=0; b='unit'; }   /* صنف خدمي: بلا وزن، السعر بالعدد */
+  else if(noWt){ uw=0; b='unit'; }   /* تتبّع بالكمية: لا وزن إطلاقاً — الكمية بالعدد فقط */
   if(units<=0){ toast(service?'أدخل العدد (إلزامي)':(byKg?'أدخل عدد الصناديق (إلزامي)':'أدخل الكمية (إلزامي)')); return; }
-  if(!service&&uw<=0){ toast(byKg?'أدخل وزن الصندوق بالكيلو (إلزامي)':'أدخل وزن الوحدة بالكيلو (إلزامي)'); return; }
+  if(!service&&!noWt&&uw<=0){ toast(byKg?'أدخل وزن الصندوق بالكيلو (إلزامي)':'أدخل وزن الوحدة بالكيلو (إلزامي)'); return; }
   if(price<=0){ toast('أدخل السعر (إلزامي)'); return; }
   /* فحص منطقية السعر مقارنة بالتاريخ لنفس الصنف — تنبيه لا يمنع */
   var _net0=(b==='kg'?units*uw*price:units*price), _su=byKg?units*uw:units, _perU=_su>0?_net0/_su:price;
