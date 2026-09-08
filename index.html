@@ -1451,7 +1451,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-07-c';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-08-a';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -3377,10 +3377,13 @@ function pnl(from,to){
     if(!inP(r.date)||!res[r.clientId]) return;
     res[r.clientId].ret+=+r.total||0; res[r.clientId].cogs-=L.srCost[r.id]||0;
   });
+  var wastePool=0;
   db.waste.forEach(function(w){
     if(!inP(w.date)) return;
     var c=L.wasteCost[w.id]||0, cid=whClient(w.whId);
-    if(cid&&res[cid]) res[cid].waste+=c; else pool+=c;
+    /* الفاقد/عجز الجرد يبقى دائماً في «سطر الفاقد» (يخفض مجمل الربح) — لا يُخلط بالمصروفات المشتركة.
+       ما كان في مستودع فرع يُنسب له، وما كان في مستودع عام يُوزَّع على الفروع حسب المبيعات لاحقاً */
+    if(cid&&res[cid]) res[cid].waste+=c; else wastePool+=c;
   });
   db.expenses.forEach(function(x){
     var amt=expenseAmountInRange(x,from,to);   /* يحترم توزيع (استهلاك) المصروف على الفترة */
@@ -3413,11 +3416,19 @@ function pnl(from,to){
     (db.preturns||[]).forEach(function(r){ if(inP(r.date)) iV-=docVat(r); });
     vatNet=round2(oV-iV);
   }
-  db.clients.forEach(function(c){ var r=res[c.id];
-    r.net_rev=r.rev-r.ret-r.disc; r.gp=r.net_rev-r.cogs-r.waste; });
-  /* المصروفات المشتركة تُوزَّع على الفروع فقط (عملاء لهم مستودع)؛ فإن لم يوجد فرع فعلى الكل */
+  /* صافي الإيراد أولاً (لا يعتمد على الفاقد) */
+  db.clients.forEach(function(c){ var r=res[c.id]; r.net_rev=r.rev-r.ret-r.disc; });
+  /* المصروفات المشتركة/الفاقد العام تُوزَّع على الفروع فقط (عملاء لهم مستودع)؛ فإن لم يوجد فرع فعلى الكل */
   var branchTargets=db.clients.filter(function(c){return isBranch(c.id);});
   if(!branchTargets.length) branchTargets=db.clients.slice();
+  /* توزيع الفاقد العام (مستودعات غير مرتبطة بفرع) على الفروع حسب المبيعات — يبقى ضمن سطر الفاقد */
+  if(wastePool>0.009 && branchTargets.length){
+    var tRevW=0; branchTargets.forEach(function(c){ tRevW+=res[c.id].net_rev; });
+    var nnW=branchTargets.length;
+    branchTargets.forEach(function(c){ var share=(tRevW>0? res[c.id].net_rev/tRevW : 1/nnW); res[c.id].waste+=wastePool*share; });
+  }
+  /* مجمل الربح بعد خصم الفاقد كاملاً */
+  db.clients.forEach(function(c){ var r=res[c.id]; r.gp=r.net_rev-r.cogs-r.waste; });
   /* موزِّع عام: يقسّم مبلغاً على مجموعة فروع حسب طريقة الإعداد (مبيعات/بالتساوي/ربح/وزن) */
   function distributeShared(amount,list,isEx){
     if(amount<=0||!list.length) return;
@@ -4184,11 +4195,19 @@ function renderIncomeDetail(P){
   var catRows=Object.keys(catTot).sort(function(a,b){return catTot[b]-catTot[a];}).map(function(c){
     return '<tr><td class="name">'+esc(c)+'</td><td>'+money(catTot[c])+'</td><td class="muted">'+pct(catTot[c],totPortion)+'</td></tr>';
   }).join('');
+  /* مطابقة مع قائمة الدخل: (مباشرة+مشتركة) = مجموع سجلات المصروفات + صافي الضريبة (عند التفعيل).
+     الفاقد/عجز الجرد لا يظهر هنا لأنه بند مستقل «الفاقد» يخفض مجمل الربح، لا مصروفاً. */
+  var expTot=0,wasteTot=0; db.clients.forEach(function(c){ var x=rows[c.id]; if(x){ expTot+=x.direct+x.shared; wasteTot+=x.waste; } });
+  var vN=(P.vatNet>0.009)?P.vatNet:0;   /* صافي ضريبة مستحقة (خسارة) يدخل ضمن المشتركة */
+  var reconRows=(vN>0?'<tr class="sub-row"><td class="name">+ صافي ضريبة القيمة المضافة (ضمن المشتركة)</td><td>'+money(vN)+'</td><td class="muted"></td></tr>':'');
   var catTbl='<div class="sec-title">إجمالي المصروفات حسب الفئة (الحصة في الفترة)</div>'
     +'<div class="table-scroll"><table><thead><tr><th class="name">الفئة</th><th>القيمة</th><th>النسبة من المصروفات</th></tr></thead><tbody>'
     +(catRows||'<tr><td colspan="3" class="empty">لا يوجد.</td></tr>')
-    +(catRows?'<tr class="total-row"><td>الإجمالي</td><td>'+money(totPortion)+'</td><td>100%</td></tr>':'')
-    +'</tbody></table></div>';
+    +(catRows?'<tr class="sub-row"><td class="name">إجمالي المصروفات المسجّلة (بالفئات)</td><td>'+money(totPortion)+'</td><td>100%</td></tr>':'')
+    +reconRows
+    +'<tr class="total-row"><td>إجمالي المصروفات في قائمة الدخل (مباشرة + مشتركة)</td><td>'+money(expTot)+'</td><td class="muted">'+((Math.abs(totPortion+vN-expTot)<0.5)?'مطابق ✔':'')+'</td></tr>'
+    +'</tbody></table></div>'
+    +'<div class="note no-print" style="border-right-color:var(--citrus)">هذا الجدول للمصروفات فقط. <b>الفاقد/عجز الجرد</b> ('+money(wasteTot)+') بند مستقل يخفض <b>مجمل الربح</b> (سطر «الفاقد»)، وليس مصروفاً — لذلك لا يظهر هنا. بذلك تتطابق الأرقام: مصروفات مسجّلة + صافي الضريبة = إجمالي مصروفات قائمة الدخل.</div>';
   /* ===== طريقة توزيع المصروفات المشتركة الحالية ===== */
   var methTxt={sales:'بنسبة المبيعات',gp:'بنسبة مجمل الربح',equal:'بالتساوي بين الفروع',weight:'بنسبة الأوزان المباعة'}[db.settings.alloc||'sales'];
   var methNote='<div class="note no-print"><b>طريقة توزيع المصروفات المشتركة الحالية:</b> '+esc(methTxt)+'. (صافي الضريبة عند تفعيله يُوزَّع دائماً بنسبة المبيعات.)</div>';
