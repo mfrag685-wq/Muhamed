@@ -1610,7 +1610,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-08-j';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-08-k';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -7571,7 +7571,7 @@ var CLOUD_CONFIG={
 var CLOUD_AUTH_MODE="accounts";   /* "accounts" (حساب لكل مستخدم) أو "anonymous" (مساحة مشتركة بسيطة) */
 var cloudReady=false, cloudRef=null, cloudPushTimer=null, cloudLastPushed='', cloudSecondary=null,
     cloudInteractive=false, cloudAuthBusy=false,
-    cloudDirty=false, cloudInflight=false, cloudRetry=0, cloudRetryTimer=null, cloudConnWatched=false;
+    cloudDirty=false, cloudInflight=false, cloudRetry=0, cloudRetryTimer=null, cloudConnWatched=false, cloudLastError='';
 function setCloudStatus(state){
   var el=document.getElementById('cloudStatus'); if(!el) return;
   var map={off:['غير مفعّل','off'],auth:['بانتظار الدخول','connecting'],connecting:['يتصل…','connecting'],
@@ -7592,21 +7592,37 @@ function cloudFlush(){
   if(!cloudReady||!cloudRef||cloudInflight||!cloudDirty) return;
   cloudInflight=true; cloudDirty=false;
   var s=JSON.stringify(serializeDB());   /* أحدث نسخة وقت الرفع فعلياً */
-  var data; try{ data=JSON.parse(s); }catch(e){ cloudInflight=false; return; }
+  if(!s){ cloudInflight=false; return; }
   setCloudStatus('sync');
-  var payload={data:data,updatedAt:firebase.database.ServerValue.TIMESTAMP,updatedBy:(ME?ME.name:'')};
+  /* نخزّن القاعدة كسلسلة نصية واحدة: قيم النص لا تخضع لقيود مفاتيح Firebase
+     (النقطة/$ /# /[ /] ممنوعة في المفاتيح فقط) فينتفي فشل الرفع بسبب اسم مستخدم
+     أو مفتاح يحوي حرفاً ممنوعاً، ويصبح الرفع كتلة واحدة موثوقة. */
+  var payload={data:s,fmt:'str',updatedAt:firebase.database.ServerValue.TIMESTAMP,updatedBy:(ME?ME.name:'')};
   cloudRef.set(payload).then(function(){
-    cloudInflight=false; cloudLastPushed=s; cloudRetry=0;
+    cloudInflight=false; cloudLastPushed=s; cloudRetry=0; cloudLastError='';
+    setCloudErrTip('');
     if(cloudDirty) cloudFlush();          /* وردت حركة أثناء الرفع → ارفعها */
     else setCloudStatus('ok');
-  }).catch(function(){
-    /* فشل الرفع: البيانات محفوظة محلياً؛ أعِد المحاولة تلقائياً دون إزعاج */
+  }).catch(function(e){
+    /* فشل الرفع: البيانات محفوظة محلياً؛ أعِد المحاولة تلقائياً دون إزعاج،
+       واحفظ سبب الخطأ الفعلي لعرضه (قواعد الأمان/الحجم/الشبكة…) */
     cloudInflight=false; cloudDirty=true; setCloudStatus('pending');
+    cloudLastError=(e&&(e.code||e.message))||'خطأ غير معروف';
+    setCloudErrTip(cloudLastError);
+    try{ console.warn('Cloud push failed:', e); }catch(_){}
     cloudRetry=Math.min(cloudRetry+1,6);
     clearTimeout(cloudRetryTimer);
     cloudRetryTimer=setTimeout(cloudFlush, Math.min(1000*Math.pow(2,cloudRetry),30000));
   });
 }
+/* أدوات القراءة: تقبل الصيغتين — نص (الجديدة) أو كائن (القديمة) — لتوافق الأجهزة */
+function cloudRemoteData(val){ if(!val||val.data==null) return null;
+  var d=val.data; if(typeof d==='string'){ try{ d=JSON.parse(d); }catch(e){ return null; } }
+  return (d&&typeof d==='object')?d:null; }
+function cloudRemoteStr(val){ if(!val||val.data==null) return '';
+  return (typeof val.data==='string')?val.data:JSON.stringify(val.data); }
+function setCloudErrTip(msg){ var el=document.getElementById('cloudStatus'); if(!el) return;
+  el.title=msg?('تعذّر الرفع: '+msg+' — البيانات محفوظة محلياً وستُرفع تلقائياً'):'حالة المزامنة السحابية'; }
 function cloudPush(s){
   if(!cloudReady||!cloudRef) return;
   cloudDirty=true;
@@ -7636,16 +7652,16 @@ function cloudAttach(cb){
   if(cloudReady){ if(cb) cb(); return; }
   cloudRef=firebase.database().ref('workspaces/'+cloudWid()+'/root');
   cloudRef.once('value').then(function(snap){
-    var v=snap.val();
-    if(v&&v.data&&Array.isArray(v.data.users)){ cloudApplyRemote(v.data); cloudReady=true; }
+    var v=snap.val(); var vd=cloudRemoteData(v);
+    if(vd&&Array.isArray(vd.users)){ cloudApplyRemote(vd); cloudReady=true; }
     else { cloudReady=true; cloudPush(JSON.stringify(serializeDB())); }
     setCloudStatus('ok');
     cloudWatchConnection();   /* رفع تلقائي للمعلّق عند عودة الاتصال */
     cloudRef.on('value',function(s2){
-      var val=s2.val(); if(!val||!val.data||!Array.isArray(val.data.users)) return;
-      var rs=JSON.stringify(val.data);
+      var val=s2.val(); var rs=cloudRemoteStr(val); if(!rs) return;
       if(rs===cloudLastPushed||rs===JSON.stringify(serializeDB())) return; /* تجاهل صدى كتابتنا نحن */
-      cloudApplyRemote(val.data);
+      var rd=cloudRemoteData(val); if(!rd||!Array.isArray(rd.users)) return;
+      cloudApplyRemote(rd);
     });
     if(cb) cb();
   }).catch(function(err){ setCloudStatus('err'); if(cb) cb(err||true); });
