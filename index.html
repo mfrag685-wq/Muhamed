@@ -413,16 +413,21 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 
 <nav class="tabs" id="tabsNav">
   <button class="tab-btn active" data-tab="dash" data-perm="dash">الملخص</button>
+  <!-- العمليات اليومية -->
   <button class="tab-btn" data-tab="purchases" data-perm="purchases">المشتريات</button>
   <button class="tab-btn" data-tab="sales" data-perm="sales">المبيعات</button>
   <button class="tab-btn" data-tab="returns" data-perm="returns">المرتجعات</button>
+  <!-- المخزون والإنتاج -->
   <button class="tab-btn" data-tab="stock" data-perm="stock">المخزون</button>
-  <button class="tab-btn" data-tab="expenses" data-perm="expenses">المصروفات</button>
+  <button class="tab-btn" data-tab="prod" data-perm="opaccounts">الإنتاج والتغليف</button>
+  <!-- المالية -->
   <button class="tab-btn" data-tab="accounts" data-perm="accounts">الحسابات والسداد</button>
   <button class="tab-btn" data-tab="opacc" data-perm="opaccounts">حسابات تشغيلية</button>
-  <button class="tab-btn" data-tab="prod" data-perm="opaccounts">الإنتاج والتغليف</button>
+  <button class="tab-btn" data-tab="expenses" data-perm="expenses">المصروفات</button>
+  <!-- التقارير -->
   <button class="tab-btn" data-tab="reports" data-perm="reports">التقارير</button>
   <button class="tab-btn" data-tab="income" data-perm="income">قائمة الدخل</button>
+  <!-- الإعداد -->
   <button class="tab-btn" data-tab="master" data-perm="master">البيانات الأساسية</button>
   <button class="tab-btn" data-tab="users" data-perm="users">المستخدمون والسجل</button>
   <button class="tab-btn" data-tab="settings" data-perm="settings">الإعدادات</button>
@@ -1222,36 +1227,45 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
     <tbody id="tbItMaster"></tbody></table></div>
   <div class="split">
     <div>
-      <div class="sec-title">الموردون <input type="text" id="msSupSearch" class="no-print" oninput="renderMaster()" placeholder="🔍 بحث بالاسم" style="font-weight:400;font-size:13px;width:160px;margin-right:8px"></div>
+      <div class="sec-title warn">الوحدات</div>
+      <div class="note" style="margin-bottom:10px">عرّف وحدات القياس هنا (صندوق، شوال، كرتون، كيس...). <b>يمكن تكرار نفس الاسم بأوزان مختلفة</b> — مثل «كيس 5 كغ» و«كيس 7 كغ» و«كيس 10 كغ» — وكل وزن يظهر كخيار مستقل يملأ معامل التحويل تلقائياً عند اختياره.</div>
       <div class="doc-box no-print">
         <div class="grid-2">
-          <div class="field"><label>اسم المورد</label><input type="text" id="sup_name" placeholder="مؤسسة المزارع الحديثة"></div>
-          <div class="field"><label>الجوال</label><input type="text" id="sup_phone" placeholder="اختياري"></div>
-          <div class="field"><label>المجموعة</label><select id="sup_group"></select></div>
-          <div class="field balance-only"><label>الرصيد الافتتاحي <span class="mini">(مستحق عليك له)</span></label><input type="number" id="sup_opening" step="0.01" placeholder="0"></div>
-          <div class="field"><label>تاريخ الرصيد الافتتاحي</label><input type="date" id="sup_openDate"></div>
-          <div class="field" style="grid-column:1/-1"><label>ملاحظات</label><input type="text" id="sup_note" placeholder="اختياري"></div>
+          <div class="field"><label>اسم الوحدة</label><input type="text" id="un_name" placeholder="صندوق"></div>
+          <div class="field"><label>الأوزان المتاحة بالكيلو <span class="mini">افصل بينها بفاصلة</span></label>
+            <input type="text" id="un_weights" placeholder="مثال: 5, 7, 10" dir="ltr" style="text-align:right"></div>
         </div>
-        <div class="form-foot"><button class="btn-main" onclick="saveSupplier()">حفظ المورد</button>
-          <button class="btn" onclick="cancelDoc('sup')">إلغاء</button>
-          <button class="btn" onclick="downloadTemplate('suppliers')">تنزيل نموذج Excel</button>
-          <button class="btn" onclick="exportForEdit('suppliers')">تصدير الحالي للتعديل</button>
-          <button class="btn-alt" onclick="pickImport('suppliers')">استيراد من Excel</button>
-          <span class="editing-note" id="sup_editing"></span></div>
-      </div>
-      <div class="filters no-print" style="margin:6px 0">
-        <div class="field"><label>تصفية بالمجموعة</label><select id="msSupGroup" onchange="renderMaster()"></select></div>
+        <div class="form-foot"><button class="btn-main" onclick="saveUnit()">حفظ الوحدة</button>
+          <button class="btn" onclick="cancelDoc('un')">إلغاء</button>
+          <button class="btn" onclick="downloadTemplate('units')">نموذج Excel</button>
+          <button class="btn" onclick="exportForEdit('units')">تصدير الحالي للتعديل</button>
+          <button class="btn-alt" onclick="pickImport('units')">استيراد</button>
+          <span class="editing-note" id="un_editing"></span></div>
       </div>
       <div class="table-scroll"><table>
-        <thead><tr><th class="name">المورد</th><th class="name">المجموعة</th><th>الجوال</th><th>عدد الفواتير</th><th>إجمالي التعامل</th><th class="balance-only">افتتاحي</th><th>إجراء</th></tr></thead>
-        <tbody id="tbSupMaster"></tbody></table></div>
-      <div class="sec-title" style="margin-top:12px">مجموعات الموردين <span class="hint">صنّف مورديك (مثل: موردو التوريد) وتحكّم في التسمية</span></div>
-      <div class="doc-box no-print">
-        <div class="inline-add"><input type="text" id="grp_sup_name" placeholder="اسم المجموعة الجديدة" style="flex:1">
-          <button class="btn btn-sm" onclick="saveGroup('sup')">إضافة مجموعة</button></div>
-        <div id="supGroupList" class="group-list"></div>
-      </div>
+        <thead><tr><th class="name">الوحدة</th><th class="name">الأوزان المتاحة (كغ)</th><th>عدد الأصناف المرتبطة</th><th>إجراء</th></tr></thead>
+        <tbody id="tbUnits"></tbody></table></div>
     </div>
+    <div>
+      <div class="sec-title">المستودعات</div>
+      <div class="doc-box no-print">
+        <div class="grid-2">
+          <div class="field"><label>اسم المستودع</label><input type="text" id="wh_name" placeholder="مستودع جدة"></div>
+          <div class="field"><label>تابع لـ</label><select id="wh_client"></select></div>
+          <div class="field"><label>طريقة تتبّع المخزون الافتراضية</label><select id="wh_track">
+            <option value="unit">بالوحدة/الكمية (عدد)</option>
+            <option value="kg">بالوزن (كيلوجرام)</option></select>
+            <span class="mini">تُضبط تلقائياً طريقة تتبّع أي صنف جديد يُخصَّص لهذا المستودع (يمكن تغييرها للصنف).</span></div>
+        </div>
+        <div class="form-foot"><button class="btn-main" onclick="saveWarehouse()">حفظ المستودع</button>
+          <button class="btn" onclick="cancelDoc('wh')">إلغاء</button><span class="editing-note" id="wh_editing"></span></div>
+      </div>
+      <div class="table-scroll"><table>
+        <thead><tr><th class="name">المستودع</th><th class="name">تابع لـ</th><th>قيمة المخزون</th><th>إجراء</th></tr></thead>
+        <tbody id="tbWhMaster"></tbody></table></div>
+    </div>
+  </div>
+  <div class="split">
     <div>
       <div class="sec-title alt">العملاء / الفروع <input type="text" id="msClSearch" class="no-print" oninput="renderMaster()" placeholder="🔍 بحث بالاسم" style="font-weight:400;font-size:13px;width:160px;margin-right:8px"></div>
       <div class="doc-box no-print">
@@ -1287,46 +1301,36 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
         <div id="clGroupList" class="group-list"></div>
       </div>
     </div>
-  </div>
-  <div class="split">
     <div>
-      <div class="sec-title">المستودعات</div>
+      <div class="sec-title">الموردون <input type="text" id="msSupSearch" class="no-print" oninput="renderMaster()" placeholder="🔍 بحث بالاسم" style="font-weight:400;font-size:13px;width:160px;margin-right:8px"></div>
       <div class="doc-box no-print">
         <div class="grid-2">
-          <div class="field"><label>اسم المستودع</label><input type="text" id="wh_name" placeholder="مستودع جدة"></div>
-          <div class="field"><label>تابع لـ</label><select id="wh_client"></select></div>
-          <div class="field"><label>طريقة تتبّع المخزون الافتراضية</label><select id="wh_track">
-            <option value="unit">بالوحدة/الكمية (عدد)</option>
-            <option value="kg">بالوزن (كيلوجرام)</option></select>
-            <span class="mini">تُضبط تلقائياً طريقة تتبّع أي صنف جديد يُخصَّص لهذا المستودع (يمكن تغييرها للصنف).</span></div>
+          <div class="field"><label>اسم المورد</label><input type="text" id="sup_name" placeholder="مؤسسة المزارع الحديثة"></div>
+          <div class="field"><label>الجوال</label><input type="text" id="sup_phone" placeholder="اختياري"></div>
+          <div class="field"><label>المجموعة</label><select id="sup_group"></select></div>
+          <div class="field balance-only"><label>الرصيد الافتتاحي <span class="mini">(مستحق عليك له)</span></label><input type="number" id="sup_opening" step="0.01" placeholder="0"></div>
+          <div class="field"><label>تاريخ الرصيد الافتتاحي</label><input type="date" id="sup_openDate"></div>
+          <div class="field" style="grid-column:1/-1"><label>ملاحظات</label><input type="text" id="sup_note" placeholder="اختياري"></div>
         </div>
-        <div class="form-foot"><button class="btn-main" onclick="saveWarehouse()">حفظ المستودع</button>
-          <button class="btn" onclick="cancelDoc('wh')">إلغاء</button><span class="editing-note" id="wh_editing"></span></div>
+        <div class="form-foot"><button class="btn-main" onclick="saveSupplier()">حفظ المورد</button>
+          <button class="btn" onclick="cancelDoc('sup')">إلغاء</button>
+          <button class="btn" onclick="downloadTemplate('suppliers')">تنزيل نموذج Excel</button>
+          <button class="btn" onclick="exportForEdit('suppliers')">تصدير الحالي للتعديل</button>
+          <button class="btn-alt" onclick="pickImport('suppliers')">استيراد من Excel</button>
+          <span class="editing-note" id="sup_editing"></span></div>
+      </div>
+      <div class="filters no-print" style="margin:6px 0">
+        <div class="field"><label>تصفية بالمجموعة</label><select id="msSupGroup" onchange="renderMaster()"></select></div>
       </div>
       <div class="table-scroll"><table>
-        <thead><tr><th class="name">المستودع</th><th class="name">تابع لـ</th><th>قيمة المخزون</th><th>إجراء</th></tr></thead>
-        <tbody id="tbWhMaster"></tbody></table></div>
-    </div>
-    <div>
-      <div class="sec-title warn">الوحدات</div>
-      <div class="note" style="margin-bottom:10px">عرّف وحدات القياس هنا (صندوق، شوال، كرتون، كيس...). <b>يمكن تكرار نفس الاسم بأوزان مختلفة</b> — مثل «كيس 5 كغ» و«كيس 7 كغ» و«كيس 10 كغ» — وكل وزن يظهر كخيار مستقل يملأ معامل التحويل تلقائياً عند اختياره.</div>
+        <thead><tr><th class="name">المورد</th><th class="name">المجموعة</th><th>الجوال</th><th>عدد الفواتير</th><th>إجمالي التعامل</th><th class="balance-only">افتتاحي</th><th>إجراء</th></tr></thead>
+        <tbody id="tbSupMaster"></tbody></table></div>
+      <div class="sec-title" style="margin-top:12px">مجموعات الموردين <span class="hint">صنّف مورديك (مثل: موردو التوريد) وتحكّم في التسمية</span></div>
       <div class="doc-box no-print">
-        <div class="grid-2">
-          <div class="field"><label>اسم الوحدة</label><input type="text" id="un_name" placeholder="صندوق"></div>
-          <div class="field"><label>الأوزان المتاحة بالكيلو <span class="mini">افصل بينها بفاصلة</span></label>
-            <input type="text" id="un_weights" placeholder="مثال: 5, 7, 10" dir="ltr" style="text-align:right"></div>
-        </div>
-        <div class="form-foot"><button class="btn-main" onclick="saveUnit()">حفظ الوحدة</button>
-          <button class="btn" onclick="cancelDoc('un')">إلغاء</button>
-          <button class="btn" onclick="downloadTemplate('units')">نموذج Excel</button>
-          <button class="btn" onclick="exportForEdit('units')">تصدير الحالي للتعديل</button>
-          <button class="btn-alt" onclick="pickImport('units')">استيراد</button>
-          <span class="editing-note" id="un_editing"></span></div>
+        <div class="inline-add"><input type="text" id="grp_sup_name" placeholder="اسم المجموعة الجديدة" style="flex:1">
+          <button class="btn btn-sm" onclick="saveGroup('sup')">إضافة مجموعة</button></div>
+        <div id="supGroupList" class="group-list"></div>
       </div>
-      <div class="table-scroll"><table>
-        <thead><tr><th class="name">الوحدة</th><th class="name">الأوزان المتاحة (كغ)</th><th>عدد الأصناف المرتبطة</th><th>إجراء</th></tr></thead>
-        <tbody id="tbUnits"></tbody></table></div>
-
     </div>
   </div>
 </section>
@@ -1610,7 +1614,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-08-l';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-08-m';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
