@@ -1537,6 +1537,7 @@ function renderSuppliers(){
   $("#supTbl").innerHTML=csups().map(s=>{const bal=supBalance(s.id);
     return `<tr><td>${esc(s.name)}</td><td>${esc(s.phone||"")}</td><td style="font-weight:700;color:${bal>0?'var(--red)':'inherit'}">${money(bal)}</td>
     <td style="white-space:nowrap"><button class="btn blue sm" onclick="supplierStatement(${s.id})">📄 كشف حساب</button>
+      ${can("canEdit")?`<button class="btn amber sm" onclick="editSupplier(${s.id})">✏️ تعديل</button>`:""}
       ${can("canEdit")?`<button class="btn green sm" onclick="makePayment(${s.id})">💵 دفعة</button>`:""}
       ${ME.role==="admin"?`<button class="btn red sm" onclick="delSupplier(${s.id})">حذف</button>`:""}</td></tr>`;}).join("")||`<tr><td colspan="4" class="empty">—</td></tr>`;
 }
@@ -1732,6 +1733,29 @@ function addSupplier(){
   const name=$("#sName").value.trim();if(!name)return;
   DB.suppliers.push({id:nid("supplier"),companyId:CO,name,phone:$("#sPhone").value,contact:$("#sContact").value});
   logAct("إضافة مورد",name);save();pImport();
+}
+function editSupplier(id){
+  if(!guard("canEdit"))return;
+  const s=DB.suppliers.find(x=>x.id===id);if(!s)return;
+  const m=document.createElement("div");m.className="modal";
+  m.innerHTML=`<div class="box" style="max-width:420px"><h3>✏️ تعديل بيانات المورد</h3>
+    <div class="field" style="margin-bottom:10px"><label>اسم المورد *</label><input id="es_name" value="${esc(s.name||"")}"></div>
+    <div class="field" style="margin-bottom:10px"><label>الهاتف</label><input id="es_phone" value="${esc(s.phone||"")}"></div>
+    <div class="field" style="margin-bottom:10px"><label>مسؤول التواصل</label><input id="es_contact" value="${esc(s.contact||"")}"></div>
+    <div id="es_msg" style="color:var(--red);font-size:13px;margin-bottom:8px"></div>
+    <div style="display:flex;gap:8px"><button class="btn green" onclick="saveSupplierEdit(${id})">حفظ</button>
+      <button class="btn gray" onclick="this.closest('.modal').remove()">إلغاء</button></div>
+    <p style="font-size:12px;color:var(--muted);margin-top:10px">تغيير الاسم ينعكس تلقائياً على كل الحركات وكشوف الحساب المرتبطة بهذا المورد.</p></div>`;
+  document.body.appendChild(m);
+}
+function saveSupplierEdit(id){
+  const s=DB.suppliers.find(x=>x.id===id);if(!s)return;
+  const name=($("#es_name").value||"").trim();
+  if(!name){$("#es_msg").textContent="اسم المورد مطلوب.";return;}
+  const old=s.name;s.name=name;s.phone=$("#es_phone").value||"";s.contact=$("#es_contact").value||"";
+  logAct("تعديل مورد",old!==name?`${old} ← ${name}`:name);save();
+  const md=document.querySelector(".modal");if(md)md.remove();
+  renderSuppliers();toast("تم تحديث بيانات المورد");
 }
 function delSupplier(id){
   if(ME.role!=="admin")return;
