@@ -1005,10 +1005,32 @@ function saveMovement(id){
 }
 /* ---------- استرجاع الفاتورة برقمها ---------- */
 function lookupInvoice(){
-  const no=prompt("أدخل رقم فاتورة البيع لاسترجاعها:");if(no===null)return;
-  const lines=cmoves().filter(m=>m.type==="outbound"&&String(m.invoice)===no.trim());
+  const no=prompt("أدخل رقم فاتورة البيع للبحث عن جميع تفاصيلها:");if(no===null)return;
+  const q=no.trim();if(!q)return;
+  const lines=cmoves().filter(m=>m.type==="outbound"&&String(m.invoice).trim()===q);
   if(!lines.length){toast("لا توجد فاتورة بهذا الرقم");return;}
-  printInvoice(lines[0].invGid||no.trim(),true);
+  // تجميع حسب عملية البيع (كل invGid = فاتورة/عملية مستقلة استُخدم فيها الرقم)
+  const groups={};lines.forEach(m=>{const g=m.invGid||("solo-"+m.id);(groups[g]=groups[g]||[]).push(m);});
+  const gids=Object.keys(groups);
+  // ترتيب المجموعات بالتاريخ الأحدث أولاً
+  gids.sort((a,b)=>{const da=groups[a][0].date||"",db=groups[b][0].date||"";return da<db?1:da>db?-1:0;});
+  const blocks=gids.map(g=>{
+    const gl=groups[g];const f=gl[0];const total=gl.reduce((s,m)=>s+m.qty*m.price,0);const comm=gl.reduce((s,m)=>s+(m.comm||0),0);
+    const rows=gl.map(m=>{const it=DB.items.find(x=>x.id===m.itemId)||{};
+      return `<tr><td>${esc(m.model||itemModel(it))}</td><td>${m.qty}</td><td>${money(m.price)}</td><td>${money(m.qty*m.price)}</td></tr>`;}).join("");
+    return `<div style="border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:12px">
+      <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px;margin-bottom:6px">
+        <div>🧾 فاتورة <b>${esc(f.invoice)}</b> · التاريخ <b>${esc(f.date)}</b> · الموظف <b>${esc(f.userName)}</b>${f.address?` · العنوان <b>${esc(f.address)}</b>`:""}</div>
+        ${f.invGid?`<button class="btn red sm no-print" onclick="cancelInvoice('${f.invGid}')">🗑️ إلغاء هذه الفاتورة</button>`:""}</div>
+      <table><tr><th>الموديل / الصنف</th><th>الكمية</th><th>السعر</th><th>الإجمالي</th></tr>${rows}
+        <tr><td colspan="3"><b>إجمالي الفاتورة</b></td><td><b>${money(total)} ﷼</b></td></tr>
+        ${comm?`<tr><td colspan="3"><b>العمولة</b></td><td><b>${money(comm)} ﷼</b></td></tr>`:""}</table></div>`;
+  }).join("");
+  const grand=lines.reduce((s,m)=>s+m.qty*m.price,0);
+  const note=gids.length>1?`<div style="background:#fef9c3;color:#854d0e;border-radius:8px;padding:8px 12px;margin-bottom:12px;font-size:13px">⚠️ الرقم «${esc(q)}» مُستخدَم في <b>${gids.length}</b> فواتير/عمليات بيع مختلفة — كلها معروضة أدناه.</div>`:"";
+  showPrint(`${brandHead()}<h2>🔎 نتائج البحث عن رقم الفاتورة ${esc(q)}</h2>
+    <div style="margin-bottom:10px;color:var(--muted)">عدد الفواتير المطابقة: <b>${gids.length}</b> · إجمالي الأصناف: <b>${lines.length}</b> · الإجمالي الكلي: <b>${money(grand)} ﷼</b></div>
+    ${note}${blocks}`);
 }
 /* ---------- الطباعة داخل الصفحة (مع زر رجوع) ---------- */
 function showPrint(inner,extraActions){
