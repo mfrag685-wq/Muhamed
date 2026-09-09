@@ -1004,6 +1004,12 @@ function saveMovement(id){
   if($("#recentMoves"))renderRecent();if($("#lTbl"))renderLedger();if($("#reportOut"))renderReport();
 }
 /* ---------- استرجاع الفاتورة برقمها ---------- */
+/* آخر حركة وارد للصنف (المورد/الفسح/التاريخ) */
+function lastInbound(itemId){
+  const inb=DB.movements.filter(m=>m.companyId===CO&&m.itemId===itemId&&m.type==="inbound")
+    .sort((a,b)=>(a.date<b.date?1:a.date>b.date?-1:b.id-a.id));
+  return inb[0]||null;
+}
 function lookupInvoice(){
   const no=prompt("أدخل رقم فاتورة البيع للبحث عن جميع تفاصيلها:");if(no===null)return;
   const q=no.trim();if(!q)return;
@@ -1017,7 +1023,11 @@ function lookupInvoice(){
   const blocks=gids.map(g=>{
     const gl=groups[g];const f=gl[0];const total=gl.reduce((s,m)=>s+m.qty*m.price,0);const comm=gl.reduce((s,m)=>s+(m.comm||0),0);
     const rows=gl.map(m=>{const it=DB.items.find(x=>x.id===m.itemId)||{};
-      return `<tr><td>${esc(m.model||itemModel(it))}</td><td>${m.qty}</td><td>${money(m.price)}</td><td>${money(m.qty*m.price)}</td></tr>`;}).join("");
+      const li=lastInbound(m.itemId);const sup=li?DB.suppliers.find(x=>x.id===li.supplierId):null;
+      const info=li?`↳ آخر وارد لهذا الصنف: من المورد <b>${esc(sup?sup.name:"—")}</b> · رقم الفسح <b>${esc(li.customs||"—")}</b> · التاريخ ${esc(li.date||"—")} · كمية ${li.qty} · تكلفة ${money(li.price)}`
+        :`↳ لا يوجد وارد مسجّل لهذا الصنف`;
+      return `<tr><td>${esc(m.model||itemModel(it))}</td><td>${m.qty}</td><td>${money(m.price)}</td><td>${money(m.qty*m.price)}</td></tr>
+        <tr><td colspan="4" style="background:#f8fafc;font-size:12px;color:#475569;text-align:right">${info}</td></tr>`;}).join("");
     return `<div style="border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:12px">
       <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px;margin-bottom:6px">
         <div>🧾 فاتورة <b>${esc(f.invoice)}</b> · التاريخ <b>${esc(f.date)}</b> · الموظف <b>${esc(f.userName)}</b>${f.address?` · العنوان <b>${esc(f.address)}</b>`:""}</div>
@@ -1122,7 +1132,9 @@ function renderBalances(){
 /* ============ 3) تقرير فترة — وارد/منصرف لكل صنف خلال مدة ============ */
 function pReport(){
   $("#view").innerHTML=`<div class="pagehead"><h1>📅 تقرير الوارد والمنصرف خلال فترة</h1>
-    <button class="btn ghost no-print" onclick="window.print()">🖨️ طباعة</button></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn blue no-print" onclick="lookupInvoice()">🔎 بحث برقم فاتورة</button>
+      <button class="btn ghost no-print" onclick="window.print()">🖨️ طباعة</button></div></div>
   <div class="card no-print">
     <div class="formgrid">
       <div class="cell c4"><label>نوع التقرير</label><select id="rMode" onchange="renderReport()">
