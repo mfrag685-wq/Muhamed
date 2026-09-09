@@ -1021,25 +1021,36 @@ function lookupInvoice(){
   // ترتيب المجموعات بالتاريخ الأحدث أولاً
   gids.sort((a,b)=>{const da=groups[a][0].date||"",db=groups[b][0].date||"";return da<db?1:da>db?-1:0;});
   const blocks=gids.map(g=>{
-    const gl=groups[g];const f=gl[0];const total=gl.reduce((s,m)=>s+m.qty*m.price,0);const comm=gl.reduce((s,m)=>s+(m.comm||0),0);
-    const rows=gl.map(m=>{const it=DB.items.find(x=>x.id===m.itemId)||{};
+    const gl=groups[g];const f=gl[0];
+    const total=gl.reduce((s,m)=>s+m.qty*m.price,0);const comm=gl.reduce((s,m)=>s+(m.comm||0),0);
+    const profitTot=gl.reduce((s,m)=>{const li=lastInbound(m.itemId);const cost=li?li.price:0;return s+(m.price-cost)*m.qty;},0);
+    // جدول البيع مع الربح لكل صنف
+    const saleRows=gl.map(m=>{const it=DB.items.find(x=>x.id===m.itemId)||{};
+      const li=lastInbound(m.itemId);const cost=li?li.price:0;const profit=(m.price-cost)*m.qty;
+      return `<tr><td>${esc(m.model||itemModel(it))}</td><td>${m.qty}</td><td>${money(m.price)}</td><td>${money(m.qty*m.price)}</td>
+        <td>${money(cost)}</td><td style="font-weight:700;color:${profit>=0?'var(--green)':'var(--red)'}">${money(profit)}</td></tr>`;}).join("");
+    // جدول الوارد المقابل (آخر توريد لكل صنف)
+    const inbRows=gl.map(m=>{const it=DB.items.find(x=>x.id===m.itemId)||{};
       const li=lastInbound(m.itemId);const sup=li?DB.suppliers.find(x=>x.id===li.supplierId):null;
-      const info=li?`↳ آخر وارد لهذا الصنف: من المورد <b>${esc(sup?sup.name:"—")}</b> · رقم الفسح <b>${esc(li.customs||"—")}</b> · التاريخ ${esc(li.date||"—")} · كمية ${li.qty} · تكلفة ${money(li.price)}`
-        :`↳ لا يوجد وارد مسجّل لهذا الصنف`;
-      return `<tr><td>${esc(m.model||itemModel(it))}</td><td>${m.qty}</td><td>${money(m.price)}</td><td>${money(m.qty*m.price)}</td></tr>
-        <tr><td colspan="4" style="background:#f8fafc;font-size:12px;color:#475569;text-align:right">${info}</td></tr>`;}).join("");
-    return `<div style="border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:12px">
-      <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px;margin-bottom:6px">
+      return li?`<tr><td>${esc(m.model||itemModel(it))}</td><td>${esc(sup?sup.name:"—")}</td><td style="font-family:monospace">${esc(li.customs||"—")}</td><td>${esc(li.date||"—")}</td><td>${li.qty}</td><td>${money(li.price)}</td></tr>`
+        :`<tr><td>${esc(m.model||itemModel(it))}</td><td colspan="5" style="color:var(--muted)">لا يوجد وارد مسجّل لهذا الصنف</td></tr>`;}).join("");
+    return `<div style="border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:16px">
+      <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px;margin-bottom:8px">
         <div>🧾 فاتورة <b>${esc(f.invoice)}</b> · التاريخ <b>${esc(f.date)}</b> · الموظف <b>${esc(f.userName)}</b>${f.address?` · العنوان <b>${esc(f.address)}</b>`:""}</div>
         ${f.invGid?`<button class="btn red sm no-print" onclick="cancelInvoice('${f.invGid}')">🗑️ إلغاء هذه الفاتورة</button>`:""}</div>
-      <table><tr><th>الموديل / الصنف</th><th>الكمية</th><th>السعر</th><th>الإجمالي</th></tr>${rows}
-        <tr><td colspan="3"><b>إجمالي الفاتورة</b></td><td><b>${money(total)} ﷼</b></td></tr>
-        ${comm?`<tr><td colspan="3"><b>العمولة</b></td><td><b>${money(comm)} ﷼</b></td></tr>`:""}</table></div>`;
+      <div style="font-weight:800;color:var(--amber);margin:4px 0 4px">📤 تفاصيل البيع</div>
+      <table><tr><th>الموديل / الصنف</th><th>الكمية</th><th>سعر البيع</th><th>إجمالي البيع</th><th>تكلفة الوحدة</th><th>ربح الصنف</th></tr>${saleRows}
+        <tr><td colspan="3"><b>إجمالي البيع</b></td><td colspan="2"><b>${money(total)} ﷼</b></td><td style="font-weight:800;color:${profitTot>=0?'var(--green)':'var(--red)'}">${money(profitTot)}</td></tr>
+        ${comm?`<tr><td colspan="5"><b>العمولة</b></td><td><b>${money(comm)} ﷼</b></td></tr>`:""}</table>
+      <div style="font-weight:800;color:var(--green);margin:12px 0 4px">📥 الوارد المقابل (آخر توريد لكل صنف)</div>
+      <table><tr><th>الموديل / الصنف</th><th>المورد</th><th>رقم الفسح</th><th>تاريخ الوارد</th><th>الكمية الواردة</th><th>سعر التكلفة</th></tr>${inbRows}</table></div>`;
   }).join("");
   const grand=lines.reduce((s,m)=>s+m.qty*m.price,0);
+  const grandProfit=lines.reduce((s,m)=>{const li=lastInbound(m.itemId);const cost=li?li.price:0;return s+(m.price-cost)*m.qty;},0);
   const note=gids.length>1?`<div style="background:#fef9c3;color:#854d0e;border-radius:8px;padding:8px 12px;margin-bottom:12px;font-size:13px">⚠️ الرقم «${esc(q)}» مُستخدَم في <b>${gids.length}</b> فواتير/عمليات بيع مختلفة — كلها معروضة أدناه.</div>`:"";
   showPrint(`${brandHead()}<h2>🔎 نتائج البحث عن رقم الفاتورة ${esc(q)}</h2>
-    <div style="margin-bottom:10px;color:var(--muted)">عدد الفواتير المطابقة: <b>${gids.length}</b> · إجمالي الأصناف: <b>${lines.length}</b> · الإجمالي الكلي: <b>${money(grand)} ﷼</b></div>
+    <div style="margin-bottom:10px;color:var(--muted)">عدد الفواتير المطابقة: <b>${gids.length}</b> · إجمالي الأصناف: <b>${lines.length}</b> · إجمالي البيع: <b>${money(grand)} ﷼</b> · إجمالي الربح: <b style="color:${grandProfit>=0?'var(--green)':'var(--red)'}">${money(grandProfit)} ﷼</b></div>
+    <p style="font-size:12px;color:var(--muted);margin:-4px 0 10px">الربح لكل صنف = (سعر البيع − تكلفة آخر وارد) × الكمية.</p>
     ${note}${blocks}`);
 }
 /* ---------- الطباعة داخل الصفحة (مع زر رجوع) ---------- */
