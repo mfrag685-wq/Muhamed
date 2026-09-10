@@ -1656,7 +1656,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-10-m';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-10-n';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -6022,16 +6022,21 @@ function renderStockCountLog(){
 }
 function restoreStockCount(opId){
   if(!guard('canEdit')) return;
-  var lg=db.settings.stockCountLog||[], op=lg.filter(function(o){return o.id===opId;})[0];
+  var S=String(opId);   /* المعرّف يأتي نصّاً من onclick بينما op.id رقم — نوحّد المقارنة */
+  var lg=db.settings.stockCountLog||[], op=lg.filter(function(o){return String(o.id)===S;})[0];
   if(!op){ toast('التسوية غير موجودة'); return; }
   if(!confirm('التراجع عن تسوية الجرد بتاريخ '+op.when+'؟ ستُحذف حركات العجز/الزيادة الناتجة عنها.')) return;
-  var wi=op.wasteIds||[], oi=op.openIds||[];
-  db.waste=db.waste.filter(function(w){ return wi.indexOf(w.id)<0; });
-  db.openingStock=db.openingStock.filter(function(o){ return oi.indexOf(o.id)<0; });
-  db.settings.stockCountLog=lg.filter(function(o){return o.id!==opId;});
-  log('data','المخزون','تراجع عن تسوية جرد بتاريخ '+op.when);
+  var wi={}; (op.wasteIds||[]).forEach(function(x){ wi[String(x)]=1; });
+  var oi={}; (op.openIds||[]).forEach(function(x){ oi[String(x)]=1; });
+  var wBefore=db.waste.length, oBefore=db.openingStock.length;
+  db.waste=db.waste.filter(function(w){ return !wi[String(w.id)]; });
+  db.openingStock=db.openingStock.filter(function(o){ return !oi[String(o.id)]; });
+  var removed=(wBefore-db.waste.length)+(oBefore-db.openingStock.length);
+  db.settings.stockCountLog=lg.filter(function(o){ return String(o.id)!==S; });
+  log('data','المخزون','تراجع عن تسوية جرد بتاريخ '+op.when+(removed?(' — حُذف '+removed+' حركة'):' — سجل قديم بلا حركات حيّة (تنظيف)'));
   refreshLedger(); commit('تم التراجع عن تسوية الجرد');
-  renderStockCountUI();
+  renderStockCountUI(); renderSettingsForm();
+  toast(removed? ('تم التراجع — حُذف '+removed+' حركة') : 'تم حذف سجل الجرد القديم (لا حركات حيّة مرتبطة به)');
 }
 function updateNsSummary(){
   var sum=0; db.warehouses.forEach(function(w){ sum+=fnum('ns_pct_'+w.id); });
