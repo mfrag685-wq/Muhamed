@@ -1655,7 +1655,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-10-j';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-10-k';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -2257,12 +2257,11 @@ function buildLedger(){
       });
     }
     if(need>0.0001){
-      var est=need*fbCost(itemId); cost+=est;
-      /* البيع قبل الشراء: اخصم العجز إلى رصيد المستودع (يجوز أن يصير سالباً مؤقتاً)
-         كي يعوّضه الشراء اللاحق تلقائياً — فلا يتضخّم المخزون ويبقى قانون الحفظ صحيحاً
-         (المشتريات = تكلفة المبيعات + المتبقي)، ويُعاد حساب المتوسط ذاتياً عند إدخال الشراء */
-      var s=cell(whId,itemId); s.units-=need; s.cost-=est; s.weight-=need*(+uw||0);
-      warn.push({date:date,text:label+' '+date+': كمية '+itemName(itemId)+' تتجاوز الرصيد المتاح وقت العملية — قُدّرت بمتوسط الشراء، وتُسوّى تلقائياً عند إدخال فاتورة الشراء الخاصة بها.'});
+      /* لا يوجد رصيد كافٍ وقت العملية: تُقدَّر التكلفة بمتوسط الشراء (وتتحدّث تلقائياً عند
+         إدخال الشراء)، ولا يُنزَّل الرصيد تحت الصفر — فلا تظهر أرصدة سالبة وهمية، ويظل الجرد
+         الفعلي هو المرجع لضبط الكميات الواقعية عند الحاجة */
+      cost+=need*fbCost(itemId);
+      warn.push({date:date,text:label+' '+date+': كمية '+itemName(itemId)+' تتجاوز الرصيد المتاح وقت العملية — قُدّرت التكلفة بمتوسط الشراء. سجّل فاتورة الشراء أو الجرد الفعلي لضبط الرصيد.'});
     }
     return cost;
   }
