@@ -1589,6 +1589,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
     </div>
     <div class="form-foot"><button class="btn-del" onclick="runStockWriteOff()">تصفير المخزون كتالف/مفقود</button>
       <span class="mini" id="nw_info"></span></div>
+    <div id="adjBatchesBox" style="margin-top:12px"></div>
   </div>
 
   <div class="sec-title">البيانات والنسخ الاحتياطي</div>
@@ -1655,7 +1656,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-10-l';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-10-m';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -5690,7 +5691,7 @@ function renderStockResetUI(){
   if(info) info.textContent='المخزون الحالي: '+Object.keys(items).length+' صنف بقيمة '+money(totC)+' — سيُرحَّل كأرصدة افتتاحية بتاريخ '+(val('ns_date')||'—')+'.';
   var nwi=document.getElementById('nw_info');
   if(nwi) nwi.textContent='المخزون الحالي بقيمة '+money(totC)+' سيُحمَّل كفاقد/تالف.';
-  renderWeightFixUI(); renderStockCountUI(); fillMergeSelects();
+  renderWeightFixUI(); renderStockCountUI(); fillMergeSelects(); renderAdjBatches();
 }
 /* ===== تشخيص أرصدة الأصناف — يكشف سبب الرصيد الوهمي لكل صنف ===== */
 function renderItemDiag(){
@@ -6082,6 +6083,51 @@ function runStockWriteOff(){
   log('data','المخزون','تصفير المخزون كتالف/مفقود بتاريخ '+date+' ('+cells.length+' رصيد بتكلفة '+num(totC)+')');
   refreshLedger(); commit('تم تصفير المخزون كتالف/مفقود'); renderAll(); renderMaster(); renderSettingsForm();
   alert('تم التصفير ✅\n\n• أُخرج المخزون بتكلفة '+num(totC)+' وسُجّل كفاقد/تالف في قائمة الدخل.\n• المخزون الآن صفر.\n\nلإنشاء أرصدة افتتاحية جديدة (بكمية محددة أو صفر): افتح تبويب «المخزون» ← «المخزون الافتتاحي».');
+}
+/* ===== سجل عمليات الشطب/التسوية — عرض وحذف دفعات الفاقد وتصحيح الرصيد ===== */
+function adjBatches(){
+  /* يجمع حركات الفاقد (تصفير/عجز جرد/فاقد) وتصحيح الرصيد الافتتاحي حسب (التاريخ+السبب) */
+  if(!L) refreshLedger();
+  var b={};
+  function key(kind,date,reason){ return kind+'||'+date+'||'+(reason||''); }
+  (db.waste||[]).forEach(function(w){
+    var k=key('waste',w.date,w.reason), c=(L.wasteCost&&L.wasteCost[w.id])||0;
+    if(!b[k]) b[k]={kind:'waste',date:w.date,reason:w.reason||'فاقد',n:0,val:0,ids:[]};
+    b[k].n++; b[k].val+=c; b[k].ids.push(w.id);
+  });
+  (db.openingStock||[]).forEach(function(o){
+    if(!/جرد|تصحيح|زيادة/.test(o.reason||'')) return;   /* فقط أرصدة الجرد/التسوية */
+    var k=key('open',o.date,o.reason);
+    if(!b[k]) b[k]={kind:'open',date:o.date,reason:o.reason||'تصحيح رصيد',n:0,val:0,ids:[]};
+    b[k].n++; b[k].val+=(+o.total||0); b[k].ids.push(o.id);
+  });
+  return Object.keys(b).map(function(k){return b[k];}).sort(function(x,y){ return x.date<y.date?1:(x.date>y.date?-1:0); });
+}
+function renderAdjBatches(){
+  var box=document.getElementById('adjBatchesBox'); if(!box) return;
+  var list=adjBatches();
+  if(!list.length){ box.innerHTML=''; return; }
+  var rows=list.map(function(g,i){
+    var typ=g.kind==='waste'?'<span class="pill pill-bad">فاقد/شطب</span>':'<span class="pill pill-ok">تصحيح رصيد (زيادة)</span>';
+    return '<tr><td>'+esc(g.date||'—')+'</td><td class="name">'+esc(g.reason)+'</td><td>'+typ+'</td><td>'+g.n+' حركة</td><td class="'+(g.kind==='waste'?'neg':'pos')+'">'+money(g.val)+'</td>'
+      +'<td><button class="btn-sm btn-del" onclick="deleteAdjBatch('+i+')">حذف الدفعة</button></td></tr>';
+  }).join('');
+  box.innerHTML='<div class="sec-title" style="margin-top:6px">سجل عمليات الشطب/التسوية <span class="hint">لحذف تصفير أو جرد قديم مكرّر</span></div>'
+    +'<div class="note" style="border-right-color:var(--tomato)">هنا كل دفعات <b>الفاقد/الشطب</b> و<b>تصحيح الرصيد</b> مجمّعة حسب التاريخ والسبب. إن وجدت <b>تصفيراً أو جرداً قديماً مكرّراً</b> احذف دفعته كاملة هنا (يزول أثره من المخزون وقائمة الدخل فوراً). <b>نزّل نسخة احتياطية أولاً.</b></div>'
+    +'<div class="table-scroll"><table><thead><tr><th>التاريخ</th><th class="name">السبب/البيان</th><th>النوع</th><th>العدد</th><th>القيمة</th><th>إجراء</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
+}
+function deleteAdjBatch(i){
+  if(!guard('canDelete','تحتاج صلاحية الحذف')) return;
+  var list=adjBatches(), g=list[i]; if(!g){ toast('الدفعة غير موجودة'); return; }
+  if(!confirm('حذف دفعة «'+g.reason+'» بتاريخ '+g.date+' ('+g.n+' حركة بقيمة '+num(g.val)+')؟\nسيزول أثرها من المخزون وقائمة الدخل. نزّل نسخة احتياطية أولاً. متابعة؟')) return;
+  var ids={}; g.ids.forEach(function(x){ ids[x]=1; });
+  if(g.kind==='waste') db.waste=db.waste.filter(function(w){ return !ids[w.id]; });
+  else db.openingStock=db.openingStock.filter(function(o){ return !ids[o.id]; });
+  /* نظّف أي إشارة في سجل الجرد */
+  if(Array.isArray(db.settings.stockCountLog)) db.settings.stockCountLog.forEach(function(op){
+    op.wasteIds=(op.wasteIds||[]).filter(function(x){return !ids[x];}); op.openIds=(op.openIds||[]).filter(function(x){return !ids[x];}); });
+  log('delete','المخزون','حذف دفعة تسوية «'+g.reason+'» بتاريخ '+g.date+' ('+g.n+' حركة، '+num(g.val)+')');
+  refreshLedger(); commit('تم حذف دفعة التسوية'); renderSettingsForm();
 }
 function renderMergeItemsUI(){
   var box=document.getElementById('mergeSrcBox'); if(!box) return;
