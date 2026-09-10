@@ -1619,7 +1619,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-10-a';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-10-b';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -1645,7 +1645,12 @@ function persist(){ var s=JSON.stringify(serializeDB()); lsSet(KEY,s); if(typeof
 function hash(s){ var h=5381; s=String(s)+'::mfarag'; for(var i=0;i<s.length;i++) h=((h<<5)+h+s.charCodeAt(i))>>>0; return 'h'+h.toString(36); }
 /* معرّف فريد مضمون التزايد — يمنع التكرار حتى عند إنشاء عشرات السجلات في نفس اللحظة (الاستيراد) */
 var _uidSeq=0;
-function uid(){ var t=Date.now()*1000; if(t<=_uidSeq) t=_uidSeq+1; _uidSeq=t; return t; }
+/* بصمة ثابتة لكل جهاز (0..999) تُضاف لأرقام المعرّفات كي لا يتصادم جهازان
+   عند إنشاء سجلّين في نفس الميلي-ثانية — شرطٌ ضروري لسلامة الدمج متعدّد المستخدمين */
+var _deviceSalt=(function(){ try{ var k='veg_erp_dev_salt', s=localStorage.getItem(k);
+  if(!s||isNaN(+s)){ s=String(Math.floor(Math.random()*1000)); localStorage.setItem(k,s); }
+  return (+s)%1000; }catch(e){ return Math.floor(Math.random()*1000); } })();
+function uid(){ var t=Date.now()*1000+_deviceSalt; if(t<=_uidSeq) t=_uidSeq+1; _uidSeq=t; return t; }
 
 var ROLES={admin:'مدير النظام',manager:'مدير عام',accountant:'محاسب',entry:'مدخل بيانات',viewer:'مطّلع',custom:'مخصص'};
 var PERM_KEYS=[
