@@ -489,7 +489,8 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
         <div class="inline-add"><select id="p_supplier"></select><button class="btn btn-sm" onclick="quickAddSupplier()" title="مورد جديد">+</button></div></div>
       <div class="field"><label>ملاحظات</label><input type="text" id="p_note" placeholder="اختياري"></div>
     </div>
-    <div class="sec-title" style="margin-top:18px">أصناف الفاتورة</div>
+    <div class="sec-title" style="margin-top:18px">أصناف الفاتورة
+      <button class="btn btn-sm no-print" style="font-weight:400;font-size:12.5px;margin-right:8px" onclick="repeatLastDoc('p')" title="يملأ النموذج بآخر فاتورة شراء لتعديل الكميات والأسعار">↻ تكرار آخر فاتورة</button></div>
     <div class="grid">
       <div class="field"><label>توزيع الكمية <span class="hint">اختره أولاً</span></label><select id="pl_dist" onchange="onPurchaseDist()">
         <option value="single">الكمية كاملة لمستودع واحد</option>
@@ -581,7 +582,8 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
         <div class="inline-add"><select id="s_client" onchange="onSaleClient()"></select><button class="btn btn-sm" onclick="quickAddClient()" title="عميل جديد">+</button></div></div>
       <div class="field"><label>ملاحظات</label><input type="text" id="s_note" placeholder="اختياري"></div>
     </div>
-    <div class="sec-title" style="margin-top:18px">أصناف الفاتورة</div>
+    <div class="sec-title" style="margin-top:18px">أصناف الفاتورة
+      <button class="btn btn-sm no-print" style="font-weight:400;font-size:12.5px;margin-right:8px" onclick="repeatLastDoc('s')" title="يملأ النموذج بآخر فاتورة بيع لتعديل الكميات والأسعار">↻ تكرار آخر فاتورة</button></div>
     <div class="grid">
       <div class="field"><label>المستودع المصدر <span class="hint">اختره أولاً</span></label><select id="sl_wh" onchange="onSaleWh()"></select></div>
       <div class="field"><label>الصنف <span class="hint">أصناف المستودع المختار</span></label><select id="sl_item" onchange="onPickItem('sl')"></select></div>
@@ -1623,7 +1625,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-10-d';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-10-e';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -2722,6 +2724,36 @@ function cancelDoc(k){
    ========================================================================== */
 function commit(msg){ persist(); refreshLedger(); renderAll(); if(msg) toast(msg); }
 
+/* بعد حفظ فاتورة: تفريغ الأصناف والمبالغ فقط، مع إبقاء رأس الفاتورة (المورد/العميل،
+   المستودع، التاريخ، الضريبة، الملاحظة) لتسريع إدخال الفاتورة التالية لنفس الجهة */
+function clearDocForNext(k){
+  draft[k]={lines:[],editId:null}; renderDraft(k);
+  setVal(k==='p'?'p_no':'s_no','');            /* رقم الفاتورة يختلف */
+  setVal(k==='p'?'p_paid':'s_recv',0);         /* المبلغ المدفوع/المحصّل يختلف */
+  var p=k==='p'?'pl':'sl';
+  ['_item','_units','_price','_total','_tw'].forEach(function(sfx){ if(document.getElementById(p+sfx)) setVal(p+sfx,''); });
+  var n=document.getElementById(k==='p'?'p_editing':'s_editing'); if(n) n.textContent='';
+  /* يبقى ثابتاً: المورد/العميل، المستودع، التاريخ، طريقة/نسبة الضريبة، الملاحظة */
+}
+/* تكرار آخر فاتورة: يملأ النموذج بنفس الجهة وأصنافها (كفاتورة جديدة) لتعديل الكميات/الأسعار بسرعة */
+function repeatLastDoc(k){
+  if(!guard('canAdd')) return;
+  var arr=(k==='p'?db.purchases:db.sales).slice().sort(function(a,b){ return (a.date===b.date)?((a.ts||a.id)-(b.ts||b.id)):(a.date<b.date?-1:1); });
+  var last=arr[arr.length-1];
+  if(!last){ toast('لا توجد فاتورة سابقة لتكرارها'); return; }
+  draft[k]={lines:(last.lines||[]).map(function(l){ return Object.assign({},l); }),editId:null};
+  var party=k==='p'?'p_supplier':'s_client';
+  setVal(k==='p'?'p_supplierSearch':'s_clientSearch',''); setVal(k==='p'?'p_supplierGroup':'s_clientGroup',''); filterInvoiceParty(k);
+  setVal(party, k==='p'?last.supplierId:last.clientId);
+  if(k==='s') onSaleClient();
+  setVal(k+'_vatmode',last.vatMode||(k==='p'?'incl':'add'));
+  setVal(k+'_vatrate',last.vatRate!=null?last.vatRate:vatRate());
+  setVal(k==='p'?'p_date':'s_date',today());
+  setVal(k==='p'?'p_no':'s_no',''); setVal(k==='p'?'p_paid':'s_recv',0); setVal(k==='p'?'p_note':'s_note',last.note||'');
+  renderDraft(k);
+  toast('حُمِّلت آخر فاتورة — عدّل الكميات والأسعار ثم احفظ');
+}
+
 function savePurchase(){
   if(!guard('canAdd')) return;
   if(!draft.p.lines.length){ toast('أضف صنفاً واحداً على الأقل'); return; }
@@ -2740,7 +2772,9 @@ function savePurchase(){
     log('add','المشتريات','فاتورة شراء '+(rec.no||'#'+rec.id)+' — '+supName(rec.supplierId)+' بقيمة '+num(pv.net)+' و'+num(wt)+' كغ');
   }
   (rec.lines||[]).forEach(function(l){ rememberBoxWeight(l.itemId,l.boxW||l.uw); });
-  cancelDoc('p'); commit('تم حفظ فاتورة الشراء');
+  var wasEdit=!!draft.p.editId;
+  if(wasEdit) cancelDoc('p'); else clearDocForNext('p');   /* بعد الإضافة: أبقِ رأس الفاتورة لتسريع التالي */
+  commit('تم حفظ فاتورة الشراء');
 }
 function saveSale(){
   if(!guard('canAdd')) return;
@@ -2760,7 +2794,9 @@ function saveSale(){
     log('add','المبيعات','فاتورة بيع '+(rec.no||'#'+rec.id)+' — '+clientName(rec.clientId)+' بقيمة '+num(sv.net)+' و'+num(wt)+' كغ');
   }
   (rec.lines||[]).forEach(function(l){ rememberBoxWeight(l.itemId,l.boxW||l.uw); });
-  cancelDoc('s'); commit('تم حفظ فاتورة البيع');
+  var wasEditS=!!draft.s.editId;
+  if(wasEditS) cancelDoc('s'); else clearDocForNext('s');   /* بعد الإضافة: أبقِ رأس الفاتورة لتسريع التالي */
+  commit('تم حفظ فاتورة البيع');
 }
 function editDoc(k,id){
   if(!guard('canEdit')) return;
@@ -7674,7 +7710,7 @@ var CLOUD_CONFIG={
 var CLOUD_AUTH_MODE="accounts";   /* "accounts" (حساب لكل مستخدم) أو "anonymous" (مساحة مشتركة بسيطة) */
 var cloudReady=false, cloudRef=null, cloudPushTimer=null, cloudLastPushed='', cloudSecondary=null,
     cloudInteractive=false, cloudAuthBusy=false,
-    cloudDirty=false, cloudInflight=false, cloudRetry=0, cloudRetryTimer=null, cloudConnWatched=false, cloudLastError='';
+    cloudDirty=false, cloudInflight=false, cloudRetry=0, cloudRetryTimer=null, cloudConnWatched=false, cloudLastError='', cloudAttaching=false;
 function setCloudStatus(state){
   var el=document.getElementById('cloudStatus'); if(!el) return;
   var map={off:['غير مفعّل','off'],auth:['بانتظار الدخول','connecting'],connecting:['يتصل…','connecting'],
@@ -7738,8 +7774,8 @@ function cloudCheckBuild(val){
   el.textContent=msg; el.style.display='';
 }
 function cloudPush(s){
-  if(!cloudReady||!cloudRef) return;
-  cloudDirty=true;
+  cloudDirty=true;   /* ضع علم «هناك تغيير غير مرفوع» دائماً — يُرفع الآن أو عند عودة الاتصال */
+  if(!cloudReady||!cloudRef){ if(cloudEnabled()) setCloudStatus('pending'); return; }   /* محفوظ محلياً؛ سيرفعه الحارس/الدمج */
   clearTimeout(cloudPushTimer);
   cloudPushTimer=setTimeout(cloudFlush,600);   /* تجميع الحفظات المتتابعة */
 }
@@ -7806,8 +7842,11 @@ function cloudApplyRemote(remote){
 /* الاشتراك في عقدة البيانات وتبنّي ما فيها أو رفع المحلي إن كانت فارغة */
 function cloudAttach(cb){
   if(cloudReady){ if(cb) cb(); return; }
+  if(cloudAttaching){ if(cb) cb(); return; }   /* منع محاولات ربط متزامنة (تسرّب مستمعين) */
+  cloudAttaching=true;
   cloudRef=firebase.database().ref('workspaces/'+cloudWid()+'/root');
   cloudRef.once('value').then(function(snap){
+    cloudAttaching=false;
     var v=snap.val(); var vd=cloudRemoteData(v); cloudCheckBuild(v);
     if(vd&&Array.isArray(vd.users)){ cloudApplyRemote(vd); cloudReady=true; }
     else { cloudReady=true; cloudPush(JSON.stringify(serializeDB())); }
@@ -7821,7 +7860,7 @@ function cloudAttach(cb){
       cloudApplyRemote(rd);
     });
     if(cb) cb();
-  }).catch(function(err){ setCloudStatus('err'); if(cb) cb(err||true); });
+  }).catch(function(err){ cloudAttaching=false; setCloudStatus('err'); if(cb) cb(err||true); });
 }
 function cloudDetach(){ if(cloudRef){ try{cloudRef.off();}catch(e){} }
   try{ if(cloudConnWatched) firebase.database().ref('.info/connected').off(); }catch(e){}
@@ -8022,9 +8061,20 @@ function rejectJoinRequest(ruid){
   log('delete','المستخدمون','رفض طلب انضمام'+(r?': '+(r.name||r.username):''));
   persist(); renderJoinRequests(); toast('تم رفض الطلب');
 }
+/* حارس دوري يضمن «التخزين المحلي ثم الرفع»: يعيد الاتصال إن انقطع، ويرفع أي
+   إدخالات محفوظة على الجهاز ولم تُرفع بعد — فلا تضيع بيانات ولو تعذّر الرفع لفترة */
+function cloudWatchdog(){
+  try{
+    if(!cloudEnabled()) return;
+    var user=(firebase.auth&&firebase.auth().currentUser)||null;
+    if(!cloudReady){ if(user||!cloudAccounts()) cloudAttach(); return; }   /* غير متصل → أعد الربط */
+    if(cloudDirty&&!cloudInflight){ cloudRetry=0; cloudFlush(); }           /* معلّق لم يُرفع → ادفعه */
+  }catch(e){}
+}
 function cloudInit(){
   if(!cloudEnabled()){ setCloudStatus('off'); return; }
   try{ firebase.initializeApp(CLOUD_CONFIG); }catch(e){ /* قد يكون مُهيّأً مسبقاً */ }
+  if(!window._cloudWatchdogTimer) window._cloudWatchdogTimer=setInterval(cloudWatchdog,15000);   /* شبكة أمان دورية */
   if(cloudAccounts()){
     setCloudStatus('auth');
     /* استئناف الجلسة المحفوظة تلقائياً عند إعادة فتح الصفحة */
