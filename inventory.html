@@ -1192,30 +1192,47 @@ function renderReport(){
   const items=citems().filter(i=>(!cat||i.category===cat)&&(!sq||(i.code+i.name+(i.model||"")+(i.category||"")).toLowerCase().includes(sq)));
   const rows=items.map(it=>{
     const mv=DB.movements.filter(m=>m.itemId===it.id&&inRange(m.date));
-    const inb=mv.filter(m=>isIn(m.type)).reduce((s,m)=>s+m.qty,0);
-    const out=mv.filter(m=>m.type==="outbound").reduce((s,m)=>s+m.qty,0);
+    const inMv=mv.filter(m=>isIn(m.type)),outMv=mv.filter(m=>m.type==="outbound");
+    const inb=inMv.reduce((s,m)=>s+m.qty,0);
+    const out=outMv.reduce((s,m)=>s+m.qty,0);
+    const inVal=inMv.reduce((s,m)=>s+m.qty*m.price,0);   // قيمة الوارد (تكلفة)
+    const outVal=outMv.reduce((s,m)=>s+m.qty*m.price,0); // قيمة المنصرف (بيع)
+    const avgCost=inb?inVal/inb:0;                        // متوسط تكلفة الوحدة للمدة
+    const profit=outVal-avgCost*out;                      // ربح تقريبي للمدة
     // الرصيد أول المدة = الرصيد الحالي − صافي حركة المدة (تقريبي بافتراض عدم وجود حركات لاحقة للتاريخ)
     const after=DB.movements.filter(m=>m.itemId===it.id&&(!to||m.date>to)).reduce((s,m)=>s+(isIn(m.type)?m.qty:-m.qty),0);
     const closing=it.qty-after;const opening=closing-(inb-out);
-    return {it,inb,out,opening,closing,net:inb-out};
+    return {it,inb,out,inVal,outVal,profit,opening,closing,net:inb-out};
   }).filter(r=>r.inb||r.out||r.opening||r.closing);
   const tIn=rows.reduce((s,r)=>s+r.inb,0),tOut=rows.reduce((s,r)=>s+r.out,0);
-  window.__reportRows=rows.map(r=>[r.it.code,r.it.name,r.opening,r.inb,r.out,r.net,r.closing]);
+  const tInVal=rows.reduce((s,r)=>s+r.inVal,0),tOutVal=rows.reduce((s,r)=>s+r.outVal,0),tProfit=rows.reduce((s,r)=>s+r.profit,0);
+  window.__reportRows=rows.map(r=>[itemModel(r.it),r.it.name||"",r.it.category||"",r.opening,r.inb,r.out,r.net,r.closing,r.inVal,r.outVal,r.profit]);
   $("#reportOut").innerHTML=`
-    <div class="grid-3" style="margin-bottom:14px">
-      <div class="stat"><div class="lbl">إجمالي الوارد بالمدة</div><div class="val" style="color:var(--green)">${tIn}</div></div>
-      <div class="stat"><div class="lbl">إجمالي المنصرف بالمدة</div><div class="val" style="color:var(--amber)">${tOut}</div></div>
+    <div class="grid-3" style="margin-bottom:8px">
+      <div class="stat"><div class="lbl">إجمالي الوارد (كمية)</div><div class="val" style="color:var(--green)">${tIn}</div></div>
+      <div class="stat"><div class="lbl">إجمالي المنصرف (كمية)</div><div class="val" style="color:var(--amber)">${tOut}</div></div>
       <div class="stat"><div class="lbl">صافي الحركة</div><div class="val">${tIn-tOut}</div></div>
+    </div>
+    <div class="grid-3" style="margin-bottom:14px">
+      <div class="stat"><div class="lbl">قيمة الوارد ﷼</div><div class="val sm" style="color:var(--green)">${money(tInVal)}</div></div>
+      <div class="stat"><div class="lbl">قيمة المنصرف ﷼</div><div class="val sm" style="color:var(--amber)">${money(tOutVal)}</div></div>
+      <div class="stat"><div class="lbl">الربح التقريبي ﷼</div><div class="val sm" style="color:${tProfit>=0?'var(--green)':'var(--red)'}">${money(tProfit)}</div></div>
     </div>
     <div class="card"><div class="card-title" style="display:flex;justify-content:space-between;align-items:center">
       <span>من ${esc(from||"البداية")} إلى ${esc(to||"الآن")}</span>
-      <button class="btn ghost sm no-print" onclick="exportCSV('تقرير-وارد-منصرف.csv',['الكود','الصنف','رصيد أول المدة','الوارد','المنصرف','الصافي','رصيد آخر المدة'],window.__reportRows||[])">⬇ Excel</button></div>
-    <div class="table-wrap"><table><thead><tr><th>الموديل</th><th>الوصف</th><th>رصيد أول المدة</th>
-      <th style="color:var(--green)">الوارد</th><th style="color:var(--amber)">المنصرف</th><th>الصافي</th><th>رصيد آخر المدة</th></tr></thead>
+      <button class="btn ghost sm no-print" onclick="exportCSV('تقرير-وارد-منصرف.csv',['الموديل','الوصف','الفئة','رصيد أول المدة','الوارد','المنصرف','الصافي','رصيد آخر المدة','قيمة الوارد','قيمة المنصرف','الربح'],window.__reportRows||[])">⬇ Excel</button></div>
+    <div class="table-wrap"><table><thead><tr><th>الموديل</th><th>الوصف</th><th>الفئة</th><th>رصيد أول المدة</th>
+      <th style="color:var(--green)">الوارد</th><th style="color:var(--amber)">المنصرف</th><th>الصافي</th><th>رصيد آخر المدة</th>
+      <th style="color:var(--green)">قيمة الوارد ﷼</th><th style="color:var(--amber)">قيمة المنصرف ﷼</th><th>ربح تقريبي ﷼</th></tr></thead>
       <tbody>${rows.map(r=>`<tr><td style="font-family:monospace">${esc(itemModel(r.it))}</td><td>${esc(r.it.name&&r.it.name!==itemModel(r.it)?r.it.name:"")}</td>
+        <td>${esc(r.it.category||"")}</td>
         <td>${r.opening}</td><td style="color:var(--green);font-weight:700">${r.inb}</td>
         <td style="color:var(--amber);font-weight:700">${r.out}</td><td>${r.net}</td>
-        <td style="font-weight:700">${r.closing}</td></tr>`).join("")||`<tr><td colspan="7" class="empty">لا حركات في هذه المدة.</td></tr>`}</tbody></table></div></div>`;
+        <td style="font-weight:700">${r.closing}</td>
+        <td style="color:var(--green)">${money(r.inVal)}</td><td style="color:var(--amber)">${money(r.outVal)}</td>
+        <td style="font-weight:700;color:${r.profit>=0?'var(--green)':'var(--red)'}">${money(r.profit)}</td></tr>`).join("")||`<tr><td colspan="11" class="empty">لا حركات في هذه المدة.</td></tr>`}
+        ${rows.length?`<tr style="background:#f1f5f9;font-weight:800"><td colspan="4">الإجمالي</td><td style="color:var(--green)">${tIn}</td><td style="color:var(--amber)">${tOut}</td><td>${tIn-tOut}</td><td></td><td style="color:var(--green)">${money(tInVal)}</td><td style="color:var(--amber)">${money(tOutVal)}</td><td style="color:${tProfit>=0?'var(--green)':'var(--red)'}">${money(tProfit)}</td></tr>`:""}</tbody></table></div>
+      <p style="font-size:12px;color:var(--muted);margin-top:8px">الربح التقريبي = قيمة المنصرف − (متوسط تكلفة الوارد بالمدة × كمية المنصرف).</p></div>`;
 }
 
 /* تقرير تفصيلي — كل الحركات يومياً */
