@@ -1625,7 +1625,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-10-e';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-10-f';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -2414,11 +2414,19 @@ function filterInvoiceParty(kind){
   if(kind==='s'){ fillSelect('s_client',opts(invoiceClients(),'id',nm),false); onSaleClient(); }
   else fillSelect('p_supplier',opts(invoiceSuppliers(),'id',nm),false);
 }
+/* إخفاء خانات المجموعة تلقائياً عندما لا توجد سوى مجموعة واحدة (أو لا شيء) — لا فائدة من الفلترة حينها */
+function toggleGroupUI(){
+  var nSup=(db.supplierGroups||[]).length, nCl=(db.clientGroups||[]).length;
+  var setHide=function(id,cond){ var e=document.getElementById(id); if(!e||!e.closest) return; var f=e.closest('.field'); if(f) f.style.display=cond?'none':''; };
+  ['p_supplierGroup','sup_group','msSupGroup'].forEach(function(id){ setHide(id,nSup<=1); });
+  ['s_clientGroup','cl_group','msClGroup'].forEach(function(id){ setHide(id,nCl<=1); });
+}
 function fillAllSelects(){
   var nm=function(o){return o.name;};
   var whTxt=function(w){ return w.name+(w.clientId?' — '+clientName(w.clientId):' (عام)'); };
   fillSelect('p_supplierGroup',groupOpts('sup','كل مجموعات الموردين'));
   fillSelect('s_clientGroup',groupOpts('cl','كل مجموعات العملاء'));
+  toggleGroupUI();
   fillDatalist('dl_pSup',db.suppliers); fillDatalist('dl_sCl',db.clients);   /* اقتراحات البحث بالاسم */
   fillDatalist('dl_pfSup',db.suppliers); fillDatalist('dl_sfCl',db.clients);
   fillSelect('p_supplier',opts(invoiceSuppliers(),'id',nm));
