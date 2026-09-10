@@ -1543,14 +1543,14 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
   </div>
 
   <div class="sec-title">الجرد الفعلي — تسوية المخزون تلقائياً <span class="hint">يحسب الفرق ويشطبه عجز جرد أو يضيفه تصحيح رصيد</span></div>
-  <div class="note" style="border-right-color:var(--citrus)">أدخِل <b>الكمية الموجودة فعلياً</b> لكل صنف، فيحسب النظام الفرق مع الرصيد الدفتري: <b>النقص</b> يُسجَّل <b>عجز جرد</b> (خسارة بتكلفته في قائمة الدخل)، و<b>الزيادة</b> تُضاف <b>تصحيح رصيد</b> (أصل). تنعكس بدقّة في المخزون وكل التقارير. الحقول معبّأة بالرصيد الدفتري — عدّل ما اختلف فقط. <b>نزّل نسخة احتياطية أولاً.</b></div>
+  <div class="note" style="border-right-color:var(--citrus)"><b>اختر تاريخ الجرد أولاً</b> فيظهر <b>الرصيد الدفتري في ذلك التاريخ بالضبط</b> لكل صنف. أدخِل <b>الكمية الموجودة فعلياً</b>، فيحسب النظام الفرق: <b>النقص</b> = <b>عجز جرد</b> (خسارة)، و<b>الزيادة</b> = <b>تصحيح رصيد</b> (أصل). تُعتمَد الكميات المُدخلة كرصيد ذلك التاريخ، وتُبنى عليها كل الحركات اللاحقة. الحقول معبّأة بالرصيد الدفتري — عدّل ما اختلف فقط. <b>نزّل نسخة احتياطية أولاً.</b></div>
   <div class="doc-box no-print" style="margin-top:10px">
     <div class="grid-2">
-      <div class="field"><label>تاريخ الجرد</label><input type="date" id="sc_date"></div>
+      <div class="field"><label>تاريخ الجرد <span class="hint">يُعرض الرصيد كما في نهاية هذا اليوم</span></label><input type="date" id="sc_date" onchange="renderStockCountUI()"></div>
       <div class="field"><label>المستودع (تصفية العرض)</label><select id="sc_whFilter" onchange="renderStockCountUI()"><option value="">كل المستودعات</option></select></div>
     </div>
     <div class="table-scroll" style="max-height:360px;overflow:auto"><table id="sc_table">
-      <thead><tr><th class="name">المستودع</th><th class="name">الصنف</th><th>الرصيد الدفتري</th><th>متوسط التكلفة</th><th>الجرد الفعلي</th></tr></thead>
+      <thead><tr><th class="name">المستودع</th><th class="name">الصنف</th><th>الرصيد الدفتري في التاريخ</th><th>متوسط التكلفة</th><th>الجرد الفعلي</th></tr></thead>
       <tbody id="sc_body"></tbody></table></div>
     <div class="inline-add" style="margin-top:8px">
       <select id="sc_addWh" style="max-width:180px"></select>
@@ -1655,7 +1655,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-10-k';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-10-l';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -2257,11 +2257,12 @@ function buildLedger(){
       });
     }
     if(need>0.0001){
-      /* لا يوجد رصيد كافٍ وقت العملية: تُقدَّر التكلفة بمتوسط الشراء (وتتحدّث تلقائياً عند
-         إدخال الشراء)، ولا يُنزَّل الرصيد تحت الصفر — فلا تظهر أرصدة سالبة وهمية، ويظل الجرد
-         الفعلي هو المرجع لضبط الكميات الواقعية عند الحاجة */
-      cost+=need*fbCost(itemId);
-      warn.push({date:date,text:label+' '+date+': كمية '+itemName(itemId)+' تتجاوز الرصيد المتاح وقت العملية — قُدّرت التكلفة بمتوسط الشراء. سجّل فاتورة الشراء أو الجرد الفعلي لضبط الرصيد.'});
+      /* رصيد حقيقي: العجز يُخصم فعلاً فيصير الرصيد سالباً (بيع أكثر من المتاح = سالب)،
+         وتُقدَّر تكلفته بمتوسط الشراء وتتحدّث تلقائياً عند إدخال الشراء. المرجع لبداية
+         الرصيد هو آخر جرد فعلي، وما بعده حركات فعلية قد تجعله سالباً. */
+      var est=need*fbCost(itemId); cost+=est;
+      var s=cell(whId,itemId); s.units-=need; s.cost-=est; s.weight-=need*(+uw||0);
+      warn.push({date:date,text:label+' '+date+': كمية '+itemName(itemId)+' تتجاوز الرصيد المتاح — أصبح الرصيد سالباً. راجع الشراء أو الجرد الفعلي.'});
     }
     return cost;
   }
@@ -5929,10 +5930,14 @@ function scItemAvgCost(itemId){
   db.openingStock.forEach(function(o){ if(o.itemId===itemId){ su+=+o.units||0; sc+=+o.total||0; }});
   return su>0? sc/su : 0;
 }
+function scAsOfDate(){ return val('sc_date')||today(); }
 function scCells(){
   if(!L) refreshLedger();
+  var map=stockAsOf(scAsOfDate());   /* الرصيد كما في نهاية تاريخ الجرد المختار */
   var cells=[], seen={};
-  Object.keys(L.stock).forEach(function(k){ var s=L.stock[k]; if(Math.abs(s.units)>0.0001||Math.abs(s.cost)>0.01){ cells.push({whId:s.whId,itemId:s.itemId,units:s.units,cost:s.cost,weight:s.weight}); seen[s.whId+'|'+s.itemId]=1; } });
+  Object.keys(map).forEach(function(k){ var s=map[k]; if(Math.abs(s.units)>0.0001||Math.abs(s.cost)>0.01){
+    var wt=(s.weight!=null&&s.weight!==undefined)?s.weight:(itemByKg(s.itemId)?s.units:s.units*(itemUW(s.itemId)||0));
+    cells.push({whId:s.whId,itemId:s.itemId,units:s.units,cost:s.cost,weight:wt}); seen[s.whId+'|'+s.itemId]=1; } });
   scExtraRows.forEach(function(r){ var k=r.whId+'|'+r.itemId; if(!seen[k]){ cells.push({whId:r.whId,itemId:r.itemId,units:0,cost:0,weight:0}); seen[k]=1; } });
   return cells;
 }
