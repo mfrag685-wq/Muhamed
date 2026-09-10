@@ -1506,6 +1506,18 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
     <div id="itemDiagBox" style="margin-top:10px"></div>
   </div>
 
+  <div class="sec-title">دمج الأصناف المكرّرة <span class="hint">صنفان لنفس المنتج: اشتُري بأحدهما وبِيع بالآخر</span></div>
+  <div class="note" style="border-right-color:var(--tomato)">إذا ظهر <b>رصيد سالب</b> لأن الشراء سُجّل باسم صنف والبيع باسم صنف آخر لنفس المنتج (مثل «بصل متنوع» و«بصل ابيض- متنوع»)، ادمجهما هنا: تُنقل <b>كل حركات الصنف المصدر</b> (مشتريات/مبيعات/مرتجعات/تحويلات/فاقد/افتتاحي/قوائم مكوّنات/إنتاج) إلى <b>الصنف الهدف</b> ويُوقَف المصدر — فيصبح الرصيد واقعياً. <b>نزّل نسخة احتياطية أولاً، وعاين قبل التطبيق.</b></div>
+  <div class="doc-box no-print">
+    <div class="grid-2">
+      <div class="field"><label>الصنف المصدر (يُدمج ويُوقَف)</label><select id="mg_src" onchange="mergePreview()"></select></div>
+      <div class="field"><label>الصنف الهدف (يبقى)</label><select id="mg_tgt" onchange="mergePreview()"></select></div>
+    </div>
+    <div class="note no-print" id="mg_preview" style="display:none;border-right-color:var(--citrus)"></div>
+    <div class="form-foot"><button class="btn-main" onclick="applyMergeItems()">دمج الأصناف</button>
+      <button class="btn" onclick="undoMergeItems()">↩ تراجع عن آخر دمج</button></div>
+  </div>
+
   <div class="sec-title">تصحيح أوزان العبوات (خطأ إدخال الأوزان) <span class="hint">دون المساس بالمبلغ المدفوع</span></div>
   <div class="note" style="border-right-color:var(--citrus)">يُصحّح <b>وزن العبوة (الصندوق/الكيس)</b> في الحركات دون تغيير <b>المبلغ المدفوع</b> — فيُعاد حساب الكمية بالكيلو وتكلفة الكيلو بدقّة، ويختفي <b>المخزون الوهمي</b> الناتج عن أوزان مبالغ فيها. يعمل على أصناف <b>الكيلو</b> فقط. لا خسارة وهمية — فقط تصحيح القياس. <b>عاين قبل التطبيق، ونزّل نسخة احتياطية أولاً.</b></div>
   <div class="doc-box no-print" style="margin-top:10px">
@@ -1643,7 +1655,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-10-h';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-10-i';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -5678,7 +5690,7 @@ function renderStockResetUI(){
   if(info) info.textContent='المخزون الحالي: '+Object.keys(items).length+' صنف بقيمة '+money(totC)+' — سيُرحَّل كأرصدة افتتاحية بتاريخ '+(val('ns_date')||'—')+'.';
   var nwi=document.getElementById('nw_info');
   if(nwi) nwi.textContent='المخزون الحالي بقيمة '+money(totC)+' سيُحمَّل كفاقد/تالف.';
-  renderWeightFixUI(); renderStockCountUI();
+  renderWeightFixUI(); renderStockCountUI(); fillMergeSelects();
 }
 /* ===== تشخيص أرصدة الأصناف — يكشف سبب الرصيد الوهمي لكل صنف ===== */
 function renderItemDiag(){
@@ -5720,6 +5732,66 @@ function renderItemDiag(){
     +(nSusp?('عُثر على <b>'+nSusp+'</b> صنف بأرصدة مشبوهة (تظهر أولاً بالأحمر). عالجها بأداة «تصحيح أوزان العبوات» أو «الجرد الفعلي».'):'كل الأصناف سليمة — لا أرصدة مشبوهة. ✅')+'</div>'
     +'<div class="table-scroll"><table><thead><tr><th class="name">الصنف</th><th>اشتُري</th><th>بِيع</th><th>الرصيد الحالي</th><th class="name">توزيع المستودعات</th><th class="name">التشخيص / السبب</th></tr></thead><tbody>'
     +(h||'<tr><td colspan="6" class="empty">لا توجد حركات أصناف.</td></tr>')+'</tbody></table></div>';
+}
+/* ===== دمج الأصناف المكرّرة — نقل كل حركات صنف إلى صنف آخر لتصحيح الأرصدة السالبة ===== */
+function fillMergeSelects(){
+  var o='<option value="">— اختر —</option>'+db.items.map(function(i){ return '<option value="'+i.id+'">'+esc(i.name)+(i.whId?' — '+esc(whName(i.whId)):'')+(i.active===0?' (متوقف)':'')+'</option>'; }).join('');
+  fillSelect('mg_src',o,true); fillSelect('mg_tgt',o,true);
+}
+function itemTxnLocations(id){ id=+id;
+  var loc={purLines:[],saleLines:[],prodLines:[],bomComps:[],prodFin:[],bomFin:[],simple:[]};
+  db.purchases.forEach(function(p){(p.lines||[]).forEach(function(l,i){ if(+l.itemId===id) loc.purLines.push([p.id,i]); });});
+  db.sales.forEach(function(s){(s.lines||[]).forEach(function(l,i){ if(+l.itemId===id) loc.saleLines.push([s.id,i]); });});
+  (db.productions||[]).forEach(function(p){ (p.lines||[]).forEach(function(l,i){ if(+l.itemId===id) loc.prodLines.push([p.id,i]); }); if(+p.finishedItemId===id) loc.prodFin.push(p.id); });
+  (db.boms||[]).forEach(function(b){ (b.components||[]).forEach(function(c,i){ if(+c.itemId===id) loc.bomComps.push([b.id,i]); }); if(+b.finishedItemId===id) loc.bomFin.push(b.id); });
+  ['sreturns','preturns','transfers','waste','openingStock'].forEach(function(bk){ (db[bk]||[]).forEach(function(r){ if(+r.itemId===id) loc.simple.push([bk,r.id]); }); });
+  return loc;
+}
+function locCount(l){ return l.purLines.length+l.saleLines.length+l.prodLines.length+l.bomComps.length+l.prodFin.length+l.bomFin.length+l.simple.length; }
+function setLocItem(loc,id){
+  loc.purLines.forEach(function(x){ var p=byId(db.purchases,x[0]); if(p&&p.lines[x[1]]) p.lines[x[1]].itemId=id; });
+  loc.saleLines.forEach(function(x){ var s=byId(db.sales,x[0]); if(s&&s.lines[x[1]]) s.lines[x[1]].itemId=id; });
+  loc.prodLines.forEach(function(x){ var p=byId(db.productions,x[0]); if(p&&p.lines[x[1]]) p.lines[x[1]].itemId=id; });
+  loc.bomComps.forEach(function(x){ var b=byId(db.boms,x[0]); if(b&&b.components[x[1]]) b.components[x[1]].itemId=id; });
+  loc.prodFin.forEach(function(pid){ var p=byId(db.productions,pid); if(p) p.finishedItemId=id; });
+  loc.bomFin.forEach(function(bid){ var b=byId(db.boms,bid); if(b) b.finishedItemId=id; });
+  loc.simple.forEach(function(x){ var r=byId(db[x[0]],x[1]); if(r) r.itemId=id; });
+}
+function mergePreview(){
+  var el=document.getElementById('mg_preview'); if(!el) return;
+  var src=+val('mg_src'), tgt=+val('mg_tgt');
+  if(!src||!tgt||src===tgt){ el.style.display='none'; return; }
+  var n=locCount(itemTxnLocations(src));
+  if(!L) refreshLedger();
+  var sB=0,tB=0; Object.keys(L.stock).forEach(function(k){ var s=L.stock[k]; if(s.itemId===src) sB+=s.units; if(s.itemId===tgt) tB+=s.units; });
+  el.style.display=''; el.innerHTML='سيُنقل <b>'+n+'</b> موضعاً من «'+esc(itemName(src))+'» (رصيد '+qty(sB)+') إلى «'+esc(itemName(tgt))+'» (رصيد '+qty(tB)+'). الرصيد المجمّع بعد الدمج ≈ <b>'+qty(sB+tB)+'</b>.';
+}
+function applyMergeItems(){
+  if(!guard('canEdit')) return;
+  var src=+val('mg_src'), tgt=+val('mg_tgt');
+  if(!src||!tgt){ toast('اختر الصنف المصدر والهدف'); return; }
+  if(src===tgt){ toast('المصدر والهدف متطابقان'); return; }
+  var loc=itemTxnLocations(src), n=locCount(loc);
+  if(!n){ toast('لا توجد حركات على الصنف المصدر'); return; }
+  if(!confirm('دمج «'+itemName(src)+'» في «'+itemName(tgt)+'»؟\nسيُنقل '+n+' موضعاً ويُوقَف الصنف المصدر.\nنزّل نسخة احتياطية أولاً. متابعة؟')) return;
+  setLocItem(loc,tgt);
+  var it=byId(db.items,src); if(it) it.active=0;
+  if(!Array.isArray(db.settings.mergeLog)) db.settings.mergeLog=[];
+  db.settings.mergeLog.push({src:src,tgt:tgt,loc:loc,ts:nowTs(),by:ME.id});
+  log('edit','المخزون','دمج صنف «'+itemName(src)+'» في «'+itemName(tgt)+'» — '+n+' موضع');
+  commit('تم الدمج — نُقل '+n+' موضعاً'); fillMergeSelects();
+}
+function undoMergeItems(){
+  if(!guard('canEdit')) return;
+  var lg=db.settings.mergeLog;
+  if(!Array.isArray(lg)||!lg.length){ toast('لا يوجد دمج سابق للتراجع عنه'); return; }
+  var last=lg[lg.length-1];
+  if(!confirm('التراجع عن دمج «'+itemName(last.src)+'» في «'+itemName(last.tgt)+'»؟ ستعود الحركات للصنف المصدر ويُعاد تفعيله.')) return;
+  setLocItem(last.loc,last.src);
+  var it=byId(db.items,last.src); if(it) it.active=1;
+  lg.pop();
+  log('edit','المخزون','تراجع عن دمج صنف إلى «'+itemName(last.tgt)+'»');
+  commit('تم التراجع عن الدمج'); fillMergeSelects();
 }
 /* ===== تصحيح أوزان العبوات — يعالج المخزون الوهمي من أوزان مبالغ فيها ===== */
 function renderWeightFixUI(){
