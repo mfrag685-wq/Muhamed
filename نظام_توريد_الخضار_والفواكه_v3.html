@@ -415,6 +415,24 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 
 
 <div id="buildWarn" class="no-print" style="display:none;background:#7c2d12;color:#fff;border-radius:10px;padding:10px 14px;margin:10px 0;font-weight:700;font-size:13.5px;line-height:1.7"></div>
+<div id="staleOverlay" class="no-print" style="display:none;position:fixed;inset:0;z-index:500;background:rgba(20,36,32,.92);align-items:center;justify-content:center;padding:20px">
+  <div style="background:#fff;max-width:460px;width:100%;border-radius:18px;padding:28px 26px;text-align:center;box-shadow:0 24px 60px rgba(0,0,0,.4)">
+    <div style="font-size:40px;margin-bottom:8px">🔄</div>
+    <h2 style="color:#7c2d12;font-size:20px;margin-bottom:10px">تحديث النظام مطلوب</h2>
+    <p style="color:#334155;font-size:14px;line-height:1.9;margin-bottom:14px">
+      يعمل هذا الجهاز بإصدار قديم (<b id="staleCur"></b>) بينما الإصدار المعتمد أحدث (<b id="staleLatest"></b>).<br>
+      <b style="color:#7c2d12">أُوقِف الإدخال على هذا الجهاز</b> لحماية بياناتك من التعارض، حتى يتم التحديث.
+    </p>
+    <div style="background:#f1f5f9;border-radius:12px;padding:12px 14px;text-align:right;font-size:13.5px;color:#334155;line-height:2;margin-bottom:16px">
+      <b>طريقة التحديث:</b><br>
+      • على الكمبيوتر: اضغط <b>Ctrl + Shift + R</b> (أو <b>Cmd + Shift + R</b> على ماك).<br>
+      • على الجوال: أغلق التبويب تماماً ثم أعد فتح الرابط، أو امسح ذاكرة الموقع من إعدادات المتصفح.<br>
+      • بعد التحديث يعود الإدخال تلقائياً.
+    </div>
+    <button class="btn-main" style="width:100%;font-size:15px;padding:12px" onclick="reloadNow()">🔄 تحديث الآن</button>
+    <div style="margin-top:10px"><a href="#" onclick="hideStaleOverlay();return false" style="color:#64748b;font-size:12.5px;text-decoration:none">إغلاق مؤقّت للاطّلاع فقط (يبقى الإدخال موقوفاً)</a></div>
+  </div>
+</div>
 <nav class="tabs" id="tabsNav">
   <button class="tab-btn active" data-tab="dash" data-perm="dash">الملخص</button>
   <!-- العمليات اليومية -->
@@ -1625,7 +1643,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-10-f';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-10-g';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -1930,7 +1948,10 @@ function can(k){ var p=effPerms(); return !!(p&&p[k]); }
 function canSeeBalances(){ return can('accounts')||can('accSuppliers')||can('accClients'); }
 /* هل يُسمح له برؤية الأرباح والتكاليف والهوامش؟ (مرتبط بصلاحية قائمة الدخل) */
 function canSeeProfit(){ return can('income'); }
-function guard(k,msg){ if(can(k)) return true; toast(msg||'لا تملك صلاحية لهذا الإجراء'); return false; }
+var staleBuild=false;
+function guard(k,msg){
+  if(staleBuild){ showStaleOverlay(); toast('حدّث النظام أولاً — الإدخال موقوف حتى تحديث هذا الجهاز'); return false; }
+  if(can(k)) return true; toast(msg||'لا تملك صلاحية لهذا الإجراء'); return false; }
 function applyPerms(){
   document.querySelectorAll('.tab-btn').forEach(function(b){
     var vis=can(b.dataset.perm);
@@ -7773,14 +7794,29 @@ function setCloudErrTip(msg){ var el=document.getElementById('cloudStatus'); if(
 /* كشف اختلاف الإصدارات بين الأجهزة: الجهاز القديم لا يطبّق الحذف/الدمج بشكل صحيح.
    إذا كانت السحابة كُتبت بإصدار أحدث ⇒ هذا الجهاز قديم فليُحدَّث؛ وإذا بإصدار أقدم ⇒ جهاز آخر قديم. */
 function cloudCheckBuild(val){
-  var el=document.getElementById('buildWarn'); if(!el) return;
+  var el=document.getElementById('buildWarn');
   var rb=val&&val.build;
-  if(!rb||rb===APP_BUILD){ el.style.display='none'; return; }
-  var msg;
-  if(String(rb)>String(APP_BUILD)) msg='⚠ يوجد إصدار أحدث من النظام ('+esc(rb)+') وهذا الجهاز يعمل بإصدار أقدم ('+APP_BUILD+'). أعد تحميل الصفحة (Ctrl+Shift+R) لتحديثه — وإلا قد لا تُطبَّق عمليات الحذف والمزامنة بشكل صحيح.';
-  else msg='⚠ جهاز آخر يعمل بإصدار أقدم ('+esc(rb)+') من هذا الجهاز ('+APP_BUILD+'). حدّث ذلك الجهاز (أعد تحميل صفحته) وإلا قد تعود سجلّات محذوفة أو تختفي إدخالات.';
-  el.textContent=msg; el.style.display='';
+  if(!rb||rb===APP_BUILD){ staleBuild=false; if(el) el.style.display='none'; hideStaleOverlay(); return; }
+  if(String(rb)>String(APP_BUILD)){
+    /* هذا الجهاز قديم: أوقِف الإدخال وأظهر شاشة تحديث إلزامية */
+    staleBuild=true; cloudLatestBuild=rb;
+    if(el) el.style.display='none';   /* نكتفي بالشاشة الكاملة */
+    showStaleOverlay();
+  } else {
+    /* جهاز آخر قديم: تنبيه للمدير فقط (هذا الجهاز محدَّث) */
+    staleBuild=false; hideStaleOverlay();
+    if(el){ el.textContent='⚠ جهاز آخر يعمل بإصدار أقدم ('+esc(rb)+') من هذا الجهاز ('+APP_BUILD+'). حدّث ذلك الجهاز (أعد تحميل صفحته) وإلا قد تعود سجلّات محذوفة أو تختفي إدخالات.'; el.style.display=''; }
+  }
 }
+var cloudLatestBuild='';
+function showStaleOverlay(){
+  var o=document.getElementById('staleOverlay'); if(!o) return;
+  var v=document.getElementById('staleLatest'); if(v) v.textContent=cloudLatestBuild||'';
+  var c=document.getElementById('staleCur'); if(c) c.textContent=APP_BUILD;
+  o.style.display='flex';
+}
+function hideStaleOverlay(){ var o=document.getElementById('staleOverlay'); if(o) o.style.display='none'; }
+function reloadNow(){ try{ location.reload(true); }catch(e){ try{ location.reload(); }catch(e2){} } }
 function cloudPush(s){
   cloudDirty=true;   /* ضع علم «هناك تغيير غير مرفوع» دائماً — يُرفع الآن أو عند عودة الاتصال */
   if(!cloudReady||!cloudRef){ if(cloudEnabled()) setCloudStatus('pending'); return; }   /* محفوظ محلياً؛ سيرفعه الحارس/الدمج */
