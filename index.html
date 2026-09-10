@@ -2,6 +2,9 @@
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>نظام توريد الخضار والفواكه — إعداد محمد فرج</title>
 <!-- ===== تطبيق ويب (يُثبَّت على الجوال بأيقونة ويفتح بملء الشاشة) ===== -->
@@ -411,6 +414,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 </header>
 
 
+<div id="buildWarn" class="no-print" style="display:none;background:#7c2d12;color:#fff;border-radius:10px;padding:10px 14px;margin:10px 0;font-weight:700;font-size:13.5px;line-height:1.7"></div>
 <nav class="tabs" id="tabsNav">
   <button class="tab-btn active" data-tab="dash" data-perm="dash">الملخص</button>
   <!-- العمليات اليومية -->
@@ -1619,7 +1623,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-10-c';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-10-d';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -7696,7 +7700,7 @@ function cloudFlush(){
   /* نخزّن القاعدة كسلسلة نصية واحدة: قيم النص لا تخضع لقيود مفاتيح Firebase
      (النقطة/$ /# /[ /] ممنوعة في المفاتيح فقط) فينتفي فشل الرفع بسبب اسم مستخدم
      أو مفتاح يحوي حرفاً ممنوعاً، ويصبح الرفع كتلة واحدة موثوقة. */
-  var payload={data:s,fmt:'str',updatedAt:firebase.database.ServerValue.TIMESTAMP,updatedBy:(ME?ME.name:'')};
+  var payload={data:s,fmt:'str',build:APP_BUILD,updatedAt:firebase.database.ServerValue.TIMESTAMP,updatedBy:(ME?ME.name:'')};
   cloudRef.set(payload).then(function(){
     cloudInflight=false; cloudLastPushed=s; cloudRetry=0; cloudLastError='';
     setCloudErrTip('');
@@ -7722,6 +7726,17 @@ function cloudRemoteStr(val){ if(!val||val.data==null) return '';
   return (typeof val.data==='string')?val.data:JSON.stringify(val.data); }
 function setCloudErrTip(msg){ var el=document.getElementById('cloudStatus'); if(!el) return;
   el.title=msg?('تعذّر الرفع: '+msg+' — البيانات محفوظة محلياً وستُرفع تلقائياً'):'حالة المزامنة السحابية'; }
+/* كشف اختلاف الإصدارات بين الأجهزة: الجهاز القديم لا يطبّق الحذف/الدمج بشكل صحيح.
+   إذا كانت السحابة كُتبت بإصدار أحدث ⇒ هذا الجهاز قديم فليُحدَّث؛ وإذا بإصدار أقدم ⇒ جهاز آخر قديم. */
+function cloudCheckBuild(val){
+  var el=document.getElementById('buildWarn'); if(!el) return;
+  var rb=val&&val.build;
+  if(!rb||rb===APP_BUILD){ el.style.display='none'; return; }
+  var msg;
+  if(String(rb)>String(APP_BUILD)) msg='⚠ يوجد إصدار أحدث من النظام ('+esc(rb)+') وهذا الجهاز يعمل بإصدار أقدم ('+APP_BUILD+'). أعد تحميل الصفحة (Ctrl+Shift+R) لتحديثه — وإلا قد لا تُطبَّق عمليات الحذف والمزامنة بشكل صحيح.';
+  else msg='⚠ جهاز آخر يعمل بإصدار أقدم ('+esc(rb)+') من هذا الجهاز ('+APP_BUILD+'). حدّث ذلك الجهاز (أعد تحميل صفحته) وإلا قد تعود سجلّات محذوفة أو تختفي إدخالات.';
+  el.textContent=msg; el.style.display='';
+}
 function cloudPush(s){
   if(!cloudReady||!cloudRef) return;
   cloudDirty=true;
@@ -7793,13 +7808,14 @@ function cloudAttach(cb){
   if(cloudReady){ if(cb) cb(); return; }
   cloudRef=firebase.database().ref('workspaces/'+cloudWid()+'/root');
   cloudRef.once('value').then(function(snap){
-    var v=snap.val(); var vd=cloudRemoteData(v);
+    var v=snap.val(); var vd=cloudRemoteData(v); cloudCheckBuild(v);
     if(vd&&Array.isArray(vd.users)){ cloudApplyRemote(vd); cloudReady=true; }
     else { cloudReady=true; cloudPush(JSON.stringify(serializeDB())); }
     setCloudStatus('ok');
     cloudWatchConnection();   /* رفع تلقائي للمعلّق عند عودة الاتصال */
     cloudRef.on('value',function(s2){
-      var val=s2.val(); var rs=cloudRemoteStr(val); if(!rs) return;
+      var val=s2.val(); cloudCheckBuild(val);
+      var rs=cloudRemoteStr(val); if(!rs) return;
       if(rs===cloudLastPushed||rs===JSON.stringify(serializeDB())) return; /* تجاهل صدى كتابتنا نحن */
       var rd=cloudRemoteData(val); if(!rd||!Array.isArray(rd.users)) return;
       cloudApplyRemote(rd);
