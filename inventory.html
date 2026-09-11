@@ -721,8 +721,11 @@ function pMove(){
       <span class="b" id="mBalV">0</span></div>
 
     <div class="formgrid">
-      <div class="cell c5 ac-wrap"><label>الصنف / الموديل</label>
-        <input id="mCode" placeholder="ابحث بالموديل أو الاسم..." autocomplete="off" oninput="acItems(this.value)">
+      <div class="cell c3"><label>المجموعة</label>
+        <select id="mGroup" onchange="acItems($('#mCode').value)"><option value="">كل المجموعات</option>
+        ${[...new Set(["غرف نوم","مراتب",...citems().map(i=>i.category).filter(Boolean)])].map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join("")}</select></div>
+      <div class="cell c4 ac-wrap"><label>الصنف / الموديل</label>
+        <input id="mCode" placeholder="ابحث بالموديل أو الاسم..." autocomplete="off" oninput="acItems(this.value)" onfocus="acItems(this.value)">
         <div class="ac-list" id="mAc"></div></div>
       <div class="cell c2"><label>الكمية</label><input id="mQty" type="number" inputmode="numeric" min="0" step="1" placeholder="1"></div>
       <div class="cell c3" id="wrapPrice"><label id="lblPrice">السعر ﷼</label><input id="mPrice" type="number" inputmode="decimal" step="0.01" placeholder="0.00"></div>
@@ -801,8 +804,9 @@ function setType(t){
   if($("#rfAll")&&(t==="inbound"||t==="outbound"))setRecentFilter(t);   // يفلتر آخر الحركات حسب النوع المختار
 }
 function acItems(q){
-  const box=$("#mAc");q=q.trim();if(!q){box.style.display="none";return;}
-  const res=citems().filter(i=>i.active!==false&&(i.code+i.name+(i.category||"")+(i.model||"")).toLowerCase().includes(q.toLowerCase())).slice(0,8);
+  const box=$("#mAc");q=(q||"").trim();const grp=$("#mGroup")?.value||"";
+  if(!q&&!grp){box.style.display="none";return;}
+  const res=citems().filter(i=>i.active!==false&&(!grp||i.category===grp)&&(!q||(i.code+i.name+(i.category||"")+(i.model||"")).toLowerCase().includes(q.toLowerCase()))).slice(0,12);
   box.innerHTML=res.map(i=>`<div class="ac-item" onclick="pickItem(${i.id})" style="display:flex;align-items:center;gap:10px">
     ${i.image?`<img src="${i.image}" style="width:38px;height:38px;object-fit:cover;border-radius:8px;flex:0 0 auto">`:""}
     <div><b>${esc(itemModel(i))}</b>${(i.name&&i.name!==itemModel(i))?`<span style="color:var(--muted)"> — ${esc(i.name)}</span>`:""}
@@ -1439,7 +1443,9 @@ function itemForm(id){
   m.innerHTML=`<div class="box"><h3>${id?"تعديل موديل":"إضافة موديل"}</h3>
     <div class="row"><div class="field"><label>الموديل / الكود *</label><input id="f_code" value="${esc(itemModel(it)||"")}"></div>
       <div class="field"><label>وصف إضافي (اختياري)</label><input id="f_name" value="${esc(it.name&&it.name!==itemModel(it)?it.name:"")}"></div></div>
-    <div class="row"><div class="field"><label>الفئة</label><input id="f_cat" value="${esc(it.category||"")}"></div>
+    <div class="row"><div class="field"><label>المجموعة / الفئة</label>
+      <input id="f_cat" list="catList" value="${esc(it.category||"")}" placeholder="غرف نوم / مراتب ...">
+      <datalist id="catList">${[...new Set(["غرف نوم","مراتب",...citems().map(i=>i.category).filter(Boolean)])].map(c=>`<option value="${esc(c)}">`).join("")}</datalist></div>
       <div class="field"><label>الوحدة</label><input id="f_unit" value="${esc(it.unit||"قطعة")}"></div></div>
     <div class="row"><div class="field"><label>حد إعادة الطلب</label><input id="f_reorder" type="number" inputmode="numeric" value="${it.reorder||0}"></div>
       <div class="field"><label>سعر البيع (اختياري)</label><input id="f_price" type="number" inputmode="decimal" step="0.01" value="${it.price||0}"></div></div>
