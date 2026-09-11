@@ -1583,44 +1583,58 @@ function doImportModels(){
   document.querySelector(".modal").remove();renderItems();
   toast(`تم: ${added} صنف جديد · ${updated} تحديث كمية${supNew?` · ${supNew} مورد جديد`:""}`);
 }
-/* دفعات الاستيراد (للتراجع عنها) — من الأصناف المختومة أو حركات الاستيراد القديمة */
+/* دفعات الاستيراد (للتراجع عنها) — من الحركات/الأصناف المختومة أو حركات الاستيراد القديمة */
 function importBatches(){
   const map={};
-  citems().forEach(it=>{if(it.importBatch){const k="B"+it.importBatch;(map[k]=map[k]||{key:k,when:it.importedAt||"",ids:new Set()}).ids.add(it.id);}});
-  cmoves().forEach(m=>{if(m.type==="inbound"&&/استيراد/.test(m.note||"")){const it=DB.items.find(i=>i.id===m.itemId);if(it&&it.importBatch)return;
-    const k="D"+((m.date||m.at||"")+"").slice(0,10);(map[k]=map[k]||{key:k,when:m.date||"",ids:new Set()}).ids.add(m.itemId);}});
-  return Object.values(map).map(b=>({key:b.key,when:b.when,ids:[...b.ids]})).filter(b=>b.ids.length).sort((a,b)=>(a.when<b.when?1:a.when>b.when?-1:0));
+  const touch=(k,when)=>{const e=map[k]=map[k]||{key:k,when:"",moves:0,newItems:0};if(when&&(!e.when||when>e.when))e.when=when;return e;};
+  cmoves().forEach(m=>{if(m.importBatch){touch("B"+m.importBatch,m.at).moves++;}});
+  citems().forEach(it=>{if(it.importBatch)touch("B"+it.importBatch,it.importedAt).newItems++;});
+  // القديمة (بلا ختم): تُجمَّع حسب اليوم
+  cmoves().forEach(m=>{if(!m.importBatch&&m.type==="inbound"&&/استيراد/.test(m.note||"")){touch("D"+((m.date||m.at||"")+"").slice(0,10),m.date).moves++;}});
+  return Object.values(map).sort((a,b)=>(a.when<b.when?1:a.when>b.when?-1:0));
 }
 function undoImport(){
   if(ME.role!=="admin"&&ME.role!=="supervisor"){toast("للمدير/المشرف فقط");return;}
   const batches=importBatches();
   const rows=batches.length?batches.map(b=>{
     const when=b.key[0]==="B"?fmt(b.when):esc(b.when||"—");
-    return `<tr><td>${when}</td><td>${b.ids.length}</td>
-      <td><button class="btn red sm" onclick="undoImportBatch('${b.key}')">🗑️ حذف هذه الدفعة</button></td></tr>`;}).join("")
+    return `<tr><td>${when}</td><td>${b.newItems} جديد · ${b.moves} حركة</td>
+      <td><button class="btn red sm" onclick="undoImportBatch('${b.key}')">↩ إلغاء هذه الدفعة</button></td></tr>`;}).join("")
     :`<tr><td colspan="3" class="empty">لا توجد دفعات استيراد.</td></tr>`;
   const m=document.createElement("div");m.className="modal";
-  m.innerHTML=`<div class="box" style="max-width:520px"><h3>↩ التراجع عن استيراد موديلات</h3>
-    <p style="font-size:13px;color:var(--muted);margin-bottom:10px">تحذف الدفعة الموديلات المستوردة وأرصدتها الافتتاحية. <b>لن يُحذف أي صنف عليه حركات لاحقة</b> (بيع/وارد إضافي) حفاظاً على بياناتك.</p>
-    <div class="table-wrap"><table><thead><tr><th>تاريخ الاستيراد</th><th>عدد الموديلات</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>
+  m.innerHTML=`<div class="box" style="max-width:560px"><h3>↩ التراجع عن استيراد موديلات</h3>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:10px">إلغاء الدفعة <b>يعكس كل ما أضافه الاستيراد</b>: تُخصم الكميات المضافة من الأرصدة، وتُحذف الأصناف التي أنشأتها الدفعة (حتى لو صار عليها حركات لاحقة).</p>
+    <div class="table-wrap"><table><thead><tr><th>تاريخ الاستيراد</th><th>المحتوى</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>
     <div style="margin-top:12px"><button class="btn gray" onclick="this.closest('.modal').remove()">إغلاق</button></div></div>`;
   document.body.appendChild(m);
 }
 function undoImportBatch(key){
-  const b=importBatches().find(x=>x.key===key);if(!b)return;
-  if(!confirm(`حذف موديلات هذه الدفعة (${b.ids.length})؟ الأصناف التي عليها حركات لاحقة ستبقى.`))return;
-  let del=0,kept=0;
-  b.ids.forEach(id=>{
-    const mvs=DB.movements.filter(m=>m.itemId===id);
-    const nonImport=mvs.filter(m=>!(m.type==="inbound"&&(/استيراد/.test(m.note||"")||m.importBatch)));
-    if(nonImport.length){kept++;return;}
-    DB.movements=DB.movements.filter(m=>m.itemId!==id);
-    DB.items=DB.items.filter(i=>i.id!==id);del++;
-  });
-  logAct("تراجع عن استيراد",`حُذف ${del} صنف${kept?` — أُبقي ${kept} لوجود حركات`:""}`);save();
+  if(ME.role!=="admin"&&ME.role!=="supervisor")return;
+  // 1) حركات الاستيراد المراد عكسها
+  let revMoves,createdIds;
+  if(key[0]==="B"){const bid=+key.slice(1);
+    revMoves=DB.movements.filter(m=>m.importBatch===bid);
+    createdIds=DB.items.filter(i=>i.importBatch===bid).map(i=>i.id);
+  }else{const day=key.slice(1);
+    revMoves=DB.movements.filter(m=>!m.importBatch&&m.type==="inbound"&&/استيراد/.test(m.note||"")&&((m.date||m.at||"")+"").slice(0,10)===day);
+    // للقديمة: الأصناف التي لا حركة لها سوى حركة/حركات الاستيراد تُعتبر منشأة بالاستيراد
+    const revIds=new Set(revMoves.map(m=>m.itemId));
+    createdIds=[...revIds].filter(id=>DB.movements.filter(m=>m.itemId===id).every(m=>revMoves.includes(m)));
+  }
+  if(!revMoves.length&&!createdIds.length){toast("لا شيء لإلغائه في هذه الدفعة");return;}
+  if(!confirm(`إلغاء هذه الدفعة؟\n• خصم ${revMoves.length} حركة كمية من الأرصدة\n• حذف ${createdIds.length} صنف أنشأه الاستيراد\nلا يمكن التراجع.`))return;
+  // 2) عكس الكميات وحذف حركات الاستيراد
+  const moveIds=new Set(revMoves.map(m=>m.id));
+  revMoves.forEach(m=>{const it=DB.items.find(i=>i.id===m.itemId);if(it)it.qty-=m.qty;});
+  DB.movements=DB.movements.filter(m=>!moveIds.has(m.id));
+  // 3) حذف الأصناف التي أنشأتها الدفعة بالكامل (وكل حركاتها المتبقية)
+  const cset=new Set(createdIds);
+  if(cset.size){DB.movements=DB.movements.filter(m=>!cset.has(m.itemId));
+    DB.items=DB.items.filter(i=>!cset.has(i.id));}
+  logAct("تراجع عن استيراد",`عكس ${revMoves.length} حركة — حذف ${cset.size} صنف`);save();
   const md=document.querySelector(".modal");if(md)md.remove();
   if(CURRENT_PAGE==="items")renderItems();
-  toast(`تم حذف ${del} موديل${kept?` — أُبقي ${kept} لوجود حركات عليه`:""}`);
+  toast(`تم إلغاء الدفعة: خُصمت ${revMoves.length} كمية · حُذف ${cset.size} صنف`);
 }
 function delItem(id){
   if(!guard("canDelete"))return;
