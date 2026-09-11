@@ -1054,6 +1054,28 @@ function inboundForSale(mv){
   if(!picked)picked=(pool[0]||{}).m||null; // أقدم وارد (FIFO) عند نفاد التتبّع
   return picked;
 }
+/* كل دفعات الشراء التي خرجت منها حركة البيع وفق FIFO (قد تكون أكثر من دفعة) */
+function sourcesForSale(mv){
+  const all=DB.movements.filter(x=>x.companyId===CO&&x.itemId===mv.itemId&&x.type==="inbound")
+    .sort((a,b)=>(a.date<b.date?-1:a.date>b.date?1:a.id-b.id));
+  if(!all.length)return [];
+  const sd=((mv.date||"")+"").slice(0,10);
+  const elig=all.filter(x=>((x.date||"")+"").slice(0,10)<=sd);
+  const pool=(elig.length?elig:all).map(x=>({m:x,left:x.qty}));
+  const outs=DB.movements.filter(x=>x.companyId===CO&&x.itemId===mv.itemId&&x.type==="outbound")
+    .sort((a,b)=>(a.date<b.date?-1:a.date>b.date?1:a.id-b.id));
+  const taken=[];
+  for(const o of outs){
+    let need=o.qty;
+    while(need>0){const b=pool.find(x=>x.left>0);if(!b)break;const t=Math.min(b.left,need);b.left-=t;need-=t;
+      if(o.id===mv.id){const e=taken.find(z=>z.m.id===b.m.id);if(e)e.take+=t;else taken.push({m:b.m,take:t});}}
+    if(o.id===mv.id)break;
+  }
+  if(!taken.length&&pool[0])taken.push({m:pool[0].m,take:mv.qty}); // أقدم دفعة عند نفاد التتبّع
+  return taken;
+}
+/* تكلفة البيع الحقيقية وفق الدفعات المستهلكة */
+function saleCost(mv){return sourcesForSale(mv).reduce((s,x)=>s+x.take*(x.m.price||0),0);}
 function lookupInvoice(){
   const no=prompt("أدخل رقم فاتورة البيع للبحث عن جميع تفاصيلها:");if(no===null)return;
   const q=no.trim();if(!q)return;
@@ -1067,17 +1089,19 @@ function lookupInvoice(){
   const blocks=gids.map(g=>{
     const gl=groups[g];const f=gl[0];
     const total=gl.reduce((s,m)=>s+m.qty*m.price,0);const comm=gl.reduce((s,m)=>s+(m.comm||0),0);
-    const profitTot=gl.reduce((s,m)=>{const li=inboundForSale(m);const cost=li?li.price:0;return s+(m.price-cost)*m.qty;},0);
-    // جدول البيع مع الربح لكل صنف
+    const profitTot=gl.reduce((s,m)=>s+(m.qty*m.price-saleCost(m)),0);
+    // جدول البيع مع الربح لكل صنف (التكلفة وفق الدفعات المستهلكة FIFO)
     const saleRows=gl.map(m=>{const it=DB.items.find(x=>x.id===m.itemId)||{};
-      const li=inboundForSale(m);const cost=li?li.price:0;const profit=(m.price-cost)*m.qty;
+      const cost=saleCost(m);const unit=m.qty?cost/m.qty:0;const profit=m.qty*m.price-cost;
       return `<tr><td>${esc(m.model||itemModel(it))}</td><td>${m.qty}</td><td>${money(m.price)}</td><td>${money(m.qty*m.price)}</td>
-        <td>${money(cost)}</td><td style="font-weight:700;color:${profit>=0?'var(--green)':'var(--red)'}">${money(profit)}</td></tr>`;}).join("");
-    // جدول الوارد المقابل (آخر توريد لكل صنف)
+        <td>${money(unit)}</td><td style="font-weight:700;color:${profit>=0?'var(--green)':'var(--red)'}">${money(profit)}</td></tr>`;}).join("");
+    // جدول الشراء المقابل: الدفعات الفعلية التي خرج منها البيع (FIFO — الأقدم أولاً)
     const inbRows=gl.map(m=>{const it=DB.items.find(x=>x.id===m.itemId)||{};
-      const li=inboundForSale(m);const sup=li?DB.suppliers.find(x=>x.id===li.supplierId):null;
-      return li?`<tr><td>${esc(m.model||itemModel(it))}</td><td>${esc(sup?sup.name:"—")}</td><td style="font-family:monospace">${esc(li.customs||"—")}</td><td>${esc(li.date||"—")}</td><td>${li.qty}</td><td>${money(li.price)}</td></tr>`
-        :`<tr><td>${esc(m.model||itemModel(it))}</td><td colspan="5" style="color:var(--muted)">لا يوجد وارد مسجّل لهذا الصنف</td></tr>`;}).join("");
+      const src=sourcesForSale(m);
+      if(!src.length)return `<tr><td>${esc(m.model||itemModel(it))}</td><td colspan="5" style="color:var(--muted)">لا يوجد شراء مسجّل لهذا الصنف</td></tr>`;
+      return src.map((x,i)=>{const sup=DB.suppliers.find(s=>s.id===x.m.supplierId);
+        return `<tr><td>${i===0?esc(m.model||itemModel(it)):""}</td><td>${esc(sup?sup.name:"—")}</td><td style="font-family:monospace">${esc(x.m.customs||"—")}</td><td>${esc((x.m.date||"—")).slice(0,10)}</td><td>${x.take}</td><td>${money(x.m.price)}</td></tr>`;}).join("");
+    }).join("");
     return `<div style="border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:16px">
       <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px;margin-bottom:8px">
         <div>🧾 فاتورة <b>${esc(f.invoice)}</b> · التاريخ <b>${esc(f.date)}</b> · الموظف <b>${esc(f.userName)}</b>${f.address?` · العنوان <b>${esc(f.address)}</b>`:""}</div>
@@ -1086,15 +1110,15 @@ function lookupInvoice(){
       <table><tr><th>الموديل / الصنف</th><th>الكمية</th><th>سعر البيع</th><th>إجمالي البيع</th><th>تكلفة الوحدة</th><th>ربح الصنف</th></tr>${saleRows}
         <tr><td colspan="3"><b>إجمالي البيع</b></td><td colspan="2"><b>${money(total)} ﷼</b></td><td style="font-weight:800;color:${profitTot>=0?'var(--green)':'var(--red)'}">${money(profitTot)}</td></tr>
         ${comm?`<tr><td colspan="5"><b>العمولة</b></td><td><b>${money(comm)} ﷼</b></td></tr>`:""}</table>
-      <div style="font-weight:800;color:var(--green);margin:12px 0 4px">📥 الوارد المقابل (آخر توريد لكل صنف)</div>
-      <table><tr><th>الموديل / الصنف</th><th>المورد</th><th>رقم الفسح</th><th>تاريخ الوارد</th><th>الكمية الواردة</th><th>سعر التكلفة</th></tr>${inbRows}</table></div>`;
+      <div style="font-weight:800;color:var(--green);margin:12px 0 4px">📥 الشراء المقابل (الوارد أولاً صادر أولاً — الأقدم أولاً)</div>
+      <table><tr><th>الموديل / الصنف</th><th>المورد</th><th>رقم الفسح</th><th>تاريخ الشراء</th><th>الكمية المسحوبة</th><th>سعر التكلفة</th></tr>${inbRows}</table></div>`;
   }).join("");
   const grand=lines.reduce((s,m)=>s+m.qty*m.price,0);
-  const grandProfit=lines.reduce((s,m)=>{const li=inboundForSale(m);const cost=li?li.price:0;return s+(m.price-cost)*m.qty;},0);
+  const grandProfit=lines.reduce((s,m)=>s+(m.qty*m.price-saleCost(m)),0);
   const note=gids.length>1?`<div style="background:#fef9c3;color:#854d0e;border-radius:8px;padding:8px 12px;margin-bottom:12px;font-size:13px">⚠️ الرقم «${esc(q)}» مُستخدَم في <b>${gids.length}</b> فواتير/عمليات بيع مختلفة — كلها معروضة أدناه.</div>`:"";
   showPrint(`${brandHead()}<h2>🔎 نتائج البحث عن رقم الفاتورة ${esc(q)}</h2>
     <div style="margin-bottom:10px;color:var(--muted)">عدد الفواتير المطابقة: <b>${gids.length}</b> · إجمالي الأصناف: <b>${lines.length}</b> · إجمالي البيع: <b>${money(grand)} ﷼</b> · إجمالي الربح: <b style="color:${grandProfit>=0?'var(--green)':'var(--red)'}">${money(grandProfit)} ﷼</b></div>
-    <p style="font-size:12px;color:var(--muted);margin:-4px 0 10px">الربح لكل صنف = (سعر البيع − تكلفة آخر وارد) × الكمية.</p>
+    <p style="font-size:12px;color:var(--muted);margin:-4px 0 10px">الربح = إجمالي البيع − تكلفة الدفعات المسحوبة فعلياً (الوارد أولاً صادر أولاً، ولا يُحتسب أي شراء بتاريخ بعد البيع).</p>
     ${note}${blocks}`);
 }
 /* ---------- الطباعة داخل الصفحة (مع زر رجوع) ---------- */
