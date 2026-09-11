@@ -1038,7 +1038,8 @@ function inboundForSale(mv){
     .sort((a,b)=>(a.date<b.date?-1:a.date>b.date?1:a.id-b.id));
   if(!all.length)return null;
   // المرشّحون: الوارد بتاريخ ≤ تاريخ البيع فقط (لا يمكن الصرف من وارد لاحق)
-  const elig=all.filter(x=>(x.date||"")<=(mv.date||""));
+  const sd=((mv.date||"")+"").slice(0,10);
+  const elig=all.filter(x=>((x.date||"")+"").slice(0,10)<=sd);
   const pool=(elig.length?elig:all).map(x=>({m:x,left:x.qty}));
   // استهلاك FIFO عبر حركات البيع المرتّبة زمنياً حتى هذا البيع
   const outs=DB.movements.filter(x=>x.companyId===CO&&x.itemId===mv.itemId&&x.type==="outbound")
@@ -1050,7 +1051,7 @@ function inboundForSale(mv){
       if(o.id===mv.id&&!picked)picked=b.m;}
     if(o.id===mv.id)break;
   }
-  if(!picked)picked=(pool[pool.length-1]||pool[0]).m; // أحدث وارد مؤهل قبل البيع
+  if(!picked)picked=(pool[0]||{}).m||null; // أقدم وارد (FIFO) عند نفاد التتبّع
   return picked;
 }
 function lookupInvoice(){
