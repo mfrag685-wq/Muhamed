@@ -1491,12 +1491,12 @@ function importModels(){
   if(!guard("canAdd"))return;
   const m=document.createElement("div");m.className="modal";
   m.innerHTML=`<div class="box"><h3>📥 استيراد موديلات دفعة واحدة</h3>
-    <p style="font-size:13px;color:var(--muted);margin-bottom:8px">الأسهل: نزّل القالب الجاهز، املأه في Excel، ثم ارفعه. أو اكتب يدوياً كل موديل في سطر بصيغة: <b>الموديل , الرصيد الافتتاحي</b> (الرصيد اختياري ويقبل الصفر).</p>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:8px">الأسهل: نزّل القالب الجاهز، املأه في Excel، ثم ارفعه. أو اكتب يدوياً كل موديل في سطر بصيغة:<br><b>الموديل , الرصيد الافتتاحي , التكلفة , المورد , الفئة</b> — الأعمدة بعد الموديل كلها اختيارية. لا يوجد حد لعدد الموديلات.</p>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
       <button class="btn blue sm" onclick="downloadImportTemplate()">⬇ تنزيل قالب Excel</button>
       <label class="btn amber sm" style="margin:0">⬆ رفع ملف Excel/CSV<input type="file" accept=".csv,text/csv,.xlsx" style="display:none" onchange="importFromFile(event)"></label>
     </div>
-    <textarea id="imp_txt" style="width:100%;min-height:150px;padding:11px;border:1px solid var(--line);border-radius:9px;font-family:monospace" placeholder="BR-100 , 5&#10;غرفة مودرن , 0&#10;مرتبة طبية , 8"></textarea>
+    <textarea id="imp_txt" style="width:100%;min-height:150px;padding:11px;border:1px solid var(--line);border-radius:9px;font-family:monospace" placeholder="BR-100 , 5 , 3200 , مورد الرياض , غرف نوم&#10;غرفة مودرن , 0&#10;مرتبة طبية , 8 , 600 , مورد جدة"></textarea>
     <label style="margin-top:10px"><input type="checkbox" id="imp_zero" style="width:auto"> اجعل كل الأرصدة الافتتاحية = صفر</label>
     <div id="imp_msg" style="color:var(--red);font-size:13px;margin:8px 0"></div>
     <div style="display:flex;gap:8px"><button class="btn green" onclick="doImportModels()">استيراد</button>
@@ -1504,7 +1504,10 @@ function importModels(){
   document.body.appendChild(m);
 }
 function downloadImportTemplate(){
-  const rows=[["الموديل","الرصيد الافتتاحي"],["BR-100","5"],["BR-200","0"],["MT-10","12"]];
+  const rows=[["الموديل","الرصيد الافتتاحي","التكلفة","المورد","الفئة"],
+    ["BR-100","5","3200","مورد الرياض للأثاث","غرف نوم"],
+    ["BR-200","0","","",""],
+    ["MT-10","12","600","مورد جدة","مراتب"]];
   const csv=rows.map(r=>r.join(",")).join("\r\n");
   const blob=new Blob(["﻿"+csv],{type:"text/csv;charset=utf-8"});
   const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="قالب-استيراد-الموديلات.csv";a.click();
@@ -1523,23 +1526,37 @@ function importFromFile(e){
   };
   r.readAsText(f,"utf-8");
 }
+/* إيجاد مورد بالاسم أو إنشاؤه في الشركة الحالية */
+function findOrCreateSupplier(name){
+  const nm=(name||"").trim();if(!nm)return null;
+  let s=csups().find(x=>(x.name||"").trim().toLowerCase()===nm.toLowerCase());
+  if(!s){s={id:nid("supplier"),companyId:CO,name:nm,phone:"",contact:""};DB.suppliers.push(s);}
+  return s;
+}
 function doImportModels(){
   const txt=$("#imp_txt").value||"",zero=$("#imp_zero").checked;
   const lines=txt.split(/\n+/).map(l=>l.trim()).filter(Boolean);
   if(!lines.length){$("#imp_msg").textContent="أدخل موديلاً واحداً على الأقل.";return;}
-  let added=0,skipped=0;
+  // تجاهل سطر العناوين إن وُجد
+  if(lines[0]&&/الموديل|model/i.test(lines[0])&&/رصيد|balance|التكلفة|المورد/i.test(lines[0]))lines.shift();
+  let added=0,skipped=0,supNew=0;const supBefore=DB.suppliers.length;
   lines.forEach(line=>{
     const parts=line.split(/[,،\t]/).map(s=>s.trim());
     const code=parts[0];if(!code)return;
     let qty=zero?0:(parseFloat(parts[1])||0);
+    const cost=parseFloat(parts[2])||0;
+    const supName=parts[3]||"";
+    const cat=parts[4]||"";
     if(citems().some(i=>itemModel(i).toLowerCase()===code.toLowerCase())){skipped++;return;}
-    const it={id:nid("item"),companyId:CO,qty,cost:0,active:true,code,model:code,name:code,category:"",unit:"قطعة",price:0,reorder:0};
+    const sup=supName?findOrCreateSupplier(supName):null;
+    const it={id:nid("item"),companyId:CO,qty,cost,active:true,code,model:code,name:code,category:cat,unit:"قطعة",price:0,reorder:0};
     DB.items.push(it);added++;
-    if(qty>0)DB.movements.unshift({id:nid("movement"),companyId:CO,itemId:it.id,type:"inbound",qty,price:0,comm:0,model:code,invoice:"",invGid:"",address:"",supplierId:null,customs:"",date:today(),note:"رصيد افتتاحي (استيراد)",balAfter:qty,userId:ME.id,userName:ME.name,at:new Date().toISOString()});
+    if(qty>0)DB.movements.unshift({id:nid("movement"),companyId:CO,itemId:it.id,type:"inbound",qty,price:cost,comm:0,model:code,invoice:"",invGid:"",address:"",supplierId:sup?sup.id:null,customs:"",date:today(),note:"رصيد افتتاحي (استيراد)",balAfter:qty,userId:ME.id,userName:ME.name,at:new Date().toISOString()});
   });
-  logAct("استيراد موديلات",`أُضيف ${added} — تكرار ${skipped}`);save();
+  supNew=DB.suppliers.length-supBefore;
+  logAct("استيراد موديلات",`أُضيف ${added} — تكرار ${skipped}${supNew?` — موردون جدد ${supNew}`:""}`);save();
   document.querySelector(".modal").remove();renderItems();
-  toast(`تم استيراد ${added} موديل${skipped?` (تجاهل ${skipped} مكرّر)`:""}`);
+  toast(`تم استيراد ${added} موديل${skipped?` (تجاهل ${skipped} مكرّر)`:""}${supNew?` · أُضيف ${supNew} مورد`:""}`);
 }
 function delItem(id){
   if(!guard("canDelete"))return;
