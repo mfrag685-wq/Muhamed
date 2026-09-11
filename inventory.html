@@ -1401,6 +1401,7 @@ function pItems(){
   $("#view").innerHTML=`<div class="pagehead"><h1>🏷️ الأصناف (الموديلات)</h1><div style="display:flex;gap:8px;flex-wrap:wrap">
     <button class="btn ghost" onclick="exportCSV('الموديلات.csv',['الموديل','الوصف','الفئة','الوحدة','الرصيد','حد الطلب','الحالة','المورد','رقم الفسح'],filteredItems().map(i=>{const s=itemSource(i.id);return [itemModel(i),i.name||'',i.category||'',i.unit||'',i.qty,i.reorder||'',STATUS_AR[itemStatus(i)],s.sup,s.customs];}))">⬇ Excel</button>
     ${can("canAdd")?`<button class="btn amber" onclick="importModels()">📥 استيراد موديلات</button>`:""}
+    ${(ME.role==="admin"||ME.role==="supervisor")?`<button class="btn ghost" onclick="undoImport()">↩ تراجع عن استيراد</button>`:""}
     ${can("canAdd")?`<button class="btn" onclick="itemForm(0)">+ إضافة موديل</button>`:""}</div></div>
   <div class="card">
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
@@ -1546,6 +1547,7 @@ function doImportModels(){
   // تجاهل سطر العناوين إن وُجد
   if(lines[0]&&/الموديل|model/i.test(lines[0])&&/رصيد|balance|التكلفة|المورد/i.test(lines[0]))lines.shift();
   let added=0,skipped=0,supNew=0;const supBefore=DB.suppliers.length;
+  const batch=Date.now();const bAt=new Date().toISOString();
   lines.forEach(line=>{
     const parts=line.split(/[,،\t]/).map(s=>s.trim());
     const code=parts[0];if(!code)return;
@@ -1555,14 +1557,53 @@ function doImportModels(){
     const cat=parts[4]||"";
     if(citems().some(i=>itemModel(i).toLowerCase()===code.toLowerCase())){skipped++;return;}
     const sup=supName?findOrCreateSupplier(supName):null;
-    const it={id:nid("item"),companyId:CO,qty,cost,active:true,code,model:code,name:code,category:cat,unit:"قطعة",price:0,reorder:0};
+    const it={id:nid("item"),companyId:CO,qty,cost,active:true,code,model:code,name:code,category:cat,unit:"قطعة",price:0,reorder:0,importBatch:batch,importedAt:bAt};
     DB.items.push(it);added++;
-    if(qty>0)DB.movements.unshift({id:nid("movement"),companyId:CO,itemId:it.id,type:"inbound",qty,price:cost,comm:0,model:code,invoice:"",invGid:"",address:"",supplierId:sup?sup.id:null,customs:"",date:today(),note:"رصيد افتتاحي (استيراد)",balAfter:qty,userId:ME.id,userName:ME.name,at:new Date().toISOString()});
+    if(qty>0)DB.movements.unshift({id:nid("movement"),companyId:CO,itemId:it.id,type:"inbound",qty,price:cost,comm:0,model:code,invoice:"",invGid:"",address:"",supplierId:sup?sup.id:null,customs:"",date:today(),note:"رصيد افتتاحي (استيراد)",balAfter:qty,userId:ME.id,userName:ME.name,at:new Date().toISOString(),importBatch:batch});
   });
   supNew=DB.suppliers.length-supBefore;
   logAct("استيراد موديلات",`أُضيف ${added} — تكرار ${skipped}${supNew?` — موردون جدد ${supNew}`:""}`);save();
   document.querySelector(".modal").remove();renderItems();
   toast(`تم استيراد ${added} موديل${skipped?` (تجاهل ${skipped} مكرّر)`:""}${supNew?` · أُضيف ${supNew} مورد`:""}`);
+}
+/* دفعات الاستيراد (للتراجع عنها) — من الأصناف المختومة أو حركات الاستيراد القديمة */
+function importBatches(){
+  const map={};
+  citems().forEach(it=>{if(it.importBatch){const k="B"+it.importBatch;(map[k]=map[k]||{key:k,when:it.importedAt||"",ids:new Set()}).ids.add(it.id);}});
+  cmoves().forEach(m=>{if(m.type==="inbound"&&/استيراد/.test(m.note||"")){const it=DB.items.find(i=>i.id===m.itemId);if(it&&it.importBatch)return;
+    const k="D"+((m.date||m.at||"")+"").slice(0,10);(map[k]=map[k]||{key:k,when:m.date||"",ids:new Set()}).ids.add(m.itemId);}});
+  return Object.values(map).map(b=>({key:b.key,when:b.when,ids:[...b.ids]})).filter(b=>b.ids.length).sort((a,b)=>(a.when<b.when?1:a.when>b.when?-1:0));
+}
+function undoImport(){
+  if(ME.role!=="admin"&&ME.role!=="supervisor"){toast("للمدير/المشرف فقط");return;}
+  const batches=importBatches();
+  const rows=batches.length?batches.map(b=>{
+    const when=b.key[0]==="B"?fmt(b.when):esc(b.when||"—");
+    return `<tr><td>${when}</td><td>${b.ids.length}</td>
+      <td><button class="btn red sm" onclick="undoImportBatch('${b.key}')">🗑️ حذف هذه الدفعة</button></td></tr>`;}).join("")
+    :`<tr><td colspan="3" class="empty">لا توجد دفعات استيراد.</td></tr>`;
+  const m=document.createElement("div");m.className="modal";
+  m.innerHTML=`<div class="box" style="max-width:520px"><h3>↩ التراجع عن استيراد موديلات</h3>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:10px">تحذف الدفعة الموديلات المستوردة وأرصدتها الافتتاحية. <b>لن يُحذف أي صنف عليه حركات لاحقة</b> (بيع/وارد إضافي) حفاظاً على بياناتك.</p>
+    <div class="table-wrap"><table><thead><tr><th>تاريخ الاستيراد</th><th>عدد الموديلات</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>
+    <div style="margin-top:12px"><button class="btn gray" onclick="this.closest('.modal').remove()">إغلاق</button></div></div>`;
+  document.body.appendChild(m);
+}
+function undoImportBatch(key){
+  const b=importBatches().find(x=>x.key===key);if(!b)return;
+  if(!confirm(`حذف موديلات هذه الدفعة (${b.ids.length})؟ الأصناف التي عليها حركات لاحقة ستبقى.`))return;
+  let del=0,kept=0;
+  b.ids.forEach(id=>{
+    const mvs=DB.movements.filter(m=>m.itemId===id);
+    const nonImport=mvs.filter(m=>!(m.type==="inbound"&&(/استيراد/.test(m.note||"")||m.importBatch)));
+    if(nonImport.length){kept++;return;}
+    DB.movements=DB.movements.filter(m=>m.itemId!==id);
+    DB.items=DB.items.filter(i=>i.id!==id);del++;
+  });
+  logAct("تراجع عن استيراد",`حُذف ${del} صنف${kept?` — أُبقي ${kept} لوجود حركات`:""}`);save();
+  const md=document.querySelector(".modal");if(md)md.remove();
+  if(CURRENT_PAGE==="items")renderItems();
+  toast(`تم حذف ${del} موديل${kept?` — أُبقي ${kept} لوجود حركات عليه`:""}`);
 }
 function delItem(id){
   if(!guard("canDelete"))return;
