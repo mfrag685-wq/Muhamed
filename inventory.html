@@ -290,8 +290,10 @@ function seed(){return{
 function ensureShape(){
   DB.users=DB.users||[];DB.items=DB.items||[];DB.movements=DB.movements||[];
   DB.suppliers=DB.suppliers||[];DB.shipments=DB.shipments||[];DB.activity=DB.activity||[];DB.payments=DB.payments||[];
+  DB.commPayments=DB.commPayments||[];
   DB.seq=DB.seq||{user:0,supplier:0,shipment:0,item:0,movement:0,activity:0,company:0,payment:0};
   if(DB.seq.payment===undefined)DB.seq.payment=0;
+  if(DB.seq.commpay===undefined)DB.seq.commpay=0;
   DB.settings=DB.settings||{company:"شركتي",logo:""};
   if(!DB.settings.appName)DB.settings.appName="نظام إدارة المخزون";
   // تهيئة الشركات وترحيل البيانات القديمة لأول شركة
@@ -1121,6 +1123,87 @@ function lookupInvoice(){
     <p style="font-size:12px;color:var(--muted);margin:-4px 0 10px">الربح = إجمالي البيع − تكلفة الدفعات المسحوبة فعلياً (الوارد أولاً صادر أولاً، ولا يُحتسب أي شراء بتاريخ بعد البيع).</p>
     ${note}${blocks}`);
 }
+/* ============ كشف حساب العمولات ============ */
+function ccommPays(){return DB.commPayments.filter(p=>p.companyId===CO);}
+/* مكتسبات العمولة من الفواتير (سطر واحد لكل فاتورة تحمل عمولة) */
+function commEarnings(){
+  const seen={},out=[];
+  cmoves().forEach(m=>{if(m.type==="outbound"&&(m.comm||0)>0){
+    const g=m.invGid||("m"+m.id);if(seen[g])return;seen[g]=1;
+    out.push({date:m.date,voucher:m.invoice||"",amount:m.comm||0,by:m.userName||"",kind:"earn"});}});
+  return out;
+}
+function pCommissions(){
+  $("#view").innerHTML=`<div class="pagehead"><h1>🧾 كشف حساب العمولات</h1>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      ${can("canEdit")?`<button class="btn green no-print" onclick="addCommPayment()">💵 صرف عمولة (تخفيض الرصيد)</button>`:""}
+      <button class="btn ghost no-print" onclick="window.print()">🖨️ طباعة</button></div></div>
+  <div class="card no-print"><div class="formgrid">
+    <div class="cell c4"><label>من تاريخ</label><input id="cmFrom" type="date" onchange="renderCommissions()"></div>
+    <div class="cell c4"><label>إلى تاريخ</label><input id="cmTo" type="date" onchange="renderCommissions()"></div>
+    <div class="cell c4" style="display:flex;align-items:flex-end"><button class="btn block" onclick="renderCommissions()">عرض</button></div>
+  </div></div>
+  <div id="cmOut" style="margin-top:14px"></div>`;
+  renderCommissions();
+}
+function renderCommissions(){
+  const from=$("#cmFrom")?.value||"",to=$("#cmTo")?.value||"";
+  const inR=d=>(!from||(d||"")>=from)&&(!to||(d||"")<=to);
+  const earn=commEarnings().map(e=>({...e})).filter(e=>inR(e.date));
+  const pays=ccommPays().map(p=>({date:p.date,voucher:p.voucher||"",amount:p.amount||0,by:p.note||"",kind:"pay",id:p.id})).filter(p=>inR(p.date));
+  const all=[...earn,...pays].sort((a,b)=>((a.date||"")<(b.date||"")?-1:(a.date||"")>(b.date||"")?1:0));
+  const tEarn=earn.reduce((s,e)=>s+e.amount,0),tPay=pays.reduce((s,p)=>s+p.amount,0);
+  const bal=tEarn-tPay;
+  let run=0;
+  const rows=all.map(r=>{run+=r.kind==="earn"?r.amount:-r.amount;
+    return `<tr><td>${esc(r.date||"")}</td><td>${esc(r.voucher||"—")}</td>
+      <td>${r.kind==="earn"?`<span class="tag" style="background:var(--green)">عمولة مستحقة</span>`:`<span class="tag" style="background:var(--amber)">صرف/دفعة</span>`}</td>
+      <td style="color:var(--green);font-weight:700">${r.kind==="earn"?money(r.amount):""}</td>
+      <td style="color:var(--amber);font-weight:700">${r.kind==="pay"?money(r.amount):""}</td>
+      <td style="font-weight:700">${money(run)}</td>
+      <td>${esc(r.by||"")}</td>
+      <td class="no-print">${(r.kind==="pay"&&can("canDelete"))?`<button class="btn red sm" onclick="delCommPayment(${r.id})">حذف</button>`:""}</td></tr>`;}).join("")
+    ||`<tr><td colspan="8" class="empty">لا حركات عمولات في هذه المدة.</td></tr>`;
+  window.__commCSV={head:["التاريخ","رقم السند/الفاتورة","النوع","عمولة مستحقة","مصروف/دفعة","الرصيد","بيان"],
+    rows:(()=>{let rr=0;return all.map(r=>{rr+=r.kind==="earn"?r.amount:-r.amount;return [r.date||"",r.voucher||"",r.kind==="earn"?"مستحقة":"صرف",r.kind==="earn"?r.amount:"",r.kind==="pay"?r.amount:"",rr,r.by||""];});})()};
+  $("#cmOut").innerHTML=`
+    <div class="grid-3" style="margin-bottom:14px">
+      <div class="stat"><div class="lbl">إجمالي العمولات المستحقة ﷼</div><div class="val sm" style="color:var(--green)">${money(tEarn)}</div></div>
+      <div class="stat"><div class="lbl">إجمالي المصروف ﷼</div><div class="val sm" style="color:var(--amber)">${money(tPay)}</div></div>
+      <div class="stat"><div class="lbl">الرصيد المتبقّي ﷼</div><div class="val sm" style="color:${bal>0?'var(--red)':'inherit'}">${money(bal)}</div></div>
+    </div>
+    <div class="card"><div class="card-title" style="display:flex;justify-content:space-between;align-items:center">
+      <span>من ${esc(from||"البداية")} إلى ${esc(to||"الآن")}</span>
+      <button class="btn ghost sm no-print" onclick="exportCSV('كشف-العمولات.csv',window.__commCSV.head,window.__commCSV.rows)">⬇ Excel</button></div>
+    <div class="table-wrap"><table><thead><tr><th>التاريخ</th><th>رقم السند/الفاتورة</th><th>النوع</th>
+      <th style="color:var(--green)">مستحقة ﷼</th><th style="color:var(--amber)">مصروف ﷼</th><th>الرصيد ﷼</th><th>بيان</th><th class="no-print"></th></tr></thead>
+      <tbody>${rows}</tbody></table></div></div>`;
+}
+function addCommPayment(){
+  if(!guard("canEdit"))return;
+  const m=document.createElement("div");m.className="modal";
+  m.innerHTML=`<div class="box" style="max-width:420px"><h3>💵 صرف/دفعة عمولة</h3>
+    <div class="field" style="margin-bottom:10px"><label>المبلغ ﷼ *</label><input id="cp_amt" type="number" inputmode="decimal" step="0.01"></div>
+    <div class="field" style="margin-bottom:10px"><label>التاريخ</label><input id="cp_date" type="date" value="${today()}"></div>
+    <div class="field" style="margin-bottom:10px"><label>رقم السند</label><input id="cp_v" placeholder="رقم سند الصرف"></div>
+    <div class="field" style="margin-bottom:10px"><label>بيان / المستفيد</label><input id="cp_note" placeholder="ملاحظة"></div>
+    <div id="cp_msg" style="color:var(--red);font-size:13px;margin-bottom:8px"></div>
+    <div style="display:flex;gap:8px"><button class="btn green" onclick="saveCommPayment()">حفظ</button>
+      <button class="btn gray" onclick="this.closest('.modal').remove()">إلغاء</button></div></div>`;
+  document.body.appendChild(m);
+}
+function saveCommPayment(){
+  const amt=toNum($("#cp_amt").value);if(!(amt>0)){$("#cp_msg").textContent="أدخل مبلغاً صحيحاً.";return;}
+  DB.commPayments.unshift({id:nid("commpay"),companyId:CO,amount:amt,date:$("#cp_date").value||today(),voucher:$("#cp_v").value||"",note:$("#cp_note").value||"",userName:ME.name,at:new Date().toISOString()});
+  logAct("صرف عمولة",`${money(amt)}${$("#cp_v").value?` سند ${$("#cp_v").value}`:""}`);save();
+  const md=document.querySelector(".modal");if(md)md.remove();
+  renderCommissions();toast("تم تسجيل صرف العمولة");
+}
+function delCommPayment(id){
+  if(!guard("canDelete"))return;
+  if(!confirm("حذف دفعة العمولة هذه؟"))return;
+  DB.commPayments=DB.commPayments.filter(p=>p.id!==id);save();renderCommissions();toast("تم الحذف");
+}
 /* ---------- الطباعة داخل الصفحة (مع زر رجوع) ---------- */
 function showPrint(inner,extraActions){
   const old=$("#printModal");if(old)old.remove();
@@ -1213,6 +1296,7 @@ function pReport(){
   $("#view").innerHTML=`<div class="pagehead"><h1>📅 تقرير الوارد والمنصرف خلال فترة</h1>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       <button class="btn blue no-print" onclick="lookupInvoice()">🔎 بحث برقم فاتورة</button>
+      <button class="btn amber no-print" onclick="pCommissions()">🧾 كشف العمولات</button>
       <button class="btn ghost no-print" onclick="window.print()">🖨️ طباعة</button></div></div>
   <div class="card no-print">
     <div class="formgrid">
