@@ -933,7 +933,7 @@ function importMovesFile(e){
     lines.forEach((line,idx)=>{
       const p=line.split(/,(?=(?:[^"]*"[^"]*")*[^"]*$)/).map(x=>x.replace(/^"|"$/g,"").replace(/""/g,'"').trim());
       const tRaw=(p[0]||"").trim();const type=/منصرف|بيع|out/i.test(tRaw)?"outbound":/تسوية|adj/i.test(tRaw)?"adjustment":/وارد|in/i.test(tRaw)?"inbound":"";
-      const code=(p[1]||"").trim();const qty=parseFloat(p[2])||0;const price=parseFloat(p[3])||0;
+      const code=(p[1]||"").trim();const qty=toNum(p[2]);const price=toNum(p[3]);
       const supName=(p[4]||"").trim();const ref=(p[5]||"").trim();const date=(p[6]||"").trim()||today();
       if(!type||!code||qty<=0){skip++;errs.push(`سطر ${idx+1}: بيانات ناقصة`);return;}
       let it=citems().find(i=>itemModel(i).toLowerCase()===code.toLowerCase());
@@ -1545,6 +1545,14 @@ function findOrCreateSupplier(name){
   if(!s){s={id:nid("supplier"),companyId:CO,name:nm,phone:"",contact:""};DB.suppliers.push(s);}
   return s;
 }
+/* تحويل الأرقام العربية/الفارسية إلى إنجليزية ثم قراءتها رقماً */
+function toNum(v){
+  if(v==null)return 0;
+  let s=String(v).replace(/[٠-٩]/g,d=>"٠١٢٣٤٥٦٧٨٩".indexOf(d))
+                 .replace(/[۰-۹]/g,d=>"۰۱۲۳۴۵۶۷۸۹".indexOf(d))
+                 .replace(/[،,]/g,".").replace(/[^\d.\-]/g,"");
+  const n=parseFloat(s);return isNaN(n)?0:n;
+}
 function doImportModels(){
   const txt=$("#imp_txt").value||"",zero=$("#imp_zero").checked;
   const lines=txt.split(/\n+/).map(l=>l.trim()).filter(Boolean);
@@ -1556,8 +1564,8 @@ function doImportModels(){
   lines.forEach(line=>{
     const parts=line.split(/[,،\t]/).map(s=>s.trim());
     const code=parts[0];if(!code)return;
-    let qty=zero?0:(parseFloat(parts[1])||0);
-    const cost=parseFloat(parts[2])||0;
+    let qty=zero?0:toNum(parts[1]);
+    const cost=toNum(parts[2]);
     const supName=parts[3]||"";
     const cat=parts[4]||"";
     const sup=supName?findOrCreateSupplier(supName):null;
@@ -1581,7 +1589,8 @@ function doImportModels(){
   supNew=DB.suppliers.length-supBefore;
   logAct("استيراد موديلات",`جديد ${added} — تحديث ${updated}${supNew?` — موردون جدد ${supNew}`:""}`);save();
   document.querySelector(".modal").remove();renderItems();
-  toast(`تم: ${added} صنف جديد · ${updated} تحديث كمية${supNew?` · ${supNew} مورد جديد`:""}`);
+  const totalStock=citems().reduce((s,i)=>s+i.qty,0);
+  toast(`تم: ${added} صنف جديد · ${updated} تحديث كمية${supNew?` · ${supNew} مورد جديد`:""} · إجمالي المخزون الآن ${totalStock}`);
 }
 /* دفعات الاستيراد (للتراجع عنها) — من الحركات/الأصناف المختومة أو حركات الاستيراد القديمة */
 function importBatches(){
