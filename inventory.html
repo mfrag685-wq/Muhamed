@@ -1404,8 +1404,12 @@ function pItems(){
     ${(ME.role==="admin"||ME.role==="supervisor")?`<button class="btn ghost" onclick="undoImport()">↩ تراجع عن استيراد</button>`:""}
     ${can("canAdd")?`<button class="btn" onclick="itemForm(0)">+ إضافة موديل</button>`:""}</div></div>
   <div class="card">
-    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
       ${chip("all","الكل","")}${chip("ok","متوفر",STATUS_COLOR.ok)}${chip("low","تحت حد الطلب",STATUS_COLOR.low)}${chip("zero","نفد",STATUS_COLOR.zero)}${chip("neg","بالسالب",STATUS_COLOR.neg)}
+    </div>
+    <div style="font-size:13px;color:var(--muted);margin-bottom:12px;background:#f8fafc;border-radius:8px;padding:7px 12px">
+      الأرقام أعلاه = <b>عدد الموديلات</b> حسب الحالة. أما مجموع <b>القطع في المخزون</b> فهو:
+      <b style="color:var(--green)">${CI.reduce((s,i)=>s+i.qty,0)}</b> قطعة (عبر ${cnt.ok+cnt.low+cnt.neg} موديل عليه رصيد).
     </div>
     <div class="row">
       <div class="field"><input id="itemSearch" placeholder="🔍 بحث بالموديل أو الوصف أو الفئة..." oninput="renderItems()"></div>
