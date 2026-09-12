@@ -1414,10 +1414,13 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
     <div class="field"><label>من</label><input type="date" id="au_from" onchange="renderAudit()"></div>
     <div class="field"><label>إلى</label><input type="date" id="au_to" onchange="renderAudit()"></div>
     <button class="btn" onclick="exportTable('audit')">تصدير Excel</button>
+    <button class="btn btn-del" onclick="deleteSelectedAudit()">🗑 حذف المحدّد</button>
+    <button class="btn btn-del" onclick="deleteFilteredAudit()">حذف كل المطابق للفلتر</button>
     <button class="btn btn-del" onclick="clearAudit()">تفريغ السجل</button>
   </div>
+  <div class="note no-print" style="border-right-color:var(--citrus)">لحذف حركات محددة: صفِّ بالمستخدم و/أو نوع العملية (مثال: <b>amro</b> ونوع <b>دخول/خروج</b>)، ثم ✔ اختر الصفوف واضغط <b>«حذف المحدّد»</b>، أو احذف كل المطابق للفلتر دفعةً واحدة. الحذف نهائي ولا تعيده المزامنة. <span id="au_selCount"></span></div>
   <div class="table-scroll"><table>
-    <thead><tr><th>التاريخ والوقت</th><th class="name">المستخدم</th><th>العملية</th><th>الشاشة</th><th class="name">التفاصيل</th></tr></thead>
+    <thead><tr><th style="width:34px"><input type="checkbox" id="au_all" onclick="toggleAllAudit(this)" title="تحديد كل الظاهر"></th><th>التاريخ والوقت</th><th class="name">المستخدم</th><th>العملية</th><th>الشاشة</th><th class="name">التفاصيل</th></tr></thead>
     <tbody id="tbAudit"></tbody></table></div>
 </section>
 
@@ -1659,7 +1662,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-12-q';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-12-r';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -1834,6 +1837,7 @@ function markDeletions(){
 function resetKnownIds(){ _knownIds=collectMergeIds(); }
 function ensureDbShape(){
   ['users','audit','units','interTransfers'].forEach(function(k){ if(!Array.isArray(db[k])) db[k]=[]; });   /* مشترك */
+  db.audit.forEach(function(a){ if(a&&a.id==null) a.id=uid(); });   /* معرّف لكل حركة كي تكون قابلة للحذف الدائم */
   if(!db.tombstones||typeof db.tombstones!=='object') db.tombstones={};   /* شواهد الحذف */
   if(!db.settings) db.settings=emptyDB().settings;
   if(db.settings.vatRate===undefined||db.settings.vatRate===null||db.settings.vatRate==='') db.settings.vatRate=15;
@@ -5523,24 +5527,72 @@ function renderUsers(){
   if(!document.getElementById('deptPermBox').innerHTML) renderDeptPermGrids(null);
   if(cloudAccounts()&&can('users')) renderJoinRequests();
 }
-function renderAudit(){
+/* الحركات المطابقة للفلتر الحالي (المستخدم/النوع/المدة) — دون سقف الصفوف */
+function auditFiltered(){
   var u=val('au_user'),a=val('au_action'),f=val('au_from'),t=val('au_to');
-  var rows=db.audit.filter(function(x){
+  return db.audit.filter(function(x){
     if(u&&x.userId!==+u) return false;
     if(a&&x.action!==a) return false;
-    var d=(x.ts||'').slice(0,10);
-    return inRange(d,f,t);
-  }).slice().reverse().slice(0,600);
+    return inRange((x.ts||'').slice(0,10),f,t);
+  });
+}
+function renderAudit(){
+  var all=auditFiltered();
+  var rows=all.slice().reverse().slice(0,600);
+  var cb=document.getElementById('au_all'); if(cb) cb.checked=false;
   document.getElementById('tbAudit').innerHTML=rows.map(function(x){
     var cls=x.action==='delete'?'pill-bad':(x.action==='edit'?'pill-warn':(x.action==='auth'?'pill-info':'pill-ok'));
-    return '<tr><td>'+esc(x.ts)+'</td><td class="name">'+esc(x.user)+'</td>'
+    return '<tr><td><input type="checkbox" class="au_ck" value="'+esc(String(x.id))+'" onclick="updateAuditSelCount()"></td>'
+      +'<td>'+esc(x.ts)+'</td><td class="name">'+esc(x.user)+'</td>'
       +'<td><span class="pill '+cls+'">'+(ACTIONS[x.action]||x.action)+'</span></td>'
       +'<td>'+esc(x.entity)+'</td><td class="name">'+esc(x.details)+'</td></tr>';
-  }).join('')||'<tr><td colspan="5" class="empty">لا توجد حركات مطابقة.</td></tr>';
+  }).join('')||'<tr><td colspan="6" class="empty">لا توجد حركات مطابقة.</td></tr>';
+  var sc=document.getElementById('au_selCount');
+  if(sc) sc.textContent='(المطابق للفلتر: '+all.length+' حركة'+(all.length>600?'، يُعرض أحدث 600':'')+')';
+  updateAuditSelCount();
+}
+function toggleAllAudit(cb){
+  var list=document.querySelectorAll('#tbAudit .au_ck');
+  for(var i=0;i<list.length;i++) list[i].checked=cb.checked;
+  updateAuditSelCount();
+}
+function auditCheckedIds(){
+  var out=[], list=document.querySelectorAll('#tbAudit .au_ck');
+  for(var i=0;i<list.length;i++) if(list[i].checked) out.push(list[i].value);
+  return out;
+}
+function updateAuditSelCount(){
+  var n=auditCheckedIds().length, sc=document.getElementById('au_selCount'); if(!sc) return;
+  var base=sc.textContent.replace(/ — محدّد:.*$/,'');
+  sc.textContent=base+(n?(' — محدّد: '+n):'');
+}
+/* حذف نهائي لحركات مختارة: يضيف شاهد حذف لكل معرّف كي لا تعيدها المزامنة */
+function deleteAuditByIds(ids,label){
+  if(!guard('users','تحتاج صلاحية إدارة المستخدمين لحذف السجل')) return;
+  var set={}; ids.forEach(function(x){ set[String(x)]=1; });
+  if(!Object.keys(set).length){ toast('لم تُحدَّد أي حركة'); return; }
+  var n=db.audit.filter(function(a){ return a&&a.id!=null&&set[String(a.id)]; }).length;
+  if(!n){ toast('لا توجد حركات للحذف'); return; }
+  if(!confirm('حذف '+n+' حركة '+(label||'')+' نهائياً؟ لا يمكن التراجع، ولن تعيدها المزامنة.')) return;
+  if(!db.tombstones||typeof db.tombstones!=='object') db.tombstones={};
+  var now=Date.now();
+  db.audit=db.audit.filter(function(a){ if(a&&a.id!=null&&set[String(a.id)]){ db.tombstones[a.id]=now; return false; } return true; });
+  log('delete','المستخدمون','حذف '+n+' حركة من السجل'+(label?' ('+label+')':''));
+  persist(); renderAudit(); toast('تم حذف '+n+' حركة نهائياً');
+}
+function deleteSelectedAudit(){ deleteAuditByIds(auditCheckedIds(),'محدّدة'); }
+function deleteFilteredAudit(){
+  var u=val('au_user'),a=val('au_action');
+  var uname=u?(byId(db.users,+u)||{}).name:''; var aname=a?(ACTIONS[a]||a):'';
+  var lbl=[uname&&('للمستخدم '+uname),aname&&('نوع '+aname)].filter(Boolean).join(' · ')||'المطابقة للفلتر';
+  deleteAuditByIds(auditFiltered().map(function(x){return x.id;}),lbl);
 }
 function clearAudit(){
   if(!guard('users')) return;
   if(!confirm('تفريغ سجل الحركات نهائياً؟ يُنصح بتصديره أولاً.')) return;
+  /* شواهد حذف لكل الحركات كي لا تعيدها المزامنة من الأجهزة الأخرى */
+  if(!db.tombstones||typeof db.tombstones!=='object') db.tombstones={};
+  var now=Date.now(); db.audit.forEach(function(a){ if(a&&a.id!=null) db.tombstones[a.id]=now; });
   db.audit=[]; log('data','المستخدمون','تفريغ سجل الحركات'); persist(); renderAudit(); toast('تم تفريغ السجل');
 }
 function renderSettingsForm(){
@@ -8090,10 +8142,12 @@ function unionById(remoteArr,localArr){
 /* دمج سجل الحركات (audit) من الطرفين: سجل تراكمي لا يُستبدَل — يوحَّد بالمعرّف
    (وبمفتاح مركّب احتياطي للسجلّات القديمة بلا معرّف)، ويُرتَّب زمنياً، ويُقصّ للأحدث. */
 var AUDIT_KEEP=8000;
-function unionAudit(remoteArr,localArr){
+function unionAudit(remoteArr,localArr,tomb){
+  tomb=tomb||{};
   var seen={}, out=[];
   (remoteArr||[]).concat(localArr||[]).forEach(function(a){
     if(!a) return;
+    if(a.id!=null&&tomb[a.id]) return;   /* حركة حُذفت نهائياً (شاهد حذف) — لا تعُد */
     var k=(a.id!=null)?('i'+a.id):('t'+(a.ts||0)+'|'+(a.userId!=null?a.userId:'')+'|'+(a.action||'')+'|'+(a.entity||'')+'|'+(a.details||''));
     if(seen[k]) return; seen[k]=1; out.push(a);
   });
@@ -8124,8 +8178,9 @@ function mergeCloud(localDb,remote){
   if(remote.departments) Object.keys(remote.departments).forEach(function(dk){ var rd=remote.departments[dk]; if(!rd) return;
     DEPT_BOOKS.forEach(function(bk){ if(Array.isArray(rd[bk])) rd[bk]=alive(rd[bk]); }); });
   remote.interTransfers=alive(unionById(remote.interTransfers, localDb.interTransfers));
-  /* سجل الحركات مشترك وتراكمي: وحّده بدل استبداله كي لا تختفي حركات الدخول/الإدخال */
-  remote.audit=unionAudit(remote.audit, localDb.audit);
+  /* سجل الحركات مشترك وتراكمي: وحّده بدل استبداله كي لا تختفي حركات الدخول/الإدخال،
+     مع احترام شواهد الحذف (حركة حذفها المدير لا تعود) */
+  remote.audit=unionAudit(remote.audit, localDb.audit, tomb);
   return remote;
 }
 /* تطبيق بيانات وردت من السحابة — بالدمج مع المحلي (لا استبدال) حفاظاً على الإدخالات */
