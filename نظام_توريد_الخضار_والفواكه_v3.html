@@ -1596,14 +1596,16 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
   <div class="sec-title">البيانات والنسخ الاحتياطي</div>
   <div class="form-foot">
     <button class="btn-alt" onclick="exportBackup()">تنزيل نسخة احتياطية شاملة (JSON)</button>
-    <button class="btn" onclick="document.getElementById('importFile').click()">استعادة من نسخة</button>
+    <button class="btn" onclick="document.getElementById('importFile').click()">استعادة من نسخة (استبدال)</button>
+    <button class="btn" onclick="document.getElementById('mergeFile').click()">🔗 استيراد يدمج (بلا فقد)</button>
+    <input type="file" id="mergeFile" accept=".json" class="hidden" onchange="importBackupMerge(event)">
     <button class="btn" onclick="exportAllExcel()">تصدير كل الجداول (Excel)</button>
     <button class="btn" onclick="repairDuplicates()">فحص وإصلاح التكرار</button>
     <button class="btn" onclick="separateDepartments()">فصل تداخل الأقسام</button>
     <button class="btn" onclick="loadDemo()">تحميل بيانات تجريبية</button>
     <button class="btn btn-del" onclick="wipeData()">مسح جميع البيانات</button>
   </div>
-  <div class="note" style="border-right-color:var(--citrus)">زر <b>«فحص وإصلاح التكرار»</b> يدمج الموردين/العملاء/الأصناف المكرّرة بنفس الاسم (يجمع حركاتهم في حساب واحد) ويصلح أي معرّفات متكرّرة.<br>زر <b>«فصل تداخل الأقسام»</b> يعالج ظهور موردي/عملاء قسم داخل قسم آخر: يُزيلهم من أي قسم لا توجد لهم فيه حركة، ويبقيهم في قسمهم الصحيح. نزّل نسخة احتياطية قبل أي منهما.</div>
+  <div class="note" style="border-right-color:var(--citrus)"><b>«استعادة من نسخة (استبدال)»</b> يمسح البيانات الحالية ويضع محتوى الملف مكانها.<br><b>«استيراد يدمج (بلا فقد)»</b> يوحّد الملف مع بياناتك الحالية دون حذف: يجمع سجل الحركات (الدخول/الإدخالات) وكل حركات الأقسام بالمعرّف، ويحترم شواهد الحذف — مفيد لاستعادة سجلّات موظفين مفقودة من نسخة قديمة دون خسارة الجديد. ثم تُرفع النتيجة الموحّدة للسحابة تلقائياً.<br>زر <b>«فحص وإصلاح التكرار»</b> يدمج الموردين/العملاء/الأصناف المكرّرة بنفس الاسم ويصلح المعرّفات المتكرّرة.<br>زر <b>«فصل تداخل الأقسام»</b> يُزيل موردي/عملاء قسم من أي قسم لا حركة لهم فيه. نزّل نسخة احتياطية قبل أي منها.</div>
   <div class="note" id="storageNote" style="margin-top:14px"></div>
 
   <div class="sec-title">مشاركة النظام مع الموظفين</div>
@@ -1657,7 +1659,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-12-p';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-12-q';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -7535,6 +7537,41 @@ function importBackup(ev){
       ME=me||db.users.filter(function(u){return u.role==='admin';})[0]||db.users[0];
       log('data','النسخ الاحتياطي','استعادة البيانات من نسخة احتياطية');
       persist(); startApp(); toast('تمت استعادة البيانات');
+    }catch(err){ toast('الملف غير صالح — اختر ملف نسخة احتياطية بصيغة JSON'); }
+  };
+  rd.readAsText(f); ev.target.value='';
+}
+/* استيراد يدمج نسخة احتياطية داخل البيانات الحالية دون فقد:
+   يوحّد سجل الحركات (audit) وكل دفاتر الأقسام والتحويلات بالمعرّف عبر mergeCloud،
+   ويحترم شواهد الحذف من الطرفين، ثم يرفع النتيجة الموحّدة للسحابة. */
+function importBackupMerge(ev){
+  var f=ev.target.files[0]; if(!f) return;
+  if(!guard('settings','تحتاج صلاحية الإعدادات للاستيراد الدامج')){ ev.target.value=''; return; }
+  if(!confirm('سيُدمج محتوى الملف مع بياناتك الحالية دون حذف أي شيء (توحيد بالمعرّف واحترام شواهد الحذف). المتابعة؟')){ ev.target.value=''; return; }
+  var rd=new FileReader();
+  rd.onload=function(e){
+    try{
+      var incoming=JSON.parse(e.target.result);
+      if(!incoming.settings||!Array.isArray(incoming.users)) throw 0;
+      /* عدّ حركات السجل قبل/بعد لإظهار كم استُعيد */
+      var beforeAudit=(db.audit||[]).length;
+      /* الحالي هو الأساس (نحافظ على الإعدادات/المستخدمين/القسم النشط الحاليّة)،
+         ونعتبر الملف المستورد «المحلي» فتُوحَّد حركاته وسجلّه داخل الحالي دون فقد:
+         mergeCloud(localDb=المستورد, remote=الحالي) يبقي أساس الحالي ويضم بيانات المستورد. */
+      var current=JSON.parse(JSON.stringify(serializeDB()));
+      var imported=JSON.parse(JSON.stringify(incoming));
+      var merged=mergeCloud(imported, current);
+      db=merged; ensureDbShape(); resetKnownIds();
+      db.meta=db.meta||{}; db.meta.author=AUTHOR;
+      var me=byId(db.users,ME?ME.id:0);
+      ME=me||db.users.filter(function(u){return u.role==='admin';})[0]||db.users[0];
+      var afterAudit=(db.audit||[]).length, gained=afterAudit-beforeAudit;
+      log('data','النسخ الاحتياطي','استيراد دامج من نسخة احتياطية — سجل الحركات '+beforeAudit+' ← '+afterAudit+(gained>0?(' (+'+gained+' حركة مستعادة)'):''));
+      persist();
+      /* ارفع النسخة الموحّدة للسحابة كي تظهر للجميع */
+      try{ if(typeof cloudEnabled==='function'&&cloudEnabled()){ cloudLastPushed=''; cloudPush(); } }catch(_){}
+      startApp();
+      toast(gained>0? ('تم الدمج — استُعيدت '+gained+' حركة (السجل الآن '+afterAudit+')') : ('تم الدمج — السجل الآن '+afterAudit+' حركة'));
     }catch(err){ toast('الملف غير صالح — اختر ملف نسخة احتياطية بصيغة JSON'); }
   };
   rd.readAsText(f); ev.target.value='';
