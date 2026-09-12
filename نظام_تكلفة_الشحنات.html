@@ -554,6 +554,7 @@ html[data-theme="dark"] .rt td.hl{background:#2e2814;color:var(--accent)}
         <button class="btn btn-outline btn-sm" onclick="downloadSupplierTemplate()">📄 نموذج فارغ</button>
         <button class="btn btn-green btn-sm" onclick="exportSuppliers()">⬇️ تصدير</button>
         <button class="btn btn-outline btn-sm" onclick="document.getElementById('sup-import-file').click()">⬆️ استيراد</button>
+        <button class="btn btn-outline btn-sm" onclick="undoLastImport()">↩ تراجع عن آخر استيراد</button>
         <input type="file" id="sup-import-file" accept=".xlsx,.xls,.csv" style="display:none" onchange="handleSupplierImport(event)">
       </div>
     </div>
@@ -1103,6 +1104,7 @@ html[data-theme="dark"] .rt td.hl{background:#2e2814;color:var(--accent)}
         </label>
         <input type="file" id="pay-excel-input" accept=".xlsx,.xls" style="display:none" onchange="handlePayExcelImport(event)">
         <input type="file" id="pay-csv-input" accept=".csv,.txt" style="display:none" onchange="handlePayCsvImport(event)">
+        <button class="btn btn-outline" onclick="undoLastImport()" title="إلغاء آخر عملية استيراد وإرجاع البيانات لما قبلها">↩ تراجع عن آخر استيراد</button>
       </div>
       <div id="pay-import-status" style="font-size:.78rem;color:var(--muted);margin-top:8px"></div>
     </div>
@@ -1211,6 +1213,7 @@ html[data-theme="dark"] .rt td.hl{background:#2e2814;color:var(--accent)}
       <button class="btn btn-outline btn-sm" onclick="downloadSupplierPayTemplate()">📄 نموذج دفعات فارغ</button>
       <button class="btn btn-green btn-sm" onclick="exportSupplierPays()">⬇️ تصدير الدفعات</button>
       <button class="btn btn-outline btn-sm" onclick="document.getElementById('spay-import-file').click()">⬆️ استيراد الدفعات</button>
+      <button class="btn btn-outline btn-sm" onclick="undoLastImport()">↩ تراجع عن آخر استيراد</button>
       <input type="file" id="spay-import-file" accept=".xlsx,.xls,.csv" style="display:none" onchange="handleSupplierPayImport(event)">
     </div>
   </div>
@@ -1332,6 +1335,7 @@ html[data-theme="dark"] .rt td.hl{background:#2e2814;color:var(--accent)}
         <button class="btn btn-outline btn-sm" onclick="downloadModelBTemplate()">📄 نموذج فارغ</button>
         <button class="btn btn-green btn-sm" onclick="exportModelB()">⬇️ تصدير نموذج ب</button>
         <button class="btn btn-outline btn-sm" onclick="document.getElementById('mb-import-file').click()">⬆️ استيراد نموذج ب</button>
+        <button class="btn btn-outline btn-sm" onclick="undoLastImport()">↩ تراجع عن آخر استيراد</button>
         <input type="file" id="mb-import-file" accept=".xlsx,.xls,.csv" style="display:none" onchange="handleModelBImport(event)">
       </div>
     </div>
@@ -5027,6 +5031,28 @@ function exportCmpTotals(){
   XLSX.writeFile(wb,'مقارنة_إجماليات_الشحنات.xlsx'); toast('⬇️ تم تصدير جدول الإجماليات');
 }
 // ── استيراد/تصدير نموذج ب (المقارنة) عبر Excel + نموذج جاهز ──
+// ── تراجع عام عن آخر استيراد (يشمل كل أنواع الاستيراد) ──
+// قبل أي استيراد نحفظ نسخة من المفاتيح المتأثرة في خانة محلية لا تُزامَن (importUndo)
+function importBackup(label, keys){
+  try{ var snap={}; (keys||[]).forEach(function(k){ snap[k]=localStorage.getItem(k); });
+    localStorage.setItem('importUndo', JSON.stringify({label:label||'استيراد', at:Date.now(), keys:snap}));
+    var b=document.getElementById('undo-import-note'); if(b) b.style.display='';
+  }catch(e){}
+}
+function hasImportUndo(){ try{ return !!localStorage.getItem('importUndo'); }catch(e){ return false; } }
+function undoLastImport(){
+  if(isReadonly()){ toast('👁 وضع القراءة فقط',true); return; }
+  var raw; try{ raw=localStorage.getItem('importUndo'); }catch(e){}
+  if(!raw){ toast('لا يوجد استيراد لإلغائه',true); return; }
+  var u; try{ u=JSON.parse(raw); }catch(e){ toast('تعذّر قراءة نسخة التراجع',true); return; }
+  confirm2('التراجع عن آخر استيراد ('+escH(u.label||'')+')؟ ستعود البيانات لما كانت عليه قبله.', function(){
+    Object.keys(u.keys||{}).forEach(function(k){ var v=u.keys[k]; if(v==null) localStorage.removeItem(k); else localStorage.setItem(k,v); });
+    try{ localStorage.removeItem('importUndo'); }catch(e){}
+    logAction('تراجع عن آخر استيراد', u.label||'');
+    toast('↩ تم التراجع عن آخر استيراد — إعادة تحميل…');
+    setTimeout(function(){ location.reload(); }, 700);
+  });
+}
 var MB_HEADERS=['رقم الشحنة','الموديل','الكمية','السعر','العملة (USD/SAR/فارغ)','معامل التحويل (فارغ=كنموذج أ)'];
 function downloadModelBTemplate(){
   if(typeof XLSX==='undefined'){ toast('⚠️ مكتبة Excel غير محمّلة',true); return; }
@@ -5090,6 +5116,7 @@ function applyModelBRows(aoa){
     added++;
   }
   if(!added){ toast('لم يتم العثور على صفوف صالحة (تحقق من رقم الشحنة والموديل)',true); return; }
+  importBackup('استيراد نموذج ب', [bKey()]);
   bSave(obj);
   logAction('استيراد نموذج ب من Excel', added+' سطر / '+Object.keys(ships).length+' شحنة');
   // حدّث المحرر إن كانت الشحنة الحالية ضمن المستورد
@@ -5147,8 +5174,9 @@ function applySupplierRows(aoa){
     else { rec.id='sup_'+Date.now()+'_'+i; rec.active=1; list.push(rec); added++; }
   }
   if(!added && !upd){ toast('لا صفوف صالحة',true); return; }
+  importBackup('استيراد موردين', [supKey()]);
   supSave(list); refreshSupplierDatalist(); if(document.getElementById('suppliers-modal').style.display==='flex') renderSuppliersModal();
-  logAction('استيراد موردين Excel', 'جديد '+added+' / محدّث '+upd); toast('✅ استيراد الموردين: '+added+' جديد، '+upd+' محدّث');
+  logAction('استيراد موردين Excel', 'جديد '+added+' / محدّث '+upd); toast('✅ استيراد الموردين: '+added+' جديد، '+upd+' محدّث — للتراجع «↩ تراجع عن آخر استيراد»');
 }
 
 // ── دفعات الموردين: استيراد/تصدير Excel + نموذج جاهز ──
@@ -5183,19 +5211,21 @@ function applySupplierPayRows(aoa){
   if(!aoa||!aoa.length){ toast('الملف فارغ',true); return; }
   var start=/المورد|التاريخ/.test((aoa[0]||[]).join(' '))?1:0;
   var list=saPayLoad(), added=0;
+  var addRows=[];
   for(var i=start;i<aoa.length;i++){ var r=aoa[i]||[]; var sup=String(r[0]==null?'':r[0]).trim(); var amt=parseFloat(r[2])||0;
     if(!sup || amt<=0) continue;
     var cur=String(r[3]==null?'':r[3]).trim().toUpperCase(); cur=(cur==='USD')?'USD':'SAR';
     var mth=String(r[4]==null?'':r[4]).trim(); var method=(/تحويل|transfer|bank/i.test(mth))?'transfer':'cash';
     var tg=String(r[7]==null?'':r[7]).trim(); var target=(tg==='ب'||/^b$/i.test(tg))?'b':((tg==='كلاهما'||/both/i.test(tg))?'both':'a');
-    list.push({ id:'sp_'+Date.now()+'_'+i, supplier:sup, date:xlDate(r[1])||new Date().toISOString().slice(0,10),
+    addRows.push({ id:'sp_'+Date.now()+'_'+i, supplier:sup, date:xlDate(r[1])||new Date().toISOString().slice(0,10),
       amount:amt, cur:cur, rate:(S.fxUsdSar||3.756), target:target, method:method,
       bank:String(r[5]==null?'':r[5]).trim(), ref:String(r[6]==null?'':r[6]).trim(), notes:String(r[8]==null?'':r[8]).trim() });
     added++;
   }
   if(!added){ toast('لا صفوف صالحة (تحقق من المورد والمبلغ)',true); return; }
-  saPaySave(list); if(document.getElementById('page-supacct').classList.contains('active')) renderSupAcct();
-  logAction('استيراد دفعات موردين Excel', added+' دفعة'); toast('✅ تم استيراد '+added+' دفعة مورد');
+  importBackup('استيراد دفعات موردين', [saPayKey()]);
+  saPaySave(list.concat(addRows)); if(document.getElementById('page-supacct').classList.contains('active')) renderSupAcct();
+  logAction('استيراد دفعات موردين Excel', added+' دفعة'); toast('✅ تم استيراد '+added+' دفعة مورد — للتراجع اضغط «↩ تراجع عن آخر استيراد»');
 }
 // ── الطباعة ──
 function cmpPrintWindow(title, inner){
@@ -5361,6 +5391,7 @@ function applyPaymentRows(aoa,fname){
   const pids=Object.keys(byPid);
   if(!pids.length){ toast('⚠️ لم يُعثر على دفعات صالحة في الملف',true); return; }
   const replace=document.getElementById('pay-replace')?.checked;
+  importBackup('استيراد دفعات مسددة', pids.map(function(p){return 'scs_pay_'+p;}));
   const summary=[];
   pids.forEach(pid=>{
     const base=replace?[]:payLoad(pid);
@@ -5372,7 +5403,7 @@ function applyPaymentRows(aoa,fname){
   const st=document.getElementById('pay-import-status');
   if(st) st.innerHTML=`✅ استُوردت الدفعات: ${escH(summary.join('، '))} — من الملف: ${escH(fname)}`;
   logAction('استيراد دفعات', count+' دفعة');
-  toast('✅ تم استيراد الدفعات ('+count+')');
+  toast('✅ تم استيراد الدفعات ('+count+') — للتراجع اضغط «↩ تراجع عن آخر استيراد»');
 }
 
 function exportPaymentsExcel(){
