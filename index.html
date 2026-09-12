@@ -1657,7 +1657,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-12-o';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-12-p';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -2007,7 +2007,8 @@ function fillReportTypes(){
 /* ---------- سجل الحركات ---------- */
 function log(action,entity,details){
   db.audit.push({id:uid(),ts:nowTs(),userId:ME?ME.id:0,user:ME?ME.name:'—',action:action,entity:entity,details:details});
-  if(db.audit.length>6000) db.audit=db.audit.slice(-5000);
+  /* نُبقي حدّ القصّ متوافقاً مع سعة الدمج (AUDIT_KEEP) كي لا يقصّ سجلاً وحّده الدمج للتو */
+  if(db.audit.length>AUDIT_KEEP+1000) db.audit=db.audit.slice(-AUDIT_KEEP);
 }
 var ACTIONS={add:'إضافة',edit:'تعديل',delete:'حذف',auth:'دخول/خروج',data:'بيانات'};
 
@@ -8049,6 +8050,20 @@ function unionById(remoteArr,localArr){
     else if((+l.ts||0)>(+map[l.id].ts||0)) map[l.id]=l; });
   return order.map(function(k){ return map[k]; });
 }
+/* دمج سجل الحركات (audit) من الطرفين: سجل تراكمي لا يُستبدَل — يوحَّد بالمعرّف
+   (وبمفتاح مركّب احتياطي للسجلّات القديمة بلا معرّف)، ويُرتَّب زمنياً، ويُقصّ للأحدث. */
+var AUDIT_KEEP=8000;
+function unionAudit(remoteArr,localArr){
+  var seen={}, out=[];
+  (remoteArr||[]).concat(localArr||[]).forEach(function(a){
+    if(!a) return;
+    var k=(a.id!=null)?('i'+a.id):('t'+(a.ts||0)+'|'+(a.userId!=null?a.userId:'')+'|'+(a.action||'')+'|'+(a.entity||'')+'|'+(a.details||''));
+    if(seen[k]) return; seen[k]=1; out.push(a);
+  });
+  out.sort(function(x,y){ return (+x.ts||0)-(+y.ts||0); });
+  if(out.length>AUDIT_KEEP) out=out.slice(-AUDIT_KEEP);
+  return out;
+}
 /* يدمج دفاتر الحركات لكل قسم (والتحويلات بين الأقسام) من النسخة المحلية داخل نسخة السحابة،
    مع احترام شواهد الحذف من الطرفين (السجل المحذوف في أي جهاز يُستبعَد ولا يعود) */
 function mergeCloud(localDb,remote){
@@ -8072,6 +8087,8 @@ function mergeCloud(localDb,remote){
   if(remote.departments) Object.keys(remote.departments).forEach(function(dk){ var rd=remote.departments[dk]; if(!rd) return;
     DEPT_BOOKS.forEach(function(bk){ if(Array.isArray(rd[bk])) rd[bk]=alive(rd[bk]); }); });
   remote.interTransfers=alive(unionById(remote.interTransfers, localDb.interTransfers));
+  /* سجل الحركات مشترك وتراكمي: وحّده بدل استبداله كي لا تختفي حركات الدخول/الإدخال */
+  remote.audit=unionAudit(remote.audit, localDb.audit);
   return remote;
 }
 /* تطبيق بيانات وردت من السحابة — بالدمج مع المحلي (لا استبدال) حفاظاً على الإدخالات */
