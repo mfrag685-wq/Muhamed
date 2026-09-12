@@ -1365,6 +1365,17 @@ html[data-theme="dark"] .rt td.hl{background:#2e2814;color:var(--accent)}
       </table></div>
     </div>
   </div>
+
+  <div class="card" id="cmp-net-card" style="margin-top:12px">
+    <div class="card-header" style="background:#5d3a1a;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+      <span>💰 صافي المقارنة بعد خصم الدفعات (<span class="cmp-lblA-t">أ</span> ↔ <span class="cmp-lblB-t">ب</span>)</span>
+      <button class="btn btn-outline btn-sm" onclick="printCmpNet()">🖨️ طباعة كشف الصافي</button>
+    </div>
+    <div class="card-body">
+      <div style="font-size:.8rem;color:var(--muted);margin-bottom:8px">تُخصم دفعات الموردين حسب وسمها: «أ» أو «ب» أو «كلاهما» (دفعة «كلاهما» تُخصم من النموذجين). المتبقّى = الإجمالي − المدفوع لكل نموذج.</div>
+      <div id="cmp-net-sum" class="sum-cards" style="margin-bottom:10px"></div>
+    </div>
+  </div>
 </div>
 
 </div><!-- /main -->
@@ -5017,6 +5028,55 @@ function renderCmpTotals(){
     '<div class="sum-card" style="background:'+(gd>0?'#fdecea':'#e9f8ef')+'"><div class="lbl">إجمالي الفرق ('+escH(L.a)+' − '+escH(L.b)+')</div><div class="val" style="color:'+(gd>0?'var(--danger)':'var(--success)')+'">'+fmtD(gd)+' SAR</div><div class="sub">'+(gB<=0?'أدخل نموذج ب':(gd>0?escH(L.b)+' أرخص إجمالاً':(gd<0?escH(L.a)+' أرخص إجمالاً':'متساويان')))+'</div></div>';
   var tb=document.getElementById('cmp-all-tbody');
   if(tb) tb.innerHTML=body.join('')||'<tr><td colspan="6" style="padding:18px;color:var(--muted)">لا توجد شحنات — احفظ شحنات في نموذج أ وأدخل نموذج ب</td></tr>';
+  renderCmpNet();
+}
+// دفعات الموردين للشركة النشطة موزّعة حسب النموذج (أ/ب/كلاهما): «كلاهما» تُخصم من الاثنين
+function cmpPaidByModel(){
+  var paidA=0, paidB=0;
+  saPayLoad().forEach(function(p){ var tg=p.target||'a'; var v=saPayToSar(p);
+    if(tg==='a'||tg==='both') paidA+=v; if(tg==='b'||tg==='both') paidB+=v; });
+  return {paidA:paidA, paidB:paidB};
+}
+// إجماليات كل الشحنات (أ/ب) للشركة النشطة حسب الأساس المختار
+function cmpGrandTotals(){
+  var basis=cmpBasis(); var gA=0, gB=0, n=0;
+  cmpTotalsRows().forEach(function(r){ gA+=r.aTot; gB+=r.bTot; n++; });
+  return {gA:gA, gB:gB, n:n, basis:basis};
+}
+function renderCmpNet(){
+  applyCmpLabels(); var L=cmpLabels();
+  var g=cmpGrandTotals(); var pay=cmpPaidByModel();
+  var remA=g.gA-pay.paidA, remB=g.gB-pay.paidB;
+  var sc=document.getElementById('cmp-net-sum'); if(!sc) return;
+  function card(t,v,color,sub){ return '<div class="sum-card"><div class="lbl">'+t+'</div><div class="val"'+(color?(' style="color:'+color+'"'):'')+'>'+fmtD(v)+' SAR</div>'+(sub?'<div class="sub">'+sub+'</div>':'')+'</div>'; }
+  sc.innerHTML=
+    '<div class="sum-card"><div class="lbl">عدد الشحنات</div><div class="val">'+g.n+'</div></div>'+
+    card('إجمالي '+escH(L.a), g.gA, '')+
+    card('مدفوع لـ '+escH(L.a), pay.paidA, 'var(--success)')+
+    '<div class="sum-card" style="background:'+(remA>0?'#fdecea':'#e9f8ef')+'"><div class="lbl">المتبقّي على '+escH(L.a)+'</div><div class="val" style="color:'+(remA>0?'var(--danger)':'var(--success)')+'">'+fmtD(remA)+' SAR</div><div class="sub">'+(remA>0?'مستحق':'مسدَّد')+'</div></div>'+
+    card('إجمالي '+escH(L.b), g.gB, '')+
+    card('مدفوع لـ '+escH(L.b), pay.paidB, 'var(--success)')+
+    '<div class="sum-card" style="background:'+(remB>0?'#fdecea':'#e9f8ef')+'"><div class="lbl">المتبقّي على '+escH(L.b)+'</div><div class="val" style="color:'+(remB>0?'var(--danger)':'var(--success)')+'">'+fmtD(remB)+' SAR</div><div class="sub">'+(remB>0?'مستحق':'مسدَّد')+'</div></div>';
+}
+function printCmpNet(){
+  var L=cmpLabels(); var basis=cmpBasis();
+  var rows=cmpTotalsRows(); var pay=cmpPaidByModel();
+  var gA=0, gB=0;
+  var trs=rows.map(function(r){ gA+=r.aTot; gB+=r.bTot; return '<tr><td>'+escH(r.num)+'</td><td class=num>'+fmtD(r.aTot)+'</td><td class=num>'+fmtD(r.bTot)+'</td></tr>'; }).join('');
+  var remA=gA-pay.paidA, remB=gB-pay.paidB;
+  var basisTxt=(basis==='fob')?'قيمة الشراء (FOB)':'التكلفة الواصلة';
+  var detail='<h3>تفصيل الشحنات ('+rows.length+' شحنة) — الأساس: '+basisTxt+'</h3>'+
+    '<table><thead><tr><th>رقم الشحنة</th><th>إجمالي '+escH(L.a)+'</th><th>إجمالي '+escH(L.b)+'</th></tr></thead><tbody>'+
+    (trs||'<tr><td colspan=3>لا توجد شحنات</td></tr>')+
+    '<tr class=tot><td>الإجمالي</td><td class=num>'+fmtD(gA)+'</td><td class=num>'+fmtD(gB)+'</td></tr></tbody></table>';
+  var summ='<h3>الملخّص وصافي المتبقّي بعد الدفعات</h3>'+
+    '<table><thead><tr><th>البيان</th><th>'+escH(L.a)+'</th><th>'+escH(L.b)+'</th></tr></thead><tbody>'+
+    '<tr><td>إجمالي قيمة الشحنات</td><td class=num>'+fmtD(gA)+'</td><td class=num>'+fmtD(gB)+'</td></tr>'+
+    '<tr><td>(−) المدفوع</td><td class=num>'+fmtD(pay.paidA)+'</td><td class=num>'+fmtD(pay.paidB)+'</td></tr>'+
+    '<tr class=tot><td>المتبقّي</td><td class=num>'+fmtD(remA)+'</td><td class=num>'+fmtD(remB)+'</td></tr>'+
+    '</tbody></table>'+
+    '<div style="font-size:11px;color:#555">ملاحظة: دفعة موسومة «كلاهما» تُخصم من النموذجين. عدد الشحنات: '+rows.length+'.</div>';
+  cmpPrintWindow('كشف صافي المقارنة بعد الدفعات — '+escH(L.a)+' مقابل '+escH(L.b), detail+summ);
 }
 function exportCmpTotals(){
   if(typeof XLSX==='undefined'){ toast('⚠️ مكتبة Excel غير محمّلة',true); return; }
