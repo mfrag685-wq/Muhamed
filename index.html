@@ -415,6 +415,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 
 
 <div id="buildWarn" class="no-print" style="display:none;background:#7c2d12;color:#fff;border-radius:10px;padding:10px 14px;margin:10px 0;font-weight:700;font-size:13.5px;line-height:1.7"></div>
+<div id="staleUsersBox" class="no-print" style="display:none;margin:10px 0"></div>
 <div id="staleOverlay" class="no-print" style="display:none;position:fixed;inset:0;z-index:500;background:rgba(20,36,32,.92);align-items:center;justify-content:center;padding:20px">
   <div style="background:#fff;max-width:460px;width:100%;border-radius:18px;padding:28px 26px;text-align:center;box-shadow:0 24px 60px rgba(0,0,0,.4)">
     <div style="font-size:40px;margin-bottom:8px">🔄</div>
@@ -1656,7 +1657,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-10-n';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-12-o';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -5547,6 +5548,7 @@ function renderSettingsForm(){
   var lp=document.getElementById('logoPreview');
   if(lp) lp.innerHTML=db.settings.logo?'<img src="'+db.settings.logo+'" alt="شعار المنشأة">':'🥬';
   renderDeptImages(); renderMergeItemsUI(); renderStockResetUI();
+  try{ renderStaleUsers(); }catch(e){}
 }
 function saveSettings(){
   if(!guard('settings')) return;
@@ -7948,6 +7950,81 @@ function showStaleOverlay(){
 }
 function hideStaleOverlay(){ var o=document.getElementById('staleOverlay'); if(o) o.style.display='none'; }
 function reloadNow(){ try{ location.reload(true); }catch(e){ try{ location.reload(); }catch(e2){} } }
+
+/* ===== حضور الأجهزة: كل جهاز يسجّل (المستخدم/الإصدار/آخر ظهور) ليرى المدير مَن يحتاج تحديثاً ===== */
+var _cloudDevices={}, _cloudDevicesWatched=false;
+function cloudDeviceId(){
+  try{ var k='veg_erp_device_id', v=localStorage.getItem(k);
+    if(!v){ v='d'+Date.now().toString(36)+Math.floor(Math.random()*1e9).toString(36); localStorage.setItem(k,v); }
+    return v; }catch(e){ return 'd0'; }
+}
+/* يكتب بصمة هذا الجهاز في السحابة (اسم المستخدم + الإصدار + وقت الظهور) */
+function cloudMarkPresence(){
+  if(!cloudEnabled()||!cloudReady||typeof firebase==='undefined'||!ME) return;
+  try{
+    var ref=firebase.database().ref('workspaces/'+cloudWid()+'/devices/'+cloudDeviceId());
+    ref.set({user:(ME.name||ME.username||'—'), uid:(ME.id||0), role:(ME.role||''),
+      build:APP_BUILD, ts:firebase.database.ServerValue.TIMESTAMP,
+      ua:String(navigator.userAgent||'').slice(0,90)}).catch(function(){});
+    try{ ref.onDisconnect().remove(); }catch(_){}
+  }catch(e){}
+}
+/* يراقب بصمات كل الأجهزة (للمدير) */
+function cloudWatchDevices(){
+  if(_cloudDevicesWatched||!cloudEnabled()||typeof firebase==='undefined') return;
+  try{
+    firebase.database().ref('workspaces/'+cloudWid()+'/devices').on('value',function(snap){
+      _cloudDevices=snap.val()||{}; renderStaleUsers(); refreshBuildWarn();
+    });
+    _cloudDevicesWatched=true;
+  }catch(e){}
+}
+/* الأجهزة التي تعمل بإصدار أقدم من هذا الجهاز، وظهرت خلال آخر 3 أيام */
+function staleDeviceList(){
+  var now=Date.now(), out=[], seen={};
+  Object.keys(_cloudDevices||{}).forEach(function(id){
+    var d=_cloudDevices[id]; if(!d||!d.build) return;
+    if(String(d.build)>=String(APP_BUILD)) return;           /* محدَّث أو أحدث */
+    var ts=+d.ts||0, age=now-ts;
+    if(age>3*24*3600*1000) return;                           /* تجاهُل الأجهزة الغائبة منذ أكثر من 3 أيام */
+    out.push({id:id,user:d.user||'—',uid:d.uid||0,build:d.build,ts:ts,age:age,online:age<120000});
+  });
+  out.sort(function(a,b){ return b.ts-a.ts; });
+  return out;
+}
+function _agoTxt(age){
+  if(age<0) return 'الآن';
+  var m=Math.floor(age/60000); if(m<1) return 'الآن';
+  if(m<60) return 'قبل '+m+' دقيقة'; var h=Math.floor(m/60);
+  if(h<24) return 'قبل '+h+' ساعة'; return 'قبل '+Math.floor(h/24)+' يوم';
+}
+/* لوحة المدير: أسماء المستخدمين/الأجهزة التي تحتاج تحديثاً */
+function renderStaleUsers(){
+  var box=document.getElementById('staleUsersBox'); if(!box) return;
+  if(!(ME&&ME.role==='admin')){ box.style.display='none'; box.innerHTML=''; return; }
+  var list=staleDeviceList();
+  if(!list.length){ box.style.display='none'; box.innerHTML=''; return; }
+  var rows=list.map(function(d){
+    var st=d.online?'<span class="pill pill-bad">متصل الآن</span>':'<span class="pill pill-info">'+esc(_agoTxt(d.age))+'</span>';
+    return '<tr><td class="name">'+esc(d.user)+'</td><td>'+esc(d.build)+'</td><td>'+st+'</td></tr>';
+  }).join('');
+  box.style.display='';
+  box.innerHTML='<div style="background:#7c2d12;color:#fff;border-radius:10px;padding:12px 14px">'
+    +'<div style="font-weight:800;font-size:14px;margin-bottom:6px">⚠ مستخدمون بحاجة إلى تحديث النظام (إصدارك: '+esc(APP_BUILD)+')</div>'
+    +'<div style="font-size:12.5px;opacity:.92;margin-bottom:8px">اطلب من كل مستخدم أدناه <b>إعادة تحميل الصفحة</b> (أو مسح الذاكرة المؤقتة) ليصله أحدث إصدار. حتى يُحدّثوا، إدخالاتهم موقوفة تلقائياً على أجهزتهم.</div>'
+    +'<div class="table-scroll"><table style="background:#fff;color:#222;border-radius:8px;overflow:hidden"><thead><tr><th class="name">المستخدم</th><th>إصداره</th><th>آخر ظهور</th></tr></thead><tbody>'+rows+'</tbody></table></div>'
+    +'</div>';
+}
+/* يُثري شريط التحذير العلوي بأسماء الأجهزة القديمة إن توفّرت البصمات (غير هادم لرسالة الإصدار) */
+function refreshBuildWarn(){
+  var el=document.getElementById('buildWarn'); if(!el) return;
+  if(staleBuild) return;                       /* هذا الجهاز نفسه قديم — الشاشة الكاملة تكفي */
+  var list=(ME&&ME.role==='admin')?staleDeviceList():[];
+  if(!list.length) return;                     /* لا بصمات قديمة — نترك ما ضبطته cloudCheckBuild */
+  var names=list.map(function(d){ return d.user+(d.online?' (متصل)':''); }).join('، ');
+  el.textContent='⚠ '+list.length+' مستخدم بحاجة إلى تحديث النظام: '+names+'. اطلب منهم إعادة تحميل الصفحة (إصدارك '+APP_BUILD+').';
+  el.style.display='';
+}
 function cloudPush(s){
   cloudDirty=true;   /* ضع علم «هناك تغيير غير مرفوع» دائماً — يُرفع الآن أو عند عودة الاتصال */
   if(!cloudReady||!cloudRef){ if(cloudEnabled()) setCloudStatus('pending'); return; }   /* محفوظ محلياً؛ سيرفعه الحارس/الدمج */
@@ -8027,6 +8104,7 @@ function cloudAttach(cb){
     else { cloudReady=true; cloudPush(JSON.stringify(serializeDB())); }
     setCloudStatus('ok');
     cloudWatchConnection();   /* رفع تلقائي للمعلّق عند عودة الاتصال */
+    cloudMarkPresence(); cloudWatchDevices();   /* بصمة هذا الجهاز + مراقبة أجهزة الفريق */
     cloudRef.on('value',function(s2){
       var val=s2.val(); cloudCheckBuild(val);
       var rs=cloudRemoteStr(val); if(!rs) return;
@@ -8244,6 +8322,7 @@ function cloudWatchdog(){
     var user=(firebase.auth&&firebase.auth().currentUser)||null;
     if(!cloudReady){ if(user||!cloudAccounts()) cloudAttach(); return; }   /* غير متصل → أعد الربط */
     if(cloudDirty&&!cloudInflight){ cloudRetry=0; cloudFlush(); }           /* معلّق لم يُرفع → ادفعه */
+    cloudMarkPresence(); cloudWatchDevices();                              /* نبض حضور دوري + مراقبة الأجهزة */
   }catch(e){}
 }
 function cloudInit(){
