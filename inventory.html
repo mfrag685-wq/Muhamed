@@ -517,15 +517,50 @@ function cloudAccounts(){return cloudEnabled()&&CLOUD_AUTH_MODE==="accounts";}
 function cloudWid(){return CLOUD_CONFIG.workspaceId||"main";}
 function synthEmail(username){return "u"+hash(String(username||"").toLowerCase())+"@"+cloudWid()+".inverp.app";}
 function emailForUser(u){return (u&&u.email)?u.email:synthEmail(u?u.username:"");}
+/* دمج مصفوفتين بالمعرّف (id): يبقى كل السجلات من الطرفين، والمحلّي يغلب عند التطابق */
+function mergeUnionById(rem,loc){
+  const map=new Map();
+  (Array.isArray(rem)?rem:[]).forEach(x=>{if(x&&x.id!=null)map.set(x.id,x);});
+  (Array.isArray(loc)?loc:[]).forEach(x=>{if(x&&x.id!=null)map.set(x.id,x);});
+  return [...map.values()];
+}
+/* دمج قاعدتي بيانات دون فقدان سجلات أحد الطرفين، ثم إعادة احتساب أرصدة الأصناف من الحركات */
+function mergeDB(rem,loc){
+  const out=JSON.parse(JSON.stringify(loc||{}));
+  out.users=mergeUnionById(rem.users,loc.users);
+  out.items=mergeUnionById(rem.items,loc.items);
+  out.suppliers=mergeUnionById(rem.suppliers,loc.suppliers);
+  out.movements=mergeUnionById(rem.movements,loc.movements);
+  out.payments=mergeUnionById(rem.payments,loc.payments);
+  out.commPayments=mergeUnionById(rem.commPayments,loc.commPayments);
+  out.activity=mergeUnionById(rem.activity,loc.activity);
+  // seq = الأعلى من الطرفين لتفادي تكرار المعرّفات
+  out.seq=Object.assign({},loc.seq||{});
+  const ks=new Set([...Object.keys(rem.seq||{}),...Object.keys(loc.seq||{})]);
+  ks.forEach(k=>out.seq[k]=Math.max((rem.seq&&rem.seq[k])||0,(loc.seq&&loc.seq[k])||0));
+  // إعادة احتساب رصيد كل صنف من حركاته (كل تغيّر مخزون مسجّل كحركة)
+  const net={},has={};
+  out.movements.forEach(m=>{if(m&&m.itemId!=null){net[m.itemId]=(net[m.itemId]||0)+(isIn(m.type)?m.qty:-m.qty);has[m.itemId]=1;}});
+  out.items.forEach(it=>{if(has[it.id])it.qty=net[it.id];});
+  return out;
+}
 function cloudPush(){
   if(!cloudReady||!cloudRef)return;
-  const s=JSON.stringify(DB);
   clearTimeout(cloudPushTimer);
   cloudPushTimer=setTimeout(function(){
-    let data;try{data=JSON.parse(s);}catch(e){return;}
-    cloudLastPushed=s;setCloudStatus("sync");
-    cloudRef.set({data:data,updatedAt:firebase.database.ServerValue.TIMESTAMP,updatedBy:(ME?ME.name:"")})
-      .then(()=>setCloudStatus("ok")).catch(()=>setCloudStatus("err"));
+    let local;try{local=JSON.parse(JSON.stringify(DB));}catch(e){return;}
+    setCloudStatus("sync");
+    cloudRef.transaction(function(cur){
+      if(!cur||!cur.data||!Array.isArray(cur.data.users))
+        return {data:local,updatedAt:Date.now(),updatedBy:(ME?ME.name:"")};
+      const merged=mergeDB(cur.data,local);
+      return {data:merged,updatedAt:Date.now(),updatedBy:(ME?ME.name:"")};
+    },function(err,committed,snap){
+      if(err){setCloudStatus("err");return;}
+      setCloudStatus("ok");
+      if(committed&&snap){const v=snap.val();if(v&&v.data&&Array.isArray(v.data.users)){
+        cloudLastPushed=JSON.stringify(v.data);cloudApplyRemote(v.data);}}
+    },false);
   },500);
 }
 function cloudApplyRemote(remote){
@@ -539,8 +574,15 @@ function cloudAttach(cb){
   cloudRef=firebase.database().ref("workspaces/"+cloudWid()+"/root");
   cloudRef.once("value").then(function(snap){
     const v=snap.val();
-    if(v&&v.data&&Array.isArray(v.data.users)){cloudApplyRemote(v.data);cloudReady=true;}
+    if(v&&v.data&&Array.isArray(v.data.users)){
+      // إن كان هذا الجهاز سبق أن زامن نفس مساحة العمل، ادمج بياناته المحلية غير المرفوعة مع الخادم
+      let syncedWid="";try{syncedWid=localStorage.getItem("inv_synced_wid")||"";}catch(e){}
+      if(syncedWid===cloudWid()&&DB&&Array.isArray(DB.movements)){
+        const merged=mergeDB(v.data,DB);cloudApplyRemote(merged);cloudReady=true;cloudPush();
+      }else{cloudApplyRemote(v.data);cloudReady=true;}
+    }
     else{cloudReady=true;cloudPush();}
+    try{localStorage.setItem("inv_synced_wid",cloudWid());}catch(e){}
     setCloudStatus("ok");
     cloudRef.on("value",function(s2){
       const val=s2.val();if(!val||!val.data||!Array.isArray(val.data.users))return;
