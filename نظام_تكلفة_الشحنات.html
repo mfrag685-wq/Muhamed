@@ -1389,12 +1389,16 @@ html[data-theme="dark"] .rt td.hl{background:#2e2814;color:var(--accent)}
 
   <div class="card" id="cmp-net-card" style="margin-top:12px">
     <div class="card-header" style="background:#5d3a1a;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
-      <span>💰 صافي المقارنة بعد خصم الدفعات (<span class="cmp-lblA-t">أ</span> ↔ <span class="cmp-lblB-t">ب</span>)</span>
-      <button class="btn btn-outline btn-sm" onclick="printCmpNet()">🖨️ طباعة كشف الصافي</button>
+      <span>📒 كشف حساب النماذج بعد الدفعات (<span class="cmp-lblA-t">أ</span> ↔ <span class="cmp-lblB-t">ب</span>)</span>
+      <span style="display:flex;gap:6px">
+        <button class="btn btn-outline btn-sm" id="cacc-mode-sum" onclick="setCmpAcctMode('summary')">ملخص</button>
+        <button class="btn btn-outline btn-sm" id="cacc-mode-det" onclick="setCmpAcctMode('detail')">تفصيلي</button>
+        <button class="btn btn-outline btn-sm" onclick="printCmpAccounts()">🖨️ طباعة</button>
+      </span>
     </div>
     <div class="card-body">
-      <div style="font-size:.8rem;color:var(--muted);margin-bottom:8px">تُخصم «دفعات المقارنة» أعلاه حسب وجهتها: الشركتان معاً / نموذج أ / نموذج ب (دفعة «معاً» تُخصم من النموذجين). المتبقّى = الإجمالي − المدفوع لكل نموذج.</div>
-      <div id="cmp-net-sum" class="sum-cards" style="margin-bottom:10px"></div>
+      <div style="font-size:.8rem;color:var(--muted);margin-bottom:8px">لكل نموذج: إجمالي الشحنات − إجمالي الدفعات = المتبقّي (أو فائض مدفوع). دفعة «الشركتان معاً» تُخصم من النموذجين. الوضع التفصيلي يعرض مبلغ كل شحنة قابلاً للتوسّع للموديلات + الدفعات المخصومة.</div>
+      <div id="cmp-acct-cols"></div>
     </div>
   </div>
 </div>
@@ -5115,20 +5119,76 @@ function cmpGrandTotals(){
   cmpTotalsRows().forEach(function(r){ gA+=r.aTot; gB+=r.bTot; n++; });
   return {gA:gA, gB:gB, n:n, basis:basis};
 }
+var _cmpAcctMode='detail';
+function setCmpAcctMode(m){ _cmpAcctMode=(m==='summary')?'summary':'detail'; renderCmpNet(); }
+function _safeId(s){ return String(s).replace(/[^a-zA-Z0-9_-]/g,'_'); }
+// مبلغ الشحنة في نموذج معيّن
+function modelShipAmount(num, model){ var at=aShipTotals(num); return (model==='a')?((cmpBasis()==='fob')?at.fob:at.landed):bShipTotal(num); }
+// تفصيل موديلات الشحنة في نموذج معيّن (جدول)
+function modelDetailRows(num, model){
+  if(model==='a'){ var a=aModelsForShip(num); var basis=cmpBasis(); var ks=Object.keys(a);
+    if(!ks.length) return '<div style="color:var(--muted);font-size:.78rem">لا موديلات</div>';
+    return '<table class="tbl" style="font-size:.76rem;margin:0"><thead><tr><th>الموديل</th><th>كمية</th><th>'+(basis==='fob'?'شراء':'واصل')+' (ر.س)</th></tr></thead><tbody>'+
+      ks.map(function(k){ var v=a[k]; return '<tr><td>'+escH(k)+'</td><td class="num">'+fmtD(v.qty)+'</td><td class="num">'+fmtD(basis==='fob'?v.fobSar:v.landedSar)+'</td></tr>'; }).join('')+'</tbody></table>';
+  }
+  var items=((bLoad()[num]||{}).items)||[]; var fx=bFxFor(num);
+  if(!items.length) return '<div style="color:var(--muted);font-size:.78rem">لا موديلات في نموذج ب</div>';
+  return '<table class="tbl" style="font-size:.76rem;margin:0"><thead><tr><th>الموديل</th><th>كمية</th><th>قيمة (ر.س)</th></tr></thead><tbody>'+
+    items.map(function(it){ return '<tr><td>'+escH(it.model)+'</td><td class="num">'+fmtD(it.qty)+'</td><td class="num">'+fmtD((parseFloat(it.price)||0)*(parseFloat(it.qty)||0)*fx)+'</td></tr>'; }).join('')+'</tbody></table>';
+}
 function renderCmpNet(){
   applyCmpLabels(); var L=cmpLabels();
-  var g=cmpGrandTotals(); var pay=cmpPaidByModel();
-  var remA=g.gA-pay.paidA, remB=g.gB-pay.paidB;
-  var sc=document.getElementById('cmp-net-sum'); if(!sc) return;
-  function card(t,v,color,sub){ return '<div class="sum-card"><div class="lbl">'+t+'</div><div class="val"'+(color?(' style="color:'+color+'"'):'')+'>'+fmtD(v)+' SAR</div>'+(sub?'<div class="sub">'+sub+'</div>':'')+'</div>'; }
-  sc.innerHTML=
-    '<div class="sum-card"><div class="lbl">عدد الشحنات</div><div class="val">'+g.n+'</div></div>'+
-    card('إجمالي '+escH(L.a), g.gA, '')+
-    card('مدفوع لـ '+escH(L.a), pay.paidA, 'var(--success)')+
-    '<div class="sum-card" style="background:'+(remA>0?'#fdecea':'#e9f8ef')+'"><div class="lbl">المتبقّي على '+escH(L.a)+'</div><div class="val" style="color:'+(remA>0?'var(--danger)':'var(--success)')+'">'+fmtD(remA)+' SAR</div><div class="sub">'+(remA>0?'مستحق':'مسدَّد')+'</div></div>'+
-    card('إجمالي '+escH(L.b), g.gB, '')+
-    card('مدفوع لـ '+escH(L.b), pay.paidB, 'var(--success)')+
-    '<div class="sum-card" style="background:'+(remB>0?'#fdecea':'#e9f8ef')+'"><div class="lbl">المتبقّي على '+escH(L.b)+'</div><div class="val" style="color:'+(remB>0?'var(--danger)':'var(--success)')+'">'+fmtD(remB)+' SAR</div><div class="sub">'+(remB>0?'مستحق':'مسدَّد')+'</div></div>';
+  var bs=document.getElementById('cacc-mode-sum'), bd=document.getElementById('cacc-mode-det');
+  if(bs) bs.classList.toggle('btn-accent', _cmpAcctMode==='summary'); if(bd) bd.classList.toggle('btn-accent', _cmpAcctMode==='detail');
+  var el=document.getElementById('cmp-acct-cols'); if(!el) return;
+  var rows=cmpTotalsRows(); var pays=cmpPayLoad();
+  function colHtml(model,label,accent){
+    var total=0, ships=[];
+    rows.forEach(function(r){ var amt=(model==='a')?r.aTot:r.bTot; if(amt>0){ total+=amt; ships.push({num:r.num, amt:amt}); } });
+    var pl=pays.filter(function(p){ var t=p.target||'both'; return t===model||t==='both'; });
+    var paid=pl.reduce(function(s,p){return s+cmpPayToSar(p);},0);
+    var rem=total-paid;
+    var h='<div class="card" style="border-top:3px solid '+accent+';margin:0">'+
+      '<div class="card-header" style="justify-content:flex-start;color:'+accent+'">'+escH(label)+'</div><div class="card-body">'+
+      '<div style="display:flex;justify-content:space-between;padding:3px 0"><span style="color:var(--muted)">إجمالي الشحنات (ر.س)</span><b>'+fmtD(total)+'</b></div>'+
+      '<div style="display:flex;justify-content:space-between;padding:3px 0"><span style="color:var(--muted)">إجمالي الدفعات (ر.س)</span><b>'+fmtD(paid)+'</b></div>'+
+      '<div style="display:flex;justify-content:space-between;padding:6px 0;border-top:1px solid var(--border);margin-top:4px;font-weight:800"><span>'+(rem>=0?'المتبقّي':'فائض مدفوع')+'</span><b style="color:'+(rem>0?'var(--danger)':'var(--success)')+'">'+fmtD(Math.abs(rem))+' ر.س</b></div>';
+    if(_cmpAcctMode==='detail'){
+      ships.forEach(function(s){ var rid='acc-'+model+'-'+_safeId(s.num);
+        h+='<div style="border:1px solid var(--border);border-radius:7px;margin-top:6px">'+
+          '<div style="display:flex;justify-content:space-between;padding:7px 9px;cursor:pointer" onclick="var e=document.getElementById(\''+rid+'\');if(e)e.hidden=!e.hidden">'+
+          '<span>▾ شحنة #'+escH(s.num)+'</span><b>'+fmtD(s.amt)+' ر.س</b></div>'+
+          '<div id="'+rid+'" hidden style="padding:6px 10px;background:#fafbfc;overflow-x:auto">'+modelDetailRows(s.num,model)+'</div></div>';
+      });
+      if(pl.length){
+        h+='<div style="margin-top:10px;font-weight:700;color:var(--muted)">الدفعات المخصومة</div>';
+        pl.forEach(function(p){ h+='<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px dashed var(--border);font-size:.82rem"><span>'+escH(p.date||'')+' — '+escH(p.bank||(p.method==='transfer'?'تحويل':'نقد'))+(p.target==='both'?' <span style="color:#7a3e10">(مشتركة)</span>':'')+'</span><b style="color:var(--success)">− '+fmtD(cmpPayToSar(p))+' ر.س</b></div>'; });
+      }
+    }
+    h+='</div></div>';
+    return h;
+  }
+  el.innerHTML='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px">'+
+    colHtml('a',L.a,'#1a3a5c')+colHtml('b',L.b,'#7a3e10')+'</div>';
+}
+function printCmpAccounts(){
+  var L=cmpLabels(); var rows=cmpTotalsRows(); var pays=cmpPayLoad();
+  function stmt(model,label){
+    var total=0, tr='';
+    rows.forEach(function(r){ var amt=(model==='a')?r.aTot:r.bTot; if(amt>0){ total+=amt; tr+='<tr><td>شحنة #'+escH(r.num)+'</td><td class=num>'+fmtD(amt)+'</td></tr>'; } });
+    var pl=pays.filter(function(p){ var t=p.target||'both'; return t===model||t==='both'; });
+    var paid=pl.reduce(function(s,p){return s+cmpPayToSar(p);},0); var rem=total-paid;
+    var pr=pl.map(function(p){ return '<tr><td>'+escH(p.date||'')+' — '+escH(p.bank||(p.method==='transfer'?'تحويل':'نقد'))+(p.target==='both'?' (مشتركة)':'')+'</td><td class=num>'+fmtD(cmpPayToSar(p))+'</td></tr>'; }).join('');
+    return '<h3>'+escH(label)+'</h3>'+
+      '<table><thead><tr><th>البيان</th><th>المبلغ (ر.س)</th></tr></thead><tbody>'+
+      (tr||'<tr><td colspan=2>لا شحنات</td></tr>')+
+      '<tr class=tot><td>إجمالي الشحنات</td><td class=num>'+fmtD(total)+'</td></tr>'+
+      pr+
+      '<tr><td>إجمالي الدفعات</td><td class=num>'+fmtD(paid)+'</td></tr>'+
+      '<tr class=tot><td>'+(rem>=0?'المتبقّي':'فائض مدفوع')+'</td><td class=num>'+fmtD(Math.abs(rem))+'</td></tr>'+
+      '</tbody></table>';
+  }
+  cmpPrintWindow('كشف حساب النماذج — '+escH(L.a)+' و '+escH(L.b), stmt('a',L.a)+stmt('b',L.b));
 }
 function printCmpNet(){
   var L=cmpLabels(); var basis=cmpBasis();
