@@ -1366,13 +1366,34 @@ html[data-theme="dark"] .rt td.hl{background:#2e2814;color:var(--accent)}
     </div>
   </div>
 
+  <div class="card" id="cmp-pay-card" style="margin-top:12px">
+    <div class="card-header" style="background:#1b5e20">💳 دفعات المقارنة — وجهة الدفعة (الشركتان معاً / <span class="cmp-lblA-t">أ</span> / <span class="cmp-lblB-t">ب</span>)</div>
+    <div class="card-body">
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+        <div class="fg"><label>التاريخ</label><input id="cpay-date" type="date" style="width:150px"></div>
+        <div class="fg"><label>المبلغ</label><input id="cpay-amount" type="number" min="0" step="0.01" placeholder="0.00" style="width:120px"></div>
+        <div class="fg"><label>العملة</label><select id="cpay-cur" class="cur-sel"><option value="SAR">SAR</option><option value="USD">USD</option></select></div>
+        <div class="fg"><label>سعر الصرف (اختياري)</label><input id="cpay-rate" type="number" min="0" step="0.0001" placeholder="افتراضي" style="width:120px"></div>
+        <div class="fg"><label>وجهة الدفعة</label><select id="cpay-target"><option value="both">الشركتان معاً</option><option value="a" id="cpay-topt-a">نموذج أ فقط</option><option value="b" id="cpay-topt-b">نموذج ب فقط</option></select></div>
+        <div class="fg"><label>الطريقة</label><select id="cpay-method"><option value="transfer">تحويل بنكي</option><option value="cash">نقد / صرافة</option></select></div>
+        <div class="fg"><label>البنك</label><input id="cpay-bank" placeholder="اسم البنك" style="width:130px"></div>
+        <div class="fg" style="flex:1;min-width:140px"><label>ملاحظة</label><input id="cpay-note" placeholder="اختياري"></div>
+        <button class="btn btn-accent" onclick="addCmpPayment()">➕ إضافة دفعة</button>
+      </div>
+      <div style="overflow-x:auto;margin-top:10px"><table class="tbl" id="cpay-table">
+        <thead><tr><th>التاريخ</th><th>المبلغ</th><th>بالريال</th><th>الوجهة</th><th>الطريقة</th><th>البنك</th><th>ملاحظة</th><th>×</th></tr></thead>
+        <tbody id="cpay-tbody"></tbody>
+      </table></div>
+    </div>
+  </div>
+
   <div class="card" id="cmp-net-card" style="margin-top:12px">
     <div class="card-header" style="background:#5d3a1a;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
       <span>💰 صافي المقارنة بعد خصم الدفعات (<span class="cmp-lblA-t">أ</span> ↔ <span class="cmp-lblB-t">ب</span>)</span>
       <button class="btn btn-outline btn-sm" onclick="printCmpNet()">🖨️ طباعة كشف الصافي</button>
     </div>
     <div class="card-body">
-      <div style="font-size:.8rem;color:var(--muted);margin-bottom:8px">تُخصم دفعات الموردين حسب وسمها: «أ» أو «ب» أو «كلاهما» (دفعة «كلاهما» تُخصم من النموذجين). المتبقّى = الإجمالي − المدفوع لكل نموذج.</div>
+      <div style="font-size:.8rem;color:var(--muted);margin-bottom:8px">تُخصم «دفعات المقارنة» أعلاه حسب وجهتها: الشركتان معاً / نموذج أ / نموذج ب (دفعة «معاً» تُخصم من النموذجين). المتبقّى = الإجمالي − المدفوع لكل نموذج.</div>
       <div id="cmp-net-sum" class="sum-cards" style="margin-bottom:10px"></div>
     </div>
   </div>
@@ -1630,6 +1651,7 @@ function deleteProfile(id) {
     localStorage.removeItem('scs_suppliers_'+id);
     localStorage.removeItem('scs_supplierpay_'+id);
     localStorage.removeItem('scs_modelb_'+id);
+    localStorage.removeItem('scs_cmppay_'+id);
     profilesSave(profiles.filter(x=>x.id!==id));
     // If was active, clear active
     if (getActiveProfileId()===id) localStorage.removeItem(ACTIVE_KEY);
@@ -3414,7 +3436,7 @@ function cloudApply(data){
     // حماية من المسح: المستخدمون، الشركة النشطة، والسجل + كل بيانات الشركات المالية/التشغيلية
     // لا تُحذف محلياً لمجرد غيابها عن لقطة سحابية قد تكون قديمة/جزئية (يمنع فقد دفعات/بيانات لم تُزامَن بعد)
     var PROTECT={scs_users:1, scs_active:1, scs_log:1};
-    var PROTECT_RE=/^scs_(db|cfg|pay|freightpay|suppliers|supplierpay|modelb|cmpcfg)_/;
+    var PROTECT_RE=/^scs_(db|cfg|pay|freightpay|suppliers|supplierpay|modelb|cmpcfg|cmppay)_/;
     scsKeys().forEach(function(k){ if(!(k in inc) && !PROTECT[k] && !PROTECT_RE.test(k)) _lsRemove(k); });
     Object.keys(inc).forEach(function(k){
       if(!cloudSyncable(k)) return;
@@ -3620,7 +3642,8 @@ function buildFullBackup(){
       sup: JSON.parse(localStorage.getItem('scs_suppliers_'+p.id)||'[]'),
       spay: JSON.parse(localStorage.getItem('scs_supplierpay_'+p.id)||'[]'),
       mb: JSON.parse(localStorage.getItem('scs_modelb_'+p.id)||'{}'),
-      cmp: JSON.parse(localStorage.getItem('scs_cmpcfg_'+p.id)||'{}')
+      cmp: JSON.parse(localStorage.getItem('scs_cmpcfg_'+p.id)||'{}'),
+      cmppay: JSON.parse(localStorage.getItem('scs_cmppay_'+p.id)||'[]')
     });
   });
   return out;
@@ -3661,6 +3684,7 @@ function importFullBackup(){
             if(entry.spay) localStorage.setItem('scs_supplierpay_'+p.id, JSON.stringify(entry.spay||[]));
             if(entry.mb) localStorage.setItem('scs_modelb_'+p.id, JSON.stringify(entry.mb||{}));
             if(entry.cmp) localStorage.setItem('scs_cmpcfg_'+p.id, JSON.stringify(entry.cmp||{}));
+            if(entry.cmppay) localStorage.setItem('scs_cmppay_'+p.id, JSON.stringify(entry.cmppay||[]));
           });
           profilesSave(profiles);
           renderQuickSwitch(); renderArchive();
@@ -3730,6 +3754,7 @@ function restoreAutoBackup(){
       if(entry.spay) localStorage.setItem('scs_supplierpay_'+p.id, JSON.stringify(entry.spay||[]));
       if(entry.mb) localStorage.setItem('scs_modelb_'+p.id, JSON.stringify(entry.mb||{}));
       if(entry.cmp) localStorage.setItem('scs_cmpcfg_'+p.id, JSON.stringify(entry.cmp||{}));
+      if(entry.cmppay) localStorage.setItem('scs_cmppay_'+p.id, JSON.stringify(entry.cmppay||[]));
     });
     profilesSave(profiles);
     renderQuickSwitch(); renderArchive();
@@ -4985,6 +5010,7 @@ function renderCompare(){
   applyCmpLabels();
   var L=cmpLabels();
   var dl=document.getElementById('cmp-ship-list'); if(dl) dl.innerHTML=cmpShipList().map(function(n){return '<option value="'+escH(n)+'">';}).join('');
+  renderCmpPayList();
   renderCmpTotals(); // الجدول الأساسي: مقارنة إجماليات الشحنات
   // تفصيل الموديلات للشحنة المختارة (تحليلي)
   var num=(document.getElementById('cmp-ship')||{}).value||'';
@@ -5030,12 +5056,58 @@ function renderCmpTotals(){
   if(tb) tb.innerHTML=body.join('')||'<tr><td colspan="6" style="padding:18px;color:var(--muted)">لا توجد شحنات — احفظ شحنات في نموذج أ وأدخل نموذج ب</td></tr>';
   renderCmpNet();
 }
-// دفعات الموردين للشركة النشطة موزّعة حسب النموذج (أ/ب/كلاهما): «كلاهما» تُخصم من الاثنين
+// ── دفعات المقارنة (لكل شركة، مستقلة تماماً) بوجهة: الشركتان معاً / نموذج أ / نموذج ب ──
+function cmpPayKey(pid){ return 'scs_cmppay_'+(pid||getActiveProfileId()||'default'); }
+function cmpPayLoad(pid){ try{ return JSON.parse(localStorage.getItem(cmpPayKey(pid))||'[]'); }catch(e){ return []; } }
+function cmpPaySave(a,pid){ try{ localStorage.setItem(cmpPayKey(pid),JSON.stringify(a)); return true; }catch(e){ toast('⚠️ فشل حفظ الدفعات: التخزين ممتلئ',true); return false; } }
+function cmpPayToSar(p){ var a=parseFloat(p&&p.amount)||0; return (p&&p.cur==='SAR')?a:a*(parseFloat(p&&p.rate)||S.fxUsdSar||3.756); }
+// المدفوع لكل نموذج: دفعة «معاً» تُخصم من النموذجين
 function cmpPaidByModel(){
   var paidA=0, paidB=0;
-  saPayLoad().forEach(function(p){ var tg=p.target||'a'; var v=saPayToSar(p);
+  cmpPayLoad().forEach(function(p){ var tg=p.target||'both'; var v=cmpPayToSar(p);
     if(tg==='a'||tg==='both') paidA+=v; if(tg==='b'||tg==='both') paidB+=v; });
   return {paidA:paidA, paidB:paidB};
+}
+function addCmpPayment(){
+  if(isReadonly()){ toast('👁 وضع القراءة فقط',true); return; }
+  var amount=parseFloat(document.getElementById('cpay-amount').value)||0;
+  if(amount<=0){ toast('⚠️ أدخل مبلغاً صحيحاً',true); return; }
+  var rate=document.getElementById('cpay-rate').value; rate=(rate===''||rate==null)?'':(parseFloat(rate)||'');
+  var p={ id:'cpay_'+Date.now(),
+    date:document.getElementById('cpay-date').value||new Date().toISOString().slice(0,10),
+    amount:amount, cur:document.getElementById('cpay-cur').value, rate:rate,
+    target:(document.getElementById('cpay-target')||{}).value||'both',
+    method:document.getElementById('cpay-method').value,
+    bank:document.getElementById('cpay-bank').value.trim(),
+    note:document.getElementById('cpay-note').value.trim() };
+  var list=cmpPayLoad(); list.push(p); cmpPaySave(list);
+  ['cpay-amount','cpay-rate','cpay-bank','cpay-note'].forEach(function(id){ var e=document.getElementById(id); if(e)e.value=''; });
+  renderCmpPayList(); renderCmpNet();
+  logAction('إضافة دفعة مقارنة', p.amount+' '+p.cur+' / '+p.target);
+  toast('✅ تمت إضافة الدفعة');
+}
+function deleteCmpPayment(id){
+  if(isReadonly()){ toast('👁 وضع القراءة فقط',true); return; }
+  cmpPaySave(cmpPayLoad().filter(function(p){return p.id!==id;})); renderCmpPayList(); renderCmpNet();
+  logAction('حذف دفعة مقارنة',''); toast('🗑️ تم حذف الدفعة');
+}
+function renderCmpPayList(){
+  var L=cmpLabels();
+  var oa=document.getElementById('cpay-topt-a'); if(oa) oa.textContent=L.a+' فقط';
+  var ob=document.getElementById('cpay-topt-b'); if(ob) ob.textContent=L.b+' فقط';
+  var dEl=document.getElementById('cpay-date'); if(dEl && !dEl.value) dEl.value=new Date().toISOString().slice(0,10);
+  var tgTxt={both:'الشركتان معاً', a:L.a, b:L.b};
+  var tb=document.getElementById('cpay-tbody'); if(!tb) return;
+  var list=cmpPayLoad().slice().sort(function(a,b){ return (a.date<b.date)?1:-1; });
+  if(!list.length){ tb.innerHTML='<tr><td colspan="8" style="padding:16px;color:var(--muted)">لا توجد دفعات — أضِف دفعة أعلاه</td></tr>'; return; }
+  tb.innerHTML=list.map(function(p){
+    return '<tr><td>'+escH(p.date||'—')+'</td><td class="num">'+fmtD(p.amount||0)+' '+escH(p.cur||'')+'</td>'+
+      '<td class="num" style="color:var(--success)">'+fmtD(cmpPayToSar(p))+'</td>'+
+      '<td>'+escH(tgTxt[p.target||'both']||'')+'</td>'+
+      '<td>'+(p.method==='transfer'?'🏦 تحويل':'💵 نقد')+(p.bank?'':'')+'</td>'+
+      '<td>'+escH(p.bank||'')+'</td><td style="font-size:.78rem">'+escH(p.note||'')+'</td>'+
+      '<td><button class="del-btn" onclick="deleteCmpPayment(\''+p.id+'\')">✕</button></td></tr>';
+  }).join('');
 }
 // إجماليات كل الشحنات (أ/ب) للشركة النشطة حسب الأساس المختار
 function cmpGrandTotals(){
