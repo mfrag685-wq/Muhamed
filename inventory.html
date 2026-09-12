@@ -932,8 +932,20 @@ function saveMove(){
   show(`✔ تم تسجيل ${typeAr(mType)} «${itemModel(item)}» بكمية ${qty}. الرصيد الآن: ${item.qty}`,"ok");
   clearMove(false);renderRecent();
 }
+/* حساب «الرصيد بعد كل حركة» ديناميكياً (ترتيب زمني لكل صنف) — يتحدّث تلقائياً بعد أي حذف/تعديل */
+function balAfterMap(){
+  const byItem={};
+  DB.movements.forEach(m=>{if(m&&m.itemId!=null)(byItem[m.itemId]=byItem[m.itemId]||[]).push(m);});
+  const map={};
+  Object.keys(byItem).forEach(k=>{
+    const arr=byItem[k].slice().sort((a,b)=>((a.date||"")<(b.date||"")?-1:(a.date||"")>(b.date||"")?1:(a.id-b.id)));
+    let run=0;arr.forEach(m=>{run+=isIn(m.type)?m.qty:-m.qty;map[m.id]=run;});
+  });
+  return map;
+}
 function renderRecent(){
   const tb=$("#recentMoves");if(!tb)return;
+  const BAL=balAfterMap();
   const q=($("#rcSearch")?.value||"").toLowerCase().trim();
   const from=$("#rcFrom")?.value||"",to=$("#rcTo")?.value||"";
   const lim=$("#rcLimit")?+$("#rcLimit").value:25;
@@ -948,7 +960,7 @@ function renderRecent(){
     return `<tr><td>${esc(m.date)}</td><td>${esc(m.model||itemModel(it))}</td>
       <td><span class="tag ${m.type}">${typeAr(m.type)}</span></td>
       <td style="font-weight:700;color:${isIn(m.type)?'var(--green)':'var(--amber)'}">${isIn(m.type)?"+":"−"}${m.qty}</td>
-      <td>${m.balAfter??"—"}</td><td>${esc(m.type==="inbound"?(m.customs||""):(m.invoice||""))}</td>
+      <td>${BAL[m.id]??m.balAfter??"—"}</td><td>${esc(m.type==="inbound"?(m.customs||""):(m.invoice||""))}</td>
       <td>${esc(sup?sup.name:"")}</td><td>${esc(m.userName)}</td>
       <td style="white-space:nowrap"><button class="btn ghost sm" onclick="printReceipt(${m.id})">🖨️</button>
         ${can("canEdit")?`<button class="btn blue sm" onclick="editMovement(${m.id})">تعديل</button>`:""}
@@ -1263,10 +1275,11 @@ function printReceipt(id){
   const m=DB.movements.find(x=>x.id===id);if(!m)return;
   if(m.invGid&&m.type==="outbound"){printInvoice(m.invGid);return;}
   const it=DB.items.find(i=>i.id===m.itemId)||{};const sup=DB.suppliers.find(x=>x.id===m.supplierId);
+  const bal=balAfterMap()[m.id];
   showPrint(`${brandHead()}<h2>📦 سند ${typeAr(m.type)}</h2>
     <div>التاريخ: <b>${esc(m.date)}</b> · الموظف: <b>${esc(m.userName)}</b></div>
     <table><tr><th>الموديل / الصنف</th><th>الكمية</th><th>الرصيد بعدها</th>${m.type==="inbound"?"<th>المورد</th><th>رقم الفسح</th>":""}</tr>
-    <tr><td>${esc(m.model||itemModel(it))}</td><td>${(isIn(m.type)?"+":"−")+m.qty}</td><td>${m.balAfter??"—"}</td>
+    <tr><td>${esc(m.model||itemModel(it))}</td><td>${(isIn(m.type)?"+":"−")+m.qty}</td><td>${bal??m.balAfter??"—"}</td>
     ${m.type==="inbound"?`<td>${esc(sup?sup.name:"—")}</td><td>${esc(m.customs||"—")}</td>`:""}</tr></table>
     ${m.note?`<div style="margin-top:8px">ملاحظات: ${esc(m.note)}</div>`:""}`);
 }
@@ -1495,10 +1508,11 @@ function renderLedger(){
     <div class="stat"><div class="lbl">صافي الحركة</div><div class="val sm">${inb-out}</div></div>
     <div class="stat"><div class="lbl">الرصيد الحالي</div><div class="val sm">${it.qty}</div></div></div>
     <button class="btn ghost sm no-print" style="margin-bottom:12px" onclick="exportLedger(${id})">⬇ تصدير الحركات Excel</button>`;
+  const BAL=balAfterMap();
   tb.innerHTML=rows.map(m=>{const sup=DB.suppliers.find(x=>x.id===m.supplierId);
     return `<tr><td>${fmt(m.at)}</td><td><span class="tag ${m.type}">${typeAr(m.type)}</span></td>
       <td style="font-weight:700;color:${isIn(m.type)?'var(--green)':'var(--amber)'}">${isIn(m.type)?"+":"−"}${m.qty}</td>
-      <td>${m.balAfter??"—"}</td><td>${esc(m.model||it.model||"")}</td><td>${esc(m.customs||"")}</td>
+      <td>${BAL[m.id]??m.balAfter??"—"}</td><td>${esc(m.model||it.model||"")}</td><td>${esc(m.customs||"")}</td>
       <td>${esc(m.invoice||"")}</td><td>${esc(sup?sup.name:"")}</td><td>${esc(m.userName)}</td><td>${esc(m.note||"")}</td>
       <td style="white-space:nowrap">${can("canEdit")?`<button class="btn blue sm" onclick="editMovement(${m.id});return false">تعديل</button>`:""}
         ${can("canDelete")?`<button class="btn red sm" onclick="if(delMovement(${m.id})!==false)renderLedger()">حذف</button>`:""}</td></tr>`;}).join("")
@@ -1508,9 +1522,10 @@ function exportLedger(id){
   const it=DB.items.find(i=>i.id===id);if(!it)return;
   const from=$("#lFrom").value,to=$("#lTo").value,ty=$("#lType").value;
   const rows=DB.movements.filter(m=>m.itemId===id&&(!from||m.date>=from)&&(!to||m.date<=to)&&(!ty||m.type===ty));
+  const BAL=balAfterMap();
   exportCSV("حركة-"+it.code+".csv",["التاريخ","النوع","الكمية","الرصيد بعدها","الموديل","رقم الفسح","الفاتورة","المورد","الموظف","ملاحظة"],
     rows.map(m=>{const sup=DB.suppliers.find(x=>x.id===m.supplierId);
-      return [fmt(m.at),typeAr(m.type),(isIn(m.type)?"+":"-")+m.qty,m.balAfter??"",m.model||it.model||"",m.customs||"",m.invoice||"",sup?sup.name:"",m.userName,m.note||""];}));
+      return [fmt(m.at),typeAr(m.type),(isIn(m.type)?"+":"-")+m.qty,BAL[m.id]??m.balAfter??"",m.model||it.model||"",m.customs||"",m.invoice||"",sup?sup.name:"",m.userName,m.note||""];}));
 }
 
 /* ============ 5) الأصناف ============ */
