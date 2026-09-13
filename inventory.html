@@ -217,7 +217,7 @@ tr:hover td{background:#f8fafc}
    ============================================================ */
 const KEY="inv_system_v2";
 /* رقم إصدار التطبيق — يُزاد مع كل تحديث؛ يُقارَن بالنسخة المنشورة لإظهار زر التحديث */
-const APP_VERSION="2026-09-13-04";
+const APP_VERSION="2026-09-13-05";
 let DB,ME;
 /* التحقق من توفّر نسخة أحدث بجلب الملف نفسه (بدون كاش) ومقارنة رقم الإصدار */
 function checkForUpdate(){
@@ -318,6 +318,7 @@ function ensureShape(){
   DB.users=DB.users||[];DB.items=DB.items||[];DB.movements=DB.movements||[];
   DB.suppliers=DB.suppliers||[];DB.shipments=DB.shipments||[];DB.activity=DB.activity||[];DB.payments=DB.payments||[];
   DB.commPayments=DB.commPayments||[];
+  DB.tomb=DB.tomb||{};
   DB.seq=DB.seq||{user:0,supplier:0,shipment:0,item:0,movement:0,activity:0,company:0,payment:0};
   if(DB.seq.payment===undefined)DB.seq.payment=0;
   if(DB.seq.commpay===undefined)DB.seq.commpay=0;
@@ -394,6 +395,15 @@ function nid(k){
 function logAct(action,detail){DB.activity.unshift({id:nid("activity"),uid:uidGen(),userName:ME?ME.name:"",action,detail,at:new Date().toISOString()});save();}
 /* معرّف نصّي فريد للسجلّات (يُستخدم كمفتاح دمج مضمون) */
 function uidGen(){return "u"+Date.now().toString(36)+DEVICE_SALT.toString(36)+Math.random().toString(36).slice(2,8);}
+/* ===== شواهد الحذف (Tombstones) — تضمن بقاء الحذف بعد المزامنة (وإلا يعود السجل من نسخة السحابة) ===== */
+function tombAdd(coll,rec){if(!rec)return;DB.tomb=DB.tomb||{};
+  if(rec.uid)DB.tomb[coll+"|u:"+rec.uid]=Date.now();
+  if(rec.id!=null)DB.tomb[coll+"|i:"+rec.id]=Date.now();}
+function tombAddMany(coll,recs){(recs||[]).forEach(function(r){tombAdd(coll,r);});}
+function isTombed(tomb,coll,rec){if(!tomb||!rec)return false;
+  if(rec.uid&&tomb[coll+"|u:"+rec.uid])return true;
+  if(rec.id!=null&&tomb[coll+"|i:"+rec.id])return true;
+  return false;}
 
 /* ---------- Login ---------- */
 let CURRENT_PAGE="move";
@@ -625,6 +635,15 @@ function mergeDB(rem,loc){
   out.payments=dedupIds(mergeLog(rem.payments,out.payments,paySig));
   out.commPayments=dedupIds(mergeLog(rem.commPayments,out.commPayments,commSig));
   out.activity=dedupIds(mergeLog(rem.activity,out.activity,actSig));
+  // دمج شواهد الحذف من الطرفين ثم استبعاد كل سجل محذوف (يمنع عودة المحذوف بعد المزامنة)
+  out.tomb=Object.assign({},rem.tomb||{},loc.tomb||{});
+  out.movements=out.movements.filter(x=>!isTombed(out.tomb,"movements",x));
+  out.payments=out.payments.filter(x=>!isTombed(out.tomb,"payments",x));
+  out.commPayments=out.commPayments.filter(x=>!isTombed(out.tomb,"commPayments",x));
+  out.activity=out.activity.filter(x=>!isTombed(out.tomb,"activity",x));
+  out.items=out.items.filter(x=>!isTombed(out.tomb,"items",x));
+  out.suppliers=out.suppliers.filter(x=>!isTombed(out.tomb,"suppliers",x));
+  out.users=out.users.filter(x=>!isTombed(out.tomb,"users",x));
   // seq = الأعلى من الطرفين لتفادي تكرار المعرّفات
   out.seq=Object.assign({},loc.seq||{});
   const ks=new Set([...Object.keys(rem.seq||{}),...Object.keys(loc.seq||{})]);
@@ -1148,6 +1167,7 @@ function delMovement(id){
   const it=DB.items.find(i=>i.id===m.itemId);
   if(!confirm(`حذف هذه الحركة (${typeAr(m.type)} كمية ${m.qty})؟ سيُعاد ضبط الرصيد.`))return;
   if(it)it.qty+=isIn(m.type)?-m.qty:m.qty;   // عكس أثر الحركة
+  tombAdd("movements",m);
   DB.movements=DB.movements.filter(x=>x.id!==id);
   logAct("حذف حركة",`${m.model||""} ${typeAr(m.type)} كمية ${m.qty}`);save();
   toast("تم حذف الحركة وإرجاع الرصيد");keepScroll();renderRecent();
@@ -1386,6 +1406,7 @@ function saveCommPayment(){
 function delCommPayment(id){
   if(!guard("canDelete"))return;
   if(!confirm("حذف دفعة العمولة هذه؟"))return;
+  tombAdd("commPayments",DB.commPayments.find(p=>p.id===id));
   DB.commPayments=DB.commPayments.filter(p=>p.id!==id);save();renderCommissions();toast("تم الحذف");
 }
 /* ---------- الطباعة داخل الصفحة (مع زر رجوع) ---------- */
@@ -1431,6 +1452,7 @@ function cancelInvoice(gid){
   const lines=DB.movements.filter(m=>m.invGid===gid);if(!lines.length)return;
   if(!confirm(`إلغاء الفاتورة «${lines[0].invoice}» وإرجاع كمياتها للمخزون؟`))return;
   lines.forEach(m=>{const it=DB.items.find(x=>x.id===m.itemId);if(it)it.qty+=m.qty;});
+  tombAddMany("movements",lines);
   DB.movements=DB.movements.filter(m=>m.invGid!==gid);
   logAct("إلغاء فاتورة",lines[0].invoice);save();
   const pm=$("#printModal");if(pm)pm.remove();
@@ -1956,11 +1978,13 @@ function undoImportBatch(key){
   if(!confirm(`إلغاء هذه الدفعة؟\n• خصم ${revMoves.length} حركة كمية من الأرصدة\n• حذف ${createdIds.length} صنف أنشأه الاستيراد\nلا يمكن التراجع.`))return;
   // 2) عكس الكميات وحذف حركات الاستيراد
   const moveIds=new Set(revMoves.map(m=>m.id));
+  tombAddMany("movements",revMoves);
   revMoves.forEach(m=>{const it=DB.items.find(i=>i.id===m.itemId);if(it)it.qty-=m.qty;});
   DB.movements=DB.movements.filter(m=>!moveIds.has(m.id));
   // 3) حذف الأصناف التي أنشأتها الدفعة بالكامل (وكل حركاتها المتبقية)
   const cset=new Set(createdIds);
-  if(cset.size){DB.movements=DB.movements.filter(m=>!cset.has(m.itemId));
+  if(cset.size){tombAddMany("items",DB.items.filter(i=>cset.has(i.id)));tombAddMany("movements",DB.movements.filter(m=>cset.has(m.itemId)));
+    DB.movements=DB.movements.filter(m=>!cset.has(m.itemId));
     DB.items=DB.items.filter(i=>!cset.has(i.id));}
   logAct("تراجع عن استيراد",`عكس ${revMoves.length} حركة — حذف ${cset.size} صنف`);save();
   const md=document.querySelector(".modal");if(md)md.remove();
@@ -1972,6 +1996,7 @@ function delItem(id){
   const it=DB.items.find(i=>i.id===id);
   if(DB.movements.some(m=>m.itemId===id)){alert("لا يمكن حذف موديل له حركات مسجلة.");return;}
   if(!confirm(`حذف الموديل «${itemModel(it)}»؟`))return;
+  tombAdd("items",it);
   DB.items=DB.items.filter(i=>i.id!==id);logAct("حذف موديل",itemModel(it));save();keepScroll();renderItems();
 }
 
@@ -2221,6 +2246,7 @@ function delSupplier(id){
   if(ME.role!=="admin")return;
   if(DB.movements.some(m=>m.supplierId===id)||DB.payments.some(p=>p.supplierId===id)){alert("لا يمكن حذف مورد له حركات أو دفعات مسجلة.");return;}
   const s=DB.suppliers.find(x=>x.id===id);if(!confirm(`حذف المورد «${s.name}»؟`))return;
+  tombAdd("suppliers",s);
   DB.suppliers=DB.suppliers.filter(x=>x.id!==id);logAct("حذف مورد",s.name);save();pImport();
 }
 
@@ -2279,6 +2305,7 @@ function renderActivity(){
 function delActivity(id){
   if(!(ME.role==="admin"||ME.role==="supervisor"))return;
   if(!confirm("حذف هذا السجل؟"))return;
+  tombAdd("activity",DB.activity.find(a=>a.id===id));
   DB.activity=DB.activity.filter(a=>a.id!==id);save();renderActivity();toast("تم حذف السجل");
 }
 /* حذف كل السجلات المطابقة للفلتر الحالي (موظف/نوع عملية/تاريخ) */
@@ -2290,6 +2317,7 @@ function deleteFilteredActivity(){
   const scope=[u?`الموظف «${u}»`:"",ac?`بند «${ac}»`:""].filter(Boolean).join(" — ")||"المعروض حالياً";
   if(!confirm(`حذف ${sel.length} سجلاً (${scope})؟ لا يمكن التراجع.`))return;
   const ids=new Set(sel.map(a=>a.id));
+  tombAddMany("activity",sel);
   DB.activity=DB.activity.filter(a=>!ids.has(a.id));save();renderActivity();
   toast(`تم حذف ${sel.length} سجلاً`);
 }
@@ -2299,6 +2327,7 @@ function exportActivity(){
 function clearActivity(){
   if(ME.role!=="admin")return;
   if(!confirm("تفريغ سجل النشاط بالكامل؟ لا يمكن التراجع."))return;
+  tombAddMany("activity",DB.activity);
   DB.activity=[];save();logAct("تفريغ السجل","");pEmployees();toast("تم تفريغ السجل");
 }
 function userForm(id){
@@ -2368,6 +2397,7 @@ function fillPreset(){
 function delUser(id){
   const u=DB.users.find(x=>x.id===id);
   if(!confirm(`حذف المستخدم «${u.name}»؟`))return;
+  tombAdd("users",u);
   DB.users=DB.users.filter(x=>x.id!==id);logAct("حذف مستخدم",u.name);save();pEmployees();
 }
 
