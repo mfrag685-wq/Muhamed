@@ -1,25 +1,36 @@
-# يمنع بقاء نسخة قديمة في متصفحات المستخدمين — يفرض إعادة التحقق من الخادم في كل مرة
-# (يسمح بردّ 304 إن لم يتغيّر الملف، فلا يستهلك باقة Netlify)
+# سياسة التخزين المؤقت (تعمل على Netlify و Cloudflare Pages/Workers Assets)
+# القاعدة الهندسية: ملفات الدخول (HTML) وملف الإصدار = no-store، أي لا يحتفظ
+# المتصفح بأي نسخة منها إطلاقاً، فيجلب أحدث إصدار من الخادم في كل فتح —
+# فلا يعلَق أي جهاز (كمبيوتر أو جوال) على نسخة قديمة مهما كانت إعدادات متصفحه.
+
 /
-  Cache-Control: no-cache
+  Cache-Control: no-store, must-revalidate
 
 /index.html
-  Cache-Control: no-cache
+  Cache-Control: no-store, must-revalidate
 
 /*.html
-  Cache-Control: no-cache
+  Cache-Control: no-store, must-revalidate
+
+/build.txt
+  Cache-Control: no-store, must-revalidate
 
 /inventory
-  Cache-Control: no-cache
+  Cache-Control: no-store, must-revalidate
 
 /inventory/*
-  Cache-Control: no-cache
-
-/*
-  Cache-Control: no-cache
+  Cache-Control: no-store, must-revalidate
 
 /manifest.json
   Cache-Control: no-cache
 
 /manifest.inventory.json
+  Cache-Control: no-cache
+
+# الأصول الثابتة (أيقونات/صور) تُخزَّن يوماً للأداء — لا علاقة لها بإصدار التطبيق
+/*.png
+  Cache-Control: public, max-age=86400
+
+# احتياط: أي مسار آخر يُعاد التحقق منه قبل الاستخدام
+/*
   Cache-Control: no-cache
