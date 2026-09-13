@@ -399,7 +399,7 @@ function doLogin(){
   _pendingLogin={u,p,remember:!!($("#lg_remember")&&$("#lg_remember").checked)};
   if(cloudAccounts()){cloudLogin(u,p);return;}
   const usr=DB.users.find(x=>(x.username||"").toLowerCase()===u.toLowerCase());
-  if(usr&&usr.pass===hash(p)&&Number(usr.active)!==0){usr.lastLogin=new Date().toISOString();ME=usr;save();startApp();}
+  if(usr&&usr.pass===hash(p)&&Number(usr.active)!==0){usr.lastLogin=new Date().toISOString();ME=usr;logAct("تسجيل دخول","دخول محلي");save();cloudFlush();startApp();}
   else loginErr("اسم المستخدم أو كلمة المرور غير صحيحة.");
 }
 function startApp(){
@@ -601,25 +601,30 @@ function mergeDB(rem,loc){
   out.items.forEach(it=>{if(has[it.id])it.qty=net[it.id];});
   return out;
 }
+function cloudPushNow(){
+  if(!cloudReady||!cloudRef)return;
+  clearTimeout(cloudPushTimer);
+  let local;try{local=JSON.parse(JSON.stringify(DB));}catch(e){return;}
+  setCloudStatus("sync");
+  cloudRef.transaction(function(cur){
+    if(!cur||!cur.data||!Array.isArray(cur.data.users))
+      return {data:local,updatedAt:Date.now(),updatedBy:(ME?ME.name:"")};
+    const merged=mergeDB(cur.data,local);
+    return {data:merged,updatedAt:Date.now(),updatedBy:(ME?ME.name:"")};
+  },function(err,committed,snap){
+    if(err){setCloudStatus("err");return;}
+    setCloudStatus("ok");
+    if(committed&&snap){const v=snap.val();if(v&&v.data&&Array.isArray(v.data.users)){
+      cloudLastPushed=JSON.stringify(v.data);cloudApplyRemote(v.data);}}
+  },false);
+}
 function cloudPush(){
   if(!cloudReady||!cloudRef)return;
   clearTimeout(cloudPushTimer);
-  cloudPushTimer=setTimeout(function(){
-    let local;try{local=JSON.parse(JSON.stringify(DB));}catch(e){return;}
-    setCloudStatus("sync");
-    cloudRef.transaction(function(cur){
-      if(!cur||!cur.data||!Array.isArray(cur.data.users))
-        return {data:local,updatedAt:Date.now(),updatedBy:(ME?ME.name:"")};
-      const merged=mergeDB(cur.data,local);
-      return {data:merged,updatedAt:Date.now(),updatedBy:(ME?ME.name:"")};
-    },function(err,committed,snap){
-      if(err){setCloudStatus("err");return;}
-      setCloudStatus("ok");
-      if(committed&&snap){const v=snap.val();if(v&&v.data&&Array.isArray(v.data.users)){
-        cloudLastPushed=JSON.stringify(v.data);cloudApplyRemote(v.data);}}
-    },false);
-  },500);
+  cloudPushTimer=setTimeout(cloudPushNow,500);
 }
+/* دفع فوري (بلا تأخير) — يُستخدم عند تسجيل الدخول والأحداث الحرجة */
+function cloudFlush(){if(cloudReady&&cloudRef)cloudPushNow();}
 function cloudApplyRemote(remote){
   if(!remote||typeof remote!=="object"||!Array.isArray(remote.users))return;
   DB=remote;ensureShape();
@@ -710,7 +715,7 @@ function afterCloudAuth(user,username){
     if(u.fbUid!==user.uid)u.fbUid=user.uid;
     u.lastLogin=new Date().toISOString();ME=u;
     cloudWriteMember(user.uid,u).catch(()=>{});
-    logAct("تسجيل دخول","دخول سحابي");save();
+    logAct("تسجيل دخول","دخول سحابي");save();cloudFlush();
     loginErr("");startApp();
   });
 }
