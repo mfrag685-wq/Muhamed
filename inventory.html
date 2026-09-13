@@ -565,7 +565,9 @@ function mergeEntityRemap(remArr,locArr,nameFn){
   const remap={};
   (Array.isArray(locArr)?locArr:[]).forEach(x=>{
     const nm=nameFn(x);
-    if(byName.has(nm)){const r=byName.get(nm);if(r.id!==x.id)remap[x.id]=r.id;return;} // نفس الكيان
+    if(byName.has(nm)){const r=byName.get(nm);if(r.id!==x.id)remap[x.id]=r.id;
+      if(x.lastLogin&&(!r.lastLogin||x.lastLogin>r.lastLogin))r.lastLogin=x.lastLogin; // احفظ أحدث دخول
+      return;} // نفس الكيان
     if(byId.has(x.id)){const nu=++mx;remap[x.id]=nu;const c=Object.assign({},x,{id:nu});out.push(c);byId.set(nu,c);byName.set(nm,c);return;} // تضارب معرّف
     out.push(x);byId.set(x.id,x);byName.set(nm,x); // معرّف حر
   });
@@ -2185,9 +2187,10 @@ function pEmployees(){
     ${canManage?`<button class="btn" onclick="userForm(0)">+ إضافة مستخدم</button>`:""}</div>
   <div class="grid-2">
     <div class="card"><div class="card-title">قائمة المستخدمين</div>
-      <div class="table-wrap"><table><thead><tr><th>الاسم</th><th>اسم المستخدم</th><th>الصلاحية</th><th>الحالة</th>${canManage?"<th></th>":""}</tr></thead>
+      <div class="table-wrap"><table><thead><tr><th>الاسم</th><th>اسم المستخدم</th><th>الصلاحية</th><th>آخر دخول</th><th>الحالة</th>${canManage?"<th></th>":""}</tr></thead>
       <tbody>${DB.users.map(u=>`<tr><td>${esc(u.name)}</td><td style="font-family:monospace">${esc(u.username||"—")}</td>
         <td><span class="badge-role">${roleAr(u.role)}</span></td>
+        <td style="font-size:12px;color:var(--muted)">${u.lastLogin?esc(fmt(u.lastLogin)):"—"}</td>
         <td>${Number(u.active)!==0?'<span class="tag inbound">نشط</span>':'<span class="tag outbound">موقوف</span>'}${u.fbUid?' ☁':''}</td>
         ${canManage?`<td style="white-space:nowrap"><button class="btn blue sm" onclick="userForm(${u.id})">تعديل</button>
           <button class="btn amber sm" onclick="provisionUserAccount(${u.id})">${u.fbUid?"كلمة مرور":"حساب سحابي"}</button>
