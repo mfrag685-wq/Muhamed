@@ -97,6 +97,16 @@ tr:hover td{background:#f8fafc}
 .formgrid .cell.c6{grid-column:span 6}.formgrid .cell.c12{grid-column:span 12}
 .formgrid input,.formgrid select{padding:11px}
 @media(max-width:860px){.formgrid .cell{grid-column:span 6 !important}.formgrid .cell.c12{grid-column:span 12 !important}}
+/* تحسينات الجوال: أهداف لمس أكبر ومنع تكبير iOS التلقائي (خط 16px) */
+@media(max-width:600px){
+  .formgrid{gap:8px}
+  .formgrid input,.formgrid select{padding:13px 11px;font-size:16px;border-radius:10px}
+  .formgrid label{font-size:12.5px}
+  .ac-wrap,.formgrid .cell.c5,.formgrid .cell.c4{grid-column:span 12 !important} /* الصنف/البحث بعرض كامل */
+  .btn.lg{padding:15px;font-size:16px}
+  .typebtns button{padding:12px 6px;font-size:14px}
+  table th,table td{padding:8px 6px;font-size:13px}
+}
 
 /* أزرار كبيرة لنوع الحركة — وارد / منصرف */
 .typebtns{display:flex;gap:8px}
@@ -223,7 +233,7 @@ tr:hover td{background:#f8fafc}
    ============================================================ */
 const KEY="inv_system_v2";
 /* رقم إصدار التطبيق — يُزاد مع كل تحديث؛ يُقارَن بالنسخة المنشورة لإظهار زر التحديث */
-const APP_VERSION="2026-09-13-10";
+const APP_VERSION="2026-09-13-11";
 let DB,ME;
 /* التحقق من توفّر نسخة أحدث بجلب الملف نفسه (بدون كاش) ومقارنة رقم الإصدار */
 function checkForUpdate(){
@@ -1017,8 +1027,9 @@ function pickItem(id){
   picked=DB.items.find(i=>i.id===id);
   $("#mCode").value=itemModel(picked);
   $("#mAc").style.display="none";
-  if(mType==="outbound")$("#mPrice").value=picked.price||"";
-  else if(mType==="inbound")$("#mPrice").value=picked.cost||picked.price||"";
+  // لا نُثبّت سعر بيع لأي موديل — يُترك فارغاً ليُدخله الموظف في كل عملية
+  if(mType==="outbound")$("#mPrice").value="";
+  else if(mType==="inbound")$("#mPrice").value="";
   $("#mBal").style.display="flex";$("#mBalName").textContent="رصيد «"+itemModel(picked)+"»";
   $("#mBalV").textContent=picked.qty+" "+(picked.unit||"");
   const im=$("#mBalImg");if(im){if(picked.image){im.src=picked.image;im.style.display="block";}else im.style.display="none";}
