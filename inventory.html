@@ -233,7 +233,7 @@ tr:hover td{background:#f8fafc}
    ============================================================ */
 const KEY="inv_system_v2";
 /* رقم إصدار التطبيق — يُزاد مع كل تحديث؛ يُقارَن بالنسخة المنشورة لإظهار زر التحديث */
-const APP_VERSION="2026-09-13-11";
+const APP_VERSION="2026-09-13-12";
 let DB,ME;
 /* التحقق من توفّر نسخة أحدث بجلب الملف نفسه (بدون كاش) ومقارنة رقم الإصدار */
 function checkForUpdate(){
@@ -952,9 +952,11 @@ function pMove(){
       <div class="formgrid">
         <div class="cell c3"><label>رقم فاتورة البيع * (إجباري)</label><input id="mInvoice" placeholder="رقم الفاتورة"></div>
         <div class="cell c3"><label>العمولة ﷼ (لكامل الفاتورة)</label><input id="mComm" type="number" inputmode="decimal" step="0.01" placeholder="0.00"></div>
-        <div class="cell c3"><label>🚚 رسوم تركيب/توصيل ﷼ <a id="feeModeToggle" onclick="toggleFeeMode()" style="font-size:11px;color:var(--blue);cursor:pointer;font-weight:700">· لكل صنف؟</a></label>
+        <div class="cell c3"><label>🚚 رسوم تركيب/توصيل ﷼</label>
           <input id="mFeeVal" type="number" inputmode="decimal" step="0.01" placeholder="اتركه فارغاً = بدون رسوم">
-          <div id="feeHint" style="font-size:11px;color:var(--muted);margin-top:2px">مبلغ واحد لكامل الفاتورة</div></div>
+          <div style="display:flex;align-items:center;gap:8px;margin-top:4px;flex-wrap:wrap">
+            <button type="button" id="feeModeToggle" onclick="toggleFeeMode()" style="background:#eef2ff;color:#3730a3;border:1px solid #c7d2fe;border-radius:20px;padding:6px 12px;font-size:12.5px;font-weight:700;cursor:pointer">🔀 تحويل إلى: لكل صنف</button>
+            <span id="feeHint" style="font-size:11px;color:var(--muted)">مبلغ واحد لكامل الفاتورة</span></div></div>
         <div class="cell c3"><label>العنوان</label><input id="mAddress" placeholder="العنوان"></div>
         <div class="cell c3"><label>ملاحظات</label><input id="mNoteOut" placeholder="ملاحظة"></div>
       </div>
@@ -1055,8 +1057,8 @@ let feeMode="inv";
 function feeType(){return toNum($("#mFeeVal")?.value)>0?feeMode:"";}
 function applyFeeMode(){
   const tog=$("#feeModeToggle"),hint=$("#feeHint"),inp=$("#mFeeVal");
-  if(feeMode==="line"){if(tog)tog.textContent="· ↩ كامل الفاتورة";if(hint)hint.textContent="تُضاف لكل صنف قبل إضافته";if(inp)inp.placeholder="رسوم هذا الصنف ﷼";}
-  else{if(tog)tog.textContent="· لكل صنف؟";if(hint)hint.textContent="مبلغ واحد لكامل الفاتورة";if(inp)inp.placeholder="اتركه فارغاً = بدون رسوم";}
+  if(feeMode==="line"){if(tog)tog.textContent="🔀 تحويل إلى: كامل الفاتورة";if(hint)hint.textContent="الوضع الحالي: رسوم لكل صنف";if(inp)inp.placeholder="رسوم هذا الصنف ﷼";}
+  else{if(tog)tog.textContent="🔀 تحويل إلى: لكل صنف";if(hint)hint.textContent="الوضع الحالي: مبلغ واحد لكامل الفاتورة";if(inp)inp.placeholder="اتركه فارغاً = بدون رسوم";}
 }
 function toggleFeeMode(){feeMode=(feeMode==="line")?"inv":"line";applyFeeMode();const inp=$("#mFeeVal");if(inp)inp.focus();}
 function currentLine(){
