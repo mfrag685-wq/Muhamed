@@ -113,11 +113,11 @@ tr:hover td{background:#f8fafc}
 .balbox .b{font-size:26px;font-weight:800;color:var(--sky)}
 .details-toggle{background:none;border:0;color:var(--blue);font-weight:600;font-size:13px;padding:4px 0;cursor:pointer}
 /* أزرار اختيار رسوم التركيب/التوصيل — واضحة وسهلة اللمس على الجوال */
-.feeradios{display:flex;flex-direction:column;gap:8px}
-.feeradios label{display:flex;align-items:center;gap:10px;border:2px solid var(--line);border-radius:10px;padding:11px 13px;font-weight:700;font-size:14px;cursor:pointer;background:#fff;transition:all .12s;margin:0}
-.feeradios label:has(input:checked){border-color:var(--brand,#0d9488);background:#f0fdfa;color:#0f3b34;box-shadow:0 2px 8px rgba(13,148,136,.15)}
-.feeradios input{width:20px;height:20px;accent-color:#0d9488;flex:0 0 auto}
-.feeradios small{display:block;font-weight:500;font-size:11px;color:var(--muted)}
+.feeradios{display:flex;flex-wrap:wrap;gap:6px}
+.feeradios label{display:flex;align-items:center;gap:6px;border:1.5px solid var(--line);border-radius:8px;padding:6px 10px;font-weight:600;font-size:12.5px;cursor:pointer;background:#fff;transition:all .12s;margin:0;flex:1 1 auto;min-width:90px}
+.feeradios label:has(input:checked){border-color:#0d9488;background:#f0fdfa;color:#0f3b34}
+.feeradios input{width:16px;height:16px;accent-color:#0d9488;flex:0 0 auto}
+.feeradios small{display:none}
 @media print{.sidebar,.topbar,.backdrop,.pagehead .btn,.navbtn,.no-print{display:none!important}.main{margin:0!important}}
 .cloud-status{font-size:12px;padding:4px 10px;border-radius:20px;font-weight:700;display:inline-block;text-align:center}
 .cloud-status.off{background:#e2e8f0;color:#475569}.cloud-status.connecting{background:#fef9c3;color:#854d0e}
@@ -223,7 +223,7 @@ tr:hover td{background:#f8fafc}
    ============================================================ */
 const KEY="inv_system_v2";
 /* رقم إصدار التطبيق — يُزاد مع كل تحديث؛ يُقارَن بالنسخة المنشورة لإظهار زر التحديث */
-const APP_VERSION="2026-09-13-08";
+const APP_VERSION="2026-09-13-09";
 let DB,ME;
 /* التحقق من توفّر نسخة أحدث بجلب الملف نفسه (بدون كاش) ومقارنة رقم الإصدار */
 function checkForUpdate(){
@@ -924,7 +924,7 @@ function pMove(){
       <div class="cell c4 ac-wrap"><label>الصنف / الموديل</label>
         <input id="mCode" placeholder="ابحث بالموديل أو الاسم..." autocomplete="off" oninput="acItems(this.value)" onfocus="acItems(this.value)">
         <div class="ac-list" id="mAc"></div></div>
-      <div class="cell c2"><label>الكمية</label><input id="mQty" type="number" inputmode="numeric" min="0" step="1" placeholder="1"></div>
+      <div class="cell c2"><label>الكمية</label><input id="mQty" type="number" inputmode="numeric" min="0" step="1" placeholder="أدخل الكمية"></div>
       <div class="cell c3" id="wrapPrice"><label id="lblPrice">السعر ﷼</label><input id="mPrice" type="number" inputmode="decimal" step="0.01" placeholder="0.00"></div>
       <div class="cell c2"><label>التاريخ</label><input id="mDate" type="date" value="${today()}"></div>
     </div>
@@ -944,14 +944,14 @@ function pMove(){
         <div class="cell c3"><label>العمولة ﷼ (لكامل الفاتورة)</label><input id="mComm" type="number" inputmode="decimal" step="0.01" placeholder="0.00"></div>
         <div class="cell c6"><label>🚚 رسوم التركيب والتوصيل</label>
           <div class="feeradios">
-            <label><input type="radio" name="mFeeType" value="" checked onchange="feeTypeChanged()"><span>بدون رسوم <small>لا تُضاف أي رسوم</small></span></label>
-            <label><input type="radio" name="mFeeType" value="inv" onchange="feeTypeChanged()"><span>مبلغ واحد لكامل الفاتورة <small>الأكثر استخداماً</small></span></label>
-            <label><input type="radio" name="mFeeType" value="line" onchange="feeTypeChanged()"><span>رسوم لكل صنف / غرفة <small>تُدخلها مع كل صنف</small></span></label>
+            <label><input type="radio" name="mFeeType" value="inv" checked onchange="feeTypeChanged(true)"><span>كامل الفاتورة</span></label>
+            <label><input type="radio" name="mFeeType" value="line" onchange="feeTypeChanged(true)"><span>لكل صنف</span></label>
+            <label><input type="radio" name="mFeeType" value="" onchange="feeTypeChanged(true)"><span>بدون</span></label>
           </div>
-          <div id="feeInputCell" hidden style="margin-top:8px">
-            <label id="feeInputLabel">قيمة الرسوم ﷼</label>
+          <div id="feeInputCell" hidden style="margin-top:6px">
             <input id="mFeeVal" type="number" inputmode="decimal" step="0.01" placeholder="0.00">
-            <div id="feeHint" style="font-size:11px;color:var(--muted);margin-top:3px"></div></div>
+            <div id="feeHint" style="font-size:11px;color:var(--muted);margin-top:3px"></div>
+            <span id="feeInputLabel" hidden></span></div>
         </div>
         <div class="cell c3"><label>العنوان</label><input id="mAddress" placeholder="العنوان"></div>
         <div class="cell c3"><label>ملاحظات</label><input id="mNoteOut" placeholder="ملاحظة"></div>
@@ -986,7 +986,7 @@ function pMove(){
       <th>الرصيد بعدها</th><th>فسح/فاتورة</th><th>المورد</th><th>الموظف</th><th></th></tr></thead>
     <tbody id="recentMoves"></tbody></table></div>
   </div>`;
-  setType(mType);setRecentFilter(recentType);renderCart();
+  setType(mType);setRecentFilter(recentType);renderCart();if($("#feeInputCell"))feeTypeChanged();
 }
 let recentType="";
 function setRecentFilter(t){
@@ -1036,20 +1036,20 @@ function viewImg(src){if(!src)return;const m=document.createElement("div");m.cla
 function clearMove(all){
   ["mCode","mQty","mPrice","mCustoms"].forEach(i=>$("#"+i)&&($("#"+i).value=""));
   if(all){["mInvoice","mComm","mAddress","mNoteIn","mNoteOut","mFeeVal"].forEach(i=>$("#"+i)&&($("#"+i).value=""));
-    const r0=document.querySelector('input[name="mFeeType"][value=""]');if(r0){r0.checked=true;feeTypeChanged();}saleCart=[];renderCart();}
+    const r0=document.querySelector('input[name="mFeeType"][value="inv"]');if(r0){r0.checked=true;feeTypeChanged();}saleCart=[];renderCart();}
   picked=null;$("#mBal").style.display="none";$("#mCode").focus();
 }
 /* قراءة نوع الرسوم المختار من أزرار الاختيار */
 function feeType(){const r=document.querySelector('input[name="mFeeType"]:checked');return r?r.value:"";}
 /* إظهار حقل الرسوم المناسب فقط حسب النوع المختار */
-function feeTypeChanged(){
-  const t=feeType(),cell=$("#feeInputCell"),lbl=$("#feeInputLabel"),hint=$("#feeHint"),inp=$("#mFeeVal");
+function feeTypeChanged(userAction){
+  const t=feeType(),cell=$("#feeInputCell"),hint=$("#feeHint"),inp=$("#mFeeVal");
   if(!cell)return;
   if(!t){cell.hidden=true;if(inp)inp.value="";return;}
   cell.hidden=false;
-  if(t==="line"){if(lbl)lbl.textContent="رسوم هذا الصنف ﷼";if(hint)hint.textContent="تُضاف لكل صنف قبل إضافته للفاتورة";if(inp)inp.placeholder="مثال: 100";}
-  else{if(lbl)lbl.textContent="رسوم كامل الفاتورة ﷼";if(hint)hint.textContent="مبلغ واحد يُضاف للفاتورة كلها";if(inp)inp.placeholder="مثال: 300";}
-  if(inp)inp.focus();
+  if(t==="line"){if(hint)hint.textContent="تُضاف لكل صنف قبل إضافته";if(inp)inp.placeholder="رسوم هذا الصنف ﷼";}
+  else{if(hint)hint.textContent="مبلغ واحد للفاتورة كلها";if(inp)inp.placeholder="رسوم كامل الفاتورة ﷼";}
+  if(userAction===true&&inp)inp.focus();
 }
 function currentLine(){
   if(!picked)return null;
