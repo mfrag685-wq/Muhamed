@@ -223,7 +223,7 @@ tr:hover td{background:#f8fafc}
    ============================================================ */
 const KEY="inv_system_v2";
 /* رقم إصدار التطبيق — يُزاد مع كل تحديث؛ يُقارَن بالنسخة المنشورة لإظهار زر التحديث */
-const APP_VERSION="2026-09-13-09";
+const APP_VERSION="2026-09-13-10";
 let DB,ME;
 /* التحقق من توفّر نسخة أحدث بجلب الملف نفسه (بدون كاش) ومقارنة رقم الإصدار */
 function checkForUpdate(){
@@ -942,17 +942,9 @@ function pMove(){
       <div class="formgrid">
         <div class="cell c3"><label>رقم فاتورة البيع * (إجباري)</label><input id="mInvoice" placeholder="رقم الفاتورة"></div>
         <div class="cell c3"><label>العمولة ﷼ (لكامل الفاتورة)</label><input id="mComm" type="number" inputmode="decimal" step="0.01" placeholder="0.00"></div>
-        <div class="cell c6"><label>🚚 رسوم التركيب والتوصيل</label>
-          <div class="feeradios">
-            <label><input type="radio" name="mFeeType" value="inv" checked onchange="feeTypeChanged(true)"><span>كامل الفاتورة</span></label>
-            <label><input type="radio" name="mFeeType" value="line" onchange="feeTypeChanged(true)"><span>لكل صنف</span></label>
-            <label><input type="radio" name="mFeeType" value="" onchange="feeTypeChanged(true)"><span>بدون</span></label>
-          </div>
-          <div id="feeInputCell" hidden style="margin-top:6px">
-            <input id="mFeeVal" type="number" inputmode="decimal" step="0.01" placeholder="0.00">
-            <div id="feeHint" style="font-size:11px;color:var(--muted);margin-top:3px"></div>
-            <span id="feeInputLabel" hidden></span></div>
-        </div>
+        <div class="cell c3"><label>🚚 رسوم تركيب/توصيل ﷼ <a id="feeModeToggle" onclick="toggleFeeMode()" style="font-size:11px;color:var(--blue);cursor:pointer;font-weight:700">· لكل صنف؟</a></label>
+          <input id="mFeeVal" type="number" inputmode="decimal" step="0.01" placeholder="اتركه فارغاً = بدون رسوم">
+          <div id="feeHint" style="font-size:11px;color:var(--muted);margin-top:2px">مبلغ واحد لكامل الفاتورة</div></div>
         <div class="cell c3"><label>العنوان</label><input id="mAddress" placeholder="العنوان"></div>
         <div class="cell c3"><label>ملاحظات</label><input id="mNoteOut" placeholder="ملاحظة"></div>
       </div>
@@ -979,14 +971,14 @@ function pMove(){
       <div class="cell c3"><label>من تاريخ</label><input id="rcFrom" type="date" onchange="renderRecent()"></div>
       <div class="cell c3"><label>إلى تاريخ</label><input id="rcTo" type="date" onchange="renderRecent()"></div>
       <div class="cell c2"><label>عدد الحركات</label><select id="rcLimit" onchange="renderRecent()">
-        <option value="25">آخر 25</option><option value="100">آخر 100</option><option value="500">آخر 500</option><option value="0">كل الحركات</option></select></div>
+        <option value="5">آخر 5</option><option value="25">آخر 25</option><option value="100">آخر 100</option><option value="500">آخر 500</option><option value="0">كل الحركات</option></select></div>
     </div>
     <div id="rcCount" style="font-size:12px;color:var(--muted);margin-bottom:8px"></div>
     <div class="table-wrap"><table><thead><tr><th>التاريخ</th><th>الصنف/الموديل</th><th>النوع</th><th>الكمية</th>
       <th>الرصيد بعدها</th><th>فسح/فاتورة</th><th>المورد</th><th>الموظف</th><th></th></tr></thead>
     <tbody id="recentMoves"></tbody></table></div>
   </div>`;
-  setType(mType);setRecentFilter(recentType);renderCart();if($("#feeInputCell"))feeTypeChanged();
+  setType(mType);setRecentFilter(recentType);renderCart();applyFeeMode();
 }
 let recentType="";
 function setRecentFilter(t){
@@ -1036,21 +1028,18 @@ function viewImg(src){if(!src)return;const m=document.createElement("div");m.cla
 function clearMove(all){
   ["mCode","mQty","mPrice","mCustoms"].forEach(i=>$("#"+i)&&($("#"+i).value=""));
   if(all){["mInvoice","mComm","mAddress","mNoteIn","mNoteOut","mFeeVal"].forEach(i=>$("#"+i)&&($("#"+i).value=""));
-    const r0=document.querySelector('input[name="mFeeType"][value="inv"]');if(r0){r0.checked=true;feeTypeChanged();}saleCart=[];renderCart();}
+    feeMode="inv";applyFeeMode();saleCart=[];renderCart();}
   picked=null;$("#mBal").style.display="none";$("#mCode").focus();
 }
-/* قراءة نوع الرسوم المختار من أزرار الاختيار */
-function feeType(){const r=document.querySelector('input[name="mFeeType"]:checked');return r?r.value:"";}
-/* إظهار حقل الرسوم المناسب فقط حسب النوع المختار */
-function feeTypeChanged(userAction){
-  const t=feeType(),cell=$("#feeInputCell"),hint=$("#feeHint"),inp=$("#mFeeVal");
-  if(!cell)return;
-  if(!t){cell.hidden=true;if(inp)inp.value="";return;}
-  cell.hidden=false;
-  if(t==="line"){if(hint)hint.textContent="تُضاف لكل صنف قبل إضافته";if(inp)inp.placeholder="رسوم هذا الصنف ﷼";}
-  else{if(hint)hint.textContent="مبلغ واحد للفاتورة كلها";if(inp)inp.placeholder="رسوم كامل الفاتورة ﷼";}
-  if(userAction===true&&inp)inp.focus();
+/* وضع الرسوم: inv = كامل الفاتورة (افتراضي) · line = لكل صنف */
+let feeMode="inv";
+function feeType(){return toNum($("#mFeeVal")?.value)>0?feeMode:"";}
+function applyFeeMode(){
+  const tog=$("#feeModeToggle"),hint=$("#feeHint"),inp=$("#mFeeVal");
+  if(feeMode==="line"){if(tog)tog.textContent="· ↩ كامل الفاتورة";if(hint)hint.textContent="تُضاف لكل صنف قبل إضافته";if(inp)inp.placeholder="رسوم هذا الصنف ﷼";}
+  else{if(tog)tog.textContent="· لكل صنف؟";if(hint)hint.textContent="مبلغ واحد لكامل الفاتورة";if(inp)inp.placeholder="اتركه فارغاً = بدون رسوم";}
 }
+function toggleFeeMode(){feeMode=(feeMode==="line")?"inv":"line";applyFeeMode();const inp=$("#mFeeVal");if(inp)inp.focus();}
 function currentLine(){
   if(!picked)return null;
   const qty=parseFloat($("#mQty").value);if(!qty||qty<=0)return null;
@@ -1128,6 +1117,8 @@ function balAfterMap(){
   });
   return map;
 }
+function showAllRecent(){if($("#rcLimit"))$("#rcLimit").value="0";renderRecent();}
+function showFewerRecent(){if($("#rcLimit"))$("#rcLimit").value="5";renderRecent();}
 function renderRecent(){
   const tb=$("#recentMoves");if(!tb)return;
   const BAL=balAfterMap();
@@ -1142,7 +1133,12 @@ function renderRecent(){
   // ترتيب الأحدث أولاً بالوقت الفعلي (مهم بعد دمج السحابة الذي قد يعيد ترتيب المصفوفة)
   list=list.slice().sort((a,b)=>((a.at||"")<(b.at||"")?1:(a.at||"")>(b.at||"")?-1:(b.id-a.id)));
   const total=list.length;const shown=lim>0?list.slice(0,lim):list;
-  if($("#rcCount"))$("#rcCount").textContent=`المعروض: ${shown.length} من ${total} حركة مطابقة`;
+  if($("#rcCount")){
+    const more=(lim>0&&total>shown.length);
+    $("#rcCount").innerHTML=`المعروض: ${shown.length} من ${total} حركة`+
+      (more?` · <a onclick="showAllRecent()" style="color:var(--blue);cursor:pointer;font-weight:700">عرض الكل ▾</a>`
+        :(lim===0&&total>5?` · <a onclick="showFewerRecent()" style="color:var(--blue);cursor:pointer;font-weight:700">عرض أقل ▴</a>`:""));
+  }
   tb.innerHTML=shown.map(m=>{const it=DB.items.find(i=>i.id===m.itemId)||{};const sup=DB.suppliers.find(x=>x.id===m.supplierId);
     return `<tr><td>${esc(m.date)}</td><td>${esc(m.model||itemModel(it))}</td>
       <td><span class="tag ${m.type}">${typeAr(m.type)}</span></td>
