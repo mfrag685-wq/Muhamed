@@ -216,7 +216,34 @@ tr:hover td{background:#f8fafc}
    ملف واحد — يحفظ البيانات في متصفح الجهاز (localStorage)
    ============================================================ */
 const KEY="inv_system_v2";
+/* رقم إصدار التطبيق — يُزاد مع كل تحديث؛ يُقارَن بالنسخة المنشورة لإظهار زر التحديث */
+const APP_VERSION="2026-09-13-01";
 let DB,ME;
+/* التحقق من توفّر نسخة أحدث بجلب الملف نفسه (بدون كاش) ومقارنة رقم الإصدار */
+function checkForUpdate(){
+  try{
+    const url=location.pathname+"?_v="+Date.now();
+    fetch(url,{cache:"no-store"}).then(function(r){return r.text();}).then(function(t){
+      const m=t.match(/APP_VERSION\s*=\s*"([^"]+)"/);
+      if(m&&m[1]&&m[1]!==APP_VERSION)showUpdateBanner();
+    }).catch(function(){});
+  }catch(e){}
+}
+function showUpdateBanner(){
+  if(document.getElementById("updBar"))return;
+  const b=document.createElement("div");b.id="updBar";
+  b.style.cssText="position:fixed;left:0;right:0;bottom:0;z-index:300;background:linear-gradient(135deg,#0d9488,#0f3b34);color:#fff;padding:12px 16px;display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap;box-shadow:0 -4px 16px rgba(0,0,0,.3);font-weight:700";
+  b.innerHTML='<span>🔄 يتوفّر إصدار أحدث من النظام</span>'+
+    '<button onclick="doAppUpdate()" style="background:#f5d67a;color:#0f3b34;border:0;border-radius:8px;padding:8px 18px;font-weight:800;cursor:pointer">تحديث الآن</button>'+
+    '<button onclick="this.closest(\'#updBar\').remove()" style="background:transparent;color:#cbeee7;border:1px solid rgba(255,255,255,.4);border-radius:8px;padding:8px 12px;cursor:pointer">لاحقاً</button>';
+  document.body.appendChild(b);
+}
+function doAppUpdate(){
+  try{if(window.caches&&caches.keys)caches.keys().then(function(ks){ks.forEach(function(k){caches.delete(k);});});}catch(e){}
+  try{if(navigator.serviceWorker&&navigator.serviceWorker.getRegistrations)navigator.serviceWorker.getRegistrations().then(function(rs){rs.forEach(function(r){r.unregister();});});}catch(e){}
+  const u=location.pathname+"?_upd="+Date.now();
+  setTimeout(function(){location.replace(u);},150);
+}
 const $=s=>document.querySelector(s);
 const money=n=>Number(n||0).toLocaleString("ar-EG",{minimumFractionDigits:2,maximumFractionDigits:2});
 const today=()=>new Date().toISOString().slice(0,10);
@@ -412,6 +439,9 @@ function startApp(){
   const first=(PERM_KEYS.map(k=>k[0]).find(k=>["move","dashboard","report","ledger","items","import","employees","settings"].includes(k)&&can(k)))||"move";
   go(can("move")?"move":first);
   if(Number(ME.pwTemp))forceChangePassword();else showWelcome(ME);
+  checkForUpdate();
+  if(!window._updTimer)window._updTimer=setInterval(checkForUpdate,5*60*1000);
+  if(!window._updVis){window._updVis=1;document.addEventListener("visibilitychange",function(){if(!document.hidden)checkForUpdate();});}
 }
 function printScreen(){window.print();}
 function dayPart(){const h=new Date().getHours();return (h>=5&&h<12)?"صباح":"مساء";}
