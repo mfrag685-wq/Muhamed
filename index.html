@@ -1662,7 +1662,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-13-v';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-13-w';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -8110,10 +8110,18 @@ function staleDeviceList(){
     if(String(d.build)>=String(APP_BUILD)) return;           /* محدَّث أو أحدث */
     var ts=+d.ts||0, age=now-ts;
     if(age>3*24*3600*1000) return;                           /* تجاهُل الأجهزة الغائبة منذ أكثر من 3 أيام */
-    out.push({id:id,user:d.user||'—',uid:d.uid||0,build:d.build,ts:ts,age:age,online:age<120000});
+    out.push({id:id,user:d.user||'—',uid:d.uid||0,build:d.build,ts:ts,age:age,online:age<120000,
+      ua:d.ua||'',self:(id===cloudDeviceId())});
   });
   out.sort(function(a,b){ return b.ts-a.ts; });
   return out;
+}
+/* وصف مقروء للجهاز من بصمة المتصفح — كي يميّز المدير الأجهزة المتشابهة الأسماء */
+function deviceLabel(ua){
+  ua=String(ua||'');
+  var os=/iphone|ipad|ipod/i.test(ua)?'آيفون/آيباد':(/android/i.test(ua)?'أندرويد':(/windows/i.test(ua)?'ويندوز':(/mac/i.test(ua)?'ماك':(/linux/i.test(ua)?'لينكس':'جهاز'))));
+  var br=/edg/i.test(ua)?'Edge':(/chrome|crios/i.test(ua)?'Chrome':(/firefox|fxios/i.test(ua)?'Firefox':(/safari/i.test(ua)?'Safari':'متصفح')));
+  return os+' · '+br;
 }
 function _agoTxt(age){
   if(age<0) return 'الآن';
@@ -8129,26 +8137,31 @@ function renderStaleUsers(){
   if(!list.length){ box.style.display='none'; box.innerHTML=''; return; }
   var rows=list.map(function(d){
     var st=d.online?'<span class="pill pill-bad">متصل الآن</span>':'<span class="pill pill-info">'+esc(_agoTxt(d.age))+'</span>';
-    var btn='<button class="btn-sm" onclick="requestDeviceUpdate(\''+esc(d.id)+'\',\''+esc(String(d.user).replace(/\\/g,"").replace(/'/g,""))+'\')" title="إرسال أمر إعادة تحميل لهذا الجهاز ليصله أحدث إصدار">🔄 حدّث الآن</button>';
-    return '<tr><td class="name">'+esc(d.user)+'</td><td>'+esc(d.build)+'</td><td>'+st+'</td><td>'+btn+'</td></tr>';
+    var dev=esc(deviceLabel(d.ua))+(d.self?' <b>(هذا الجهاز)</b>':'');
+    var btn;
+    if(d.self){ btn='<button class="btn-sm" onclick="reloadNow()" title="إعادة تحميل هذا الجهاز الآن لجلب أحدث إصدار">🔄 حدّث هذا الجهاز</button>'; }
+    else { btn='<button class="btn-sm" onclick="requestDeviceUpdate(\''+esc(d.id)+'\',\''+esc(String(d.user).replace(/\\/g,"").replace(/'/g,""))+'\',\''+esc(deviceLabel(d.ua))+'\')" title="إرسال أمر إعادة تحميل لهذا الجهاز ليصله أحدث إصدار">🔄 حدّث الآن</button>'; }
+    return '<tr><td class="name">'+esc(d.user)+'</td><td>'+dev+'</td><td>'+esc(d.build)+'</td><td>'+st+'</td><td>'+btn+'</td></tr>';
   }).join('');
   box.style.display='';
   box.innerHTML='<div style="background:#7c2d12;color:#fff;border-radius:10px;padding:12px 14px">'
-    +'<div style="font-weight:800;font-size:14px;margin-bottom:6px">⚠ مستخدمون بحاجة إلى تحديث النظام (إصدارك: '+esc(APP_BUILD)+')</div>'
-    +'<div style="font-size:12.5px;opacity:.92;margin-bottom:8px">اضغط <b>«🔄 حدّث الآن»</b> أمام أي جهاز متصل ليُعاد تحميله تلقائياً ويصله أحدث إصدار، أو اطلب من المستخدم إعادة تحميل الصفحة يدوياً. حتى يُحدّثوا، إدخالاتهم موقوفة تلقائياً على أجهزتهم.</div>'
+    +'<div style="font-weight:800;font-size:14px;margin-bottom:6px">⚠ أجهزة بحاجة إلى تحديث النظام (إصدارك: '+esc(APP_BUILD)+')</div>'
+    +'<div style="font-size:12.5px;opacity:.92;margin-bottom:8px">هذه <b>جلسات/أجهزة</b> (قد تكون بنفس الاسم على أجهزة مختلفة). لِمَن يعمل بنسخة حديثة: زر <b>«🔄 حدّث الآن»</b> يعيد تحميله تلقائياً. أما الجهاز الذي يعمل بنسخة <b>قديمة جداً</b> فلا يستجيب للأمر عن بُعد — يجب <b>إعادة فتحه يدوياً</b> على ذلك الجهاز نفسه. حتى يُحدّثوا، إدخالاتهم موقوفة تلقائياً.</div>'
     +'<div style="margin-bottom:8px"><button class="btn-sm" onclick="requestAllDeviceUpdates()" style="background:#fff;color:#7c2d12;font-weight:700">🔄 تحديث كل الأجهزة القديمة</button></div>'
-    +'<div class="table-scroll"><table style="background:#fff;color:#222;border-radius:8px;overflow:hidden"><thead><tr><th class="name">المستخدم</th><th>إصداره</th><th>آخر ظهور</th><th>إجراء</th></tr></thead><tbody>'+rows+'</tbody></table></div>'
+    +'<div class="table-scroll"><table style="background:#fff;color:#222;border-radius:8px;overflow:hidden"><thead><tr><th class="name">المستخدم</th><th>الجهاز</th><th>إصداره</th><th>آخر ظهور</th><th>إجراء</th></tr></thead><tbody>'+rows+'</tbody></table></div>'
     +'</div>';
 }
 /* أمر تحديث عن بُعد: يكتب طلباً في مسار مستقل، فيلتقطه الجهاز الهدف ويعيد التحميل
    ليصله أحدث إصدار. الأجهزة القديمة موقوفة الإدخال أصلاً، فإعادة تحميلها آمنة. */
-function requestDeviceUpdate(deviceId,uname){
+function requestDeviceUpdate(deviceId,uname,dlabel){
   if(!(ME&&ME.role==='admin')){ toast('هذا الإجراء للمدير فقط'); return; }
+  if(deviceId===cloudDeviceId()){ reloadNow(); return; }   /* هذا الجهاز نفسه → أعد تحميله مباشرةً */
   if(!cloudEnabled()||typeof firebase==='undefined'){ toast('التحديث عن بُعد يتطلب اتصالاً سحابياً'); return; }
+  var who=(uname||'الجهاز')+(dlabel?(' ('+dlabel+')'):'');
   try{
     firebase.database().ref('workspaces/'+cloudWid()+'/reloadReqs/'+deviceId)
       .set(firebase.database.ServerValue.TIMESTAMP)
-      .then(function(){ toast('أُرسل أمر التحديث إلى '+(uname||'الجهاز')+' — سيُعاد تحميله خلال لحظات إن كان متصلاً'); })
+      .then(function(){ toast('أُرسل أمر التحديث إلى '+who+'. إن لم يُحدَّث خلال دقيقة فهو يعمل بنسخة قديمة جداً — أعِد فتحه يدوياً على ذلك الجهاز.'); })
       .catch(function(){ toast('تعذّر إرسال الأمر — قد تمنعه قواعد Firebase'); });
   }catch(e){ toast('تعذّر إرسال الأمر'); }
 }
