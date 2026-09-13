@@ -924,8 +924,8 @@ function pMove(){
       <div class="cell c4 ac-wrap"><label>الصنف / الموديل</label>
         <input id="mCode" placeholder="ابحث بالموديل أو الاسم..." autocomplete="off" oninput="acItems(this.value)" onfocus="acItems(this.value)">
         <div class="ac-list" id="mAc"></div></div>
-      <div class="cell c2"><label>الكمية</label><input id="mQty" type="number" inputmode="numeric" min="0" step="1" placeholder="أدخل الكمية"></div>
-      <div class="cell c3" id="wrapPrice"><label id="lblPrice">السعر ﷼</label><input id="mPrice" type="number" inputmode="decimal" step="0.01" placeholder="0.00"></div>
+      <div class="cell c2"><label>الكمية</label><input id="mQty" type="number" inputmode="numeric" min="0" step="1" placeholder="أدخل الكمية" onkeydown="if(event.key==='Enter'){event.preventDefault();$('#mPrice').focus();$('#mPrice').select&&$('#mPrice').select();}"></div>
+      <div class="cell c3" id="wrapPrice"><label id="lblPrice">السعر ﷼</label><input id="mPrice" type="number" inputmode="decimal" step="0.01" placeholder="0.00" onkeydown="if(event.key==='Enter'){event.preventDefault();nextAfterPrice();}"></div>
       <div class="cell c2"><label>التاريخ</label><input id="mDate" type="date" value="${today()}"></div>
     </div>
 
@@ -1022,6 +1022,14 @@ function pickItem(id){
   $("#mBal").style.display="flex";$("#mBalName").textContent="رصيد «"+itemModel(picked)+"»";
   $("#mBalV").textContent=picked.qty+" "+(picked.unit||"");
   const im=$("#mBalImg");if(im){if(picked.image){im.src=picked.image;im.style.display="block";}else im.style.display="none";}
+  // تنقّل تلقائي: بعد اختيار الصنف انتقل لحقل الكمية
+  setTimeout(()=>{const q=$("#mQty");if(q){q.focus();q.select&&q.select();}},30);
+}
+/* بعد السعر: للوارد → رقم الفسح؛ للمنصرف → إضافة الصنف للفاتورة مباشرة */
+function nextAfterPrice(){
+  if(mType==="inbound"){const c=$("#mCustoms");if(c)c.focus();}
+  else if(mType==="outbound"){addToInvoice();const q=$("#mCode");if(q)q.focus();}
+  else{const q=$("#mCode");if(q)q.focus();}
 }
 function viewImg(src){if(!src)return;const m=document.createElement("div");m.className="modal";m.onclick=()=>m.remove();
   m.innerHTML=`<img src="${src}" style="max-width:92vw;max-height:88vh;border-radius:12px">`;document.body.appendChild(m);}
