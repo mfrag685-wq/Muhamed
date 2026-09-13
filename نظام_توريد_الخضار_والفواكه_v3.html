@@ -1662,7 +1662,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-13-u';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-13-v';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -8076,6 +8076,21 @@ function cloudWatchDevices(){
     _cloudDevicesWatched=true;
   }catch(e){}
 }
+/* كشف موثوق من الخادم مباشرةً: يجلب ملف الإصدار build.txt بتجاوز الذاكرة، فإن كان
+   الخادم يقدّم إصداراً أحدث ⇒ يُظهر شاشة التحديث دون الاعتماد على جهاز آخر أو على
+   حقل الإصدار المشترك. هذا هو المصدر الموثوق للإصدار المنشور. */
+var _lastBuildProbe=0;
+function checkServerBuild(){
+  if(typeof fetch!=='function') return;
+  _lastBuildProbe=Date.now();
+  try{
+    fetch('build.txt?_='+Date.now(),{cache:'no-store'})
+      .then(function(r){ return r.ok?r.text():null; })
+      .then(function(t){ if(!t) return; t=String(t).trim().split(/\s+/)[0];
+        if(t&&t>String(APP_BUILD)){ staleBuild=true; cloudLatestBuild=t; showStaleOverlay(); } })
+      .catch(function(){});
+  }catch(e){}
+}
 /* كشف موثوق لِقِدَم هذا الجهاز عبر بصمات الحضور: إن كان أي جهاز آخر يعمل بإصدار
    أحدث من هذا الجهاز ⇒ هذا الجهاز قديم فليُحدَّث. أدقّ من حقل الإصدار المشترك الذي
    يتناوب المستخدمون على كتابته (فقد لا يكتشف الجوالُ قِدَمَه لأنه يكتب إصداره هو). */
@@ -8482,6 +8497,7 @@ function rejectJoinRequest(ruid){
    إدخالات محفوظة على الجهاز ولم تُرفع بعد — فلا تضيع بيانات ولو تعذّر الرفع لفترة */
 function cloudWatchdog(){
   try{
+    if(Date.now()-_lastBuildProbe>300000) checkServerBuild();   /* فحص إصدار الخادم كل 5 دقائق (مستقل عن السحابة) */
     if(!cloudEnabled()) return;
     var user=(firebase.auth&&firebase.auth().currentUser)||null;
     if(!cloudReady){ if(user||!cloudAccounts()) cloudAttach(); return; }   /* غير متصل → أعد الربط */
@@ -8490,6 +8506,7 @@ function cloudWatchdog(){
   }catch(e){}
 }
 function cloudInit(){
+  setTimeout(checkServerBuild,3000);   /* فحص إصدار الخادم بعد التحميل مباشرةً */
   if(!cloudEnabled()){ setCloudStatus('off'); return; }
   try{ firebase.initializeApp(CLOUD_CONFIG); }catch(e){ /* قد يكون مُهيّأً مسبقاً */ }
   if(!window._cloudWatchdogTimer) window._cloudWatchdogTimer=setInterval(cloudWatchdog,15000);   /* شبكة أمان دورية */
