@@ -625,11 +625,27 @@ function cloudPush(){
 }
 /* دفع فوري (بلا تأخير) — يُستخدم عند تسجيل الدخول والأحداث الحرجة */
 function cloudFlush(){if(cloudReady&&cloudRef)cloudPushNow();}
-function cloudApplyRemote(remote){
+/* عدد السجلّات — لتحديد إن كان المحلي أضاف جديداً بعد الدمج (يمنع حلقة رفع لا نهائية) */
+function recordCount(db){
+  if(!db)return 0;
+  return ["movements","activity","payments","commPayments","items","suppliers","users"]
+    .reduce((s,k)=>s+((Array.isArray(db[k])?db[k].length:0)),0);
+}
+/* إعادة رسم الشاشة الحالية دون إغلاق القائمة الجانبية (للتحديثات الواردة من السحابة) */
+function refreshView(){
+  if(!ME)return;
+  const page=CURRENT_PAGE||"move";
+  const fn={move:pMove,dashboard:pDashboard,report:pReport,ledger:pLedger,items:pItems,import:pImport,employees:pEmployees,settings:pSettings}[page];
+  if(fn)try{fn();}catch(e){}
+}
+function cloudApplyRemote(remote,silent){
   if(!remote||typeof remote!=="object"||!Array.isArray(remote.users))return;
   DB=remote;ensureShape();
   const s=JSON.stringify(DB);localStorage.setItem(KEY,s);cloudLastPushed=s;
-  if(ME){const me=DB.users.find(x=>x.id===ME.id);if(me)ME=me;go(CURRENT_PAGE);}
+  if(ME){const me=DB.users.find(x=>x.id===ME.id);if(me)ME=me;
+    // لا تعيد الرسم إن كان المستخدم يكتب في حقل أو نافذة مفتوحة، لتفادي فقدان ما يكتبه
+    const busy=document.querySelector(".modal")||/^(INPUT|TEXTAREA|SELECT)$/.test((document.activeElement||{}).tagName||"");
+    if(!silent&&!busy)refreshView();}
 }
 function cloudAttach(cb){
   if(cloudReady){if(cb)cb();return;}
@@ -653,9 +669,10 @@ function cloudAttach(cb){
       if(rs===JSON.stringify(DB))return;         // مطابقة تماماً
       // ادمج الوارد مع المحلي حتى لا تُفقد سجلات هذا الجهاز غير المرفوعة بعد
       const merged=mergeDB(val.data,DB);
-      const ms=JSON.stringify(merged);
+      const remoteCount=recordCount(val.data),mergedCount=recordCount(merged);
       cloudApplyRemote(merged);
-      if(ms!==rs)cloudPush();                     // المحلي كان يحوي جديداً — ادفع الدمج
+      // ادفع فقط إذا أضاف المحلي سجلات جديدة فعلاً (يمنع حلقة رفع/استقبال لا نهائية)
+      if(mergedCount>remoteCount)cloudPush();
     });
     if(cb)cb();
   }).catch(function(err){setCloudStatus("err");if(cb)cb(err||true);});
