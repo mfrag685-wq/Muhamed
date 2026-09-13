@@ -217,7 +217,7 @@ tr:hover td{background:#f8fafc}
    ============================================================ */
 const KEY="inv_system_v2";
 /* رقم إصدار التطبيق — يُزاد مع كل تحديث؛ يُقارَن بالنسخة المنشورة لإظهار زر التحديث */
-const APP_VERSION="2026-09-13-03";
+const APP_VERSION="2026-09-13-04";
 let DB,ME;
 /* التحقق من توفّر نسخة أحدث بجلب الملف نفسه (بدون كاش) ومقارنة رقم الإصدار */
 function checkForUpdate(){
@@ -2266,7 +2266,9 @@ function pEmployees(){
 function filteredActivity(){
   const u=$("#acUser")?.value||"",ac=$("#acAction")?.value||"",from=$("#acFrom")?.value||"",to=$("#acTo")?.value||"";
   return DB.activity.filter(a=>{const d=(a.at||"").slice(0,10);
-    return (!u||a.userName===u)&&(!ac||a.action===ac)&&(!from||d>=from)&&(!to||d<=to);});
+    return (!u||a.userName===u)&&(!ac||a.action===ac)&&(!from||d>=from)&&(!to||d<=to);})
+    // الأحدث أولاً بالوقت الفعلي (مهم بعد دمج السحابة الذي قد يعيد ترتيب المصفوفة)
+    .sort((a,b)=>((a.at||"")<(b.at||"")?1:(a.at||"")>(b.at||"")?-1:((b.id||0)-(a.id||0))));
 }
 function renderActivity(){
   const tb=$("#acTbl");if(!tb)return;
