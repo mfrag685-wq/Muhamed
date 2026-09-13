@@ -217,7 +217,7 @@ tr:hover td{background:#f8fafc}
    ============================================================ */
 const KEY="inv_system_v2";
 /* رقم إصدار التطبيق — يُزاد مع كل تحديث؛ يُقارَن بالنسخة المنشورة لإظهار زر التحديث */
-const APP_VERSION="2026-09-13-01";
+const APP_VERSION="2026-09-13-02";
 let DB,ME;
 /* التحقق من توفّر نسخة أحدث بجلب الملف نفسه (بدون كاش) ومقارنة رقم الإصدار */
 function checkForUpdate(){
@@ -644,11 +644,21 @@ function cloudPushNow(){
     const merged=mergeDB(cur.data,local);
     return {data:merged,updatedAt:Date.now(),updatedBy:(ME?ME.name:"")};
   },function(err,committed,snap){
-    if(err){setCloudStatus("err");return;}
+    if(err){setCloudStatus("err");cloudReportError(err,"الحفظ");return;}
+    if(!committed){setCloudStatus("ok");return;}
     setCloudStatus("ok");
-    if(committed&&snap){const v=snap.val();if(v&&v.data&&Array.isArray(v.data.users)){
+    if(snap){const v=snap.val();if(v&&v.data&&Array.isArray(v.data.users)){
       cloudLastPushed=JSON.stringify(v.data);cloudApplyRemote(v.data);}}
   },false);
+}
+/* تشخيص أخطاء السحابة — يُظهر رسالة واضحة مرة واحدة عند رفض الصلاحيات */
+let _cloudErrShown=false;
+function cloudReportError(err,ctx){
+  const msg=String((err&&(err.message||err.code))||err||"");
+  if(/permission|denied|PERMISSION/i.test(msg)&&!_cloudErrShown){
+    _cloudErrShown=true;
+    alert("⚠️ تعذّر "+(ctx||"الاتصال")+" على السحابة: صلاحيات قاعدة البيانات ترفض الوصول.\n\nبياناتك تُحفظ على هذا الجهاز فقط ولن تتزامن.\n\nالحل (للمدير): من Firebase Console ← Realtime Database ← Rules، اسمح للمستخدمين المسجّلين بالقراءة والكتابة على مسار مساحة العمل.");
+  }
 }
 function cloudPush(){
   if(!cloudReady||!cloudRef)return;
@@ -707,7 +717,7 @@ function cloudAttach(cb){
       if(mergedCount>remoteCount)cloudPush();
     });
     if(cb)cb();
-  }).catch(function(err){setCloudStatus("err");if(cb)cb(err||true);});
+  }).catch(function(err){setCloudStatus("err");cloudReportError(err,"قراءة البيانات");if(cb)cb(err||true);});
 }
 function cloudWriteMember(uid,u){
   return firebase.database().ref("workspaces/"+cloudWid()+"/members/"+uid)
