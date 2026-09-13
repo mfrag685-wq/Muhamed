@@ -555,16 +555,42 @@ function dedupIds(arr){
   arr.forEach(x=>{if(x.id==null||seen.has(x.id)){x.id=++mx;}seen.add(x.id);});
   return arr;
 }
+/* دمج كيانات (أصناف/موردين/مستخدمين) بالاسم الطبيعي مع إعادة تعيين المعرّفات المتضاربة،
+   وإرجاع خريطة (المعرّف القديم→الجديد) لإصلاح المراجع في الحركات/الدفعات */
+function mergeEntityRemap(remArr,locArr,nameFn){
+  const out=[...(Array.isArray(remArr)?remArr:[])];
+  const byId=new Map(),byName=new Map();let mx=0;
+  out.forEach(x=>{byId.set(x.id,x);byName.set(nameFn(x),x);if(typeof x.id==="number"&&x.id>mx)mx=x.id;});
+  (Array.isArray(locArr)?locArr:[]).forEach(x=>{if(typeof x.id==="number"&&x.id>mx)mx=x.id;});
+  const remap={};
+  (Array.isArray(locArr)?locArr:[]).forEach(x=>{
+    const nm=nameFn(x);
+    if(byName.has(nm)){const r=byName.get(nm);if(r.id!==x.id)remap[x.id]=r.id;return;} // نفس الكيان
+    if(byId.has(x.id)){const nu=++mx;remap[x.id]=nu;const c=Object.assign({},x,{id:nu});out.push(c);byId.set(nu,c);byName.set(nm,c);return;} // تضارب معرّف
+    out.push(x);byId.set(x.id,x);byName.set(nm,x); // معرّف حر
+  });
+  return {list:out,remap};
+}
+function itemKey(it){return (itemModel(it)||"").trim().toLowerCase()+"|"+(it.companyId||"");}
+function supKey(s){return (s.name||"").trim().toLowerCase()+"|"+(s.companyId||"");}
+function userKey(u){return (u.username||"").trim().toLowerCase();}
 /* دمج قاعدتي بيانات دون فقدان سجلات أحد الطرفين، ثم إعادة احتساب أرصدة الأصناف من الحركات */
 function mergeDB(rem,loc){
+  rem=rem||{};
   const out=JSON.parse(JSON.stringify(loc||{}));
-  out.users=mergeUnionById(rem.users,loc.users);
-  out.items=mergeUnionById(rem.items,loc.items);
-  out.suppliers=mergeUnionById(rem.suppliers,loc.suppliers);
-  out.movements=dedupIds(mergeLog(rem.movements,loc.movements,movSig));
-  out.payments=dedupIds(mergeLog(rem.payments,loc.payments,paySig));
-  out.commPayments=dedupIds(mergeLog(rem.commPayments,loc.commPayments,commSig));
-  out.activity=dedupIds(mergeLog(rem.activity,loc.activity,actSig));
+  // دمج الأصناف والموردين مع إعادة تعيين المعرّفات المتضاربة بين الأجهزة
+  const im=mergeEntityRemap(rem.items,out.items,itemKey);
+  const sm=mergeEntityRemap(rem.suppliers,out.suppliers,supKey);
+  // أصلح مراجع المعرّفات في حركات المحلي قبل الدمج حتى لا تتيتّم
+  (out.movements||[]).forEach(m=>{if(im.remap[m.itemId]!=null)m.itemId=im.remap[m.itemId];if(sm.remap[m.supplierId]!=null)m.supplierId=sm.remap[m.supplierId];});
+  (out.payments||[]).forEach(p=>{if(sm.remap[p.supplierId]!=null)p.supplierId=sm.remap[p.supplierId];});
+  out.items=im.list;
+  out.suppliers=sm.list;
+  out.users=mergeEntityRemap(rem.users,out.users,userKey).list;
+  out.movements=dedupIds(mergeLog(rem.movements,out.movements,movSig));
+  out.payments=dedupIds(mergeLog(rem.payments,out.payments,paySig));
+  out.commPayments=dedupIds(mergeLog(rem.commPayments,out.commPayments,commSig));
+  out.activity=dedupIds(mergeLog(rem.activity,out.activity,actSig));
   // seq = الأعلى من الطرفين لتفادي تكرار المعرّفات
   out.seq=Object.assign({},loc.seq||{});
   const ks=new Set([...Object.keys(rem.seq||{}),...Object.keys(loc.seq||{})]);
@@ -618,8 +644,13 @@ function cloudAttach(cb){
     cloudRef.on("value",function(s2){
       const val=s2.val();if(!val||!val.data||!Array.isArray(val.data.users))return;
       const rs=JSON.stringify(val.data);
-      if(rs===cloudLastPushed||rs===JSON.stringify(DB))return;
-      cloudApplyRemote(val.data);
+      if(rs===cloudLastPushed)return;            // نحن من كتبها
+      if(rs===JSON.stringify(DB))return;         // مطابقة تماماً
+      // ادمج الوارد مع المحلي حتى لا تُفقد سجلات هذا الجهاز غير المرفوعة بعد
+      const merged=mergeDB(val.data,DB);
+      const ms=JSON.stringify(merged);
+      cloudApplyRemote(merged);
+      if(ms!==rs)cloudPush();                     // المحلي كان يحوي جديداً — ادفع الدمج
     });
     if(cb)cb();
   }).catch(function(err){setCloudStatus("err");if(cb)cb(err||true);});
