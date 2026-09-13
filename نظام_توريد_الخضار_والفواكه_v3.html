@@ -1662,7 +1662,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-13-t';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-13-u';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -8039,7 +8039,14 @@ function showStaleOverlay(){
   o.style.display='flex';
 }
 function hideStaleOverlay(){ var o=document.getElementById('staleOverlay'); if(o) o.style.display='none'; }
-function reloadNow(){ try{ location.reload(true); }catch(e){ try{ location.reload(); }catch(e2){} } }
+/* إعادة تحميل تتجاوز ذاكرة المتصفح (خاصة الجوال): تغيير مَعلمة الرابط يجبر جلب أحدث نسخة */
+function reloadNow(){
+  try{
+    var u=new URL(location.href); u.searchParams.set('_v', Date.now().toString(36));
+    location.replace(u.toString()); return;
+  }catch(e){}
+  try{ location.reload(true); }catch(e2){ try{ location.reload(); }catch(e3){} }
+}
 
 /* ===== حضور الأجهزة: كل جهاز يسجّل (المستخدم/الإصدار/آخر ظهور) ليرى المدير مَن يحتاج تحديثاً ===== */
 var _cloudDevices={}, _cloudDevicesWatched=false;
@@ -8064,10 +8071,21 @@ function cloudWatchDevices(){
   if(_cloudDevicesWatched||!cloudEnabled()||typeof firebase==='undefined') return;
   try{
     firebase.database().ref('workspaces/'+cloudWid()+'/devices').on('value',function(snap){
-      _cloudDevices=snap.val()||{}; renderStaleUsers(); refreshBuildWarn();
+      _cloudDevices=snap.val()||{}; renderStaleUsers(); refreshBuildWarn(); checkStaleFromPresence();
     });
     _cloudDevicesWatched=true;
   }catch(e){}
+}
+/* كشف موثوق لِقِدَم هذا الجهاز عبر بصمات الحضور: إن كان أي جهاز آخر يعمل بإصدار
+   أحدث من هذا الجهاز ⇒ هذا الجهاز قديم فليُحدَّث. أدقّ من حقل الإصدار المشترك الذي
+   يتناوب المستخدمون على كتابته (فقد لا يكتشف الجوالُ قِدَمَه لأنه يكتب إصداره هو). */
+function checkStaleFromPresence(){
+  if(!ME||typeof _cloudDevices!=='object') return;
+  var maxB=String(APP_BUILD);
+  Object.keys(_cloudDevices||{}).forEach(function(id){
+    var d=_cloudDevices[id]; if(d&&d.build&&String(d.build)>maxB) maxB=String(d.build);
+  });
+  if(maxB>String(APP_BUILD)){ staleBuild=true; cloudLatestBuild=maxB; showStaleOverlay(); }
 }
 /* الأجهزة التي تعمل بإصدار أقدم من هذا الجهاز، وظهرت خلال آخر 3 أيام */
 function staleDeviceList(){
