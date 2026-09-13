@@ -217,7 +217,7 @@ tr:hover td{background:#f8fafc}
    ============================================================ */
 const KEY="inv_system_v2";
 /* رقم إصدار التطبيق — يُزاد مع كل تحديث؛ يُقارَن بالنسخة المنشورة لإظهار زر التحديث */
-const APP_VERSION="2026-09-13-02";
+const APP_VERSION="2026-09-13-03";
 let DB,ME;
 /* التحقق من توفّر نسخة أحدث بجلب الملف نفسه (بدون كاش) ومقارنة رقم الإصدار */
 function checkForUpdate(){
@@ -619,6 +619,8 @@ function mergeDB(rem,loc){
   out.items=im.list;
   out.suppliers=sm.list;
   out.users=mergeEntityRemap(rem.users,out.users,userKey).list;
+  // دمج الشركات بالمعرّف حتى لا تُفقد شركة أُنشئت على جهاز آخر
+  out.companies=mergeUnionById(rem.companies,out.companies);
   out.movements=dedupIds(mergeLog(rem.movements,out.movements,movSig));
   out.payments=dedupIds(mergeLog(rem.payments,out.payments,paySig));
   out.commPayments=dedupIds(mergeLog(rem.commPayments,out.commPayments,commSig));
@@ -1080,6 +1082,8 @@ function renderRecent(){
   if(to)list=list.filter(m=>(m.date||"")<=to);
   if(q)list=list.filter(m=>{const it=DB.items.find(i=>i.id===m.itemId)||{};const sup=DB.suppliers.find(x=>x.id===m.supplierId);
     return ((m.model||itemModel(it))+" "+(it.name||"")+" "+(m.customs||"")+" "+(m.invoice||"")+" "+(sup?sup.name:"")+" "+(m.userName||"")).toLowerCase().includes(q);});
+  // ترتيب الأحدث أولاً بالوقت الفعلي (مهم بعد دمج السحابة الذي قد يعيد ترتيب المصفوفة)
+  list=list.slice().sort((a,b)=>((a.at||"")<(b.at||"")?1:(a.at||"")>(b.at||"")?-1:(b.id-a.id)));
   const total=list.length;const shown=lim>0?list.slice(0,lim):list;
   if($("#rcCount"))$("#rcCount").textContent=`المعروض: ${shown.length} من ${total} حركة مطابقة`;
   tb.innerHTML=shown.map(m=>{const it=DB.items.find(i=>i.id===m.itemId)||{};const sup=DB.suppliers.find(x=>x.id===m.supplierId);
