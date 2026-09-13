@@ -217,7 +217,7 @@ tr:hover td{background:#f8fafc}
    ============================================================ */
 const KEY="inv_system_v2";
 /* رقم إصدار التطبيق — يُزاد مع كل تحديث؛ يُقارَن بالنسخة المنشورة لإظهار زر التحديث */
-const APP_VERSION="2026-09-13-05";
+const APP_VERSION="2026-09-13-06";
 let DB,ME;
 /* التحقق من توفّر نسخة أحدث بجلب الملف نفسه (بدون كاش) ومقارنة رقم الإصدار */
 function checkForUpdate(){
@@ -936,9 +936,12 @@ function pMove(){
       <div class="formgrid">
         <div class="cell c3"><label>رقم فاتورة البيع * (إجباري)</label><input id="mInvoice" placeholder="رقم الفاتورة"></div>
         <div class="cell c3"><label>العمولة ﷼ (لكامل الفاتورة)</label><input id="mComm" type="number" inputmode="decimal" step="0.01" placeholder="0.00"></div>
-        <div class="cell c3"><label>العنوان</label><input id="mAddress" placeholder="العنوان"></div>
-        <div class="cell c3"><label>ملاحظات</label><input id="mNoteOut" placeholder="ملاحظة"></div>
+        <div class="cell c3"><label>رسوم تركيب/توصيل ﷼ (لهذا الصنف)</label><input id="mLineFee" type="number" inputmode="decimal" step="0.01" placeholder="0.00"></div>
+        <div class="cell c3"><label>رسوم تركيب/توصيل ﷼ (كامل الفاتورة)</label><input id="mFees" type="number" inputmode="decimal" step="0.01" placeholder="0.00"></div>
+        <div class="cell c6"><label>العنوان</label><input id="mAddress" placeholder="العنوان"></div>
+        <div class="cell c6"><label>ملاحظات</label><input id="mNoteOut" placeholder="ملاحظة"></div>
       </div>
+      <p style="font-size:12px;color:var(--muted);margin:2px 0 8px">💡 رسوم التركيب/التوصيل: اكتبها <b>لكل صنف</b> قبل إضافته للفاتورة، أو <b>مبلغاً واحداً لكامل الفاتورة</b> — أو الاثنين معاً.</p>
       <button class="btn blue" onclick="addToInvoice()">➕ أضِف الصنف الحالي إلى الفاتورة</button>
       <div id="cartBox" style="margin-top:10px"></div>
     </div>
@@ -1017,14 +1020,14 @@ function pickItem(id){
 function viewImg(src){if(!src)return;const m=document.createElement("div");m.className="modal";m.onclick=()=>m.remove();
   m.innerHTML=`<img src="${src}" style="max-width:92vw;max-height:88vh;border-radius:12px">`;document.body.appendChild(m);}
 function clearMove(all){
-  ["mCode","mQty","mPrice","mCustoms"].forEach(i=>$("#"+i)&&($("#"+i).value=""));
-  if(all){["mInvoice","mComm","mAddress","mNoteIn","mNoteOut"].forEach(i=>$("#"+i)&&($("#"+i).value=""));saleCart=[];renderCart();}
+  ["mCode","mQty","mPrice","mCustoms","mLineFee"].forEach(i=>$("#"+i)&&($("#"+i).value=""));
+  if(all){["mInvoice","mComm","mAddress","mNoteIn","mNoteOut","mFees"].forEach(i=>$("#"+i)&&($("#"+i).value=""));saleCart=[];renderCart();}
   picked=null;$("#mBal").style.display="none";$("#mCode").focus();
 }
 function currentLine(){
   if(!picked)return null;
   const qty=parseFloat($("#mQty").value);if(!qty||qty<=0)return null;
-  return {itemId:picked.id,qty,price:parseFloat($("#mPrice").value)||0};
+  return {itemId:picked.id,qty,price:parseFloat($("#mPrice").value)||0,fee:toNum($("#mLineFee")?.value)};
 }
 function addToInvoice(){
   const msg=$("#mMsg");const show=(t,c)=>msg.innerHTML=`<div class="msg ${c}">${t}</div>`;
@@ -1036,11 +1039,14 @@ function renderCart(){
   const box=$("#cartBox");if(!box)return;
   if(mType!=="outbound"||!saleCart.length){box.innerHTML="";return;}
   const total=saleCart.reduce((s,l)=>s+l.qty*l.price,0);
-  box.innerHTML=`<div class="table-wrap"><table><thead><tr><th>الصنف/الموديل</th><th>الكمية</th><th>السعر</th><th>الإجمالي</th><th></th></tr></thead>
+  const feeLines=saleCart.reduce((s,l)=>s+(l.fee||0),0);
+  const anyFee=feeLines>0;
+  box.innerHTML=`<div class="table-wrap"><table><thead><tr><th>الصنف/الموديل</th><th>الكمية</th><th>السعر</th><th>الإجمالي</th>${anyFee?"<th>رسوم تركيب/توصيل</th>":""}<th></th></tr></thead>
     <tbody>${saleCart.map((l,idx)=>{const it=DB.items.find(x=>x.id===l.itemId)||{};
-      return `<tr><td>${esc(itemModel(it))}</td><td>${l.qty}</td><td>${money(l.price)}</td><td>${money(l.qty*l.price)}</td>
+      return `<tr><td>${esc(itemModel(it))}</td><td>${l.qty}</td><td>${money(l.price)}</td><td>${money(l.qty*l.price)}</td>${anyFee?`<td>${l.fee?money(l.fee):"—"}</td>`:""}
         <td><button class="btn red sm" onclick="saleCart.splice(${idx},1);renderCart()">حذف</button></td></tr>`;}).join("")}
-    <tr><td colspan="3"><b>إجمالي الفاتورة</b></td><td colspan="2"><b>${money(total)} ﷼</b></td></tr></tbody></table></div>`;
+    <tr><td colspan="3"><b>إجمالي البيع</b></td><td colspan="${anyFee?3:2}"><b>${money(total)} ﷼</b></td></tr>
+    ${anyFee?`<tr><td colspan="3"><b>رسوم التركيب/التوصيل (للأصناف)</b></td><td colspan="3"><b>${money(feeLines)} ﷼</b></td></tr>`:""}</tbody></table></div>`;
 }
 function saveMove(){
   const msg=$("#mMsg");const show=(t,c)=>msg.innerHTML=`<div class="msg ${c}">${t}</div>`;
@@ -1053,10 +1059,12 @@ function saveMove(){
     const invNo=($("#mInvoice").value||"").trim();
     if(!invNo)return show("أدخل رقم الفاتورة (إجباري للمنصرف).","err");
     const gid="INV"+Date.now();
-    const comm=parseFloat($("#mComm").value)||0,addr=$("#mAddress").value||"",note=$("#mNoteOut").value||"";
+    const comm=toNum($("#mComm").value),addr=$("#mAddress").value||"",note=$("#mNoteOut").value||"";
+    const feesInv=toNum($("#mFees").value);   // رسوم كامل الفاتورة تُضاف للسطر الأول
     lines.forEach((l,idx)=>{const it=DB.items.find(x=>x.id===l.itemId);it.qty-=l.qty;
+      const lineFee=(l.fee||0)+(idx===0?feesInv:0);
       DB.movements.unshift({id:nid("movement"),uid:uidGen(),companyId:CO,itemId:it.id,type:"outbound",qty:l.qty,price:l.price||0,
-        comm:idx===0?comm:0,model:itemModel(it),invoice:invNo,invGid:gid,address:addr,supplierId:null,customs:"",
+        comm:idx===0?comm:0,fee:lineFee,model:itemModel(it),invoice:invNo,invGid:gid,address:addr,supplierId:null,customs:"",
         date,note,balAfter:it.qty,userId:ME.id,userName:ME.name,at:new Date().toISOString()});});
     logAct("منصرف","فاتورة "+invNo+" — "+lines.length+" صنف");save();
     saleCart=[];show(`✔ تم حفظ فاتورة البيع ${invNo} (${lines.length} صنف).`,"ok");
@@ -1185,6 +1193,7 @@ function editMovement(id){
       <div class="field"><label>${m.type==="inbound"?"رقم الفسح":"رقم الفاتورة"}</label><input id="em_ref" value="${esc(m.type==="inbound"?(m.customs||""):(m.invoice||""))}"></div></div>
     ${m.type==="inbound"?`<div class="field" style="margin-bottom:10px"><label>المورد *</label>
       <select id="em_sup"><option value="">— اختر المورد —</option>${csups().map(s=>`<option value="${s.id}" ${s.id===m.supplierId?"selected":""}>${esc(s.name)}</option>`).join("")}</select></div>`:""}
+    ${m.type==="outbound"?`<div class="field" style="margin-bottom:10px"><label>رسوم التركيب/التوصيل ﷼</label><input id="em_fee" type="number" inputmode="decimal" step="0.01" value="${m.fee||0}"></div>`:""}
     <div class="field" style="margin-bottom:10px"><label>ملاحظة</label><input id="em_note" value="${esc(m.note||"")}"></div>
     <div id="em_msg" style="color:var(--red);font-size:13px;margin-bottom:8px"></div>
     <div style="display:flex;gap:8px"><button class="btn green" onclick="saveMovement(${id})">حفظ</button>
@@ -1222,6 +1231,7 @@ function saveMovement(id){
   }
   newIt.qty+=isIn(m.type)?nq:-nq;
   m.itemId=newIt.id;m.model=itemModel(newIt);m.qty=nq;m.price=parseFloat($("#em_price").value)||0;
+  if(m.type==="outbound"&&$("#em_fee"))m.fee=toNum($("#em_fee").value);
   m.date=$("#em_date").value||m.date;m.note=$("#em_note").value||"";
   if(m.type==="inbound")m.supplierId=+($("#em_sup").value)||null;
   const ref=$("#em_ref").value||"";if(m.type==="inbound")m.customs=ref;else m.invoice=ref;
@@ -1337,6 +1347,53 @@ function commEarnings(){
     out.push({date:m.date,voucher:m.invoice||"",amount:m.comm||0,by:m.userName||"",kind:"earn"});}});
   return out;
 }
+/* ===== كشف رسوم التركيب والتوصيل ===== */
+function feeEntries(){
+  const g={};
+  cmoves().forEach(m=>{if(m.type==="outbound"&&(m.fee||0)>0){
+    const k=m.invGid||("m"+m.id);
+    if(!g[k])g[k]={date:m.date,invoice:m.invoice||"",by:m.userName||"",address:m.address||"",amount:0,items:0};
+    g[k].amount+=m.fee||0;g[k].items++;}});
+  return Object.values(g);
+}
+function pFees(){
+  $("#view").innerHTML=`<div class="pagehead"><h1>🚚 كشف رسوم التركيب والتوصيل</h1>
+    <button class="btn ghost no-print" onclick="window.print()">🖨️ طباعة</button></div>
+  <div class="card no-print"><div class="formgrid">
+    <div class="cell c4"><label>من تاريخ</label><input id="feFrom" type="date" onchange="renderFees()"></div>
+    <div class="cell c4"><label>إلى تاريخ</label><input id="feTo" type="date" onchange="renderFees()"></div>
+    <div class="cell c4"><label>بحث (رقم فاتورة/عنوان/موظف)</label><input id="feSearch" placeholder="🔍 بحث..." oninput="renderFees()"></div>
+  </div></div>
+  <div id="feOut" style="margin-top:14px"></div>`;
+  renderFees();
+}
+function renderFees(){
+  const from=$("#feFrom")?.value||"",to=$("#feTo")?.value||"",q=($("#feSearch")?.value||"").toLowerCase().trim();
+  let rows=feeEntries().filter(e=>(!from||(e.date||"")>=from)&&(!to||(e.date||"")<=to));
+  if(q)rows=rows.filter(e=>((e.invoice||"")+" "+(e.address||"")+" "+(e.by||"")).toLowerCase().includes(q));
+  rows.sort((a,b)=>((a.date||"")<(b.date||"")?1:(a.date||"")>(b.date||"")?-1:0));
+  const tot=rows.reduce((s,e)=>s+e.amount,0);
+  window.__feeCSV={head:["التاريخ","رقم الفاتورة","العنوان","الموظف","عدد الأصناف","رسوم التركيب/التوصيل"],
+    rows:rows.map(e=>[e.date||"",e.invoice||"",e.address||"",e.by||"",e.items,e.amount])};
+  $("#feOut").innerHTML=`
+    <div class="grid-3" style="margin-bottom:14px">
+      <div class="stat"><div class="lbl">عدد الفواتير</div><div class="val">${rows.length}</div></div>
+      <div class="stat"><div class="lbl">إجمالي الرسوم ﷼</div><div class="val sm" style="color:var(--green)">${money(tot)}</div></div>
+      <div class="stat"><div class="lbl">المدة</div><div class="val sm">${esc(from||"البداية")} → ${esc(to||"الآن")}</div></div>
+    </div>
+    <div class="card"><div class="card-title" style="display:flex;justify-content:space-between;align-items:center">
+      <span>سجل رسوم التركيب والتوصيل</span>
+      <button class="btn ghost sm no-print" onclick="exportCSV('كشف-رسوم-التركيب-والتوصيل.csv',window.__feeCSV.head,window.__feeCSV.rows)">⬇ Excel</button></div>
+    <div class="table-wrap"><table><thead><tr><th>التاريخ</th><th>رقم الفاتورة</th><th>العنوان</th><th>الموظف</th><th>عدد الأصناف</th><th>الرسوم ﷼</th><th class="no-print"></th></tr></thead>
+      <tbody>${rows.map(e=>`<tr><td>${esc(e.date||"")}</td><td>${esc(e.invoice||"—")}</td><td>${esc(e.address||"—")}</td><td>${esc(e.by||"")}</td><td>${e.items}</td>
+        <td style="font-weight:700;color:var(--green)">${money(e.amount)}</td>
+        <td class="no-print">${e.invoice?`<button class="btn blue sm" onclick="lookupInvoiceNo('${esc(e.invoice)}')">عرض</button>`:""}</td></tr>`).join("")
+        ||`<tr><td colspan="7" class="empty">لا رسوم في هذه المدة.</td></tr>`}
+      ${rows.length?`<tr style="background:#f1f5f9;font-weight:800"><td colspan="5">الإجمالي</td><td style="color:var(--green)">${money(tot)}</td><td class="no-print"></td></tr>`:""}</tbody></table></div></div>`;
+}
+function lookupInvoiceNo(no){/* فتح تفاصيل فاتورة برقمها من الكشف */ window.__lastInvNo=no;const q=no;
+  const lines=cmoves().filter(m=>m.type==="outbound"&&String(m.invoice).trim()===String(q).trim());
+  if(!lines.length){toast("لا توجد فاتورة");return;}printInvoice(lines[0].invGid,true);}
 function pCommissions(){
   $("#view").innerHTML=`<div class="pagehead"><h1>🧾 كشف حساب العمولات</h1>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
@@ -1438,14 +1495,17 @@ function printInvoice(gid,withCancel){
   const lines=DB.movements.filter(m=>m.invGid===gid);
   if(!lines.length){toast("لا توجد بيانات للفاتورة");return;}
   const f=lines[0];const total=lines.reduce((s,m)=>s+m.qty*m.price,0);const comm=lines.reduce((s,m)=>s+(m.comm||0),0);
+  const fees=lines.reduce((s,m)=>s+(m.fee||0),0);
   const rows=lines.map(m=>{const it=DB.items.find(x=>x.id===m.itemId)||{};
-    return `<tr><td>${esc(m.model||itemModel(it))}</td><td>${m.qty}</td><td>${money(m.price)}</td><td>${money(m.qty*m.price)}</td></tr>`;}).join("");
+    return `<tr><td>${esc(m.model||itemModel(it))}</td><td>${m.qty}</td><td>${money(m.price)}</td><td>${money(m.qty*m.price)}</td>${fees?`<td>${m.fee?money(m.fee):"—"}</td>`:""}</tr>`;}).join("");
   const extra=withCancel?`<button class="btn red" onclick="cancelInvoice('${gid}')">🗑️ إلغاء الفاتورة (إرجاع الكميات)</button>`:"";
   showPrint(`${brandHead()}<h2>🧾 فاتورة بيع رقم ${esc(f.invoice)}</h2>
     <div>التاريخ: <b>${esc(f.date)}</b> · الموظف: <b>${esc(f.userName)}</b>${f.address?` · العنوان: <b>${esc(f.address)}</b>`:""}</div>
-    <table><tr><th>الموديل / الصنف</th><th>الكمية</th><th>السعر</th><th>الإجمالي</th></tr>${rows}
-    <tr><td colspan="3"><b>إجمالي الفاتورة</b></td><td><b>${money(total)} ﷼</b></td></tr>
-    ${comm?`<tr><td colspan="3"><b>العمولة</b></td><td><b>${money(comm)} ﷼</b></td></tr>`:""}</table>
+    <table><tr><th>الموديل / الصنف</th><th>الكمية</th><th>السعر</th><th>الإجمالي</th>${fees?"<th>رسوم تركيب/توصيل</th>":""}</tr>${rows}
+    <tr><td colspan="3"><b>إجمالي البيع</b></td><td colspan="${fees?2:1}"><b>${money(total)} ﷼</b></td></tr>
+    ${fees?`<tr><td colspan="3"><b>رسوم التركيب والتوصيل</b></td><td colspan="2"><b>${money(fees)} ﷼</b></td></tr>
+    <tr style="background:#f1f5f9;font-weight:800"><td colspan="3">الإجمالي شامل الرسوم</td><td colspan="2">${money(total+fees)} ﷼</td></tr>`:""}
+    ${comm?`<tr><td colspan="3"><b>العمولة</b></td><td colspan="${fees?2:1}"><b>${money(comm)} ﷼</b></td></tr>`:""}</table>
     ${f.note?`<div style="margin-top:8px">ملاحظات: ${esc(f.note)}</div>`:""}`,extra);
 }
 function cancelInvoice(gid){
@@ -1504,6 +1564,7 @@ function pReport(){
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       <button class="btn blue no-print" onclick="lookupInvoice()">🔎 بحث برقم فاتورة</button>
       <button class="btn amber no-print" onclick="pCommissions()">🧾 كشف العمولات</button>
+      <button class="btn amber no-print" onclick="pFees()">🚚 كشف رسوم التركيب/التوصيل</button>
       <button class="btn ghost no-print" onclick="window.print()">🖨️ طباعة</button></div></div>
   <div class="card no-print">
     <div class="formgrid">
