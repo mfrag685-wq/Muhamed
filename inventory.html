@@ -112,6 +112,12 @@ tr:hover td{background:#f8fafc}
 .balbox{background:#ecfeff;border:1px solid #a5f3fc;border-radius:12px;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
 .balbox .b{font-size:26px;font-weight:800;color:var(--sky)}
 .details-toggle{background:none;border:0;color:var(--blue);font-weight:600;font-size:13px;padding:4px 0;cursor:pointer}
+/* أزرار اختيار رسوم التركيب/التوصيل — واضحة وسهلة اللمس على الجوال */
+.feeradios{display:flex;flex-direction:column;gap:8px}
+.feeradios label{display:flex;align-items:center;gap:10px;border:2px solid var(--line);border-radius:10px;padding:11px 13px;font-weight:700;font-size:14px;cursor:pointer;background:#fff;transition:all .12s;margin:0}
+.feeradios label:has(input:checked){border-color:var(--brand,#0d9488);background:#f0fdfa;color:#0f3b34;box-shadow:0 2px 8px rgba(13,148,136,.15)}
+.feeradios input{width:20px;height:20px;accent-color:#0d9488;flex:0 0 auto}
+.feeradios small{display:block;font-weight:500;font-size:11px;color:var(--muted)}
 @media print{.sidebar,.topbar,.backdrop,.pagehead .btn,.navbtn,.no-print{display:none!important}.main{margin:0!important}}
 .cloud-status{font-size:12px;padding:4px 10px;border-radius:20px;font-weight:700;display:inline-block;text-align:center}
 .cloud-status.off{background:#e2e8f0;color:#475569}.cloud-status.connecting{background:#fef9c3;color:#854d0e}
@@ -217,7 +223,7 @@ tr:hover td{background:#f8fafc}
    ============================================================ */
 const KEY="inv_system_v2";
 /* رقم إصدار التطبيق — يُزاد مع كل تحديث؛ يُقارَن بالنسخة المنشورة لإظهار زر التحديث */
-const APP_VERSION="2026-09-13-07";
+const APP_VERSION="2026-09-13-08";
 let DB,ME;
 /* التحقق من توفّر نسخة أحدث بجلب الملف نفسه (بدون كاش) ومقارنة رقم الإصدار */
 function checkForUpdate(){
@@ -936,16 +942,17 @@ function pMove(){
       <div class="formgrid">
         <div class="cell c3"><label>رقم فاتورة البيع * (إجباري)</label><input id="mInvoice" placeholder="رقم الفاتورة"></div>
         <div class="cell c3"><label>العمولة ﷼ (لكامل الفاتورة)</label><input id="mComm" type="number" inputmode="decimal" step="0.01" placeholder="0.00"></div>
-        <div class="cell c3"><label>رسوم تركيب وتوصيل 🚚</label>
-          <select id="mFeeType" onchange="feeTypeChanged()">
-            <option value="">بدون رسوم</option>
-            <option value="line">لكل صنف / غرفة</option>
-            <option value="inv">مبلغ واحد لكامل الفاتورة</option>
-          </select></div>
-        <div class="cell c3" id="feeInputCell" hidden>
-          <label id="feeInputLabel">قيمة الرسوم ﷼</label>
-          <input id="mFeeVal" type="number" inputmode="decimal" step="0.01" placeholder="0.00">
-          <div id="feeHint" style="font-size:11px;color:var(--muted);margin-top:3px"></div></div>
+        <div class="cell c6"><label>🚚 رسوم التركيب والتوصيل</label>
+          <div class="feeradios">
+            <label><input type="radio" name="mFeeType" value="" checked onchange="feeTypeChanged()"><span>بدون رسوم <small>لا تُضاف أي رسوم</small></span></label>
+            <label><input type="radio" name="mFeeType" value="inv" onchange="feeTypeChanged()"><span>مبلغ واحد لكامل الفاتورة <small>الأكثر استخداماً</small></span></label>
+            <label><input type="radio" name="mFeeType" value="line" onchange="feeTypeChanged()"><span>رسوم لكل صنف / غرفة <small>تُدخلها مع كل صنف</small></span></label>
+          </div>
+          <div id="feeInputCell" hidden style="margin-top:8px">
+            <label id="feeInputLabel">قيمة الرسوم ﷼</label>
+            <input id="mFeeVal" type="number" inputmode="decimal" step="0.01" placeholder="0.00">
+            <div id="feeHint" style="font-size:11px;color:var(--muted);margin-top:3px"></div></div>
+        </div>
         <div class="cell c3"><label>العنوان</label><input id="mAddress" placeholder="العنوان"></div>
         <div class="cell c3"><label>ملاحظات</label><input id="mNoteOut" placeholder="ملاحظة"></div>
       </div>
@@ -1029,12 +1036,14 @@ function viewImg(src){if(!src)return;const m=document.createElement("div");m.cla
 function clearMove(all){
   ["mCode","mQty","mPrice","mCustoms"].forEach(i=>$("#"+i)&&($("#"+i).value=""));
   if(all){["mInvoice","mComm","mAddress","mNoteIn","mNoteOut","mFeeVal"].forEach(i=>$("#"+i)&&($("#"+i).value=""));
-    if($("#mFeeType")){$("#mFeeType").value="";feeTypeChanged();}saleCart=[];renderCart();}
+    const r0=document.querySelector('input[name="mFeeType"][value=""]');if(r0){r0.checked=true;feeTypeChanged();}saleCart=[];renderCart();}
   picked=null;$("#mBal").style.display="none";$("#mCode").focus();
 }
+/* قراءة نوع الرسوم المختار من أزرار الاختيار */
+function feeType(){const r=document.querySelector('input[name="mFeeType"]:checked');return r?r.value:"";}
 /* إظهار حقل الرسوم المناسب فقط حسب النوع المختار */
 function feeTypeChanged(){
-  const t=$("#mFeeType")?.value||"",cell=$("#feeInputCell"),lbl=$("#feeInputLabel"),hint=$("#feeHint"),inp=$("#mFeeVal");
+  const t=feeType(),cell=$("#feeInputCell"),lbl=$("#feeInputLabel"),hint=$("#feeHint"),inp=$("#mFeeVal");
   if(!cell)return;
   if(!t){cell.hidden=true;if(inp)inp.value="";return;}
   cell.hidden=false;
@@ -1045,7 +1054,7 @@ function feeTypeChanged(){
 function currentLine(){
   if(!picked)return null;
   const qty=parseFloat($("#mQty").value);if(!qty||qty<=0)return null;
-  const perItemFee=($("#mFeeType")?.value==="line")?toNum($("#mFeeVal")?.value):0;
+  const perItemFee=(feeType()==="line")?toNum($("#mFeeVal")?.value):0;
   return {itemId:picked.id,qty,price:parseFloat($("#mPrice").value)||0,fee:perItemFee};
 }
 function addToInvoice(){
@@ -1053,7 +1062,7 @@ function addToInvoice(){
   const l=currentLine();if(!l)return show("اختر صنفاً وأدخل كمية أولاً.","err");
   saleCart.push(l);show("","ok");msg.innerHTML="";
   clearMove(false);
-  if($("#mFeeType")?.value==="line"&&$("#mFeeVal"))$("#mFeeVal").value=""; // رسوم كل صنف تُفرَّغ للصنف التالي
+  if(feeType()==="line"&&$("#mFeeVal"))$("#mFeeVal").value=""; // رسوم كل صنف تُفرَّغ للصنف التالي
   renderCart();
 }
 function renderCart(){
@@ -1081,7 +1090,7 @@ function saveMove(){
     if(!invNo)return show("أدخل رقم الفاتورة (إجباري للمنصرف).","err");
     const gid="INV"+Date.now();
     const comm=toNum($("#mComm").value),addr=$("#mAddress").value||"",note=$("#mNoteOut").value||"";
-    const feesInv=($("#mFeeType")?.value==="inv")?toNum($("#mFeeVal").value):0;   // رسوم كامل الفاتورة تُضاف للسطر الأول
+    const feesInv=(feeType()==="inv")?toNum($("#mFeeVal").value):0;   // رسوم كامل الفاتورة تُضاف للسطر الأول
     lines.forEach((l,idx)=>{const it=DB.items.find(x=>x.id===l.itemId);it.qty-=l.qty;
       const lineFee=(l.fee||0)+(idx===0?feesInv:0);
       DB.movements.unshift({id:nid("movement"),uid:uidGen(),companyId:CO,itemId:it.id,type:"outbound",qty:l.qty,price:l.price||0,
