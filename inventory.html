@@ -203,6 +203,7 @@ tr:hover td{background:#f8fafc}
     <button class="navbtn" data-page="report">📅 تقرير فترة</button>
     <button class="navbtn" data-page="ledger">📜 سجل حركة الصنف</button>
     <button class="navbtn" data-page="items">🏷️ الأصناف</button>
+    <button class="navbtn" data-page="stock">🧮 جرد المخزون</button>
     <button class="navbtn" data-page="import">🚚 الموردون</button>
     <button class="navbtn" data-page="employees">👥 الموظفون</button>
     <button class="navbtn" data-page="settings">⚙️ الإعدادات</button>
@@ -233,7 +234,7 @@ tr:hover td{background:#f8fafc}
    ============================================================ */
 const KEY="inv_system_v2";
 /* رقم إصدار التطبيق — يُزاد مع كل تحديث؛ يُقارَن بالنسخة المنشورة لإظهار زر التحديث */
-const APP_VERSION="2026-09-13-12";
+const APP_VERSION="2026-09-14-01";
 let DB,ME;
 /* التحقق من توفّر نسخة أحدث بجلب الملف نفسه (بدون كاش) ومقارنة رقم الإصدار */
 function checkForUpdate(){
@@ -288,7 +289,9 @@ function preset(role){
   else if(role==="employee"){["move","dashboard","report","ledger","canAdd"].forEach(k=>p[k]=true);}
   return p;
 }
-function can(k){if(!ME||!ME.perms)return false;const o=ME.coPerms&&ME.coPerms[CO];if(o&&o[k]!==undefined)return !!o[k];return !!ME.perms[k];}
+function can(k){if(!ME||!ME.perms)return false;
+  if(k==="stock")return can("dashboard")||can("items"); // الجرد متاح لمن يرى الأرصدة أو الأصناف
+  const o=ME.coPerms&&ME.coPerms[CO];if(o&&o[k]!==undefined)return !!o[k];return !!ME.perms[k];}
 function allowedCompanies(){if(!ME)return DB.companies;const a=ME.companies;return (a&&a.length)?DB.companies.filter(c=>a.includes(c.id)):DB.companies;}
 function mayAccessCompany(id){if(!ME)return true;const a=ME.companies;return !a||!a.length||a.includes(id);}
 function guard(k,msg){if(can(k))return true;toast(msg||"لا تملك صلاحية لهذا الإجراء");return false;}
@@ -895,7 +898,7 @@ function go(page,isBack){
   if(PAGE_HISTORY.length>50)PAGE_HISTORY.shift();
   CURRENT_PAGE=page;
   document.querySelectorAll(".navbtn").forEach(b=>b.classList.toggle("active",b.dataset.page===page));
-  ({move:pMove,dashboard:pDashboard,report:pReport,ledger:pLedger,items:pItems,import:pImport,employees:pEmployees,settings:pSettings}[page])();
+  ({move:pMove,dashboard:pDashboard,report:pReport,ledger:pLedger,items:pItems,stock:pStock,import:pImport,employees:pEmployees,settings:pSettings}[page])();
   const bb=$("#backBtn");if(bb)bb.style.display=PAGE_HISTORY.length?"inline-block":"none";
 }
 function goBack(){
@@ -1605,6 +1608,76 @@ function renderBalances(){
   }).join("")||`<tr><td colspan="9" class="empty">لا أصناف.</td></tr>`;
 }
 
+/* ============ جرد المخزون ============ */
+let stockCounts={};
+function pStock(){
+  const cats=[...new Set(citems().map(i=>i.category).filter(Boolean))];
+  $("#view").innerHTML=`<div class="pagehead"><h1>🧮 جرد المخزون</h1>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      ${(ME.role==="admin"||ME.role==="supervisor")?`<button class="btn green no-print" onclick="applyStock()">✅ تطبيق الفروقات كتسويات</button>`:""}
+      <button class="btn ghost no-print" onclick="clearStockCounts()">🧹 تفريغ الجرد</button>
+      <button class="btn ghost no-print" onclick="window.print()">🖨️ طباعة</button></div></div>
+  <div class="card no-print"><div class="row">
+    <div class="field"><input id="stSearch" placeholder="🔍 بحث بالموديل أو الوصف أو الفئة..." oninput="renderStock()"></div>
+    <div class="field" style="max-width:200px"><select id="stCat" onchange="renderStock()"><option value="">كل الفئات</option>${cats.map(c=>`<option>${esc(c)}</option>`).join("")}</select></div>
+  </div>
+  <p style="font-size:12px;color:var(--muted);margin-top:8px">اكتب <b>العدد الفعلي</b> بجانب كل موديل ليُحسب الفرق تلقائياً. اترك الحقل فارغاً للأصناف التي لم تُجرد بعد.</p></div>
+  <div id="stSummary"></div>
+  <div class="card"><div class="table-wrap"><table><thead><tr>
+    <th>الموديل</th><th>الوصف</th><th>الفئة</th><th>الرصيد الدفتري</th><th class="no-print"></th><th>العدد الفعلي</th><th>الفرق</th></tr></thead>
+    <tbody id="stTbl"></tbody></table></div></div>`;
+  renderStock();
+}
+function stockFiltered(){
+  const q=($("#stSearch")?.value||"").toLowerCase(),cat=$("#stCat")?.value||"";
+  return citems().filter(i=>((i.code+i.name+(i.model||"")+(i.category||"")).toLowerCase().includes(q))&&(!cat||i.category===cat));
+}
+function renderStock(){
+  const rows=stockFiltered();
+  $("#stTbl").innerHTML=rows.map(i=>{
+    const v=stockCounts[i.id];const has=(v!==undefined&&v!=="");
+    const diff=has?(toNum(v)-i.qty):"";
+    const dc=has?(diff>0?"var(--green)":diff<0?"var(--red)":"var(--muted)"):"";
+    return `<tr><td style="font-family:monospace;font-weight:700">${esc(itemModel(i))}</td>
+      <td>${esc(i.name&&i.name!==itemModel(i)?i.name:"")}</td><td>${esc(i.category||"")}</td>
+      <td style="font-weight:800;font-size:15px">${i.qty}</td>
+      <td class="no-print"></td>
+      <td><input type="number" inputmode="numeric" style="width:90px;padding:8px" value="${has?esc(String(v)):""}" placeholder="—" oninput="stockSet(${i.id},this.value)"></td>
+      <td id="stDiff${i.id}" style="font-weight:800;color:${dc}">${has?(diff>0?"+":"")+diff:"—"}</td></tr>`;}).join("")
+    ||`<tr><td colspan="7" class="empty">لا أصناف.</td></tr>`;
+  stockSummary();
+}
+function stockSet(id,val){
+  if(val===""||val===null)delete stockCounts[id];else stockCounts[id]=val;
+  const it=DB.items.find(x=>x.id===id);const cell=$("#stDiff"+id);
+  if(it&&cell){const has=(val!==""&&val!==null&&val!==undefined);const d=has?(toNum(val)-it.qty):null;
+    cell.textContent=has?((d>0?"+":"")+d):"—";
+    cell.style.color=has?(d>0?"var(--green)":d<0?"var(--red)":"var(--muted)"):"";}
+  stockSummary();
+}
+function stockSummary(){
+  const box=$("#stSummary");if(!box)return;
+  let counted=0,book=0,act=0,diffPos=0,diffNeg=0,mismatch=0;
+  citems().forEach(i=>{const v=stockCounts[i.id];if(v===undefined||v==="")return;
+    counted++;book+=i.qty;const a=toNum(v);act+=a;const d=a-i.qty;if(d>0)diffPos+=d;else if(d<0)diffNeg+=d;if(d!==0)mismatch++;});
+  box.innerHTML=`<div class="grid-4" style="margin-bottom:14px">
+    <div class="stat"><div class="lbl">أصناف تم جردها</div><div class="val">${counted}</div></div>
+    <div class="stat"><div class="lbl">إجمالي الفعلي</div><div class="val">${act}</div></div>
+    <div class="stat"><div class="lbl">زيادة (+)</div><div class="val sm" style="color:var(--green)">${diffPos}</div></div>
+    <div class="stat"><div class="lbl">عجز (−)</div><div class="val sm" style="color:var(--red)">${diffNeg}</div></div>
+  </div>${mismatch?`<p style="font-size:13px;color:#854d0e;background:#fef9c3;border-radius:8px;padding:8px 12px;margin-bottom:12px">⚠️ يوجد <b>${mismatch}</b> صنف فيه فرق بين الدفتري والفعلي.</p>`:""}`;
+}
+function clearStockCounts(){if(!confirm("تفريغ كل الأعداد المُدخلة في الجرد؟"))return;stockCounts={};renderStock();}
+function applyStock(){
+  if(ME.role!=="admin"&&ME.role!=="supervisor"){toast("للمدير/المشرف فقط");return;}
+  const changes=[];citems().forEach(i=>{const v=stockCounts[i.id];if(v===undefined||v==="")return;const a=toNum(v);if(a!==i.qty)changes.push({it:i,act:a,diff:a-i.qty});});
+  if(!changes.length)return toast("لا فروقات لتطبيقها");
+  if(!confirm(`تطبيق الجرد سيسجّل ${changes.length} حركة تسوية لتصحيح الأرصدة لتطابق الفعلي. متابعة؟`))return;
+  changes.forEach(c=>{const diff=c.diff;c.it.qty=c.act;
+    DB.movements.unshift({id:nid("movement"),uid:uidGen(),companyId:CO,itemId:c.it.id,type:diff>0?"inbound":"outbound",qty:Math.abs(diff),price:0,comm:0,fee:0,model:itemModel(c.it),invoice:"",invGid:"",address:"",supplierId:null,customs:"",date:today(),note:"تسوية جرد",balAfter:c.it.qty,userId:ME.id,userName:ME.name,at:new Date().toISOString()});});
+  logAct("تطبيق جرد",`${changes.length} تسوية`);save();
+  toast(`تم تطبيق ${changes.length} تسوية جرد`);stockCounts={};renderStock();
+}
 /* ============ 3) تقرير فترة — وارد/منصرف لكل صنف خلال مدة ============ */
 function pReport(){
   $("#view").innerHTML=`<div class="pagehead"><h1>📅 تقرير الوارد والمنصرف خلال فترة</h1>
