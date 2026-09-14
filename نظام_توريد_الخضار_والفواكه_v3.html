@@ -525,7 +525,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
         <option value="percents">توزيع بنسب مئوية على الفروع</option></select></div>
       <div class="field" id="pl_whWrap"><label>المستودع المستلم</label><select id="pl_wh" onchange="onPurWh()"></select></div>
       <div class="field"><label>الصنف</label>
-        <div class="inline-add"><select id="pl_item" onchange="onPickItem('pl')"></select><button class="btn btn-sm" onclick="quickAddItem('pl')" title="صنف جديد">+</button></div></div>
+        <div class="inline-add"><select id="pl_item" onchange="onPickItem('pl')" onkeydown="itemKey(event,'pl')"></select><button class="btn btn-sm" onclick="quickAddItem('pl')" title="صنف جديد">+</button></div></div>
       <div class="field"><label id="lbl_pl_units">عدد الوحدات *</label><input type="number" id="pl_units" step="0.01" min="0" inputmode="decimal" oninput="calcLine('pl')" onkeydown="lineNav(event,'pl_price')"></div>
       <div class="field"><label>السعر *</label><input type="number" id="pl_price" step="0.001" min="0" inputmode="decimal" oninput="calcLine('pl')" onkeydown="lineKey(event,'p')"></div>
       <div class="field" style="display:flex;align-items:flex-end"><button class="btn-alt" style="width:100%" onclick="addLine('p')">➕ إضافة للفاتورة</button></div>
@@ -618,7 +618,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
       <button class="btn btn-sm no-print" style="font-weight:400;font-size:12.5px;margin-right:8px" onclick="repeatLastDoc('s')" title="يملأ النموذج بآخر فاتورة بيع لتعديل الكميات والأسعار">↻ تكرار آخر فاتورة</button></div>
     <div class="grid">
       <div class="field"><label>المستودع المصدر <span class="hint">اختره أولاً</span></label><select id="sl_wh" onchange="onSaleWh()"></select></div>
-      <div class="field"><label>الصنف <span class="hint">أصناف المستودع المختار</span></label><select id="sl_item" onchange="onPickItem('sl')"></select></div>
+      <div class="field"><label>الصنف <span class="hint">أصناف المستودع المختار</span></label><select id="sl_item" onchange="onPickItem('sl')" onkeydown="itemKey(event,'sl')"></select></div>
       <div class="field"><label id="lbl_sl_units">عدد الوحدات *</label><input type="number" id="sl_units" step="0.01" min="0" inputmode="decimal" oninput="calcLine('sl')" onkeydown="lineNav(event,'sl_price')"></div>
       <div class="field"><label>سعر البيع *</label><input type="number" id="sl_price" step="0.001" min="0" inputmode="decimal" oninput="calcLine('sl')" onkeydown="lineKey(event,'s')"></div>
       <div class="field" style="display:flex;align-items:flex-end"><button class="btn-alt" style="width:100%" onclick="addLine('s')">➕ إضافة للفاتورة</button></div>
@@ -1685,7 +1685,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-14-y';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-14-z';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -2591,12 +2591,19 @@ function onPickItem(p){
   if(p==='pl'||p==='sl') applyItemTracking(p,it);
   if(p==='sl') showAvail();
   calcLine(p);
-  focusField(p+'_units');   /* تركيز تلقائي على الكمية بعد اختيار الصنف — إدخال سريع */
+  /* لا نُركّز الكمية هنا: تغيير قائمة الأصناف بالأسهم يُطلق change فيَخطف التركيز.
+     الانتقال إلى الكمية يتم بمفتاح Enter عبر itemKey (انظر أدناه). */
 }
 /* تركيز حقل مع تحديد محتواه (إن أمكن) لتسريع الإدخال */
 function focusField(id){ var e=document.getElementById(id); if(e&&e.focus){ try{ e.focus(); if(e.select) e.select(); }catch(_){}} }
 /* الانتقال بالمفتاح Enter إلى الحقل التالي في الإدخال السريع (الصنف→الكمية→السعر→إضافة) */
-function lineNav(ev,nextId){ if(ev&&(ev.key==='Enter'||ev.keyCode===13)){ ev.preventDefault(); focusField(nextId); } }
+function lineNav(ev,nextId){ if(ev&&(ev.key==='Enter'||ev.keyCode===13)){ ev.preventDefault(); ev.stopPropagation(); focusField(nextId); } }
+/* Enter على قائمة الصنف: إن كانت هناك قيمة مختارة انتقل إلى الكمية (لا يحفظ الفاتورة) */
+function itemKey(ev,p){
+  if(!ev||!(ev.key==='Enter'||ev.keyCode===13)) return;
+  ev.preventDefault(); ev.stopPropagation();
+  if(+val(p+'_item')) focusField(p+'_units'); else focusField(p+'_item');
+}
 /* أوزان الصناديق التي استُخدمت فعلاً لهذا الصنف (من الحركات) + أوزان وحدته — لاقتراحها في الإدخال */
 function itemBoxWeights(itemId){
   var set={}, add=function(w){ w=Math.round((+w||0)*1000)/1000; if(w>0) set[w]=1; };
