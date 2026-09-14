@@ -138,6 +138,11 @@ nav.tabs{display:flex;gap:3px;flex-wrap:wrap;margin:16px 0 14px;background:var(-
 .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .field{display:flex;flex-direction:column;gap:5px}
 label{font-size:12.5px;font-weight:600;color:var(--ink-2)}
+.vatmodes{display:flex;gap:6px;flex-wrap:wrap}
+.vatopt{display:inline-flex;align-items:center;gap:5px;padding:6px 10px;border:1.5px solid var(--line,#d5ddd5);border-radius:9px;cursor:pointer;font-size:13px;font-weight:600;color:var(--ink-2);background:var(--surface,#fff);transition:.12s}
+.vatopt:hover{border-color:var(--leaf,#5a8f4f)}
+.vatopt input{accent-color:var(--leaf-dark,#2f6b2a);width:16px;height:16px;margin:0}
+.vatopt:has(input:checked){border-color:var(--leaf-dark,#2f6b2a);background:var(--leaf-soft,#eef5ec);color:var(--leaf-dark,#2f6b2a)}
 input,select,textarea{padding:9px 11px;border:1px solid var(--line);border-radius:8px;font-size:14px;
   font-family:inherit;background:#fff;color:var(--ink);width:100%}
 /* حقول التاريخ والأرقام تُعرض باتجاه لاتيني حتى لا تنعكس أجزاء التاريخ (سنة/شهر/يوم) */
@@ -544,8 +549,13 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
         <th>السعر</th><th>القيمة</th><th class="name">المستودع</th><th>إجراء</th></tr></thead>
       <tbody id="tbPLines"></tbody></table></div>
     <div class="doc-total">
-      <div class="field" style="min-width:170px"><label>طريقة الضريبة</label><select id="p_vatmode" onchange="renderDraft('p')">
-        <option value="add">تُضاف فوق السعر</option><option value="incl">السعر شامل الضريبة</option><option value="none">بدون ضريبة</option></select></div>
+      <div class="field" style="min-width:230px"><label>طريقة الضريبة</label>
+        <input type="hidden" id="p_vatmode" value="add">
+        <div class="vatmodes">
+          <label class="vatopt"><input type="radio" name="p_vatmode_r" value="add" checked onclick="setVatMode('p','add')"><span>تُضاف فوق السعر</span></label>
+          <label class="vatopt"><input type="radio" name="p_vatmode_r" value="incl" onclick="setVatMode('p','incl')"><span>شامل الضريبة</span></label>
+          <label class="vatopt"><input type="radio" name="p_vatmode_r" value="none" onclick="setVatMode('p','none')"><span>بدون ضريبة</span></label>
+        </div></div>
       <div>الصافي قبل الضريبة: <span class="v" id="p_docTotal">0.00</span></div>
       <div class="field" style="min-width:110px"><label>نسبة الضريبة %</label><input type="number" id="p_vatrate" step="0.01" min="0" oninput="renderDraft('p')"></div>
       <div>ضريبة القيمة المضافة: <span class="v" id="p_docVat">0.00</span></div>
@@ -623,8 +633,13 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
         <th>السعر</th><th>القيمة</th><th class="name">المستودع</th><th>إجراء</th></tr></thead>
       <tbody id="tbSLines"></tbody></table></div>
     <div class="doc-total">
-      <div class="field" style="min-width:170px"><label>طريقة الضريبة</label><select id="s_vatmode" onchange="renderDraft('s')">
-        <option value="add">تُضاف فوق السعر</option><option value="incl">السعر شامل الضريبة</option><option value="none">بدون ضريبة</option></select></div>
+      <div class="field" style="min-width:230px"><label>طريقة الضريبة</label>
+        <input type="hidden" id="s_vatmode" value="add">
+        <div class="vatmodes">
+          <label class="vatopt"><input type="radio" name="s_vatmode_r" value="add" checked onclick="setVatMode('s','add')"><span>تُضاف فوق السعر</span></label>
+          <label class="vatopt"><input type="radio" name="s_vatmode_r" value="incl" onclick="setVatMode('s','incl')"><span>شامل الضريبة</span></label>
+          <label class="vatopt"><input type="radio" name="s_vatmode_r" value="none" onclick="setVatMode('s','none')"><span>بدون ضريبة</span></label>
+        </div></div>
       <div>الصافي قبل الضريبة: <span class="v" id="s_docTotal">0.00</span></div>
       <div class="field" style="min-width:110px"><label>نسبة الضريبة %</label><input type="number" id="s_vatrate" step="0.01" min="0" oninput="renderDraft('s')"></div>
       <div>ضريبة القيمة المضافة: <span class="v" id="s_docVat">0.00</span></div>
@@ -685,8 +700,13 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
       <div class="field"><label>أساس السعر</label><select id="r_basis" onchange="calcLine('r')">
         <option value="unit">سعر الوحدة</option><option value="kg">سعر الكيلو</option></select></div>
       <div class="field"><label>السعر</label><input type="number" id="r_price" step="0.001" min="0" oninput="calcLine('r')"></div>
-      <div class="field"><label>طريقة الضريبة</label><select id="r_vatmode" onchange="calcLine('r')">
-        <option value="add">تُضاف فوق السعر</option><option value="incl">السعر شامل الضريبة</option><option value="none">بدون ضريبة</option></select></div>
+      <div class="field" style="min-width:230px"><label>طريقة الضريبة</label>
+        <input type="hidden" id="r_vatmode" value="add">
+        <div class="vatmodes">
+          <label class="vatopt"><input type="radio" name="r_vatmode_r" value="add" checked onclick="setVatMode('r','add')"><span>تُضاف فوق السعر</span></label>
+          <label class="vatopt"><input type="radio" name="r_vatmode_r" value="incl" onclick="setVatMode('r','incl')"><span>شامل الضريبة</span></label>
+          <label class="vatopt"><input type="radio" name="r_vatmode_r" value="none" onclick="setVatMode('r','none')"><span>بدون ضريبة</span></label>
+        </div></div>
       <div class="field"><label>قيمة المرتجع (صافي)</label><input type="text" id="r_total" readonly></div>
       <div class="field"><label>نسبة الضريبة %</label><input type="number" id="r_vatrate" step="0.01" min="0" oninput="calcLine('r')"></div>
       <div class="field"><label>الإجمالي شامل الضريبة</label><input type="text" id="r_grand" readonly></div>
@@ -1662,7 +1682,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-13-w';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-14-x';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -1936,6 +1956,16 @@ function today(){ var d=new Date(); return new Date(d.getTime()-d.getTimezoneOff
 function nowTs(){ var d=new Date(); return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,16).replace('T',' '); }
 function val(id){ var e=document.getElementById(id); return e?e.value:''; }
 function setVal(id,v){ var e=document.getElementById(id); if(e) e.value=v; }
+/* طريقة الضريبة عبر أزرار Radio: تضبط القيمة المخفية (p_vatmode/…)، وتزامن حالة
+   الأزرار، ثم تعيد حساب الفاتورة. تُستدعى من نقر المستخدم ومن التعبئة البرمجية. */
+function setVatMode(k,v){
+  v=v||'add';
+  var h=document.getElementById(k+'_vatmode'); if(h) h.value=v;
+  var rs=document.querySelectorAll('input[name="'+k+'_vatmode_r"]');
+  for(var i=0;i<rs.length;i++) rs[i].checked=(rs[i].value===v);
+  if(k==='r'){ if(typeof calcLine==='function') calcLine('r'); }
+  else { if(typeof renderDraft==='function') renderDraft(k); }
+}
 function fnum(id){ return Number(val(id))||0; }
 function toast(m){ var t=document.getElementById('toast'); t.textContent=m; t.classList.add('show');
   clearTimeout(t._h); t._h=setTimeout(function(){t.classList.remove('show');},2600); }
@@ -2754,7 +2784,7 @@ function cancelDoc(k){
     draft[k]={lines:[],editId:null}; renderDraft(k);
     setVal(k==='p'?'p_no':'s_no',''); setVal(k==='p'?'p_note':'s_note','');
     setVal(k==='p'?'p_paid':'s_recv',0);
-    setVal(k+'_vatmode','add'); setVal(k+'_vatrate',vatRate());   /* الافتراضي: تُضاف الضريبة فوق السعر (الأكثر استخداماً) */
+    setVatMode(k,'add'); setVal(k+'_vatrate',vatRate());   /* الافتراضي: تُضاف الضريبة فوق السعر (الأكثر استخداماً) */
     setVal(k==='p'?'p_supplierSearch':'s_clientSearch',''); filterInvoiceParty(k);   /* إعادة قائمة الجهات كاملة */
     document.getElementById(k==='p'?'p_editing':'s_editing').textContent='';
   } else {
@@ -2763,7 +2793,7 @@ function cancelDoc(k){
       sup:['sup_name','sup_phone','sup_note','sup_opening','sup_openDate','sup_group'],cl:['cl_name','cl_phone','cl_note','cl_opening','cl_openDate','cl_group'],
       wh:['wh_name'],it:['it_name','it_uw','it_min'],un:['un_name','un_weights'],u:['u_name','u_user','u_pass'],
       os:['os_units','os_uw','os_price','os_total']};
-    if(k==='r'){ setVal('r_doc',''); setVal('r_search',''); setVal('r_vatrate',vatRate()); setVal('r_vatmode','add'); onReturnType(true); onReturnDoc(true); }
+    if(k==='r'){ setVal('r_doc',''); setVal('r_search',''); setVal('r_vatrate',vatRate()); setVatMode('r','add'); onReturnType(true); onReturnDoc(true); }
     if(k==='e'){ db.clients.forEach(function(c){ setVal('esp_'+c.id,''); }); setVal('e_amortUnit','none'); setVal('e_amortCount',''); onAmortChange(); setVal('e_supplierSearch',''); filterExpenseSupplier(); }
     if(k==='u'){ setVal('u_role','entry'); applyRolePreset(); renderDeptGrid(null); renderDeptPermGrids(null); }
     if(k==='cl') setVal('cl_hasWh','yes');
@@ -2800,7 +2830,7 @@ function repeatLastDoc(k){
   setVal(k==='p'?'p_supplierSearch':'s_clientSearch',''); setVal(k==='p'?'p_supplierGroup':'s_clientGroup',''); filterInvoiceParty(k);
   setVal(party, k==='p'?last.supplierId:last.clientId);
   if(k==='s') onSaleClient();
-  setVal(k+'_vatmode',last.vatMode||'add');
+  setVatMode(k,last.vatMode||'add');
   setVal(k+'_vatrate',last.vatRate!=null?last.vatRate:vatRate());
   setVal(k==='p'?'p_date':'s_date',today());
   setVal(k==='p'?'p_no':'s_no',''); setVal(k==='p'?'p_paid':'s_recv',0); setVal(k==='p'?'p_note':'s_note',last.note||'');
@@ -2859,10 +2889,10 @@ function editDoc(k,id){
   /* أعِد القائمة كاملة (امسح أي بحث/تصفية) كي يظهر الجهة المطلوبة */
   setVal(k==='p'?'p_supplierSearch':'s_clientSearch',''); setVal(k==='p'?'p_supplierGroup':'s_clientGroup',''); filterInvoiceParty(k);
   if(k==='p'){ setVal('p_date',r.date); setVal('p_no',r.no); setVal('p_supplier',r.supplierId);
-    setVal('p_note',r.note); setVal('p_paid',r.paid); setVal('p_vatrate',r.vatRate!=null?r.vatRate:vatRate()); setVal('p_vatmode',r.vatMode||'add');
+    setVal('p_note',r.note); setVal('p_paid',r.paid); setVal('p_vatrate',r.vatRate!=null?r.vatRate:vatRate()); setVatMode('p',r.vatMode||'add');
     document.getElementById('p_editing').textContent='وضع التعديل — فاتورة '+(r.no||'#'+r.id); showTab('purchases'); }
   else { setVal('s_date',r.date); setVal('s_no',r.no); setVal('s_client',r.clientId);
-    setVal('s_note',r.note); setVal('s_recv',r.recv); setVal('s_vatrate',r.vatRate!=null?r.vatRate:vatRate()); setVal('s_vatmode',r.vatMode||'add');
+    setVal('s_note',r.note); setVal('s_recv',r.recv); setVal('s_vatrate',r.vatRate!=null?r.vatRate:vatRate()); setVatMode('s',r.vatMode||'add');
     document.getElementById('s_editing').textContent='وضع التعديل — فاتورة '+(r.no||'#'+r.id); showTab('sales'); }
   renderDraft(k);
 }
@@ -2928,7 +2958,7 @@ function editReturn(kind,id){
   fillReturnDocs(); setVal('r_doc',r.docId||'');
   onReturnDoc(true); setVal('r_item',r.itemId); onReturnItem(true);
   setVal('r_wh',r.whId); setVal('r_units',r.units); setVal('r_uw',r.uw); setVal('r_basis',r.basis);
-  setVal('r_price',r.price); setVal('r_reason',r.reason||''); setVal('r_vatrate',r.vatRate!=null?r.vatRate:vatRate()); setVal('r_vatmode',r.vatMode||'add');
+  setVal('r_price',r.price); setVal('r_reason',r.reason||''); setVal('r_vatrate',r.vatRate!=null?r.vatRate:vatRate()); setVatMode('r',r.vatMode||'add');
   calcLine('r'); showReturnAvail();
   document.getElementById('r_editing').textContent='وضع التعديل';
   showTab('returns');
