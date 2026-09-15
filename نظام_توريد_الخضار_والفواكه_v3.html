@@ -146,6 +146,10 @@ label{font-size:12.5px;font-weight:600;color:var(--ink-2)}
 .gin{width:78px;max-width:88px;padding:5px 6px;font-size:13px;border:1.5px solid var(--line,#d5ddd5);border-radius:7px;text-align:center;background:var(--surface,#fff);color:var(--ink,#1a241a)}
 .gin:focus{border-color:var(--leaf-dark,#2f6b2a);outline:none;box-shadow:0 0 0 2px var(--leaf-soft,#eef5ec)}
 .gin::placeholder{color:#9aa79a}
+.taxck{display:inline-flex;align-items:center;gap:4px;cursor:pointer;font-size:12px;font-weight:600;white-space:nowrap}
+.taxck input{width:15px;height:15px;accent-color:var(--leaf-dark,#2f6b2a);margin:0}
+.taxck:has(input:not(:checked)){color:#b45309}
+.taxbtns{display:inline-flex;gap:6px;flex-wrap:wrap;align-items:center}
 input,select,textarea{padding:9px 11px;border:1px solid var(--line);border-radius:8px;font-size:14px;
   font-family:inherit;background:#fff;color:var(--ink);width:100%}
 /* حقول التاريخ والأرقام تُعرض باتجاه لاتيني حتى لا تنعكس أجزاء التاريخ (سنة/شهر/يوم) */
@@ -549,7 +553,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
       <span class="mini">اكتب إجمالي الكمية أعلاه ثم اختر طريقة التوزيع — يُنشأ سطر مستقل لكل مستودع تلقائياً.</span></div>
     <div class="table-scroll"><table>
       <thead><tr><th class="name">الصنف</th><th>الوحدات</th><th>وزن الوحدة</th><th>الوزن الكلي</th>
-        <th>السعر</th><th>القيمة</th><th class="name">المستودع</th><th>إجراء</th></tr></thead>
+        <th>السعر</th><th>القيمة</th><th>ضريبة</th><th class="name">المستودع</th><th>إجراء</th></tr></thead>
       <tbody id="tbPLines"></tbody></table></div>
     <div class="doc-total">
       <div class="field" style="min-width:230px"><label>طريقة الضريبة</label>
@@ -558,7 +562,10 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
           <label class="vatopt"><input type="radio" name="p_vatmode_r" value="add" checked onclick="setVatMode('p','add')"><span>تُضاف فوق السعر</span></label>
           <label class="vatopt"><input type="radio" name="p_vatmode_r" value="incl" onclick="setVatMode('p','incl')"><span>شامل الضريبة</span></label>
           <label class="vatopt"><input type="radio" name="p_vatmode_r" value="none" onclick="setVatMode('p','none')"><span>بدون ضريبة</span></label>
-        </div></div>
+        </div>
+        <div class="taxbtns" style="margin-top:6px"><span class="mini">تطبيق على كل الأصناف:</span>
+          <button type="button" class="btn-sm" onclick="applyTaxAll('p',true)">الكل خاضع</button>
+          <button type="button" class="btn-sm" onclick="applyTaxAll('p',false)">الكل معفى</button></div></div>
       <div>الصافي قبل الضريبة: <span class="v" id="p_docTotal">0.00</span></div>
       <div class="field" style="min-width:110px"><label>نسبة الضريبة %</label><input type="number" id="p_vatrate" step="0.01" min="0" oninput="renderDraft('p')"></div>
       <div>ضريبة القيمة المضافة: <span class="v" id="p_docVat">0.00</span></div>
@@ -633,7 +640,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
     <div class="form-foot"><button class="btn-alt" onclick="addLine('s')">إضافة الصنف للفاتورة</button></div>
     <div class="table-scroll"><table>
       <thead><tr><th class="name">الصنف</th><th>الوحدات</th><th>وزن الوحدة</th><th>الوزن الكلي</th>
-        <th>السعر</th><th>القيمة</th><th class="name">المستودع</th><th>إجراء</th></tr></thead>
+        <th>السعر</th><th>القيمة</th><th>ضريبة</th><th class="name">المستودع</th><th>إجراء</th></tr></thead>
       <tbody id="tbSLines"></tbody></table></div>
     <div class="doc-total">
       <div class="field" style="min-width:230px"><label>طريقة الضريبة</label>
@@ -642,7 +649,10 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
           <label class="vatopt"><input type="radio" name="s_vatmode_r" value="add" checked onclick="setVatMode('s','add')"><span>تُضاف فوق السعر</span></label>
           <label class="vatopt"><input type="radio" name="s_vatmode_r" value="incl" onclick="setVatMode('s','incl')"><span>شامل الضريبة</span></label>
           <label class="vatopt"><input type="radio" name="s_vatmode_r" value="none" onclick="setVatMode('s','none')"><span>بدون ضريبة</span></label>
-        </div></div>
+        </div>
+        <div class="taxbtns" style="margin-top:6px"><span class="mini">تطبيق على كل الأصناف:</span>
+          <button type="button" class="btn-sm" onclick="applyTaxAll('s',true)">الكل خاضع</button>
+          <button type="button" class="btn-sm" onclick="applyTaxAll('s',false)">الكل معفى</button></div></div>
       <div>الصافي قبل الضريبة: <span class="v" id="s_docTotal">0.00</span></div>
       <div class="field" style="min-width:110px"><label>نسبة الضريبة %</label><input type="number" id="s_vatrate" step="0.01" min="0" oninput="renderDraft('s')"></div>
       <div>ضريبة القيمة المضافة: <span class="v" id="s_docVat">0.00</span></div>
@@ -1685,7 +1695,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-14-z';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-15-aa';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -1931,15 +1941,21 @@ function balCls(bal){ return (Number(bal)||0)<-0.009?'neg':'pos'; }
    يُرجع أسطراً بقيمة صافية دائماً (للمخزون والأرباح) مع مبلغ الضريبة والإجمالي شامل الضريبة */
 function applyVat(lines,rate,mode){
   rate=Number(rate)||0; mode=mode||'add';
-  var factor=(mode==='incl')?1/(1+rate/100):1;   /* تحويل السعر الشامل إلى صافي */
+  /* الضريبة لكل سطر على حدة: السطر المُعفى (noTax) لا تُحتسب ضريبته ولا يُقسَّم سعره
+     في الوضع «شامل». الضريبة الإجمالية = مجموع ضرائب الأسطر الخاضعة فقط. */
   var out=(lines||[]).map(function(l){
+    var taxed=(mode!=='none') && !l.noTax;
+    var factor=(mode==='incl'&&taxed)?1/(1+rate/100):1;   /* تحويل السعر الشامل إلى صافي — للخاضع فقط */
     var o={itemId:l.itemId,unit:l.unit,units:l.units,uw:l.uw,basis:l.basis,
       price:round2((Number(l.price)||0)*factor),total:round2((Number(l.total)||0)*factor),whId:l.whId};
     if(l.boxes!=null) o.boxes=l.boxes; if(l.boxW!=null) o.boxW=l.boxW;   /* حفظ عدد الصناديق ووزن الصندوق */
+    if(l.noTax) o.noTax=true;   /* حفظ إعفاء السطر مع السجل */
+    o._taxed=taxed;
     return o;
   });
-  var net=0; out.forEach(function(l){ net+=l.total; }); net=round2(net);
-  var vat=(mode==='none')?0:round2(net*rate/100);
+  var net=0, vat=0;
+  out.forEach(function(l){ net+=(Number(l.total)||0); if(l._taxed) vat+=(Number(l.total)||0)*rate/100; delete l._taxed; });
+  net=round2(net); vat=round2(vat);
   return {lines:out,net:net,vat:vat,grand:round2(net+vat)};
 }
 /* نفس المنطق لقيمة مفردة (المرتجعات) */
@@ -2788,14 +2804,32 @@ function renderDraft(k){
       wCell=wtTracked?ginp('uw',l.uw,i,'كغ'):'—';
     }
     var pCell=ginp('price',l.price,i,'سعر',(l.basis==='kg'?'/كغ':'/وحدة'));
+    var noneMode=(val(k+'_vatmode')||'add')==='none';
+    var taxCell=noneMode
+      ? '<span class="mini">—</span>'
+      : '<label class="taxck" title="خاضع للضريبة؟"><input type="checkbox" '+(l.noTax?'':'checked')+' onchange="toggleLineTax(\''+k+'\','+i+',this)"><span>'+(l.noTax?'معفى':'خاضع')+'</span></label>';
     h+='<tr><td class="name">'+esc(itemName(l.itemId))+'</td><td>'+qCell+'</td>'
       +'<td>'+wCell+'</td><td id="'+k+'_lnwt_'+i+'">'+qty(l.units*l.uw)+'</td>'
       +'<td>'+pCell+'</td><td id="'+k+'_lntot_'+i+'">'+money(l.total)+'</td>'
+      +'<td id="'+k+'_lntax_'+i+'" style="text-align:center">'+taxCell+'</td>'
       +'<td class="name">'+esc(whName(l.whId))+'</td>'
       +'<td><button class="btn-sm" onclick="editLine(\''+k+'\','+i+')" title="تغيير الصنف أو المستودع">↺ الصنف/المستودع</button> <button class="btn-sm btn-del" onclick="delLine(\''+k+'\','+i+')">حذف</button></td></tr>';
   });
-  tb.innerHTML=h||'<tr><td colspan="8" class="empty">لم تُضف أصناف بعد.</td></tr>';
+  tb.innerHTML=h||'<tr><td colspan="9" class="empty">لم تُضف أصناف بعد.</td></tr>';
   paintDocTotals(k);
+}
+/* تبديل خضوع سطر للضريبة (لكل صنف على حدة) دون إعادة رسم الجدول — يحدّث الإجماليات فوراً */
+function toggleLineTax(k,i,el){
+  var l=draft[k].lines[i]; if(!l) return;
+  if(el&&el.checked) delete l.noTax; else l.noTax=true;
+  var lbl=document.getElementById(k+'_lntax_'+i); if(lbl){ var sp=lbl.querySelector('span'); if(sp) sp.textContent=l.noTax?'معفى':'خاضع'; }
+  paintDocTotals(k);
+}
+/* تطبيق خيار الضريبة على كل أسطر الفاتورة دفعةً واحدة (الكل خاضع / الكل معفى) */
+function applyTaxAll(k,taxable){
+  (draft[k].lines||[]).forEach(function(l){ if(taxable) delete l.noTax; else l.noTax=true; });
+  renderDraft(k);
+  toast(taxable?'كل الأصناف أصبحت خاضعة للضريبة':'كل الأصناف أصبحت معفاة من الضريبة');
 }
 /* Enter داخل خلية الشبكة لا يُرسل النموذج — يبقي التركيز */
 function draftCellKey(ev){ if(ev&&(ev.key==='Enter'||ev.keyCode===13)){ ev.preventDefault(); if(ev.target&&ev.target.blur) ev.target.blur(); } }
