@@ -827,17 +827,18 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
       <tbody id="tbInterTransfers"></tbody></table></div>
   </div>
 
-  <div class="sec-title">رصيد افتتاحي للمخزون <span class="hint">لتسجيل الكميات الموجودة فعلياً قبل بدء العمل بالنظام</span></div>
+  <div class="sec-title">إضافة أصناف للمخزون بالتكلفة الحقيقية <span class="hint">جرد/رصيد افتتاحي — بلا مورد</span></div>
+  <div class="note" style="border-right-color:var(--leaf-dark)">أضِف أي صنف للمخزون <b>بسعر تكلفته الحقيقية</b> مباشرةً — <b>دون الحاجة لمورد</b> ودون التأثير على حسابات الموردين. مناسب للجرد وإدخال البضاعة الموجودة فعلاً. للأصناف بالعدد لا يلزم إدخال وزن.</div>
   <div class="doc-box no-print" id="openingFormBox">
     <div class="grid">
       <div class="field"><label>التاريخ</label><input type="date" id="os_date"></div>
       <div class="field"><label>المستودع</label><select id="os_wh"></select></div>
-      <div class="field"><label>الصنف</label><select id="os_item" onchange="onPickItem('os')"></select></div>
-      <div class="field"><label>عدد الوحدات</label><input type="number" id="os_units" step="0.01" min="0" oninput="calcLine('os')"></div>
-      <div class="field"><label>وزن الوحدة (كغ)</label><input type="number" id="os_uw" step="0.01" min="0" oninput="calcLine('os')"></div>
+      <div class="field"><label>الصنف</label><select id="os_item" onchange="onPickItem('os')" onkeydown="itemKey(event,'os')"></select></div>
+      <div class="field"><label id="lbl_os_units">عدد الوحدات *</label><input type="number" id="os_units" step="0.01" min="0" inputmode="decimal" oninput="calcLine('os')" onkeydown="lineNav(event,'os_price')"></div>
+      <div class="field" id="os_uwWrap"><label id="lbl_os_uw">وزن الوحدة (كغ)</label><input type="number" id="os_uw" step="0.01" min="0" inputmode="decimal" oninput="calcLine('os')"></div>
       <div class="field"><label>أساس التكلفة</label><select id="os_basis" onchange="calcLine('os')">
         <option value="unit">تكلفة الوحدة</option><option value="kg">تكلفة الكيلو</option></select></div>
-      <div class="field"><label>التكلفة</label><input type="number" id="os_price" step="0.001" min="0" oninput="calcLine('os')"></div>
+      <div class="field"><label>سعر التكلفة الحقيقية *</label><input type="number" id="os_price" step="0.001" min="0" inputmode="decimal" oninput="calcLine('os')" onkeydown="lineKey2(event,saveOpeningStock)"></div>
       <div class="field"><label>القيمة الإجمالية</label><input type="text" id="os_total" readonly></div>
     </div>
     <div class="form-foot"><button class="btn-main" onclick="saveOpeningStock()">حفظ الرصيد الافتتاحي</button>
@@ -1695,7 +1696,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-15-aa';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-15-ab';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -2614,6 +2615,8 @@ function onPickItem(p){
 function focusField(id){ var e=document.getElementById(id); if(e&&e.focus){ try{ e.focus(); if(e.select) e.select(); }catch(_){}} }
 /* الانتقال بالمفتاح Enter إلى الحقل التالي في الإدخال السريع (الصنف→الكمية→السعر→إضافة) */
 function lineNav(ev,nextId){ if(ev&&(ev.key==='Enter'||ev.keyCode===13)){ ev.preventDefault(); ev.stopPropagation(); focusField(nextId); } }
+/* Enter داخل حقل ينفّذ إجراءً محدّداً (مثل الحفظ) دون إرسال أي نموذج */
+function lineKey2(ev,fn){ if(ev&&(ev.key==='Enter'||ev.keyCode===13)){ ev.preventDefault(); ev.stopPropagation(); if(typeof fn==='function') fn(); } }
 /* Enter على قائمة الصنف: إن كانت هناك قيمة مختارة انتقل إلى الكمية (لا يحفظ الفاتورة) */
 function itemKey(ev,p){
   if(!ev||!(ev.key==='Enter'||ev.keyCode===13)) return;
@@ -3162,14 +3165,26 @@ function saveOpeningStock(){
   var w=+val('os_wh'), i=+val('os_item'), u=fnum('os_units'), uw=fnum('os_uw'), b=val('os_basis'), pr=fnum('os_price');
   if(!w||!i){ toast('اختر المستودع والصنف'); return; }
   if(u<=0){ toast('أدخل عدد الوحدات'); return; }
-  if(uw<=0){ toast('أدخل وزن الوحدة (معامل التحويل)'); return; }
-  var total=b==='kg'?u*uw*pr:u*pr;
-  var rec={id:editId.os||uid(),date:val('os_date'),whId:w,itemId:i,units:u,uw:uw,basis:b,price:pr,total:total,uid:ME.id,ts:nowTs()};
+  var it0=byId(db.items,i), byKg=!!(it0&&it0.byKg), service=!!(it0&&it0.service);
+  /* الوزن إلزامي فقط عند احتساب التكلفة بالكيلو أو للأصناف بالكيلو؛ أصناف العدد/الخدمة بلا وزن */
+  var needWt=(b==='kg')||byKg;
+  if(service||(!needWt&&uw<=0)){ uw=0; b='unit'; }
+  if(needWt&&uw<=0){ toast('أدخل وزن الوحدة (لأن التكلفة بالكيلو)'); return; }
+  if(pr<=0){ toast('أدخل سعر التكلفة الحقيقية'); return; }
+  var total=(b==='kg')?u*uw*pr:u*pr;
+  var rec={id:editId.os||uid(),date:val('os_date')||today(),whId:w,itemId:i,units:u,uw:uw,basis:b,price:pr,total:total,
+    reason:'إضافة مخزون بالتكلفة',uid:ME.id,ts:nowTs()};
+  var wasAdd=!editId.os;
   if(editId.os){ var idx=db.openingStock.findIndex(function(x){return x.id===editId.os;}); db.openingStock[idx]=rec;
-    log('edit','المخزون','تعديل رصيد افتتاحي '+itemName(i)+' في '+whName(w)); }
+    log('edit','المخزون','تعديل رصيد افتتاحي '+itemName(i)+' في '+whName(w)); cancelDoc('os'); }
   else { db.openingStock.push(rec);
-    log('add','المخزون','رصيد افتتاحي '+qty(u)+' وحدة '+itemName(i)+' في '+whName(w)+' بقيمة '+num(total)); }
-  cancelDoc('os'); commit('تم حفظ الرصيد الافتتاحي');
+    log('add','المخزون','إضافة مخزون بالتكلفة '+qty(u)+' '+itemName(i)+' في '+whName(w)+' بقيمة '+num(total)); }
+  commit('تم حفظ إضافة المخزون بالتكلفة');
+  if(wasAdd){
+    /* إدخال سريع متتابع: أبقِ التاريخ والمستودع، وأفرغ الصنف/الكمية/التكلفة وركّز الصنف (بعد التحديث) */
+    editId.os=null; ['os_item','os_units','os_uw','os_price','os_total'].forEach(function(id){ setVal(id,''); });
+    var n=document.getElementById('os_editing'); if(n) n.textContent=''; focusField('os_item');
+  }
 }
 function editOpeningStock(id){
   if(!guard('canEdit')) return;
