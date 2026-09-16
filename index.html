@@ -150,6 +150,18 @@ label{font-size:12.5px;font-weight:600;color:var(--ink-2)}
 .taxck input{width:15px;height:15px;accent-color:var(--leaf-dark,#2f6b2a);margin:0}
 .taxck:has(input:not(:checked)){color:#b45309}
 .taxbtns{display:inline-flex;gap:6px;flex-wrap:wrap;align-items:center}
+/* شارة تحديث الأجهزة المدمجة في الهيدر */
+.stale-badge{display:inline-flex;align-items:center;gap:6px;background:#7c2d12;color:#fff;border:none;border-radius:20px;padding:5px 11px;font-size:12.5px;font-weight:700;cursor:pointer;line-height:1;box-shadow:0 1px 4px rgba(0,0,0,.2);transition:.12s}
+.stale-badge:hover{background:#98371a}
+.stale-badge .sb-ic{font-size:13px}
+.stale-badge #staleBadgeN{background:#fff;color:#7c2d12;border-radius:12px;min-width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;padding:0 5px;font-size:11.5px}
+.stale-badge .sb-tx{font-weight:600;opacity:.95}
+.stale-card{background:var(--surface,#fff);color:var(--ink,#1a241a);width:100%;max-width:560px;border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,.35);overflow:hidden;animation:staleIn .14s ease}
+@keyframes staleIn{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:none}}
+.stale-hd{display:flex;align-items:center;justify-content:space-between;gap:10px;background:#7c2d12;color:#fff;padding:12px 16px;font-weight:800;font-size:14.5px}
+.stale-x{background:rgba(255,255,255,.15);color:#fff;border:none;border-radius:8px;width:28px;height:28px;cursor:pointer;font-size:14px}
+.stale-x:hover{background:rgba(255,255,255,.3)}
+.stale-bd{padding:14px 16px;max-height:70vh;overflow:auto}
 input,select,textarea{padding:9px 11px;border:1px solid var(--line);border-radius:8px;font-size:14px;
   font-family:inherit;background:#fff;color:var(--ink);width:100%}
 /* حقول التاريخ والأرقام تُعرض باتجاه لاتيني حتى لا تنعكس أجزاء التاريخ (سنة/شهر/يوم) */
@@ -414,6 +426,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
       <div id="deptSwitch" class="dept-switch"></div>
     </div>
     <span id="cloudStatus" class="cloud-status off" title="حالة المزامنة السحابية">غير مفعّل</span>
+    <button id="staleBadge" class="stale-badge no-print" style="display:none" onclick="openStaleModal()" title="أجهزة بحاجة إلى تحديث"><span class="sb-ic">⚠️</span><span id="staleBadgeN">0</span><span class="sb-tx">تحديث</span></button>
     <div class="userbox"><div class="avatar" id="uAvatar">م</div>
       <div><div class="un" id="uName">—</div><div class="ur" id="uRole">—</div></div></div>
     <button class="btn-ghost" onclick="exportBackup()">نسخة احتياطية</button>
@@ -426,8 +439,13 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 </header>
 
 
-<div id="buildWarn" class="no-print" style="display:none;background:#7c2d12;color:#fff;border-radius:10px;padding:10px 14px;margin:10px 0;font-weight:700;font-size:13.5px;line-height:1.7"></div>
-<div id="staleUsersBox" class="no-print" style="display:none;margin:10px 0"></div>
+<div id="buildWarn" class="no-print" style="display:none"></div>
+<div id="staleModal" class="no-print" style="display:none;position:fixed;inset:0;z-index:480;background:rgba(15,26,20,.55);align-items:flex-start;justify-content:center;padding:64px 16px 16px" onclick="if(event.target===this)closeStaleModal()">
+  <div class="stale-card">
+    <div class="stale-hd"><span>⚠️ أجهزة بحاجة إلى تحديث النظام</span><button class="stale-x" onclick="closeStaleModal()" title="إغلاق">✕</button></div>
+    <div class="stale-bd" id="staleModalBody"></div>
+  </div>
+</div>
 <div id="staleOverlay" class="no-print" style="display:none;position:fixed;inset:0;z-index:500;background:rgba(20,36,32,.92);align-items:center;justify-content:center;padding:20px">
   <div style="background:#fff;max-width:460px;width:100%;border-radius:18px;padding:28px 26px;text-align:center;box-shadow:0 24px 60px rgba(0,0,0,.4)">
     <div style="font-size:40px;margin-bottom:8px">🔄</div>
@@ -1735,7 +1753,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-16-ah';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-16-ai';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -8358,9 +8376,10 @@ function cloudCheckBuild(val){
     if(el) el.style.display='none';   /* نكتفي بالشاشة الكاملة */
     showStaleOverlay();
   } else {
-    /* جهاز آخر قديم: تنبيه للمدير فقط (هذا الجهاز محدَّث) */
+    /* جهاز آخر قديم: يظهر للمدير عبر الشارة المدمجة في الهيدر (لا شريط كبير) */
     staleBuild=false; hideStaleOverlay();
-    if(el){ el.textContent='⚠ جهاز آخر يعمل بإصدار أقدم ('+esc(rb)+') من هذا الجهاز ('+APP_BUILD+'). حدّث ذلك الجهاز (أعد تحميل صفحته) وإلا قد تعود سجلّات محذوفة أو تختفي إدخالات.'; el.style.display=''; }
+    if(el){ el.style.display='none'; }
+    try{ renderStaleUsers(); }catch(e){}
   }
 }
 var cloudLatestBuild='';
@@ -8462,27 +8481,32 @@ function _agoTxt(age){
   if(h<24) return 'قبل '+h+' ساعة'; return 'قبل '+Math.floor(h/24)+' يوم';
 }
 /* لوحة المدير: أسماء المستخدمين/الأجهزة التي تحتاج تحديثاً */
+/* شارة مدمجة في الهيدر + نافذة منبثقة خفيفة بدل الصندوق الكبير */
 function renderStaleUsers(){
-  var box=document.getElementById('staleUsersBox'); if(!box) return;
-  if(!(ME&&ME.role==='admin')){ box.style.display='none'; box.innerHTML=''; return; }
-  var list=staleDeviceList();
-  if(!list.length){ box.style.display='none'; box.innerHTML=''; return; }
-  var rows=list.map(function(d){
-    var st=d.online?'<span class="pill pill-bad">متصل الآن</span>':'<span class="pill pill-info">'+esc(_agoTxt(d.age))+'</span>';
-    var dev=esc(deviceLabel(d.ua))+(d.self?' <b>(هذا الجهاز)</b>':'');
-    var btn;
-    if(d.self){ btn='<button class="btn-sm" onclick="reloadNow()" title="إعادة تحميل هذا الجهاز الآن لجلب أحدث إصدار">🔄 حدّث هذا الجهاز</button>'; }
-    else { btn='<button class="btn-sm" onclick="requestDeviceUpdate(\''+esc(d.id)+'\',\''+esc(String(d.user).replace(/\\/g,"").replace(/'/g,""))+'\',\''+esc(deviceLabel(d.ua))+'\')" title="إرسال أمر إعادة تحميل لهذا الجهاز ليصله أحدث إصدار">🔄 حدّث الآن</button>'; }
-    return '<tr><td class="name">'+esc(d.user)+'</td><td>'+dev+'</td><td>'+esc(d.build)+'</td><td>'+st+'</td><td>'+btn+'</td></tr>';
-  }).join('');
-  box.style.display='';
-  box.innerHTML='<div style="background:#7c2d12;color:#fff;border-radius:10px;padding:12px 14px">'
-    +'<div style="font-weight:800;font-size:14px;margin-bottom:6px">⚠ أجهزة بحاجة إلى تحديث النظام (إصدارك: '+esc(APP_BUILD)+')</div>'
-    +'<div style="font-size:12.5px;opacity:.92;margin-bottom:8px">هذه <b>جلسات/أجهزة</b> (قد تكون بنفس الاسم على أجهزة مختلفة). لِمَن يعمل بنسخة حديثة: زر <b>«🔄 حدّث الآن»</b> يعيد تحميله تلقائياً. أما الجهاز الذي يعمل بنسخة <b>قديمة جداً</b> فلا يستجيب للأمر عن بُعد — يجب <b>إعادة فتحه يدوياً</b> على ذلك الجهاز نفسه. حتى يُحدّثوا، إدخالاتهم موقوفة تلقائياً.</div>'
-    +'<div style="margin-bottom:8px"><button class="btn-sm" onclick="requestAllDeviceUpdates()" style="background:#fff;color:#7c2d12;font-weight:700">🔄 تحديث كل الأجهزة القديمة</button></div>'
-    +'<div class="table-scroll"><table style="background:#fff;color:#222;border-radius:8px;overflow:hidden"><thead><tr><th class="name">المستخدم</th><th>الجهاز</th><th>إصداره</th><th>آخر ظهور</th><th>إجراء</th></tr></thead><tbody>'+rows+'</tbody></table></div>'
-    +'</div>';
+  var badge=document.getElementById('staleBadge'), nEl=document.getElementById('staleBadgeN');
+  var list=(ME&&ME.role==='admin')?staleDeviceList():[];
+  if(!badge) return;
+  if(!list.length){ badge.style.display='none'; if(document.getElementById('staleModal')&&document.getElementById('staleModal').style.display!=='none') closeStaleModal(); return; }
+  if(nEl) nEl.textContent=list.length;
+  badge.style.display='';
+  badge.title=list.length+' جهاز بحاجة إلى تحديث النظام';
+  var body=document.getElementById('staleModalBody');
+  if(body){
+    var rows=list.map(function(d){
+      var st=d.online?'<span class="pill pill-bad">متصل الآن</span>':'<span class="pill pill-info">'+esc(_agoTxt(d.age))+'</span>';
+      var dev=esc(deviceLabel(d.ua))+(d.self?' <b>(هذا الجهاز)</b>':'');
+      var btn;
+      if(d.self){ btn='<button class="btn-sm" onclick="reloadNow()">🔄 حدّث هذا الجهاز</button>'; }
+      else { btn='<button class="btn-sm" onclick="requestDeviceUpdate(\''+esc(d.id)+'\',\''+esc(String(d.user).replace(/\\/g,"").replace(/'/g,""))+'\',\''+esc(deviceLabel(d.ua))+'\')">🔄 حدّث الآن</button>'; }
+      return '<tr><td class="name">'+esc(d.user)+'</td><td class="muted" style="font-size:11.5px">'+dev+'</td><td>'+esc(d.build)+'</td><td>'+st+'</td><td>'+btn+'</td></tr>';
+    }).join('');
+    body.innerHTML='<div class="mini" style="margin-bottom:10px">إصدارك: <b>'+esc(APP_BUILD)+'</b>. لِمَن يعمل بنسخة حديثة يُعاد تحميله تلقائياً بزر «حدّث الآن»؛ ومَن بنسخة قديمة جداً يُعاد فتحه يدوياً على جهازه. إدخالاتهم موقوفة حتى يُحدّثوا.</div>'
+      +'<div style="margin-bottom:10px"><button class="btn-sm btn-main" onclick="requestAllDeviceUpdates()">🔄 تحديث كل الأجهزة القديمة</button></div>'
+      +'<div class="table-scroll"><table><thead><tr><th class="name">المستخدم</th><th>الجهاز</th><th>الإصدار</th><th>آخر ظهور</th><th>إجراء</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
+  }
 }
+function openStaleModal(){ renderStaleUsers(); var m=document.getElementById('staleModal'); if(m) m.style.display='flex'; }
+function closeStaleModal(){ var m=document.getElementById('staleModal'); if(m) m.style.display='none'; }
 /* أمر تحديث عن بُعد: يكتب طلباً في مسار مستقل، فيلتقطه الجهاز الهدف ويعيد التحميل
    ليصله أحدث إصدار. الأجهزة القديمة موقوفة الإدخال أصلاً، فإعادة تحميلها آمنة. */
 function requestDeviceUpdate(deviceId,uname,dlabel){
@@ -8502,6 +8526,7 @@ function requestAllDeviceUpdates(){
   var list=staleDeviceList(); if(!list.length){ toast('لا توجد أجهزة قديمة'); return; }
   list.forEach(function(d){ requestDeviceUpdate(d.id,d.user); });
   toast('أُرسل أمر التحديث إلى '+list.length+' جهاز');
+  closeStaleModal();
 }
 /* كل جهاز يراقب طلب التحديث الموجّه إليه؛ عند وصول طلب جديد يعيد التحميل مرة واحدة */
 var _reloadReqWatched=false;
@@ -8520,15 +8545,10 @@ function cloudWatchReloadReq(){
     _reloadReqWatched=true;
   }catch(e){}
 }
-/* يُثري شريط التحذير العلوي بأسماء الأجهزة القديمة إن توفّرت البصمات (غير هادم لرسالة الإصدار) */
+/* الشريط الكبير القديم استُبدل بالشارة المدمجة في الهيدر — نبقيه مخفياً */
 function refreshBuildWarn(){
-  var el=document.getElementById('buildWarn'); if(!el) return;
-  if(staleBuild) return;                       /* هذا الجهاز نفسه قديم — الشاشة الكاملة تكفي */
-  var list=(ME&&ME.role==='admin')?staleDeviceList():[];
-  if(!list.length) return;                     /* لا بصمات قديمة — نترك ما ضبطته cloudCheckBuild */
-  var names=list.map(function(d){ return d.user+(d.online?' (متصل)':''); }).join('، ');
-  el.textContent='⚠ '+list.length+' مستخدم بحاجة إلى تحديث النظام: '+names+'. اطلب منهم إعادة تحميل الصفحة (إصدارك '+APP_BUILD+').';
-  el.style.display='';
+  var el=document.getElementById('buildWarn'); if(el){ el.style.display='none'; el.textContent=''; }
+  renderStaleUsers();   /* يحدّث عدّاد الشارة */
 }
 function cloudPush(s){
   cloudDirty=true;   /* ضع علم «هناك تغيير غير مرفوع» دائماً — يُرفع الآن أو عند عودة الاتصال */
