@@ -1649,6 +1649,26 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
     <div id="adjBatchesBox" style="margin-top:12px"></div>
   </div>
 
+  <div class="sec-title">شطب الإدخالات للبدء من جديد <span class="hint">مشتريات/مبيعات/مصروفات — مع تحديد الفترة والتراجع</span></div>
+  <div class="note" style="border-right-color:var(--tomato)">يحذف <b>الإدخالات المختارة</b> ضمن الفترة المحددة (اترك التاريخين فارغين لحذف <b>الكل</b>). لا يمسّ الأصناف والموردين والعملاء والمستودعات. <b>نزّل نسخة احتياطية أولاً.</b> يمكنك <b>التراجع عن آخر عملية شطب</b> بالزر المخصّص.</div>
+  <div class="doc-box no-print">
+    <div class="grid" style="margin-bottom:8px">
+      <div class="field"><label>من تاريخ</label><input type="date" id="wp_from"></div>
+      <div class="field"><label>إلى تاريخ</label><input type="date" id="wp_to"></div>
+    </div>
+    <div class="form-foot" style="gap:14px;flex-wrap:wrap">
+      <label class="vatopt"><input type="checkbox" id="wp_pur" checked><span>المشتريات</span></label>
+      <label class="vatopt"><input type="checkbox" id="wp_sal" checked><span>المبيعات</span></label>
+      <label class="vatopt"><input type="checkbox" id="wp_exp" checked><span>المصروفات</span></label>
+      <label class="vatopt"><input type="checkbox" id="wp_ret" checked><span>المرتجعات المرتبطة</span></label>
+    </div>
+    <div class="form-foot">
+      <button class="btn btn-del" onclick="wipeEntries()">🗑 شطب الإدخالات المحددة</button>
+      <button class="btn" onclick="undoWipeEntries()" id="wp_undoBtn">↩ تراجع عن آخر شطب</button>
+      <span class="mini" id="wp_status"></span>
+    </div>
+  </div>
+
   <div class="sec-title">البيانات والنسخ الاحتياطي</div>
   <div class="form-foot">
     <button class="btn-alt" onclick="exportBackup()">تنزيل نسخة احتياطية شاملة (JSON)</button>
@@ -1715,7 +1735,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-16-ae';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-16-af';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -5761,6 +5781,7 @@ function renderSettingsForm(){
   if(lp) lp.innerHTML=db.settings.logo?'<img src="'+db.settings.logo+'" alt="شعار المنشأة">':'🥬';
   renderDeptImages(); renderMergeItemsUI(); renderStockResetUI();
   try{ renderStaleUsers(); }catch(e){}
+  try{ renderWipeStatus(); }catch(e){}
 }
 function saveSettings(){
   if(!guard('settings')) return;
@@ -7984,6 +8005,59 @@ function wipeData(){
   db=emptyDB(); db.users=users; db.settings=settings; curDept=null; ensureDbShape(); resetKnownIds();
   log('delete','الإعدادات','مسح جميع بيانات الحركات');
   persist(); updateDeptUI(); renderAll(); renderMaster(); toast('تم مسح البيانات');
+}
+/* ===== شطب الإدخالات (مشتريات/مبيعات/مصروفات/مرتجعات) ضمن فترة، مع تراجع ===== */
+function wipeEntries(){
+  if(!guard('canDelete','تحتاج صلاحية الحذف')) return;
+  var from=val('wp_from')||'', to=val('wp_to')||'';
+  var pick={purchases:!!document.getElementById('wp_pur').checked, sales:!!document.getElementById('wp_sal').checked,
+    expenses:!!document.getElementById('wp_exp').checked, returns:!!document.getElementById('wp_ret').checked};
+  var arrs=[]; if(pick.purchases) arrs.push('purchases'); if(pick.sales) arrs.push('sales'); if(pick.expenses) arrs.push('expenses');
+  if(pick.returns){ arrs.push('preturns'); arrs.push('sreturns'); }
+  if(!arrs.length){ toast('اختر نوعاً واحداً على الأقل'); return; }
+  var inR=function(d){ if(!from&&!to) return true; return inRange(d,from,to); };
+  /* اجمع المحذوف لكل مصفوفة */
+  var removed={}, count=0;
+  arrs.forEach(function(k){ removed[k]=(db[k]||[]).filter(function(r){ return inR(r.date); }); count+=removed[k].length; });
+  if(!count){ toast('لا توجد إدخالات مطابقة للفترة'); return; }
+  var scope=(from||to)?('من '+(from||'البداية')+' إلى '+(to||'اليوم')):'كل الفترات';
+  if(!confirm('سيتم شطب '+count+' إدخال ('+arrs.map(arNameAr).join('، ')+') — '+scope+'.\nيمكنك التراجع بعدها. نزّل نسخة احتياطية أولاً. المتابعة؟')) return;
+  /* لقطة للتراجع + شواهد حذف كي لا تعود بالمزامنة */
+  if(!db.tombstones||typeof db.tombstones!=='object') db.tombstones={};
+  var now=Date.now(), snap={};
+  arrs.forEach(function(k){
+    snap[k]=removed[k];
+    var ids={}; removed[k].forEach(function(r){ if(r&&r.id!=null){ ids[r.id]=1; db.tombstones[r.id]=now; } });
+    db[k]=(db[k]||[]).filter(function(r){ return !(r&&r.id!=null&&ids[r.id]); });
+  });
+  db.settings.lastWipe={ts:now,when:nowTs(),by:(ME?ME.name:''),scope:scope,count:count,arrs:arrs,snap:snap};
+  log('delete','الإعدادات','شطب '+count+' إدخال ('+arrs.map(arNameAr).join('، ')+') — '+scope);
+  refreshLedger(); commit('تم شطب '+count+' إدخال — يمكنك التراجع'); renderSettingsForm();
+}
+function arNameAr(k){ return {purchases:'مشتريات',sales:'مبيعات',expenses:'مصروفات',preturns:'مرتجع شراء',sreturns:'مرتجع بيع'}[k]||k; }
+function undoWipeEntries(){
+  if(!guard('canDelete')) return;
+  var w=db.settings&&db.settings.lastWipe;
+  if(!w||!w.snap){ toast('لا يوجد شطب لاستعادته'); return; }
+  if(!confirm('استعادة '+w.count+' إدخال شُطبت ('+w.scope+')؟')) return;
+  var restored=0;
+  Object.keys(w.snap).forEach(function(k){
+    if(!Array.isArray(db[k])) db[k]=[];
+    var have={}; db[k].forEach(function(r){ if(r&&r.id!=null) have[r.id]=1; });
+    (w.snap[k]||[]).forEach(function(r){
+      if(r&&r.id!=null){ if(db.tombstones) delete db.tombstones[r.id]; if(!have[r.id]){ db[k].push(r); restored++; } }
+    });
+  });
+  db.settings.lastWipe=null;
+  log('add','الإعدادات','تراجع عن شطب — استعادة '+restored+' إدخال');
+  refreshLedger(); commit('تم استرجاع '+restored+' إدخال'); renderSettingsForm();
+}
+/* حالة آخر شطب في شاشة الإعدادات */
+function renderWipeStatus(){
+  var s=document.getElementById('wp_status'), btn=document.getElementById('wp_undoBtn'); if(!s) return;
+  var w=db.settings&&db.settings.lastWipe;
+  if(w){ s.textContent='آخر شطب: '+w.count+' إدخال ('+w.scope+') بواسطة '+(w.by||'—')+' — متاح التراجع.'; if(btn) btn.disabled=false; }
+  else { s.textContent='لا يوجد شطب حديث.'; if(btn) btn.disabled=true; }
 }
 function loadDemo(){
   if(!guard('settings')) return;
