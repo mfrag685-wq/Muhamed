@@ -1128,6 +1128,19 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 <!-- ======================= التقارير ======================= -->
 <section id="reports" class="panel">
   <div class="print-head"><span class="print-logo"></span><h3 id="ph2">التقارير</h3><p>إعداد محمد فرج</p></div>
+  <div class="sec-title">تقرير مبسّط للفترة <span class="hint">فرق النقد: مبيعات − (مشتريات + مصروفات) — بعيداً عن المخزون</span></div>
+  <div class="note no-print" style="border-right-color:var(--citrus)">مؤشّر نقدي سريع للفترة المختارة: <b>المبيعات</b> مقابل <b>المشتريات + المصروفات</b>، والفرق بينهما. <b>ملاحظة:</b> هذا ليس صافي الربح المحاسبي (لا يخصم المخزون المتبقّي كأصل) — للربح الدقيق راجع «قائمة الدخل».</div>
+  <div class="doc-box no-print">
+    <div class="grid" style="margin-bottom:8px">
+      <div class="field"><label>من تاريخ</label><input type="date" id="sp_from"></div>
+      <div class="field"><label>إلى تاريخ</label><input type="date" id="sp_to"></div>
+    </div>
+    <div class="form-foot"><button class="btn-main" onclick="simplePeriodReport()">احتساب الفرق</button>
+      <button class="btn" onclick="spRangeThisMonth()">الشهر الحالي</button>
+      <span class="mini">شامل الضريبة كقيمة نقدية فعلية.</span></div>
+    <div id="spBox" style="margin-top:10px"></div>
+  </div>
+
   <div class="panel-title">التقارير التفصيلية <span class="hint">مجمّعة يومياً مع إجمالي لكل يوم</span></div>
   <div class="filters no-print">
     <div class="field"><label>نوع التقرير</label><select id="rp_type" onchange="renderReport()"></select></div>
@@ -1702,7 +1715,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-16-ad';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-16-ae';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -2319,19 +2332,14 @@ function buildLedger(){
     var need=units,cost=0,parts=[];
     var a=take(whId,itemId,need); if(a.taken>0.0001){ cost+=a.cost; parts.push({whId:whId,units:a.taken,val:a.cost}); } need-=a.taken;
     if(need>0.0001){
-      generalWhs().forEach(function(g){
-        if(need<=0.0001||g.id===whId) return;
-        var b=take(g.id,itemId,need); if(b.taken>0.0001){ cost+=b.cost; parts.push({whId:g.id,units:b.taken,val:b.cost}); } need-=b.taken;
-      });
-    }
-    if(need>0.0001){
-      /* رصيد حقيقي: العجز يُخصم فعلاً فيصير الرصيد سالباً (بيع أكثر من المتاح = سالب)،
-         وتُقدَّر تكلفته بمتوسط الشراء وتتحدّث تلقائياً عند إدخال الشراء. المرجع لبداية
-         الرصيد هو آخر جرد فعلي، وما بعده حركات فعلية قد تجعله سالباً. */
+      /* رصيد حقيقي لكل مستودع: البيع يُخصم من مستودعه فقط؛ فإذا تجاوز المتاح صار
+         رصيد ذلك المستودع سالباً (بيع أكثر من المتاح = سالب) — لا سحب خفيّ من مستودع
+         آخر (كان يُشوّه الأرصدة ويجعل دفتر المخزون لا يطابق سجل الحركات). التكلفة
+         تُقدَّر بمتوسط الشراء وتتحدّث تلقائياً عند إدخال الشراء؛ والمرجع آخر جرد فعلي. */
       var est=need*fbCost(itemId); cost+=est;
       var s=cell(whId,itemId); s.units-=need; s.cost-=est; s.weight-=need*(+uw||0);
       parts.push({whId:whId,units:need,val:est});
-      warn.push({date:date,text:label+' '+date+': كمية '+itemName(itemId)+' تتجاوز الرصيد المتاح — أصبح الرصيد سالباً. راجع الشراء أو الجرد الفعلي.'});
+      warn.push({date:date,text:label+' '+date+': كمية '+itemName(itemId)+' في '+whName(whId)+' تتجاوز الرصيد المتاح — أصبح رصيد هذا المستودع سالباً. راجع الشراء أو الجرد الفعلي أو حوّل من مستودع آخر.'});
     }
     return {cost:cost,parts:parts};
   }
@@ -2411,10 +2419,12 @@ function buildLedger(){
       });
       cogsDoc[r.id]=tot;
     } else if(e.t===5){
-      /* مرتجع شراء: يخرج من المستودع المحدد فقط — ممنوع السحب من مستودعات أخرى */
+      /* مرتجع شراء: يخرج من المستودع المحدد فقط — والعجز يُخصم فعلاً فيصير سالباً
+         (يتطابق دفتر الحركات مع الرصيد) بدل تجاهله */
       var need5=+r.units||0, g5=take(r.whId,r.itemId,need5), c2=g5.cost;
       if(g5.taken<need5-0.001){
-        c2+=(need5-g5.taken)*fbCost(r.itemId);
+        var rem5=need5-g5.taken, est5=rem5*fbCost(r.itemId); c2+=est5;
+        var s5=cell(r.whId,r.itemId); s5.units-=rem5; s5.cost-=est5; s5.weight-=rem5*(+r.uw||0);
         warn.push({date:r.date,text:'مرتجع شراء '+r.date+': رصيد '+itemName(r.itemId)+' في '+whName(r.whId)
           +' لا يكفي لإرجاع '+qty(need5)+' وحدة — العجز '+qty(need5-g5.taken)+' وحدة.'});
       }
@@ -2422,12 +2432,14 @@ function buildLedger(){
       moves.push({date:r.date,whId:r.whId,itemId:r.itemId,type:'مرتجع شراء',ref:'#'+r.id,party:supName(r.supplierId),
         inU:0,outU:+r.units||0,val:c2});
     } else if(e.t===6){
-      /* الفاقد يخصم من مستودعه المحدد فقط */
+      /* الفاقد يخصم من مستودعه المحدد فقط — والعجز يُخصم فعلاً فيصير الرصيد سالباً
+         (يتطابق دفتر الحركات مع الرصيد) بدل تجاهل الزائد */
       var need6=+r.units||0, g6=take(r.whId,r.itemId,need6), c3=g6.cost;
       if(g6.taken<need6-0.001){
-        c3+=(need6-g6.taken)*fbCost(r.itemId);
+        var rem6=need6-g6.taken, est6=rem6*fbCost(r.itemId); c3+=est6;
+        var s6=cell(r.whId,r.itemId); s6.units-=rem6; s6.cost-=est6; s6.weight-=rem6*(+r.uw||0);
         warn.push({date:r.date,text:'فاقد '+r.date+': رصيد '+itemName(r.itemId)+' في '+whName(r.whId)
-          +' لا يكفي لتسجيل '+qty(need6)+' وحدة — العجز '+qty(need6-g6.taken)+' وحدة.'});
+          +' لا يكفي لتسجيل '+qty(need6)+' وحدة — سُجِّل العجز وأصبح الرصيد سالباً.'});
       }
       wasteCost[r.id]=c3;
       moves.push({date:r.date,whId:r.whId,itemId:r.itemId,type:'فاقد',ref:'#'+r.id,party:r.reason||'',inU:0,outU:+r.units||0,val:c3});
@@ -6669,6 +6681,31 @@ function removeDeptImage(k){
    ========================================================================== */
 var lastReport={title:'',head:[],rows:[]};
 function clearReportFilters(){ ['rp_from','rp_to','rp_item','rp_wh','rp_group','rp_party'].forEach(function(i){setVal(i,'');}); fillReportParty(); renderReport(); }
+/* ===== تقرير مبسّط للفترة: مبيعات − (مشتريات + مصروفات) = الفرق النقدي ===== */
+function spRangeThisMonth(silent){ var t=today(); setVal('sp_from',t.slice(0,8)+'01'); setVal('sp_to',t); if(!silent) simplePeriodReport(); }
+function simplePeriodReport(){
+  var box=document.getElementById('spBox'); if(!box) return;
+  if(!val('sp_from')&&!val('sp_to')) spRangeThisMonth(true);
+  var from=val('sp_from')||'', to=val('sp_to')||today();
+  var inR=function(d){ return inRange(d,from,to); };
+  var buy=0,buyRet=0,sell=0,sellRet=0,exp=0;
+  db.purchases.forEach(function(p){ if(inR(p.date)) buy+=docGrand(p); });
+  (db.preturns||[]).forEach(function(r){ if(inR(r.date)) buyRet+=(+r.total||0)+(+r.vat||0); });
+  db.sales.forEach(function(s){ if(inR(s.date)) sell+=docGrand(s); });
+  (db.sreturns||[]).forEach(function(r){ if(inR(r.date)) sellRet+=(+r.total||0)+(+r.vat||0); });
+  (db.expenses||[]).forEach(function(e){ if(inR(e.date)) exp+=(+e.amount||0); });
+  var netSell=sell-sellRet, netBuy=buy-buyRet, outMoney=netBuy+exp, diff=netSell-outMoney;
+  function card(lbl,v,cls,sub){ return '<div class="rb-kpi '+(cls||'')+'"><div class="k">'+lbl+'</div><div class="v">'+money(v)+'</div>'+(sub?'<div class="mini">'+sub+'</div>':'')+'</div>'; }
+  box.innerHTML='<div class="note" style="border-right-color:var(--leaf-dark)"><b>الفترة: '+(from?esc(from):'البداية')+' ← '+esc(to)+'</b></div>'
+    +'<div class="rb-kpis" style="display:flex;gap:10px;flex-wrap:wrap;margin:8px 0">'
+    +card('المبيعات (شامل الضريبة)',netSell,'blue',sellRet>0?('بعد خصم مرتجعات '+money(sellRet)):'')
+    +card('المشتريات (شامل الضريبة)',netBuy,'',buyRet>0?('بعد خصم مرتجعات '+money(buyRet)):'')
+    +card('المصروفات',exp,'')
+    +card('إجمالي المصروف (مشتريات+مصروفات)',outMoney,'')
+    +card('الفرق (مبيعات − المصروف)',diff,diff>=0?'green':'red',diff>=0?'فائض نقدي':'عجز نقدي')
+    +'</div>'
+    +'<div class="mini" style="color:var(--ink-2)">الفرق = المبيعات '+money(netSell)+' − (مشتريات '+money(netBuy)+' + مصروفات '+money(exp)+') = <b>'+money(diff)+'</b>. مؤشّر نقدي مبسّط لا يخصم المخزون المتبقّي (أصل) — للربح المحاسبي الدقيق راجع «قائمة الدخل».</div>';
+}
 function renderReport(){
   if(!val('rp_type')) fillReportTypes();
   /* حماية: منع كشف الأرصدة/الأرباح عبر التقارير لمن لا يملك الصلاحية */
