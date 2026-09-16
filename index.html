@@ -1329,10 +1329,10 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
         <div class="grid-2">
           <div class="field"><label>اسم المستودع</label><input type="text" id="wh_name" placeholder="مستودع جدة"></div>
           <div class="field"><label>تابع لـ</label><select id="wh_client"></select></div>
-          <div class="field"><label>طريقة تتبّع المخزون الافتراضية</label><select id="wh_track">
+          <div class="field"><label>طريقة تتبّع المخزون الافتراضية <span class="hint">اختياري — لا يُقيّد</span></label><select id="wh_track">
             <option value="unit">بالوحدة/الكمية (عدد)</option>
             <option value="kg">بالوزن (كيلوجرام)</option></select>
-            <span class="mini">تُضبط تلقائياً طريقة تتبّع أي صنف جديد يُخصَّص لهذا المستودع (يمكن تغييرها للصنف).</span></div>
+            <span class="mini">طريقة التتبّع صارت <b>خاصية لكل صنف</b> (من بطاقة الصنف)، فيمكن للمستودع الواحد أن يحوي أصنافاً بالكمية وأصنافاً بالوزن معاً. هذا الحقل مرجعي فقط ولا يفرض شيئاً.</span></div>
         </div>
         <div class="form-foot"><button class="btn-main" onclick="saveWarehouse()">حفظ المستودع</button>
           <button class="btn" onclick="cancelDoc('wh')">إلغاء</button><span class="editing-note" id="wh_editing"></span></div>
@@ -1735,7 +1735,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-16-ag';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-16-ah';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -2691,7 +2691,9 @@ function rememberBoxWeight(itemId,w){
 function whTrackOf(whId){ var w=byId(db.warehouses,+whId); return (w&&w.track)||'unit'; }
 /* هل تُخفى الأوزان في هذا السطر؟ الأصناف الخدمية دائماً، أو أي صنف بالكمية داخل مستودع يتتبّع بالكمية
    (الأوزان بلا قيمة إلا إذا اختير في إعدادات المستودع تتبّع بالوزن). أصناف الكيلو تبقى بأوزانها. */
-function lineWeightHidden(p,it){ if(it&&it.service) return true; if(it&&it.byKg) return false; return whTrackOf(val(p+'_wh'))!=='kg'; }
+/* طريقة تتبّع المخزون صارت خاصية للصنف فقط (لا علاقة للمستودع):
+   بالكيلو ⇒ يظهر إدخال وزن الصندوق · بالوحدة/خدمي ⇒ يُخفى (بالوحدة يأخذ وزنه من بطاقة الصنف). */
+function lineWeightHidden(p,it){ return !it || !!it.service || !it.byKg; }
 function applyItemTracking(p,it){
   var byKg=!!(it&&it.byKg), service=!!(it&&it.service);
   var noWt=lineWeightHidden(p,it);
@@ -2767,7 +2769,7 @@ function addLine(k){
   var it0=byId(db.items,itemId), byKg=!!(it0&&it0.byKg), service=!!(it0&&it0.service);
   var noWt=lineWeightHidden(p,it0);   /* بلا أوزان: خدمي أو تتبّع بالكمية */
   if(service){ uw=0; b='unit'; }   /* صنف خدمي: بلا وزن، السعر بالعدد */
-  else if(noWt){ uw=0; b='unit'; }   /* تتبّع بالكمية: لا وزن إطلاقاً — الكمية بالعدد فقط */
+  else if(noWt){ uw=(+it0.uw||0); b='unit'; }   /* بالوحدة: الكمية بالعدد، ووزن الوحدة يؤخذ تلقائياً من بطاقة الصنف (للتقارير) */
   if(units<=0){ toast(service?'أدخل العدد (إلزامي)':(byKg?'أدخل عدد الصناديق (إلزامي)':'أدخل الكمية (إلزامي)')); return; }
   if(!service&&!noWt&&uw<=0){ toast(byKg?'أدخل وزن الصندوق بالكيلو (إلزامي)':'أدخل وزن الوحدة بالكيلو (إلزامي)'); return; }
   if(price<=0){ toast('أدخل السعر (إلزامي)'); return; }
@@ -4096,11 +4098,8 @@ function saveItem(){
   else { rec.id=uid(); db.items.push(rec); log('add','البيانات الأساسية','إضافة صنف: '+n+' — وحدة '+rec.unit+' بوزن '+rec.uw+' كغ'); }
   cancelDoc('it'); commit('تم حفظ الصنف'); renderMaster();
 }
-function onItemWhPick(){   /* ضبط طريقة التتبّع تلقائياً حسب المستودع المختار — للأصناف الجديدة فقط */
-  if(editId.it) return;
-  if(val('it_bykg')==='service') return;   /* لا نغيّر الأصناف الخدمية تلقائياً */
-  var w=byId(db.warehouses,+val('it_wh'));
-  if(w&&w.track) setVal('it_bykg', w.track==='kg'?'1':'0');
+function onItemWhPick(){   /* طريقة التتبّع صارت خاصية للصنف — لا يفرضها المستودع بعد الآن */
+  /* (أُلغِيت المزامنة التلقائية من المستودع؛ يختار المستخدم طريقة تتبّع كل صنف بنفسه) */
 }
 /* إظهار/إخفاء حقل الوزن حسب نوع التتبّع — الأصناف الخدمية بلا وزن */
 function onItemTrackChange(){
@@ -5545,7 +5544,7 @@ function renderMaster(){
 
   document.getElementById('tbWhMaster').innerHTML=db.warehouses.map(function(w){
     var v=0; Object.keys(L.stock).forEach(function(k){ if(L.stock[k].whId===w.id) v+=L.stock[k].cost; });
-    return '<tr><td class="name"><b>'+esc(w.name)+'</b> <span class="pill '+(w.track==='kg'?'pill-info':'pill-ok')+'">'+(w.track==='kg'?'وزن':'كمية')+'</span></td><td class="name muted">'+(w.clientId?esc(clientName(w.clientId)):'عام لكل الفروع')+'</td>'
+    return '<tr><td class="name"><b>'+esc(w.name)+'</b> <span class="pill pill-ok" title="يحوي أصنافاً بالكمية وبالوزن حسب كل صنف">كمية + وزن</span></td><td class="name muted">'+(w.clientId?esc(clientName(w.clientId)):'عام لكل الفروع')+'</td>'
       +'<td>'+money(v)+'</td>'
       +'<td>'+(can('canEdit')?'<button class="btn-sm" onclick="editWarehouse('+w.id+')">تعديل</button> ':'')
       +(can('canDelete')?'<button class="btn-sm btn-del" onclick="delWarehouse('+w.id+')">حذف</button>':'')+'</td></tr>';
