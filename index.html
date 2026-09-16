@@ -1536,10 +1536,16 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
       <span class="mini">بجانب كل صنف عدد حركاته — للتأكد أين توجد الكميات قبل الدمج. «استعادة حركات مفقودة» تُرجع أي حركة فقدت صنفها.</span></div>
   </div>
 
-  <div class="sec-title">تشخيص أرصدة الأصناف <span class="hint">لماذا يظهر رصيد لصنف بِيع بالكامل؟</span></div>
-  <div class="note" style="border-right-color:var(--citrus)">يقارن لكل صنف <b>المشترى بالمُباع بالرصيد</b> ويكشف السبب: <b>تباين وزن العبوة</b> بين الشراء والبيع (السبب الأشيع للرصيد الوهمي)، أو <b>البيع من مستودع غير مستودع الشراء</b>، أو <b>رصيد سالب</b>. الأصناف المشبوهة تظهر أولاً.</div>
+  <div class="sec-title">تشخيص أرصدة الأصناف <span class="hint">من تاريخ إلى تاريخ — لعزل مشاكل الفترة</span></div>
+  <div class="note" style="border-right-color:var(--citrus)">يقارن لكل صنف <b>رصيد بداية المدة + المشترى − المُباع ± التسويات = رصيد نهاية المدة</b> ضمن الفترة المختارة فقط — فلا تختلط حركات ما قبل الجرد بمشاكل الشهر الحالي. حدّد <b>من/إلى</b> (افتراضياً الشهر الحالي)، فيظهر لكل صنف مصدر رصيده ويُكشف أي <b>فرق غير مفسَّر</b> داخل الفترة.</div>
   <div class="doc-box no-print">
-    <div class="form-foot"><button class="btn" onclick="renderItemDiag()">🔍 فحص الأصناف</button>
+    <div class="grid" style="margin-bottom:8px">
+      <div class="field"><label>من تاريخ</label><input type="date" id="di_from"></div>
+      <div class="field"><label>إلى تاريخ</label><input type="date" id="di_to"></div>
+    </div>
+    <div class="form-foot"><button class="btn-main" onclick="renderItemDiag()">🔍 فحص الأصناف في المدة</button>
+      <button class="btn" onclick="diagRangeThisMonth()">الشهر الحالي</button>
+      <button class="btn" onclick="diagRangeSinceCount()">منذ آخر جرد</button>
       <span class="mini">بعد معرفة السبب: استخدم «تصحيح أوزان العبوات» أو «الجرد الفعلي» أدناه.</span></div>
     <div id="itemDiagBox" style="margin-top:10px"></div>
   </div>
@@ -1696,7 +1702,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-16-ac';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-16-ad';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -2306,13 +2312,16 @@ function buildLedger(){
   db.openingStock.forEach(function(o){
     if(!hist[o.itemId]) hist[o.itemId]={u:0,c:0}; hist[o.itemId].u+=+o.units||0; hist[o.itemId].c+=+o.total||0; });
   function fbCost(i){ var h=hist[i]; return (h&&h.u>0)?h.c/h.u:0; }
+  /* يسحب كمية بيع من مستودعها (ثم من المستودعات العامة عند العجز) ويُرجع التكلفة مع
+     تفصيل ما سُحب من كل مستودع فعلياً (parts) — كي تُسجَّل حركة لكل مستودع فيتطابق
+     دفتر الحركات (moves) مع الرصيد الفعلي (stock)، فلا يختلف stockAsOf عن الرصيد. */
   function drawFor(whId,itemId,units,label,date,uw){
-    var need=units,cost=0;
-    var a=take(whId,itemId,need); cost+=a.cost; need-=a.taken;
+    var need=units,cost=0,parts=[];
+    var a=take(whId,itemId,need); if(a.taken>0.0001){ cost+=a.cost; parts.push({whId:whId,units:a.taken,val:a.cost}); } need-=a.taken;
     if(need>0.0001){
       generalWhs().forEach(function(g){
         if(need<=0.0001||g.id===whId) return;
-        var b=take(g.id,itemId,need); cost+=b.cost; need-=b.taken;
+        var b=take(g.id,itemId,need); if(b.taken>0.0001){ cost+=b.cost; parts.push({whId:g.id,units:b.taken,val:b.cost}); } need-=b.taken;
       });
     }
     if(need>0.0001){
@@ -2321,9 +2330,10 @@ function buildLedger(){
          الرصيد هو آخر جرد فعلي، وما بعده حركات فعلية قد تجعله سالباً. */
       var est=need*fbCost(itemId); cost+=est;
       var s=cell(whId,itemId); s.units-=need; s.cost-=est; s.weight-=need*(+uw||0);
+      parts.push({whId:whId,units:need,val:est});
       warn.push({date:date,text:label+' '+date+': كمية '+itemName(itemId)+' تتجاوز الرصيد المتاح — أصبح الرصيد سالباً. راجع الشراء أو الجرد الفعلي.'});
     }
-    return cost;
+    return {cost:cost,parts:parts};
   }
   var ev=[];
   db.openingStock.forEach(function(x){ ev.push({t:0,d:x.date||'0000-00-00',id:x.id,r:x}); });
@@ -2391,10 +2401,13 @@ function buildLedger(){
     } else if(e.t===4){
       var tot=0;
       (r.lines||[]).forEach(function(l,idx){
-        var c=drawFor(l.whId,l.itemId,+l.units||0,'بيع',r.date,+l.uw||0);
-        cogsLine[r.id+'#'+idx]=c; tot+=c;
-        moves.push({date:r.date,whId:l.whId,itemId:l.itemId,type:'بيع',ref:r.no||('#'+r.id),party:clientName(r.clientId),
-          inU:0,outU:+l.units||0,val:c});
+        var d=drawFor(l.whId,l.itemId,+l.units||0,'بيع',r.date,+l.uw||0);
+        cogsLine[r.id+'#'+idx]=d.cost; tot+=d.cost;
+        /* حركة بيع لكل مستودع سُحب منه فعلاً (يتطابق دفتر الحركات مع الرصيد) */
+        d.parts.forEach(function(pt){
+          moves.push({date:r.date,whId:pt.whId,itemId:l.itemId,type:'بيع',ref:r.no||('#'+r.id),party:clientName(r.clientId),
+            inU:0,outU:pt.units,val:pt.val});
+        });
       });
       cogsDoc[r.id]=tot;
     } else if(e.t===5){
@@ -5886,67 +5899,86 @@ function renderStockResetUI(){
 function renderItemDiag(){
   var box=document.getElementById('itemDiagBox'); if(!box) return;
   if(!L) refreshLedger();
+  /* الفترة: افتراضياً الشهر الحالي إن لم تُحدَّد */
+  if(!val('di_from')&&!val('di_to')) diagRangeThisMonth(true);
+  var from=val('di_from')||'', to=val('di_to')||today();
+  var inR=function(d){ return inRange(d,from,to); };
   var agg={};
-  function A(id){ if(!agg[id]) agg[id]={pU:0,pBox:0,pKg:0,sU:0,sBox:0,sKg:0,opU:0,srU:0,prU:0,wU:0,tNet:0,other:0}; return agg[id]; }
-  db.purchases.forEach(function(p){(p.lines||[]).forEach(function(l){ var o=A(l.itemId); o.pU+=+l.units||0; o.pBox+=+l.boxes||0; o.pKg+=(+l.units||0)*(+l.uw||0); });});
-  db.sales.forEach(function(s){(s.lines||[]).forEach(function(l){ var o=A(l.itemId); o.sU+=+l.units||0; o.sBox+=+l.boxes||0; o.sKg+=(+l.units||0)*(+l.uw||0); });});
-  (db.openingStock||[]).forEach(function(o2){ A(o2.itemId).opU+=+o2.units||0; });                 /* رصيد افتتاحي + تسويات الجرد (زيادة) */
-  (db.sreturns||[]).forEach(function(r){ A(r.itemId).srU+=+r.units||0; });                         /* مرتجع بيع (يعيد للمخزون) */
-  (db.preturns||[]).forEach(function(r){ A(r.itemId).prU+=+r.units||0; });                         /* مرتجع شراء (يخرج من المخزون) */
-  (db.waste||[]).forEach(function(w){ A(w.itemId).wU+=+w.units||0; });                             /* فاقد/عجز جرد */
-  /* التحويلات بين المستودعات تُلغي بعضها في الإجمالي (خروج من واحد ودخول لآخر) → صافيها صفر للصنف */
-  var rem={}, remWh={};
-  Object.keys(L.stock).forEach(function(k){ var s=L.stock[k]; rem[s.itemId]=(rem[s.itemId]||0)+s.units;
+  function A(id){ if(!agg[id]) agg[id]={pU:0,pBox:0,pKg:0,sU:0,sBox:0,sKg:0,opU:0,srU:0,prU:0,wU:0}; return agg[id]; }
+  db.purchases.forEach(function(p){ if(!inR(p.date)) return; (p.lines||[]).forEach(function(l){ var o=A(l.itemId); o.pU+=+l.units||0; o.pBox+=+l.boxes||0; o.pKg+=(+l.units||0)*(+l.uw||0); });});
+  db.sales.forEach(function(s){ if(!inR(s.date)) return; (s.lines||[]).forEach(function(l){ var o=A(l.itemId); o.sU+=+l.units||0; o.sBox+=+l.boxes||0; o.sKg+=(+l.units||0)*(+l.uw||0); });});
+  (db.openingStock||[]).forEach(function(o2){ if(!inR(o2.date)) return; A(o2.itemId).opU+=+o2.units||0; });   /* افتتاحي/جرد (زيادة) داخل الفترة */
+  (db.sreturns||[]).forEach(function(r){ if(!inR(r.date)) return; A(r.itemId).srU+=+r.units||0; });            /* مرتجع بيع */
+  (db.preturns||[]).forEach(function(r){ if(!inR(r.date)) return; A(r.itemId).prU+=+r.units||0; });            /* مرتجع شراء */
+  (db.waste||[]).forEach(function(w){ if(!inR(w.date)) return; A(w.itemId).wU+=+w.units||0; });                /* فاقد/عجز */
+  /* أرصدة بداية/نهاية المدة من لقطة المخزون (تشمل كل الحركات السابقة والجرد) */
+  var openSnap=from?stockAsOf(diagDayBefore(from)):{}, closeSnap=stockAsOf(to);
+  var openBal={}, closeBal={}, remWh={};
+  Object.keys(openSnap).forEach(function(k){ var s=openSnap[k]; openBal[s.itemId]=(openBal[s.itemId]||0)+s.units; });
+  Object.keys(closeSnap).forEach(function(k){ var s=closeSnap[k]; closeBal[s.itemId]=(closeBal[s.itemId]||0)+s.units;
     if(!remWh[s.itemId]) remWh[s.itemId]=[]; if(Math.abs(s.units)>0.0001) remWh[s.itemId].push({wh:s.whId,u:s.units,c:s.cost}); });
+  /* أدرج أيضاً الأصناف التي لها رصيد بداية أو نهاية دون حركة في الفترة */
+  Object.keys(openBal).forEach(function(id){ A(+id); }); Object.keys(closeBal).forEach(function(id){ A(+id); });
   var rows=Object.keys(agg).map(function(id){ id=+id; var o=agg[id], it=byId(db.items,id), bk=!!(it&&it.byKg), sv=!!(it&&it.service);
-    var remU=rem[id]||0, whs=remWh[id]||[], flags=[], sev=0;
-    /* التسوية: الرصيد المتوقّع من كل الحركات = افتتاحي/جرد + مشتريات + مرتجع بيع − مبيعات − مرتجع شراء − فاقد */
-    var recon=o.opU+o.pU+o.srU-o.sU-o.prU-o.wU;
-    var diff=remU-recon;
+    var ob=openBal[id]||0, cb=closeBal[id]||0, whs=remWh[id]||[], flags=[], sev=0;
+    /* التسوية داخل الفترة: رصيد البداية + مشتريات + مرتجع بيع + افتتاحي/جرد − مبيعات − مرتجع شراء − فاقد = رصيد النهاية */
+    var recon=ob+o.pU+o.srU+o.opU-o.sU-o.prU-o.wU;
+    var diff=cb-recon;
+    var noMove=(o.pU+o.sU+o.opU+o.srU+o.prU+o.wU)===0;
+    if(noMove && Math.abs(cb)<0.001 && Math.abs(ob)<0.001) return null;   /* لا شيء يخص هذا الصنف في الفترة */
     if(bk && o.pBox>0 && o.sBox>0){ var pw=o.pKg/o.pBox, sw=o.sKg/o.sBox;
-      if(Math.abs(pw-sw)>0.15){ flags.push('⚠ تباين وزن العبوة: شراء '+num(pw)+' كجم · بيع '+num(sw)+' كجم'); sev=3; } }
+      if(Math.abs(pw-sw)>0.15){ flags.push('⚠ تباين وزن العبوة داخل الفترة: شراء '+num(pw)+' كجم · بيع '+num(sw)+' كجم'); sev=3; } }
     var hasPos=whs.some(function(x){return x.u>0.001;}), hasNeg=whs.some(function(x){return x.u<-0.001;});
     if(hasPos&&hasNeg){ flags.push('رصيد موجب وسالب في مستودعات مختلفة ← بيع من غير مستودع الشراء'); sev=Math.max(sev,2); }
-    if(remU<-0.001){ flags.push('رصيد سالب '+qty(remU)+' ← بِيع أكثر من المتاح (رصيد حقيقي)'); sev=Math.max(sev,1); }
-    /* فرق غير مفسَّر بالحركات المعروضة (قد يكون تحويلات بين الأقسام أو إنتاج) — للمراجعة فقط */
-    if(Math.abs(diff)>0.5){ flags.push('فرق '+qty(diff)+' يفسّره تحويلات/إنتاج أو حركات أخرى — راجع إن لزم'); sev=Math.max(sev,1); }
-    return {id:id,o:o,bk:bk,sv:sv,remU:remU,recon:recon,diff:diff,whs:whs,flags:flags,sev:sev};
-  });
-  rows.sort(function(a,b){ return b.sev-a.sev || Math.abs(b.remU)-Math.abs(a.remU); });
+    if(cb<-0.001){ flags.push('رصيد سالب '+qty(cb)+' نهاية المدة ← بِيع أكثر من المتاح (رصيد حقيقي)'); sev=Math.max(sev,2); }
+    if(Math.abs(diff)>0.5){ flags.push('فرق '+qty(diff)+' يعود لتوزيع المستودعات/تحويلات بين المستودعات — للمراجعة'); sev=Math.max(sev,1); }
+    return {id:id,o:o,bk:bk,sv:sv,ob:ob,cb:cb,recon:recon,diff:diff,whs:whs,flags:flags,sev:sev};
+  }).filter(function(r){ return r; });
+  rows.sort(function(a,b){ return b.sev-a.sev || Math.abs(b.cb)-Math.abs(a.cb); });
   var ul=function(r){ return r.bk?'كجم':(r.sv?'عدد':'وحدة'); };
   var h=rows.map(function(r){ var o=r.o; var u=ul(r);
     var boughtTxt=r.bk?(qty(o.pBox)+' عبوة / '+qty(o.pKg)+' كجم'):(qty(o.pU)+' '+u);
     var soldTxt=r.bk?(qty(o.sBox)+' عبوة / '+qty(o.sKg)+' كجم'):(qty(o.sU)+' '+u);
-    /* عمود التسويات: افتتاحي/جرد + مرتجعات − فاقد (كل ما يفسّر الفرق بين المشتريات والمبيعات والرصيد) */
     var adj=[];
     if(Math.abs(o.opU)>0.001) adj.push('<span class="pos">افتتاحي/جرد +'+qty(o.opU)+'</span>');
     if(Math.abs(o.srU)>0.001) adj.push('<span class="pos">مرتجع بيع +'+qty(o.srU)+'</span>');
     if(Math.abs(o.wU)>0.001) adj.push('<span class="neg">فاقد/عجز −'+qty(o.wU)+'</span>');
     if(Math.abs(o.prU)>0.001) adj.push('<span class="neg">مرتجع شراء −'+qty(o.prU)+'</span>');
     var adjTxt=adj.length?adj.join('<br>'):'—';
-    /* سطر معادلة التسوية عندما لا يساوي (مشتريات − مبيعات) الرصيد — يوضّح المصدر */
-    var reconTxt='';
-    if(Math.abs((o.pU-o.sU)-r.remU)>0.5){
-      var parts=[]; if(Math.abs(o.opU)>0.001) parts.push('افتتاحي/جرد '+qty(o.opU));
-      parts.push('مشتريات '+qty(o.pU)); parts.push('− مبيعات '+qty(o.sU));
-      if(Math.abs(o.srU)>0.001) parts.push('+ مرتجع '+qty(o.srU));
-      if(Math.abs(o.wU)>0.001) parts.push('− فاقد '+qty(o.wU));
-      if(Math.abs(o.prU)>0.001) parts.push('− مرتجع شراء '+qty(o.prU));
-      reconTxt='<div class="pill pill-info" style="display:block;margin:2px 0;white-space:normal">الرصيد = '+parts.join(' ').replace(/− /g,'− ')+' = <b>'+qty(r.recon)+'</b> '+u+'</div>';
-    }
+    /* معادلة تسوية الفترة: رصيد البداية + مشتريات − مبيعات ± تسويات = رصيد النهاية */
+    var parts=['رصيد البداية '+qty(r.ob),'+ مشتريات '+qty(o.pU),'− مبيعات '+qty(o.sU)];
+    if(Math.abs(o.opU)>0.001) parts.push('+ افتتاحي/جرد '+qty(o.opU));
+    if(Math.abs(o.srU)>0.001) parts.push('+ مرتجع '+qty(o.srU));
+    if(Math.abs(o.wU)>0.001) parts.push('− فاقد '+qty(o.wU));
+    if(Math.abs(o.prU)>0.001) parts.push('− مرتجع شراء '+qty(o.prU));
+    var reconTxt='<div class="pill pill-info" style="display:block;margin:2px 0;white-space:normal">'+parts.join(' ')+' = <b>'+qty(r.recon)+'</b> '+u+'</div>';
     var whTxt=r.whs.map(function(x){return esc(whName(x.wh))+': '+qty(x.u);}).join(' · ')||'—';
     var flagTxt=r.flags.length?r.flags.map(function(f){return '<div class="pill '+(r.sev>=3?'pill-bad':(r.sev>=2?'pill-warn':'pill-info'))+'" style="display:block;margin:2px 0;white-space:normal">'+esc(f)+'</div>';}).join(''):'<span class="pill pill-ok">سليم</span>';
-    return '<tr><td class="name"><b>'+esc(itemName(r.id))+'</b></td><td>'+boughtTxt+'</td><td>'+soldTxt+'</td>'
+    return '<tr><td class="name"><b>'+esc(itemName(r.id))+'</b></td>'
+      +'<td class="'+(r.ob<-0.001?'neg':'muted')+'">'+qty(r.ob)+' '+u+'</td>'
+      +'<td>'+boughtTxt+'</td><td>'+soldTxt+'</td>'
       +'<td class="name muted" style="font-size:11px">'+adjTxt+'</td>'
-      +'<td class="'+(Math.abs(r.remU)>0.001?(r.remU<0?'neg':'pos'):'muted')+'">'+qty(r.remU)+' '+u+'</td>'
+      +'<td class="'+(Math.abs(r.cb)>0.001?(r.cb<0?'neg':'pos'):'muted')+'"><b>'+qty(r.cb)+'</b> '+u+'</td>'
       +'<td class="name muted" style="font-size:11px">'+whTxt+'</td><td class="name">'+reconTxt+flagTxt+'</td></tr>';
   }).join('');
   var nSusp=rows.filter(function(r){return r.sev>0;}).length;
-  box.innerHTML='<div class="note '+(nSusp?'':'no-print')+'" style="border-right-color:'+(nSusp?'var(--tomato)':'var(--leaf-dark)')+'">'
-    +(nSusp?('عُثر على <b>'+nSusp+'</b> صنف بأرصدة تحتاج انتباهاً (تظهر أولاً). الرصيد صحيح = مشتريات − مبيعات + <b>افتتاحي/جرد</b> + مرتجعات − <b>فاقد/عجز</b>؛ راجع الأعمدة لفهم مصدر كل رصيد.'):'كل الأصناف سليمة ومتّسقة. ✅ الرصيد = مشتريات − مبيعات مع التسويات (افتتاحي/جرد، فاقد، مرتجعات).')+'</div>'
-    +'<div class="table-scroll"><table><thead><tr><th class="name">الصنف</th><th>اشتُري</th><th>بِيع</th><th class="name">تسويات (افتتاحي/جرد · فاقد · مرتجع)</th><th>الرصيد الحالي</th><th class="name">توزيع المستودعات</th><th class="name">التشخيص / التسوية</th></tr></thead><tbody>'
-    +(h||'<tr><td colspan="7" class="empty">لا توجد حركات أصناف.</td></tr>')+'</tbody></table></div>';
+  var perTxt='الفترة: '+(from?esc(from):'البداية')+' ← '+esc(to);
+  box.innerHTML='<div class="note '+(nSusp?'':'no-print')+'" style="border-right-color:'+(nSusp?'var(--tomato)':'var(--leaf-dark)')+'"><b>'+perTxt+'</b> · '
+    +(nSusp?('عُثر على <b>'+nSusp+'</b> صنف يحتاج انتباهاً داخل الفترة (يظهر أولاً). كل صف: رصيد البداية + مشتريات − مبيعات ± تسويات = رصيد النهاية.'):'كل الأصناف متّسقة داخل الفترة. ✅ رصيد البداية + مشتريات − مبيعات ± تسويات = رصيد النهاية.')+'</div>'
+    +'<div class="table-scroll"><table><thead><tr><th class="name">الصنف</th><th>رصيد البداية</th><th>اشتُري</th><th>بِيع</th><th class="name">تسويات (افتتاحي/جرد · فاقد · مرتجع)</th><th>رصيد النهاية</th><th class="name">توزيع المستودعات</th><th class="name">معادلة التسوية / التشخيص</th></tr></thead><tbody>'
+    +(h||'<tr><td colspan="8" class="empty">لا توجد حركات أصناف في الفترة.</td></tr>')+'</tbody></table></div>';
 }
+/* أدوات الفترة لتشخيص الأصناف */
+function diagDayBefore(d){ try{ var x=new Date(d+'T00:00:00'); x.setDate(x.getDate()-1); return x.toISOString().slice(0,10); }catch(e){ return d; } }
+function diagRangeThisMonth(silent){ var t=today(); setVal('di_from',t.slice(0,8)+'01'); setVal('di_to',t); if(!silent) renderItemDiag(); }
+/* من اليوم التالي لآخر جرد فعلي مسجَّل (أو أول الشهر إن لم يوجد) */
+function diagRangeSinceCount(){
+  var last=''; (db.settings&&db.settings.stockCountLog||[]).forEach(function(op){ if(op.when&&op.when>last) last=op.when; });
+  if(!last){ (db.waste||[]).forEach(function(w){ if(/جرد|تصفير/.test(w.reason||'')&&w.date>last) last=w.date; });
+             (db.openingStock||[]).forEach(function(o){ if(/جرد|تصحيح|زيادة/.test(o.reason||'')&&o.date>last) last=o.date; }); }
+  setVal('di_from', last?diagDayAfter(last):(today().slice(0,8)+'01')); setVal('di_to',today()); renderItemDiag();
+}
+function diagDayAfter(d){ try{ var x=new Date(d+'T00:00:00'); x.setDate(x.getDate()+1); return x.toISOString().slice(0,10); }catch(e){ return d; } }
 /* ===== دمج الأصناف المكرّرة — نقل كل حركات صنف إلى صنف آخر لتصحيح الأرصدة السالبة ===== */
 function fillMergeSelects(){
   var o='<option value="">— اختر —</option>'+db.items.map(function(i){ return '<option value="'+i.id+'">'+esc(i.name)+(i.whId?' — '+esc(whName(i.whId)):'')+(i.active===0?' (متوقف)':'')+'</option>'; }).join('');
