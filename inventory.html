@@ -234,7 +234,7 @@ tr:hover td{background:#f8fafc}
    ============================================================ */
 const KEY="inv_system_v2";
 /* رقم إصدار التطبيق — يُزاد مع كل تحديث؛ يُقارَن بالنسخة المنشورة لإظهار زر التحديث */
-const APP_VERSION="2026-09-14-01";
+const APP_VERSION="2026-09-16-01";
 let DB,ME;
 /* التحقق من توفّر نسخة أحدث بجلب الملف نفسه (بدون كاش) ومقارنة رقم الإصدار */
 function checkForUpdate(){
@@ -1230,9 +1230,84 @@ function delMovement(id){
   logAct("حذف حركة",`${m.model||""} ${typeAr(m.type)} كمية ${m.qty}`);save();
   toast("تم حذف الحركة وإرجاع الرصيد");keepScroll();renderRecent();
 }
+/* ===== تعديل فاتورة بيع كاملة (مثل إنشاء فاتورة: إضافة/حذف أصناف) ===== */
+let invEdit=[];
+function editInvoice(gid){
+  if(!guard("canEdit"))return;
+  const lines=DB.movements.filter(m=>m.invGid===gid&&m.type==="outbound");
+  if(!lines.length){toast("لا توجد بنود لهذه الفاتورة");return;}
+  const f=lines[0];
+  invEdit=lines.map(m=>({mid:m.id,itemId:m.itemId,qty:m.qty,price:m.price||0,fee:m.fee||0}));
+  const comm=lines.reduce((s,m)=>s+(m.comm||0),0);
+  const el=document.createElement("div");el.className="modal";el.id="invEditModal";
+  el.innerHTML=`<div class="box" style="max-width:680px"><h3>🧾 تعديل الفاتورة</h3>
+    <div class="formgrid">
+      <div class="cell c6"><label>رقم الفاتورة *</label><input id="ie_inv" value="${esc(f.invoice||"")}"></div>
+      <div class="cell c6"><label>التاريخ</label><input id="ie_date" type="date" value="${esc(f.date||today())}"></div>
+      <div class="cell c6"><label>العمولة ﷼ (كامل الفاتورة)</label><input id="ie_comm" type="number" inputmode="decimal" step="0.01" value="${comm||0}"></div>
+      <div class="cell c6"><label>العنوان</label><input id="ie_addr" value="${esc(f.address||"")}"></div>
+    </div>
+    <div style="font-weight:800;color:var(--amber);margin:10px 0 6px">بنود الفاتورة</div>
+    <div class="table-wrap"><table><thead><tr><th>الصنف</th><th>الكمية</th><th>السعر</th><th>رسوم</th><th></th></tr></thead>
+      <tbody id="ieRows"></tbody></table></div>
+    <div style="font-weight:800;color:var(--green);margin:12px 0 6px">➕ إضافة صنف</div>
+    <div class="formgrid">
+      <div class="cell c6"><select id="ie_item"><option value="">— اختر الصنف —</option>${citems().map(i=>`<option value="${i.id}">${esc(itemLabel(i))} — الرصيد ${i.qty}</option>`).join("")}</select></div>
+      <div class="cell c2"><input id="ie_q" type="number" inputmode="numeric" placeholder="الكمية"></div>
+      <div class="cell c2"><input id="ie_p" type="number" inputmode="decimal" step="0.01" placeholder="السعر"></div>
+      <div class="cell c2"><button class="btn blue block" onclick="invEditAdd()">إضافة</button></div>
+    </div>
+    <div id="ie_msg" style="color:var(--red);font-size:13px;margin:8px 0"></div>
+    <div style="display:flex;gap:8px;margin-top:6px"><button class="btn green" onclick="saveInvoiceEdit('${gid}')">💾 حفظ الفاتورة</button>
+      <button class="btn gray" onclick="this.closest('.modal').remove()">إلغاء</button></div></div>`;
+  document.body.appendChild(el);
+  renderInvEditRows();
+}
+function renderInvEditRows(){
+  const tb=$("#ieRows");if(!tb)return;
+  tb.innerHTML=invEdit.map((l,idx)=>{const it=DB.items.find(x=>x.id===l.itemId)||{};
+    return `<tr><td>${esc(itemModel(it))}</td>
+      <td><input type="number" inputmode="numeric" style="width:70px;padding:7px" value="${l.qty}" oninput="invEdit[${idx}].qty=toNum(this.value)"></td>
+      <td><input type="number" inputmode="decimal" step="0.01" style="width:80px;padding:7px" value="${l.price}" oninput="invEdit[${idx}].price=toNum(this.value)"></td>
+      <td><input type="number" inputmode="decimal" step="0.01" style="width:70px;padding:7px" value="${l.fee||0}" oninput="invEdit[${idx}].fee=toNum(this.value)"></td>
+      <td><button class="btn red sm" onclick="invEditDel(${idx})">حذف</button></td></tr>`;}).join("")
+    ||`<tr><td colspan="5" class="empty">لا بنود — أضِف صنفاً.</td></tr>`;
+}
+function invEditAdd(){
+  const id=+($("#ie_item").value)||0,q=toNum($("#ie_q").value),p=toNum($("#ie_p").value);
+  if(!id){$("#ie_msg").textContent="اختر الصنف.";return;}
+  if(!(q>0)){$("#ie_msg").textContent="أدخل كمية صحيحة.";return;}
+  invEdit.push({itemId:id,qty:q,price:p,fee:0});
+  $("#ie_item").value="";$("#ie_q").value="";$("#ie_p").value="";$("#ie_msg").textContent="";
+  renderInvEditRows();
+}
+function invEditDel(idx){invEdit.splice(idx,1);renderInvEditRows();}
+function saveInvoiceEdit(gid){
+  const inv=($("#ie_inv").value||"").trim();if(!inv){$("#ie_msg").textContent="أدخل رقم الفاتورة.";return;}
+  if(!invEdit.length){$("#ie_msg").textContent="أضِف صنفاً واحداً على الأقل.";return;}
+  const old=DB.movements.filter(m=>m.invGid===gid&&m.type==="outbound");
+  // أرجع مخزون البنود القديمة مؤقتاً لحساب التوفّر الصحيح
+  const restore={};old.forEach(m=>{restore[m.itemId]=(restore[m.itemId]||0)+m.qty;});
+  const need={};invEdit.forEach(l=>need[l.itemId]=(need[l.itemId]||0)+l.qty);
+  for(const id in need){const it=DB.items.find(x=>x.id===+id);const avail=(it?it.qty:0)+(restore[id]||0);
+    if(need[id]>avail){$("#ie_msg").textContent=`الرصيد غير كافٍ للصنف «${itemModel(it||{})}» (المتاح ${avail}).`;return;}}
+  // نفّذ: أرجع القديم واحذفه (بشواهد حذف)، ثم أنشئ البنود الجديدة بنفس الفاتورة
+  old.forEach(m=>{const it=DB.items.find(x=>x.id===m.itemId);if(it)it.qty+=m.qty;});
+  tombAddMany("movements",old);
+  const oldIds=new Set(old.map(m=>m.id));DB.movements=DB.movements.filter(m=>!oldIds.has(m.id));
+  const date=$("#ie_date").value||today(),comm=toNum($("#ie_comm").value),addr=$("#ie_addr").value||"";
+  invEdit.forEach((l,idx)=>{const it=DB.items.find(x=>x.id===l.itemId);if(!it)return;it.qty-=l.qty;
+    DB.movements.unshift({id:nid("movement"),uid:uidGen(),companyId:CO,itemId:it.id,type:"outbound",qty:l.qty,price:l.price||0,
+      comm:idx===0?comm:0,fee:l.fee||0,model:itemModel(it),invoice:inv,invGid:gid,address:addr,supplierId:null,customs:"",
+      date,note:"",balAfter:it.qty,userId:ME.id,userName:ME.name,at:new Date().toISOString()});});
+  logAct("تعديل فاتورة",`${inv} — ${invEdit.length} صنف`);save();
+  const md=$("#invEditModal");if(md)md.remove();
+  toast("تم حفظ الفاتورة");if(CURRENT_PAGE==="move")renderRecent();else refreshView();
+}
 function editMovement(id){
   if(!guard("canEdit"))return;
   const m=DB.movements.find(x=>x.id===id);if(!m)return;const it=DB.items.find(i=>i.id===m.itemId)||{};
+  if(m.type==="outbound"&&m.invGid){editInvoice(m.invGid);return;}   // فاتورة بيع → محرّر الفاتورة الكامل
   const el=document.createElement("div");el.className="modal";
   el.innerHTML=`<div class="box"><h3>تعديل حركة — ${typeAr(m.type)}</h3>
     <div class="field" style="margin-bottom:10px"><label>الصنف / الموديل (يمكن تغييره)</label>
@@ -1548,7 +1623,7 @@ function printInvoice(gid,withCancel){
   const fees=lines.reduce((s,m)=>s+(m.fee||0),0);
   const rows=lines.map(m=>{const it=DB.items.find(x=>x.id===m.itemId)||{};
     return `<tr><td>${esc(m.model||itemModel(it))}</td><td>${m.qty}</td><td>${money(m.price)}</td><td>${money(m.qty*m.price)}</td>${fees?`<td>${m.fee?money(m.fee):"—"}</td>`:""}</tr>`;}).join("");
-  const extra=withCancel?`<button class="btn red" onclick="cancelInvoice('${gid}')">🗑️ إلغاء الفاتورة (إرجاع الكميات)</button>`:"";
+  const extra=withCancel?`${can("canEdit")?`<button class="btn blue" onclick="document.getElementById('printModal').remove();editInvoice('${gid}')">✏️ تعديل الفاتورة</button>`:""}<button class="btn red" onclick="cancelInvoice('${gid}')">🗑️ إلغاء الفاتورة (إرجاع الكميات)</button>`:"";
   showPrint(`${brandHead()}<h2>🧾 فاتورة بيع رقم ${esc(f.invoice)}</h2>
     <div>التاريخ: <b>${esc(f.date)}</b> · الموظف: <b>${esc(f.userName)}</b>${f.address?` · العنوان: <b>${esc(f.address)}</b>`:""}</div>
     <table><tr><th>الموديل / الصنف</th><th>الكمية</th><th>السعر</th><th>الإجمالي</th>${fees?"<th>رسوم تركيب/توصيل</th>":""}</tr>${rows}
