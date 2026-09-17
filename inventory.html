@@ -234,7 +234,7 @@ tr:hover td{background:#f8fafc}
    ============================================================ */
 const KEY="inv_system_v2";
 /* رقم إصدار التطبيق — يُزاد مع كل تحديث؛ يُقارَن بالنسخة المنشورة لإظهار زر التحديث */
-const APP_VERSION="2026-09-17-02";
+const APP_VERSION="2026-09-17-03";
 let DB,ME;
 /* التحقق من توفّر نسخة أحدث بجلب الملف نفسه (بدون كاش) ومقارنة رقم الإصدار */
 function checkForUpdate(){
@@ -306,10 +306,21 @@ let CO=1;
 function citems(){return DB.items.filter(i=>i.companyId===CO);}
 function cmoves(){return DB.movements.filter(m=>m.companyId===CO);}
 /* ===== المصدر الوحيد للحقيقة: الرصيد يُحسب من دفتر الحركات (Ledger) ===== */
-/* صافي حركة الصنف = مجموع (وارد/تسوية موجبة − منصرف) */
+/* دفتر حركات فريد بلا تكرار — نفس المجموعة تُستخدم في كل الحسابات (الرصيد/سجل الحركة/الجرد) */
+function uniqMovements(){
+  const seenUid={},seenId={},out=[];
+  const arr=DB.movements||[];
+  for(let i=0;i<arr.length;i++){const m=arr[i];if(!m)continue;
+    if(m.uid!=null){if(seenUid[m.uid])continue;seenUid[m.uid]=1;}
+    if(m.id!=null){if(seenId[m.id])continue;seenId[m.id]=1;}
+    out.push(m);
+  }
+  return out;
+}
+/* صافي حركة الصنف = مجموع (وارد/تسوية موجبة − منصرف) — مصدر واحد لكل الشاشات */
 function stockOf(itemId){
-  let n=0;const arr=DB.movements;
-  for(let i=0;i<arr.length;i++){const m=arr[i];if(m&&m.itemId===itemId)n+=isIn(m.type)?m.qty:-m.qty;}
+  let n=0;const arr=uniqMovements();
+  for(let i=0;i<arr.length;i++){const m=arr[i];if(m.itemId===itemId)n+=isIn(m.type)?m.qty:-m.qty;}
   return n;
 }
 /* هل يُسمح بالبيع بالسالب؟ (إعداد) */
@@ -425,7 +436,7 @@ function load(){const r=localStorage.getItem(KEY);DB=r?JSON.parse(r):seed();
    احتساب الأرصدة من الحركات قبل كل حفظ — فلا تنحرف الأرقام عبر أي شاشة. */
 function recalcQty(){
   const net={},has={};
-  (DB.movements||[]).forEach(m=>{ if(m&&m.itemId!=null){ net[m.itemId]=(net[m.itemId]||0)+(isIn(m.type)?m.qty:-m.qty); has[m.itemId]=1; } });
+  uniqMovements().forEach(m=>{ if(m.itemId!=null){ net[m.itemId]=(net[m.itemId]||0)+(isIn(m.type)?m.qty:-m.qty); has[m.itemId]=1; } });
   (DB.items||[]).forEach(it=>{ if(has[it.id]) it.qty=net[it.id]; else if(it.qty==null) it.qty=0; });
 }
 const recalcStock=recalcQty;   /* اسم بديل موحّد */
@@ -697,7 +708,12 @@ function mergeDB(rem,loc){
   out.seq=Object.assign({},loc.seq||{});
   const ks=new Set([...Object.keys(rem.seq||{}),...Object.keys(loc.seq||{})]);
   ks.forEach(k=>out.seq[k]=Math.max((rem.seq&&rem.seq[k])||0,(loc.seq&&loc.seq[k])||0));
-  // إعادة احتساب رصيد كل صنف من حركاته (كل تغيّر مخزون مسجّل كحركة)
+  // إزالة الحركات المكرّرة (نفس uid أو نفس id) قبل أي حساب — تمنع تضخّم الرصيد بعد الدمج
+  {const su={},si={},uu=[];out.movements.forEach(m=>{if(!m)return;
+    if(m.uid!=null){if(su[m.uid])return;su[m.uid]=1;}
+    if(m.id!=null){if(si[m.id])return;si[m.id]=1;}
+    uu.push(m);});out.movements=uu;}
+  // إعادة احتساب رصيد كل صنف من حركاته الفريدة (كل تغيّر مخزون مسجّل كحركة)
   const net={},has={};
   out.movements.forEach(m=>{if(m&&m.itemId!=null){net[m.itemId]=(net[m.itemId]||0)+(isIn(m.type)?m.qty:-m.qty);has[m.itemId]=1;}});
   out.items.forEach(it=>{if(has[it.id])it.qty=net[it.id];});
@@ -1171,10 +1187,9 @@ function mvTime(m){
 function mvCmpAsc(a,b){const ta=mvTime(a),tb=mvTime(b);if(ta!==tb)return ta-tb;return (a.id||0)-(b.id||0);}
 /* حساب «الرصيد بعد كل حركة» ديناميكياً (ترتيب زمني لكل صنف) — يتحدّث تلقائياً بعد أي حذف/تعديل */
 function balAfterMap(){
-  const byItem={};const seen={};
-  DB.movements.forEach(m=>{
-    if(!m||m.itemId==null)return;
-    if(m.id!=null){if(seen[m.id])return;seen[m.id]=1;} // منع الازدواج الناتج عن دمج السحابة
+  const byItem={};
+  uniqMovements().forEach(m=>{
+    if(m.itemId==null)return;
     (byItem[m.itemId]=byItem[m.itemId]||[]).push(m);
   });
   const map={};
@@ -1689,6 +1704,7 @@ function cancelInvoice(gid){
 
 /* ============ 2) الأرصدة (لوحة) ============ */
 function pDashboard(){
+  recalcQty(); // مزامنة الأرصدة المخزّنة مع دفتر الحركات الفريد قبل العرض — يمنع أي انحراف
   const q=($("#dashSearch")?.value||"");const CI=citems();
   const totalItems=CI.length;
   const totalStock=CI.reduce((s,i)=>s+i.qty,0);
@@ -1973,9 +1989,7 @@ function renderLedger(){
   if(!id){tb.innerHTML=`<tr><td colspan="11" class="empty">اختر صنفاً.</td></tr>`;sum.innerHTML="";return;}
   const from=$("#lFrom").value,to=$("#lTo").value,ty=$("#lType").value;
   const it=DB.items.find(i=>i.id===id);
-  let rows=DB.movements.filter(m=>m.itemId===id);
-  // إزالة الازدواج الناتج عن دمج السحابة (نفس المعرّف)
-  const _seen={};rows=rows.filter(m=>{if(m.id==null)return true;if(_seen[m.id])return false;_seen[m.id]=1;return true;});
+  let rows=uniqMovements().filter(m=>m.itemId===id); // نفس دفتر الحركات الفريد المستخدم في حساب الرصيد
   rows=rows.filter(m=>(!from||m.date>=from)&&(!to||m.date<=to)&&(!ty||m.type===ty));
   // ترتيب الأحدث أولاً بنفس المفتاح الزمني المستخدم في حساب الرصيد — حتى تتطابق الأعمدة
   rows.sort((a,b)=>mvCmpAsc(b,a));
@@ -1985,7 +1999,7 @@ function renderLedger(){
     <div class="stat"><div class="lbl">الوارد (بالفلتر)</div><div class="val sm" style="color:var(--green)">${inb}</div></div>
     <div class="stat"><div class="lbl">المنصرف (بالفلتر)</div><div class="val sm" style="color:var(--amber)">${out}</div></div>
     <div class="stat"><div class="lbl">صافي الحركة</div><div class="val sm">${inb-out}</div></div>
-    <div class="stat"><div class="lbl">الرصيد الحالي</div><div class="val sm">${it.qty}</div></div></div>
+    <div class="stat"><div class="lbl">الرصيد الحالي</div><div class="val sm">${stockOf(id)}</div></div></div>
     <button class="btn ghost sm no-print" style="margin-bottom:12px" onclick="exportLedger(${id})">⬇ تصدير الحركات Excel</button>`;
   const BAL=balAfterMap();
   tb.innerHTML=rows.map(m=>{const sup=DB.suppliers.find(x=>x.id===m.supplierId);
@@ -2000,8 +2014,7 @@ function renderLedger(){
 function exportLedger(id){
   const it=DB.items.find(i=>i.id===id);if(!it)return;
   const from=$("#lFrom").value,to=$("#lTo").value,ty=$("#lType").value;
-  let rows=DB.movements.filter(m=>m.itemId===id&&(!from||m.date>=from)&&(!to||m.date<=to)&&(!ty||m.type===ty));
-  const _s={};rows=rows.filter(m=>{if(m.id==null)return true;if(_s[m.id])return false;_s[m.id]=1;return true;}).sort((a,b)=>mvCmpAsc(b,a));
+  let rows=uniqMovements().filter(m=>m.itemId===id&&(!from||m.date>=from)&&(!to||m.date<=to)&&(!ty||m.type===ty)).sort((a,b)=>mvCmpAsc(b,a));
   const BAL=balAfterMap();
   exportCSV("حركة-"+it.code+".csv",["التاريخ","النوع","الكمية","الرصيد بعدها","الموديل","رقم الفسح","الفاتورة","المورد","الموظف","ملاحظة"],
     rows.map(m=>{const sup=DB.suppliers.find(x=>x.id===m.supplierId);
