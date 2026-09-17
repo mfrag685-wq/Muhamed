@@ -548,17 +548,17 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
       <div class="field" id="pl_whWrap"><label>المستودع المستلم</label><select id="pl_wh" onchange="onPurWh()"></select></div>
       <div class="field"><label>الصنف</label>
         <div class="inline-add"><select id="pl_item" onchange="onPickItem('pl')" onkeydown="itemKey(event,'pl')"></select><button class="btn btn-sm" onclick="quickAddItem('pl')" title="صنف جديد">+</button></div></div>
-      <div class="field"><label id="lbl_pl_units">عدد الوحدات *</label><input type="number" id="pl_units" step="0.01" min="0" inputmode="decimal" oninput="calcLine('pl')" onkeydown="lineNav(event,'pl_price')"></div>
-      <div class="field"><label>السعر *</label><input type="number" id="pl_price" step="0.001" min="0" inputmode="decimal" oninput="calcLine('pl')" onkeydown="lineKey(event,'p')"></div>
+      <div class="field"><label id="lbl_pl_units">عدد الوحدات *</label><input type="number" id="pl_units" step="0.01" min="0" inputmode="decimal" oninput="calcLine('pl','units')" onkeydown="lineNav(event,'pl_price')"></div>
+      <div class="field"><label id="lbl_pl_price">السعر *</label><input type="number" id="pl_price" step="0.001" min="0" inputmode="decimal" oninput="calcLine('pl','price')" onkeydown="lineKey(event,'p')"></div>
       <div class="field" style="display:flex;align-items:flex-end"><button class="btn-alt" style="width:100%" onclick="addLine('p')">➕ إضافة للفاتورة</button></div>
-      <div class="field"><label>قيمة السطر</label><input type="text" id="pl_total" readonly></div>
+      <div class="field"><label id="lbl_pl_total">قيمة السطر (قبل الضريبة)</label><input type="number" id="pl_total" step="0.01" min="0" inputmode="decimal" oninput="calcLine('pl','total')" readonly></div>
       <div class="field"><label>الوحدة</label>
         <div class="inline-add"><select id="pl_unit" onchange="onPickUnit('pl')"></select><button class="btn btn-sm" onclick="quickAddUnit('pl')" title="وحدة جديدة">+</button></div></div>
       <div class="field"><label id="lbl_pl_uw">معامل التحويل — وزن الوحدة (كغ) *</label>
-        <input type="number" id="pl_uw" step="0.01" min="0" oninput="calcLine('pl')" list="dl_pl_uw">
+        <input type="number" id="pl_uw" step="0.01" min="0" inputmode="decimal" oninput="calcLine('pl','uw')" list="dl_pl_uw">
         <datalist id="dl_pl_uw"></datalist>
         <span class="mini" id="pl_uwHint"></span></div>
-      <div class="field"><label>الوزن الإجمالي</label><input type="text" id="pl_tw" readonly></div>
+      <div class="field"><label id="lbl_pl_tw">الوزن الإجمالي (كغ)</label><input type="number" id="pl_tw" step="0.01" min="0" inputmode="decimal" oninput="calcLine('pl','tw')" readonly></div>
       <div class="field"><label>أساس السعر</label><select id="pl_basis" onchange="calcLine('pl')">
         <option value="unit">سعر الوحدة</option><option value="kg">سعر الكيلو</option></select></div>
     </div>
@@ -644,14 +644,14 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
     <div class="grid">
       <div class="field"><label>المستودع المصدر <span class="hint">اختره أولاً</span></label><select id="sl_wh" onchange="onSaleWh()"></select></div>
       <div class="field"><label>الصنف <span class="hint">أصناف المستودع المختار</span></label><select id="sl_item" onchange="onPickItem('sl')" onkeydown="itemKey(event,'sl')"></select></div>
-      <div class="field"><label id="lbl_sl_units">عدد الوحدات *</label><input type="number" id="sl_units" step="0.01" min="0" inputmode="decimal" oninput="calcLine('sl')" onkeydown="lineNav(event,'sl_price')"></div>
-      <div class="field"><label>سعر البيع *</label><input type="number" id="sl_price" step="0.001" min="0" inputmode="decimal" oninput="calcLine('sl')" onkeydown="lineKey(event,'s')"></div>
+      <div class="field"><label id="lbl_sl_units">عدد الوحدات *</label><input type="number" id="sl_units" step="0.01" min="0" inputmode="decimal" oninput="calcLine('sl','units')" onkeydown="lineNav(event,'sl_price')"></div>
+      <div class="field"><label id="lbl_sl_price">سعر البيع *</label><input type="number" id="sl_price" step="0.001" min="0" inputmode="decimal" oninput="calcLine('sl','price')" onkeydown="lineKey(event,'s')"></div>
       <div class="field" style="display:flex;align-items:flex-end"><button class="btn-alt" style="width:100%" onclick="addLine('s')">➕ إضافة للفاتورة</button></div>
       <div class="field"><label>الرصيد المتاح</label><input type="text" id="sl_avail" readonly></div>
-      <div class="field"><label>قيمة السطر</label><input type="text" id="sl_total" readonly></div>
-      <div class="field"><label id="lbl_sl_uw">وزن الوحدة (كغ) *</label><input type="number" id="sl_uw" step="0.01" min="0" oninput="calcLine('sl')" list="dl_sl_uw">
+      <div class="field"><label id="lbl_sl_total">قيمة السطر (قبل الضريبة)</label><input type="number" id="sl_total" step="0.01" min="0" inputmode="decimal" oninput="calcLine('sl','total')" readonly></div>
+      <div class="field"><label id="lbl_sl_uw">وزن الوحدة (كغ) *</label><input type="number" id="sl_uw" step="0.01" min="0" inputmode="decimal" oninput="calcLine('sl','uw')" list="dl_sl_uw">
         <datalist id="dl_sl_uw"></datalist><span class="mini" id="sl_uwHint"></span></div>
-      <div class="field"><label>الوزن الإجمالي</label><input type="text" id="sl_tw" readonly></div>
+      <div class="field"><label id="lbl_sl_tw">الوزن الإجمالي (كغ)</label><input type="number" id="sl_tw" step="0.01" min="0" inputmode="decimal" oninput="calcLine('sl','tw')" readonly></div>
       <div class="field"><label>أساس السعر</label><select id="sl_basis" onchange="calcLine('sl')">
         <option value="unit">سعر الوحدة</option><option value="kg">سعر الكيلو</option></select></div>
     </div>

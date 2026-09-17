@@ -234,7 +234,7 @@ tr:hover td{background:#f8fafc}
    ============================================================ */
 const KEY="inv_system_v2";
 /* رقم إصدار التطبيق — يُزاد مع كل تحديث؛ يُقارَن بالنسخة المنشورة لإظهار زر التحديث */
-const APP_VERSION="2026-09-16-01";
+const APP_VERSION="2026-09-17-01";
 let DB,ME;
 /* التحقق من توفّر نسخة أحدث بجلب الملف نفسه (بدون كاش) ومقارنة رقم الإصدار */
 function checkForUpdate(){
@@ -398,8 +398,16 @@ function addCompany(){
 }
 function load(){const r=localStorage.getItem(KEY);DB=r?JSON.parse(r):seed();
   try{const c=+localStorage.getItem("inv_company");if(c)CO=c;}catch(e){}
-  ensureShape();if(!r)save();}
-function save(){localStorage.setItem(KEY,JSON.stringify(DB));cloudPush();}
+  ensureShape();recalcQty();if(!r)save();}   /* مداواة أي انحراف قديم فور التحميل */
+/* المصدر الوحيد للرصيد: رصيد كل صنف = مجموع حركاته (وارد − منصرف/تسوية).
+   كل تغيير للرصيد (إضافة/خصم/تعديل/حذف/جرد/افتتاحي) يمرّ عبر حركة، فيُعاد
+   احتساب الأرصدة من الحركات قبل كل حفظ — فلا تنحرف الأرقام عبر أي شاشة. */
+function recalcQty(){
+  const net={},has={};
+  (DB.movements||[]).forEach(m=>{ if(m&&m.itemId!=null){ net[m.itemId]=(net[m.itemId]||0)+(isIn(m.type)?m.qty:-m.qty); has[m.itemId]=1; } });
+  (DB.items||[]).forEach(it=>{ if(has[it.id]) it.qty=net[it.id]; else if(it.qty==null) it.qty=0; });
+}
+function save(){recalcQty();localStorage.setItem(KEY,JSON.stringify(DB));cloudPush();}
 /* بصمة جهاز ثابتة (0..999) لتفادي تضارب المعرّفات بين الأجهزة دون اتصال */
 let DEVICE_SALT=(function(){try{let s=localStorage.getItem("inv_dev_salt");if(!s){s=String(Math.floor(Math.random()*1000));localStorage.setItem("inv_dev_salt",s);}return (+s)%1000;}catch(e){return Math.floor(Math.random()*1000);}})();
 let _lastId=0;
