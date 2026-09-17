@@ -305,6 +305,15 @@ const DEV={name:"محمد فرج",nameEn:"Mohamed Farag",title:"معدّ ومص�
 let CO=1;
 function citems(){return DB.items.filter(i=>i.companyId===CO);}
 function cmoves(){return DB.movements.filter(m=>m.companyId===CO);}
+/* ===== المصدر الوحيد للحقيقة: الرصيد يُحسب من دفتر الحركات (Ledger) ===== */
+/* صافي حركة الصنف = مجموع (وارد/تسوية موجبة − منصرف) */
+function stockOf(itemId){
+  let n=0;const arr=DB.movements;
+  for(let i=0;i<arr.length;i++){const m=arr[i];if(m&&m.itemId===itemId)n+=isIn(m.type)?m.qty:-m.qty;}
+  return n;
+}
+/* هل يُسمح بالبيع بالسالب؟ (إعداد) */
+function allowOversell(){return !!(DB.settings&&DB.settings.allowOversell);}
 function csups(){return DB.suppliers.filter(s=>s.companyId===CO);}
 function cpays(){return DB.payments.filter(p=>p.companyId===CO);}
 function curCompany(){return (DB.companies||[]).find(c=>c.id===CO)||DB.companies[0]||{name:"شركتي",logo:"",icon:"🏢"};}
@@ -407,6 +416,7 @@ function recalcQty(){
   (DB.movements||[]).forEach(m=>{ if(m&&m.itemId!=null){ net[m.itemId]=(net[m.itemId]||0)+(isIn(m.type)?m.qty:-m.qty); has[m.itemId]=1; } });
   (DB.items||[]).forEach(it=>{ if(has[it.id]) it.qty=net[it.id]; else if(it.qty==null) it.qty=0; });
 }
+const recalcStock=recalcQty;   /* اسم بديل موحّد */
 function save(){recalcQty();localStorage.setItem(KEY,JSON.stringify(DB));cloudPush();}
 /* بصمة جهاز ثابتة (0..999) لتفادي تضارب المعرّفات بين الأجهزة دون اتصال */
 let DEVICE_SALT=(function(){try{let s=localStorage.getItem("inv_dev_salt");if(!s){s=String(Math.floor(Math.random()*1000));localStorage.setItem("inv_dev_salt",s);}return (+s)%1000;}catch(e){return Math.floor(Math.random()*1000);}})();
@@ -1106,7 +1116,7 @@ function saveMove(){
     const lines=saleCart.slice();const cur=currentLine();if(cur)lines.push(cur);
     if(!lines.length)return show("أضِف صنفاً واحداً على الأقل للفاتورة.","err");
     const need={};lines.forEach(l=>need[l.itemId]=(need[l.itemId]||0)+l.qty);
-    for(const id in need){const it=DB.items.find(x=>x.id===+id);if(need[id]>it.qty)return show(`الرصيد غير كافٍ للصنف «${itemModel(it)}» (المتاح ${it.qty}).`,"err");}
+    for(const id in need){const it=DB.items.find(x=>x.id===+id);if(!allowOversell()&&need[id]>it.qty)return show(`الرصيد غير كافٍ للصنف «${itemModel(it)}» (المتاح ${it.qty}). فعّل «السماح بالبيع بالسالب» من الإعدادات إن أردت.`,"err");}
     const invNo=($("#mInvoice").value||"").trim();
     if(!invNo)return show("أدخل رقم الفاتورة (إجباري للمنصرف).","err");
     const gid="INV"+Date.now();
@@ -1298,7 +1308,7 @@ function saveInvoiceEdit(gid){
   const restore={};old.forEach(m=>{restore[m.itemId]=(restore[m.itemId]||0)+m.qty;});
   const need={};invEdit.forEach(l=>need[l.itemId]=(need[l.itemId]||0)+l.qty);
   for(const id in need){const it=DB.items.find(x=>x.id===+id);const avail=(it?it.qty:0)+(restore[id]||0);
-    if(need[id]>avail){$("#ie_msg").textContent=`الرصيد غير كافٍ للصنف «${itemModel(it||{})}» (المتاح ${avail}).`;return;}}
+    if(!allowOversell()&&need[id]>avail){$("#ie_msg").textContent=`الرصيد غير كافٍ للصنف «${itemModel(it||{})}» (المتاح ${avail}).`;return;}}
   // نفّذ: أرجع القديم واحذفه (بشواهد حذف)، ثم أنشئ البنود الجديدة بنفس الفاتورة
   old.forEach(m=>{const it=DB.items.find(x=>x.id===m.itemId);if(it)it.qty+=m.qty;});
   tombAddMany("movements",old);
@@ -1342,7 +1352,7 @@ function saveMovement(id){
   // اعكس أثر الحركة القديمة على الصنف القديم
   if(oldIt)oldIt.qty+=isIn(m.type)?-m.qty:m.qty;
   // تحقّق الرصيد على الصنف الجديد (بعد العكس إن كان نفسه)
-  if(m.type==="outbound"&&nq>newIt.qty){
+  if(m.type==="outbound"&&!allowOversell()&&nq>newIt.qty){
     if(oldIt)oldIt.qty+=isIn(m.type)?m.qty:-m.qty;   // تراجع عن العكس
     $("#em_msg").textContent=`الرصيد غير كافٍ للصنف «${itemModel(newIt)}» (المتاح ${newIt.qty}).`;return;
   }
@@ -1698,6 +1708,7 @@ function pStock(){
   $("#view").innerHTML=`<div class="pagehead"><h1>🧮 جرد المخزون</h1>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       ${(ME.role==="admin"||ME.role==="supervisor")?`<button class="btn green no-print" onclick="applyStock()">✅ تطبيق الفروقات كتسويات</button>`:""}
+      <button class="btn blue no-print" onclick="auditStock()">🔍 تدقيق الدفتر</button>
       <button class="btn ghost no-print" onclick="clearStockCounts()">🧹 تفريغ الجرد</button>
       <button class="btn ghost no-print" onclick="window.print()">🖨️ طباعة</button></div></div>
   <div class="card no-print"><div class="row">
@@ -1751,6 +1762,29 @@ function stockSummary(){
   </div>${mismatch?`<p style="font-size:13px;color:#854d0e;background:#fef9c3;border-radius:8px;padding:8px 12px;margin-bottom:12px">⚠️ يوجد <b>${mismatch}</b> صنف فيه فرق بين الدفتري والفعلي.</p>`:""}`;
 }
 function clearStockCounts(){if(!confirm("تفريغ كل الأعداد المُدخلة في الجرد؟"))return;stockCounts={};renderStock();}
+/* تدقيق الدفتر: كشف عدم تطابق الرصيد المخزَّن مع المحسوب من الحركات، الأرصدة السالبة، والحركات اليتيمة */
+function auditStock(){
+  const mism=[],neg=[],orphan=[];
+  const itemIds=new Set(citems().map(i=>i.id));
+  citems().forEach(i=>{const led=stockOf(i.id);
+    if(led!==i.qty)mism.push({m:itemModel(i),stored:i.qty,led});
+    if(led<0)neg.push({m:itemModel(i),led});});
+  cmoves().forEach(mv=>{if(mv.itemId==null||!itemIds.has(mv.itemId))orphan.push(mv);});
+  const rows=(arr,cols)=>arr.length?`<div class="table-wrap"><table><tbody>${arr}</tbody></table></div>`:`<p style="color:var(--green);font-size:13px">✔ لا مشاكل</p>`;
+  const el=document.createElement("div");el.className="modal";
+  el.innerHTML=`<div class="box" style="max-width:640px"><h3>🔍 تدقيق دفتر المخزون</h3>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:8px">المصدر الوحيد للرصيد هو دفتر الحركات؛ هذه فحوص للتحقق من التطابق.</p>
+    <div style="font-weight:800;color:${mism.length?'var(--red)':'var(--green)'};margin:8px 0 4px">١) عدم تطابق الرصيد المخزَّن مع الدفتر (${mism.length})</div>
+    ${mism.length?`<div class="table-wrap"><table><thead><tr><th>الموديل</th><th>مخزَّن</th><th>من الدفتر</th></tr></thead><tbody>${mism.map(x=>`<tr><td>${esc(x.m)}</td><td style="color:var(--red)">${x.stored}</td><td style="color:var(--green)">${x.led}</td></tr>`).join("")}</tbody></table></div>`:`<p style="color:var(--green);font-size:13px">✔ كل الأرصدة مطابقة للدفتر</p>`}
+    <div style="font-weight:800;color:${neg.length?'var(--red)':'var(--green)'};margin:10px 0 4px">٢) أصناف برصيد سالب (${neg.length})</div>
+    ${neg.length?`<div class="table-wrap"><table><thead><tr><th>الموديل</th><th>الرصيد</th></tr></thead><tbody>${neg.map(x=>`<tr><td>${esc(x.m)}</td><td style="color:var(--red);font-weight:700">${x.led}</td></tr>`).join("")}</tbody></table></div>`:`<p style="color:var(--green);font-size:13px">✔ لا أرصدة سالبة</p>`}
+    <div style="font-weight:800;color:${orphan.length?'var(--red)':'var(--green)'};margin:10px 0 4px">٣) حركات يتيمة (بلا صنف) (${orphan.length})</div>
+    ${orphan.length?`<p style="font-size:13px;color:var(--red)">${orphan.length} حركة تشير لصنف محذوف/غير موجود.</p>`:`<p style="color:var(--green);font-size:13px">✔ لا حركات يتيمة</p>`}
+    <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
+      ${mism.length?`<button class="btn green" onclick="recalcStock();save();this.closest('.modal').remove();toast('تمت مزامنة الأرصدة مع الدفتر');if(CURRENT_PAGE)refreshView();">🔧 مزامنة الأرصدة مع الدفتر</button>`:""}
+      <button class="btn gray" onclick="this.closest('.modal').remove()">إغلاق</button></div></div>`;
+  document.body.appendChild(el);
+}
 function applyStock(){
   if(ME.role!=="admin"&&ME.role!=="supervisor"){toast("للمدير/المشرف فقط");return;}
   const changes=[];citems().forEach(i=>{const v=stockCounts[i.id];if(v===undefined||v==="")return;const a=toNum(v);if(a!==i.qty)changes.push({it:i,act:a,diff:a-i.qty});});
@@ -2678,6 +2712,8 @@ function pSettings(){
       <div class="field" style="margin-bottom:12px"><label>الشعار (اختياري — يظهر بدل الرمز)</label>
         <input type="file" id="setLogo" accept="image/*" onchange="pickLogo(event)">
         <div style="margin-top:8px">${c.logo?`<img src="${c.logo}" class="brandlogo">`:`<span style="font-size:26px">${esc(c.icon||"🏢")}</span>`}</div></div>
+      <label style="display:flex;align-items:center;gap:8px;margin:10px 0;font-size:13px;font-weight:600;cursor:pointer">
+        <input type="checkbox" id="setOversell" ${DB.settings&&DB.settings.allowOversell?"checked":""} style="width:auto"> السماح بالبيع بالسالب (تجاوز الرصيد المتاح)</label>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <button class="btn green" onclick="saveSettings()">حفظ</button>
         ${c.logo?`<button class="btn gray" onclick="curCompany().logo='';save();applyBrand();pSettings();toast('تم حذف الشعار')">حذف الشعار</button>`:""}</div>
@@ -2703,6 +2739,7 @@ function saveSettings(){
   if(!guard("settings"))return;
   const c=curCompany();c.name=$("#setCompany").value.trim()||"شركتي";c.icon=$("#setIcon").value.trim()||"🏢";
   DB.settings.appName=$("#setApp").value.trim()||"نظام إدارة المخزون";
+  DB.settings.allowOversell=!!($("#setOversell")&&$("#setOversell").checked);
   if(_logoData){c.logo=_logoData;_logoData="";}
   if(DB.companies[0]&&DB.companies[0].id===c.id)DB.settings.company=c.name;
   logAct("تعديل هوية الشركة",c.name);save();applyBrand();toast("تم حفظ الإعدادات");pSettings();
