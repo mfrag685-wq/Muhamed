@@ -234,7 +234,7 @@ tr:hover td{background:#f8fafc}
    ============================================================ */
 const KEY="inv_system_v2";
 /* رقم إصدار التطبيق — يُزاد مع كل تحديث؛ يُقارَن بالنسخة المنشورة لإظهار زر التحديث */
-const APP_VERSION="2026-09-17-01";
+const APP_VERSION="2026-09-17-02";
 let DB,ME;
 /* التحقق من توفّر نسخة أحدث بجلب الملف نفسه (بدون كاش) ومقارنة رقم الإصدار */
 function checkForUpdate(){
@@ -370,6 +370,18 @@ function ensureShape(){
     if(u.dialect===undefined||u.dialect==="")u.dialect=dm;   // يطبّق اللهجة المعروفة حتى على الحسابات القائمة
     if(u.pwTemp===undefined)u.pwTemp=(u.pass===hash("admin123")||u.pass===hash("store123"))?1:0;
     if(!u.perms){u.perms=preset(u.role);}else{PERM_KEYS.forEach(k=>{if(u.perms[k[0]]===undefined)u.perms[k[0]]=preset(u.role)[k[0]];});}});
+  dedupMovements();
+}
+/* إزالة الحركات المكرّرة الناتجة عن دمج السحابة (نفس uid أو نفس id) — تمنع تضخّم الأرصدة */
+function dedupMovements(){
+  const seenUid={},seenId={},out=[];
+  (DB.movements||[]).forEach(m=>{
+    if(!m)return;
+    if(m.uid!=null){if(seenUid[m.uid])return;seenUid[m.uid]=1;}
+    if(m.id!=null){if(seenId[m.id])return;seenId[m.id]=1;}
+    out.push(m);
+  });
+  DB.movements=out;
 }
 function applyBrand(){
   const c=curCompany();const co=c.name||"شركتي",logo=c.logo||"",icon=c.icon||"📦";
@@ -1148,13 +1160,26 @@ function saveMove(){
   show(`✔ تم تسجيل ${typeAr(mType)} «${itemModel(item)}» بكمية ${qty}. الرصيد الآن: ${item.qty}`,"ok");
   clearMove(false);renderRecent();
 }
+/* مفتاح زمني موحّد للحركة: الوقت الكامل (at) ثم التاريخ ثم المعرّف — مصدر ترتيب واحد لكل الشاشات */
+function mvTime(m){
+  if(!m)return 0;
+  if(m.at){const t=Date.parse(m.at);if(!isNaN(t))return t;}
+  if(m.date){const t=Date.parse(m.date+"T00:00:00");if(!isNaN(t))return t;}
+  return 0;
+}
+/* ترتيب زمني تصاعدي مستقر (الأقدم أولاً) — نفس المفتاح يُستخدم في العرض والحساب */
+function mvCmpAsc(a,b){const ta=mvTime(a),tb=mvTime(b);if(ta!==tb)return ta-tb;return (a.id||0)-(b.id||0);}
 /* حساب «الرصيد بعد كل حركة» ديناميكياً (ترتيب زمني لكل صنف) — يتحدّث تلقائياً بعد أي حذف/تعديل */
 function balAfterMap(){
-  const byItem={};
-  DB.movements.forEach(m=>{if(m&&m.itemId!=null)(byItem[m.itemId]=byItem[m.itemId]||[]).push(m);});
+  const byItem={};const seen={};
+  DB.movements.forEach(m=>{
+    if(!m||m.itemId==null)return;
+    if(m.id!=null){if(seen[m.id])return;seen[m.id]=1;} // منع الازدواج الناتج عن دمج السحابة
+    (byItem[m.itemId]=byItem[m.itemId]||[]).push(m);
+  });
   const map={};
   Object.keys(byItem).forEach(k=>{
-    const arr=byItem[k].slice().sort((a,b)=>((a.date||"")<(b.date||"")?-1:(a.date||"")>(b.date||"")?1:(a.id-b.id)));
+    const arr=byItem[k].slice().sort(mvCmpAsc);
     let run=0;arr.forEach(m=>{run+=isIn(m.type)?m.qty:-m.qty;map[m.id]=run;});
   });
   return map;
@@ -1949,7 +1974,11 @@ function renderLedger(){
   const from=$("#lFrom").value,to=$("#lTo").value,ty=$("#lType").value;
   const it=DB.items.find(i=>i.id===id);
   let rows=DB.movements.filter(m=>m.itemId===id);
+  // إزالة الازدواج الناتج عن دمج السحابة (نفس المعرّف)
+  const _seen={};rows=rows.filter(m=>{if(m.id==null)return true;if(_seen[m.id])return false;_seen[m.id]=1;return true;});
   rows=rows.filter(m=>(!from||m.date>=from)&&(!to||m.date<=to)&&(!ty||m.type===ty));
+  // ترتيب الأحدث أولاً بنفس المفتاح الزمني المستخدم في حساب الرصيد — حتى تتطابق الأعمدة
+  rows.sort((a,b)=>mvCmpAsc(b,a));
   const inb=rows.filter(m=>isIn(m.type)).reduce((s,m)=>s+m.qty,0);
   const out=rows.filter(m=>m.type==="outbound").reduce((s,m)=>s+m.qty,0);
   sum.innerHTML=`<div class="grid-4" style="margin-bottom:14px">
@@ -1971,7 +2000,8 @@ function renderLedger(){
 function exportLedger(id){
   const it=DB.items.find(i=>i.id===id);if(!it)return;
   const from=$("#lFrom").value,to=$("#lTo").value,ty=$("#lType").value;
-  const rows=DB.movements.filter(m=>m.itemId===id&&(!from||m.date>=from)&&(!to||m.date<=to)&&(!ty||m.type===ty));
+  let rows=DB.movements.filter(m=>m.itemId===id&&(!from||m.date>=from)&&(!to||m.date<=to)&&(!ty||m.type===ty));
+  const _s={};rows=rows.filter(m=>{if(m.id==null)return true;if(_s[m.id])return false;_s[m.id]=1;return true;}).sort((a,b)=>mvCmpAsc(b,a));
   const BAL=balAfterMap();
   exportCSV("حركة-"+it.code+".csv",["التاريخ","النوع","الكمية","الرصيد بعدها","الموديل","رقم الفسح","الفاتورة","المورد","الموظف","ملاحظة"],
     rows.map(m=>{const sup=DB.suppliers.find(x=>x.id===m.supplierId);
