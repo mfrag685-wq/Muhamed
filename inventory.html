@@ -234,7 +234,7 @@ tr:hover td{background:#f8fafc}
    ============================================================ */
 const KEY="inv_system_v2";
 /* رقم إصدار التطبيق — يُزاد مع كل تحديث؛ يُقارَن بالنسخة المنشورة لإظهار زر التحديث */
-const APP_VERSION="2026-09-17-03";
+const APP_VERSION="2026-09-19-01";
 let DB,ME;
 /* التحقق من توفّر نسخة أحدث بجلب الملف نفسه (بدون كاش) ومقارنة رقم الإصدار */
 function checkForUpdate(){
@@ -1777,7 +1777,9 @@ function renderStock(){
       <td>${esc(i.name&&i.name!==itemModel(i)?i.name:"")}</td><td>${esc(i.category||"")}</td>
       <td style="font-weight:800;font-size:15px">${i.qty}</td>
       <td class="no-print"></td>
-      <td><input type="number" inputmode="numeric" style="width:90px;padding:8px" value="${has?esc(String(v)):""}" placeholder="—" oninput="stockSet(${i.id},this.value)"></td>
+      <td><div style="display:flex;gap:4px;align-items:center;justify-content:center">
+        <button type="button" class="btn ghost sm no-print" title="جعل العدد سالباً/موجباً" style="padding:6px 10px;font-weight:800;min-width:38px" onclick="stockNeg(${i.id})">±</button>
+        <input id="stIn${i.id}" type="text" inputmode="numeric" pattern="-?[0-9]*" style="width:80px;padding:8px;text-align:center" value="${has?esc(String(v)):""}" placeholder="—" oninput="stockSet(${i.id},this.value)"></div></td>
       <td id="stDiff${i.id}" style="font-weight:800;color:${dc}">${has?(diff>0?"+":"")+diff:"—"}</td></tr>`;}).join("")
     ||`<tr><td colspan="7" class="empty">لا أصناف.</td></tr>`;
   stockSummary();
@@ -1789,6 +1791,16 @@ function stockSet(id,val){
     cell.textContent=has?((d>0?"+":"")+d):"—";
     cell.style.color=has?(d>0?"var(--green)":d<0?"var(--red)":"var(--muted)"):"";}
   stockSummary();
+}
+/* عكس إشارة العدد الفعلي (لضبط الأرصدة السالبة من الجوال دون لوحة مفاتيح بها علامة سالب) */
+function stockNeg(id){
+  const inp=$("#stIn"+id);if(!inp)return;
+  let raw=(inp.value||"").trim();
+  if(raw===""||raw==="-"){inp.value="-";inp.focus();return;} // ابدأ رقماً سالباً
+  const n=toNum(raw);const flipped=-n;
+  inp.value=String(flipped);
+  stockSet(id,inp.value);
+  inp.focus();
 }
 function stockSummary(){
   const box=$("#stSummary");if(!box)return;
