@@ -472,6 +472,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
   <button class="tab-btn" data-tab="returns" data-perm="returns">المرتجعات</button>
   <!-- المخزون والإنتاج -->
   <button class="tab-btn" data-tab="stock" data-perm="stock">المخزون</button>
+  <button class="tab-btn" data-tab="itemdiag" data-perm="itemdiag">فحص الأصناف</button>
   <button class="tab-btn" data-tab="prod" data-perm="opaccounts">الإنتاج والتغليف</button>
   <!-- المالية -->
   <button class="tab-btn" data-tab="accounts" data-perm="accounts">الحسابات والسداد</button>
@@ -551,14 +552,14 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
       <div class="field"><label id="lbl_pl_units">عدد الوحدات *</label><input type="number" id="pl_units" step="0.01" min="0" inputmode="decimal" oninput="calcLine('pl','units')" onkeydown="lineNav(event,'pl_price')"></div>
       <div class="field"><label id="lbl_pl_price">السعر *</label><input type="number" id="pl_price" step="0.001" min="0" inputmode="decimal" oninput="calcLine('pl','price')" onkeydown="lineKey(event,'p')"></div>
       <div class="field" style="display:flex;align-items:flex-end"><button class="btn-alt" style="width:100%" onclick="addLine('p')">➕ إضافة للفاتورة</button></div>
-      <div class="field"><label id="lbl_pl_total">قيمة السطر (قبل الضريبة)</label><input type="number" id="pl_total" step="0.01" min="0" inputmode="decimal" oninput="calcLine('pl','total')" readonly></div>
+      <div class="field"><label id="lbl_pl_total">قيمة السطر (قبل الضريبة)</label><input type="number" id="pl_total" step="0.01" min="0" inputmode="decimal" oninput="calcLine('pl','total')"></div>
       <div class="field"><label>الوحدة</label>
         <div class="inline-add"><select id="pl_unit" onchange="onPickUnit('pl')"></select><button class="btn btn-sm" onclick="quickAddUnit('pl')" title="وحدة جديدة">+</button></div></div>
       <div class="field"><label id="lbl_pl_uw">معامل التحويل — وزن الوحدة (كغ) *</label>
         <input type="number" id="pl_uw" step="0.01" min="0" inputmode="decimal" oninput="calcLine('pl','uw')" list="dl_pl_uw">
         <datalist id="dl_pl_uw"></datalist>
         <span class="mini" id="pl_uwHint"></span></div>
-      <div class="field"><label id="lbl_pl_tw">الوزن الإجمالي (كغ)</label><input type="number" id="pl_tw" step="0.01" min="0" inputmode="decimal" oninput="calcLine('pl','tw')" readonly></div>
+      <div class="field"><label id="lbl_pl_tw">الوزن الإجمالي (كغ)</label><input type="number" id="pl_tw" step="0.01" min="0" inputmode="decimal" oninput="calcLine('pl','tw')"></div>
       <div class="field"><label>أساس السعر</label><select id="pl_basis" onchange="calcLine('pl')">
         <option value="unit">سعر الوحدة</option><option value="kg">سعر الكيلو</option></select></div>
     </div>
@@ -648,10 +649,10 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
       <div class="field"><label id="lbl_sl_price">سعر البيع *</label><input type="number" id="sl_price" step="0.001" min="0" inputmode="decimal" oninput="calcLine('sl','price')" onkeydown="lineKey(event,'s')"></div>
       <div class="field" style="display:flex;align-items:flex-end"><button class="btn-alt" style="width:100%" onclick="addLine('s')">➕ إضافة للفاتورة</button></div>
       <div class="field"><label>الرصيد المتاح</label><input type="text" id="sl_avail" readonly></div>
-      <div class="field"><label id="lbl_sl_total">قيمة السطر (قبل الضريبة)</label><input type="number" id="sl_total" step="0.01" min="0" inputmode="decimal" oninput="calcLine('sl','total')" readonly></div>
+      <div class="field"><label id="lbl_sl_total">قيمة السطر (قبل الضريبة)</label><input type="number" id="sl_total" step="0.01" min="0" inputmode="decimal" oninput="calcLine('sl','total')"></div>
       <div class="field"><label id="lbl_sl_uw">وزن الوحدة (كغ) *</label><input type="number" id="sl_uw" step="0.01" min="0" inputmode="decimal" oninput="calcLine('sl','uw')" list="dl_sl_uw">
         <datalist id="dl_sl_uw"></datalist><span class="mini" id="sl_uwHint"></span></div>
-      <div class="field"><label id="lbl_sl_tw">الوزن الإجمالي (كغ)</label><input type="number" id="sl_tw" step="0.01" min="0" inputmode="decimal" oninput="calcLine('sl','tw')" readonly></div>
+      <div class="field"><label id="lbl_sl_tw">الوزن الإجمالي (كغ)</label><input type="number" id="sl_tw" step="0.01" min="0" inputmode="decimal" oninput="calcLine('sl','tw')"></div>
       <div class="field"><label>أساس السعر</label><select id="sl_basis" onchange="calcLine('sl')">
         <option value="unit">سعر الوحدة</option><option value="kg">سعر الكيلو</option></select></div>
     </div>
@@ -869,6 +870,24 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
     <thead><tr><th>التاريخ</th><th class="name">المستودع</th><th class="name">الصنف</th><th>الوحدات</th>
       <th>الوزن</th><th>القيمة</th><th class="name">أدخلها</th><th>إجراء</th></tr></thead>
     <tbody id="tbOpeningStock"></tbody></table></div>
+</section>
+
+<!-- ======================= فحص الأصناف (تشخيص الأرصدة) ======================= -->
+<section id="itemdiag" class="panel">
+  <div class="print-head"><span class="print-logo"></span><h3>فحص الأصناف — تشخيص الأرصدة</h3><p>إعداد محمد فرج</p></div>
+  <div class="sec-title">تشخيص أرصدة الأصناف <span class="hint">من تاريخ إلى تاريخ — لعزل مشاكل الفترة</span></div>
+  <div class="note" style="border-right-color:var(--citrus)">يقارن لكل صنف <b>رصيد بداية المدة + المشترى − المُباع ± التسويات = رصيد نهاية المدة</b> ضمن الفترة المختارة فقط — فلا تختلط حركات ما قبل الجرد بمشاكل الشهر الحالي. حدّد <b>من/إلى</b> (افتراضياً الشهر الحالي)، فيظهر لكل صنف مصدر رصيده ويُكشف أي <b>فرق غير مفسَّر</b> داخل الفترة.</div>
+  <div class="doc-box no-print">
+    <div class="grid" style="margin-bottom:8px">
+      <div class="field"><label>من تاريخ</label><input type="date" id="di_from"></div>
+      <div class="field"><label>إلى تاريخ</label><input type="date" id="di_to"></div>
+    </div>
+    <div class="form-foot"><button class="btn-main" onclick="renderItemDiag()">🔍 فحص الأصناف في المدة</button>
+      <button class="btn" onclick="diagRangeThisMonth()">الشهر الحالي</button>
+      <button class="btn" onclick="diagRangeSinceCount()">منذ آخر جرد</button>
+      <span class="mini">بعد معرفة السبب: استخدم «تصحيح أوزان العبوات» (من الإعدادات) أو «الجرد الفعلي» (من المخزون).</span></div>
+    <div id="itemDiagBox" style="margin-top:10px"></div>
+  </div>
 </section>
 
 <!-- ======================= المصروفات ======================= -->
@@ -1567,20 +1586,6 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
       <span class="mini">بجانب كل صنف عدد حركاته — للتأكد أين توجد الكميات قبل الدمج. «استعادة حركات مفقودة» تُرجع أي حركة فقدت صنفها.</span></div>
   </div>
 
-  <div class="sec-title">تشخيص أرصدة الأصناف <span class="hint">من تاريخ إلى تاريخ — لعزل مشاكل الفترة</span></div>
-  <div class="note" style="border-right-color:var(--citrus)">يقارن لكل صنف <b>رصيد بداية المدة + المشترى − المُباع ± التسويات = رصيد نهاية المدة</b> ضمن الفترة المختارة فقط — فلا تختلط حركات ما قبل الجرد بمشاكل الشهر الحالي. حدّد <b>من/إلى</b> (افتراضياً الشهر الحالي)، فيظهر لكل صنف مصدر رصيده ويُكشف أي <b>فرق غير مفسَّر</b> داخل الفترة.</div>
-  <div class="doc-box no-print">
-    <div class="grid" style="margin-bottom:8px">
-      <div class="field"><label>من تاريخ</label><input type="date" id="di_from"></div>
-      <div class="field"><label>إلى تاريخ</label><input type="date" id="di_to"></div>
-    </div>
-    <div class="form-foot"><button class="btn-main" onclick="renderItemDiag()">🔍 فحص الأصناف في المدة</button>
-      <button class="btn" onclick="diagRangeThisMonth()">الشهر الحالي</button>
-      <button class="btn" onclick="diagRangeSinceCount()">منذ آخر جرد</button>
-      <span class="mini">بعد معرفة السبب: استخدم «تصحيح أوزان العبوات» أو «الجرد الفعلي» أدناه.</span></div>
-    <div id="itemDiagBox" style="margin-top:10px"></div>
-  </div>
-
   <div class="sec-title">دمج صنفين يدوياً (اختياري) <span class="hint">أداة بيدك وحدك — النظام لا يدمج ولا يفترض التشابه أبداً</span></div>
   <div class="note">كل صنف يبقى <b>مستقلاً</b> ويُتابَع شراؤه وبيعه <b>كما أُدخل بالضبط</b> — تشابه الأسماء لا يعني أنها صنف واحد، والنظام لا يجمعها. تُستخدم هذه الأداة <b>فقط إذا قرّرتَ أنت</b> أن سجلَّين يخصّان <b>نفس المنتج فعلاً</b> وأردتَ توحيدهما بنفسك. إن كانا صنفين مختلفين فلا تستخدمها. <b>نزّل نسخة احتياطية وعاين قبل أي دمج.</b></div>
   <div class="doc-box no-print">
@@ -1753,7 +1758,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-16-ai';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-19-ai';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -1790,6 +1795,7 @@ var ROLES={admin:'مدير النظام',manager:'مدير عام',accountant:'�
 var PERM_KEYS=[
  ['dash','عرض الملخص (لوحة المؤشرات)'],
  ['purchases','المشتريات'],['sales','المبيعات'],['returns','المرتجعات'],['stock','المخزون'],
+ ['itemdiag','تشخيص أرصدة الأصناف (فحص)'],
  ['expenses','المصروفات'],['accounts','الحسابات والسداد (كامل)'],['opaccounts','الحسابات التشغيلية (سيارات/عمال)'],['reports','التقارير'],['income','قائمة الدخل'],
  ['master','البيانات الأساسية'],['users','المستخدمون'],['settings','الإعدادات'],
  ['accSuppliers','اطّلاع: أرصدة الموردين فقط'],['accClients','اطّلاع: أرصدة العملاء فقط'],
@@ -1799,7 +1805,7 @@ function preset(role){
   var p={}; PERM_KEYS.forEach(function(k){p[k[0]]=false;});
   if(role==='admin'){ PERM_KEYS.forEach(function(k){p[k[0]]=true;}); }
   else if(role==='manager'){ PERM_KEYS.forEach(function(k){p[k[0]]=true;}); p.users=false; }
-  else if(role==='accountant'){ ['dash','purchases','sales','returns','stock','expenses','accounts','reports','income','master','canAdd','canEdit','canExport'].forEach(function(k){p[k]=true;}); }
+  else if(role==='accountant'){ ['dash','purchases','sales','returns','stock','itemdiag','expenses','accounts','reports','income','master','canAdd','canEdit','canExport'].forEach(function(k){p[k]=true;}); }
   else if(role==='entry'){ ['dash','purchases','sales','returns','stock','reports','canAdd'].forEach(function(k){p[k]=true;}); }
   else if(role==='viewer'){ ['dash','stock','reports','income','canExport'].forEach(function(k){p[k]=true;}); }
   return p;
@@ -1990,6 +1996,8 @@ var ledgerView={type:null,id:null};
 function cur(){ return db.settings.currency||'ر.س'; }
 /* ---------- ضريبة القيمة المضافة ---------- */
 function round2(n){ return Math.round((Number(n)||0)*100)/100; }
+function round3(n){ return Math.round((Number(n)||0)*1000)/1000; }
+function round5(n){ return Math.round((Number(n)||0)*100000)/100000; }
 function vatRate(){ var r=Number(db.settings.vatRate); return (isFinite(r)&&r>=0)?r:15; }
 function docVat(d){ return d?(d.vat!=null?(Number(d.vat)||0):0):0; }          /* ضريبة الفاتورة (0 للسجلات القديمة قبل تفعيل الضريبة) */
 function docGrand(d){ return (Number(d&&d.total)||0)+docVat(d); }             /* الإجمالي شامل الضريبة */
@@ -2070,7 +2078,8 @@ function effPerms(){
   var dp=ME.deptPerms&&db&&db.activeDept&&ME.deptPerms[db.activeDept];
   return dp||ME.perms;
 }
-function can(k){ var p=effPerms(); return !!(p&&p[k]); }
+function can(k){ if(ME&&ME.role==='admin') return true;   /* المدير: صلاحية كاملة دائماً (يشمل أي صلاحية مضافة لاحقاً) */
+  var p=effPerms(); return !!(p&&p[k]); }
 /* هل يُسمح لهذا المستخدم برؤية الأرصدة المالية للموردين/العملاء؟ */
 function canSeeBalances(){ return can('accounts')||can('accSuppliers')||can('accClients'); }
 /* هل يُسمح له برؤية الأرباح والتكاليف والهوامش؟ (مرتبط بصلاحية قائمة الدخل) */
@@ -2338,6 +2347,7 @@ function showTab(id){
   var cur=document.querySelector('.panel.active'), changing=(!cur||cur.id!==id);
   document.querySelectorAll('.tab-btn').forEach(function(b){ b.classList.toggle('active',b.dataset.tab===id); });
   document.querySelectorAll('.panel').forEach(function(p){ p.classList.toggle('active',p.id===id); });
+  if(id==='itemdiag'&&can('itemdiag')) renderItemDiag();   /* شغّل الفحص فور فتح التبويب */
   if(changing) window.scrollTo({top:0,behavior:'smooth'});   /* لا تقفز للأعلى إن كان التبويب مفتوحاً أصلاً (تعديل/إضافة صنف) */
 }
 document.querySelectorAll('.tab-btn').forEach(function(b){ b.addEventListener('click',function(){ showTab(b.dataset.tab); }); });
@@ -2722,8 +2732,12 @@ function applyItemTracking(p,it){
   var twEl=document.getElementById(p+'_tw'), twWrap=twEl?twEl.closest('.field'):null;
   if(uwWrap) uwWrap.style.display=noWt?'none':'';
   if(twWrap) twWrap.style.display=noWt?'none':'';
-  if(noWt){ setVal(p+'_uw',''); setVal(p+'_basis','unit'); calcLine(p); return; }
+  var pL=document.getElementById('lbl_'+p+'_price');
+  if(noWt){ setVal(p+'_uw',''); setVal(p+'_basis','unit'); if(pL) pL.textContent=(p==='sl'?'سعر البيع':'السعر')+' *'; calcLine(p); return; }
   if(wL) wL.textContent=(byKg?'وزن الصندوق (كغ)':(p==='pl'?'معامل التحويل — وزن الوحدة (كغ)':'وزن الوحدة (كغ)'))+' *';
+  /* الأصناف بالكيلو: السعر بالكيلو دائماً (القيمة = الوزن × سعر الكيلو) — إدخال ثنائي الاتجاه */
+  if(byKg){ setVal(p+'_basis','kg'); if(pL) pL.textContent='سعر الكيلو *'; }
+  else if(pL) pL.textContent=(p==='sl'?'سعر البيع':'السعر')+' *';
   /* اقتراح الأوزان المتعددة لكل الأصناف (بالكيلو أو بالوحدة) — إدخال حرّ + حفظ الجديد */
   var ws=itemBoxWeights(it.id), dl=document.getElementById('dl_'+p+'_uw');
   if(dl) dl.innerHTML=ws.map(function(w){return '<option value="'+w+'">'+w+' كغ</option>';}).join('');
@@ -2738,16 +2752,42 @@ function showAvail(){
   var w=+val('sl_wh'), i=+val('sl_item'), it=byId(db.items,i);
   setVal('sl_avail',(w&&i)?qty(availUnits(w,i))+' '+((it&&it.byKg)?'كغ':'وحدة'):'—');
 }
-function calcLine(p){
+/* حساب السطر — ثنائي الاتجاه للأصناف بالوزن (منع فروق التقريب):
+   عدد الصناديق + الوزن الإجمالي + القيمة الإجمالية ⇒ سعر الكيلو = القيمة ÷ الوزن (والعكس).
+   المعامل src يحدّد الحقل الذي غيّره المستخدم لنشتقّ الباقي منه. */
+function calcLine(p, src){
   var u=fnum(p+'_units'), w=fnum(p+'_uw'), pr=fnum(p+'_price'), b=val(p+'_basis');
-  var net=b==='kg'?u*w*pr:u*pr;
-  if(document.getElementById(p+'_tw')) setVal(p+'_tw',num(u*w)+' كغ');
-  setVal(p+'_total',money(net));
-  if(p==='r'&&document.getElementById('r_grand')){   /* المرتجع: صافي + إجمالي شامل الضريبة حسب الطريقة */
-    var rate=document.getElementById('r_vatrate')?fnum('r_vatrate'):vatRate();
-    var vs=vatScalar(net,rate,val('r_vatmode')||'add');
-    setVal('r_total',money(vs.net)); setVal('r_grand',money(vs.net+vs.vat));
+  if(p==='r'){   /* المرتجع: حقول نصية بصيغة العملة (بلا تعديل ثنائي الاتجاه) */
+    var net0=b==='kg'?u*w*pr:u*pr;
+    if(document.getElementById('r_tw')) setVal('r_tw',num(u*w)+' كغ');
+    setVal('r_total',money(net0));
+    if(document.getElementById('r_grand')){   /* المرتجع: صافي + إجمالي شامل الضريبة حسب الطريقة */
+      var rate=document.getElementById('r_vatrate')?fnum('r_vatrate'):vatRate();
+      var vs=vatScalar(net0,rate,val('r_vatmode')||'add');
+      setVal('r_total',money(vs.net)); setVal('r_grand',money(vs.net+vs.vat));
+    }
+    return;
   }
+  var twEl=document.getElementById(p+'_tw'), totEl=document.getElementById(p+'_total');
+  var tw=u*w, net;
+  if(src==='total'){                 /* أدخل المستخدم قيمة السطر ⇒ اشتقّ السعر (يمنع فروق التقريب) */
+    net=fnum(p+'_total');
+    if(b==='kg'){ if(tw>0) setVal(p+'_price', round5(net/tw)); }
+    else { if(u>0) setVal(p+'_price', round5(net/u)); }
+    if(twEl) setVal(p+'_tw', round2(tw));
+    return;
+  }
+  if(src==='tw'){                    /* أدخل المستخدم الوزن الإجمالي ⇒ اشتقّ وزن الصندوق ثم القيمة */
+    tw=fnum(p+'_tw');
+    if(u>0) setVal(p+'_uw', round3(tw/u));
+    net = (b==='kg') ? tw*pr : u*pr;
+    if(totEl) setVal(p+'_total', round2(net));
+    return;
+  }
+  /* الوضع الافتراضي (عدد/وزن الصندوق/السعر/الأساس): احسب الوزن الإجمالي والقيمة */
+  net = (b==='kg') ? tw*pr : u*pr;
+  if(twEl) setVal(p+'_tw', round2(tw));
+  if(totEl) setVal(p+'_total', round2(net));
 }
 function onItemUnitPick(){
   refreshUW('it');
@@ -5971,6 +6011,7 @@ function renderStockResetUI(){
 /* ===== تشخيص أرصدة الأصناف — يكشف سبب الرصيد الوهمي لكل صنف ===== */
 function renderItemDiag(){
   var box=document.getElementById('itemDiagBox'); if(!box) return;
+  if(!can('itemdiag')){ box.innerHTML='<div class="note">لا تملك صلاحية «فحص الأصناف».</div>'; return; }
   if(!L) refreshLedger();
   /* الفترة: افتراضياً الشهر الحالي إن لم تُحدَّد */
   if(!val('di_from')&&!val('di_to')) diagRangeThisMonth(true);
