@@ -234,7 +234,7 @@ tr:hover td{background:#f8fafc}
    ============================================================ */
 const KEY="inv_system_v2";
 /* رقم إصدار التطبيق — يُزاد مع كل تحديث؛ يُقارَن بالنسخة المنشورة لإظهار زر التحديث */
-const APP_VERSION="2026-09-19-01";
+const APP_VERSION="2026-09-19-02";
 let DB,ME;
 /* التحقق من توفّر نسخة أحدث بجلب الملف نفسه (بدون كاش) ومقارنة رقم الإصدار */
 function checkForUpdate(){
@@ -304,7 +304,7 @@ const DEV={name:"محمد فرج",nameEn:"Mohamed Farag",title:"معدّ ومص�
 /* ---------- الشركة الحالية (عرض لكل جهاز) ---------- */
 let CO=1;
 function citems(){return DB.items.filter(i=>i.companyId===CO);}
-function cmoves(){return DB.movements.filter(m=>m.companyId===CO);}
+function cmoves(){return uniqMovements().filter(m=>m.companyId===CO);}
 /* ===== المصدر الوحيد للحقيقة: الرصيد يُحسب من دفتر الحركات (Ledger) ===== */
 /* دفتر حركات فريد بلا تكرار — نفس المجموعة تُستخدم في كل الحسابات (الرصيد/سجل الحركة/الجرد) */
 function uniqMovements(){
@@ -329,7 +329,7 @@ function csups(){return DB.suppliers.filter(s=>s.companyId===CO);}
 function cpays(){return DB.payments.filter(p=>p.companyId===CO);}
 function curCompany(){return (DB.companies||[]).find(c=>c.id===CO)||DB.companies[0]||{name:"شركتي",logo:"",icon:"🏢"};}
 /* رصيد المورد المالي = قيمة التوريدات + الأرصدة الافتتاحية − المدفوعات */
-function supSupplies(id){return DB.movements.filter(m=>m.companyId===CO&&m.type==="inbound"&&m.supplierId===id).reduce((s,m)=>s+m.qty*m.price,0);}
+function supSupplies(id){return uniqMovements().filter(m=>m.companyId===CO&&m.type==="inbound"&&m.supplierId===id).reduce((s,m)=>s+m.qty*m.price,0);}
 function supOpening(id){return DB.payments.filter(p=>p.companyId===CO&&p.supplierId===id&&p.kind==="opening").reduce((s,p)=>s+p.amount,0);}
 function supPaid(id){return DB.payments.filter(p=>p.companyId===CO&&p.supplierId===id&&p.kind==="payment").reduce((s,p)=>s+p.amount,0);}
 function supBalance(id){return supSupplies(id)+supOpening(id)-supPaid(id);}
@@ -768,7 +768,7 @@ function refreshView(){
 }
 function cloudApplyRemote(remote,silent){
   if(!remote||typeof remote!=="object"||!Array.isArray(remote.users))return;
-  DB=remote;ensureShape();
+  DB=remote;ensureShape();recalcQty(); // إعادة احتساب كل الأرصدة من دفتر الحركات الفريد بعد أي وصول من السحابة
   const s=JSON.stringify(DB);localStorage.setItem(KEY,s);cloudLastPushed=s;
   if(ME){const me=DB.users.find(x=>x.id===ME.id);if(me)ME=me;
     // لا تعيد الرسم إن كان المستخدم يكتب في حقل أو نافذة مفتوحة، لتفادي فقدان ما يكتبه
@@ -1071,7 +1071,7 @@ function acItems(q){
   box.innerHTML=res.map(i=>`<div class="ac-item" onclick="pickItem(${i.id})" style="display:flex;align-items:center;gap:10px">
     ${i.image?`<img src="${i.image}" style="width:38px;height:38px;object-fit:cover;border-radius:8px;flex:0 0 auto">`:""}
     <div><b>${esc(itemModel(i))}</b>${(i.name&&i.name!==itemModel(i))?`<span style="color:var(--muted)"> — ${esc(i.name)}</span>`:""}
-    <span style="color:var(--muted)"> (الرصيد: ${i.qty})</span></div></div>`).join("")||`<div class="ac-item">لا نتائج</div>`;
+    <span style="color:var(--muted)"> (الرصيد: ${stockOf(i.id)})</span></div></div>`).join("")||`<div class="ac-item">لا نتائج</div>`;
   box.style.display="block";
 }
 function pickItem(id){
@@ -1082,7 +1082,7 @@ function pickItem(id){
   if(mType==="outbound")$("#mPrice").value="";
   else if(mType==="inbound")$("#mPrice").value="";
   $("#mBal").style.display="flex";$("#mBalName").textContent="رصيد «"+itemModel(picked)+"»";
-  $("#mBalV").textContent=picked.qty+" "+(picked.unit||"");
+  $("#mBalV").textContent=stockOf(picked.id)+" "+(picked.unit||"");
   const im=$("#mBalImg");if(im){if(picked.image){im.src=picked.image;im.style.display="block";}else im.style.display="none";}
   // تنقّل تلقائي: بعد اختيار الصنف انتقل لحقل الكمية
   setTimeout(()=>{const q=$("#mQty");if(q){q.focus();q.select&&q.select();}},30);
@@ -1144,7 +1144,7 @@ function saveMove(){
     const lines=saleCart.slice();const cur=currentLine();if(cur)lines.push(cur);
     if(!lines.length)return show("أضِف صنفاً واحداً على الأقل للفاتورة.","err");
     const need={};lines.forEach(l=>need[l.itemId]=(need[l.itemId]||0)+l.qty);
-    for(const id in need){const it=DB.items.find(x=>x.id===+id);if(!allowOversell()&&need[id]>it.qty)return show(`الرصيد غير كافٍ للصنف «${itemModel(it)}» (المتاح ${it.qty}). فعّل «السماح بالبيع بالسالب» من الإعدادات إن أردت.`,"err");}
+    for(const id in need){const it=DB.items.find(x=>x.id===+id);const avail=stockOf(+id);if(!allowOversell()&&need[id]>avail)return show(`الرصيد غير كافٍ للصنف «${itemModel(it)}» (المتاح ${avail}). فعّل «السماح بالبيع بالسالب» من الإعدادات إن أردت.`,"err");}
     const invNo=($("#mInvoice").value||"").trim();
     if(!invNo)return show("أدخل رقم الفاتورة (إجباري للمنصرف).","err");
     const gid="INV"+Date.now();
@@ -1259,7 +1259,7 @@ function importMovesFile(e){
       if(!type||!code||qty<=0){skip++;errs.push(`سطر ${idx+1}: بيانات ناقصة`);return;}
       let it=citems().find(i=>itemModel(i).toLowerCase()===code.toLowerCase());
       if(!it){it={id:nid("item"),companyId:CO,qty:0,cost:price,active:true,code,model:code,name:code,category:"",unit:"قطعة",price:0,reorder:0};DB.items.push(it);}
-      if(type==="outbound"&&qty>it.qty){skip++;errs.push(`سطر ${idx+1}: رصيد «${code}» غير كافٍ (${it.qty})`);return;}
+      if(type==="outbound"&&!allowOversell()&&qty>it.qty){skip++;errs.push(`سطر ${idx+1}: رصيد «${code}» غير كافٍ (${it.qty})`);return;}
       let supId=null;
       if(type==="inbound"){if(!supName){skip++;errs.push(`سطر ${idx+1}: المورد مطلوب للوارد`);return;}
         let sup=csups().find(s=>s.name.toLowerCase()===supName.toLowerCase());
@@ -1310,7 +1310,7 @@ function editInvoice(gid){
       <tbody id="ieRows"></tbody></table></div>
     <div style="font-weight:800;color:var(--green);margin:12px 0 6px">➕ إضافة صنف</div>
     <div class="formgrid">
-      <div class="cell c6"><select id="ie_item"><option value="">— اختر الصنف —</option>${citems().map(i=>`<option value="${i.id}">${esc(itemLabel(i))} — الرصيد ${i.qty}</option>`).join("")}</select></div>
+      <div class="cell c6"><select id="ie_item"><option value="">— اختر الصنف —</option>${citems().map(i=>`<option value="${i.id}">${esc(itemLabel(i))} — الرصيد ${stockOf(i.id)}</option>`).join("")}</select></div>
       <div class="cell c2"><input id="ie_q" type="number" inputmode="numeric" placeholder="الكمية"></div>
       <div class="cell c2"><input id="ie_p" type="number" inputmode="decimal" step="0.01" placeholder="السعر"></div>
       <div class="cell c2"><button class="btn blue block" onclick="invEditAdd()">إضافة</button></div>
@@ -1347,7 +1347,7 @@ function saveInvoiceEdit(gid){
   // أرجع مخزون البنود القديمة مؤقتاً لحساب التوفّر الصحيح
   const restore={};old.forEach(m=>{restore[m.itemId]=(restore[m.itemId]||0)+m.qty;});
   const need={};invEdit.forEach(l=>need[l.itemId]=(need[l.itemId]||0)+l.qty);
-  for(const id in need){const it=DB.items.find(x=>x.id===+id);const avail=(it?it.qty:0)+(restore[id]||0);
+  for(const id in need){const it=DB.items.find(x=>x.id===+id);const avail=stockOf(+id)+(restore[id]||0);
     if(!allowOversell()&&need[id]>avail){$("#ie_msg").textContent=`الرصيد غير كافٍ للصنف «${itemModel(it||{})}» (المتاح ${avail}).`;return;}}
   // نفّذ: أرجع القديم واحذفه (بشواهد حذف)، ثم أنشئ البنود الجديدة بنفس الفاتورة
   old.forEach(m=>{const it=DB.items.find(x=>x.id===m.itemId);if(it)it.qty+=m.qty;});
@@ -1369,7 +1369,7 @@ function editMovement(id){
   const el=document.createElement("div");el.className="modal";
   el.innerHTML=`<div class="box"><h3>تعديل حركة — ${typeAr(m.type)}</h3>
     <div class="field" style="margin-bottom:10px"><label>الصنف / الموديل (يمكن تغييره)</label>
-      <select id="em_item">${citems().map(i=>`<option value="${i.id}" ${i.id===m.itemId?"selected":""}>${esc(itemLabel(i))} — الرصيد ${i.qty}</option>`).join("")}</select></div>
+      <select id="em_item">${citems().map(i=>`<option value="${i.id}" ${i.id===m.itemId?"selected":""}>${esc(itemLabel(i))} — الرصيد ${stockOf(i.id)}</option>`).join("")}</select></div>
     <div class="row"><div class="field"><label>الكمية</label><input id="em_qty" type="number" inputmode="numeric" value="${m.qty}"></div>
       <div class="field"><label>السعر ﷼</label><input id="em_price" type="number" inputmode="decimal" step="0.01" value="${m.price||0}"></div></div>
     <div class="row"><div class="field"><label>التاريخ</label><input id="em_date" type="date" value="${esc(m.date||today())}"></div>
@@ -1391,10 +1391,12 @@ function saveMovement(id){
   if(!newIt){$("#em_msg").textContent="اختر صنفاً.";return;}
   // اعكس أثر الحركة القديمة على الصنف القديم
   if(oldIt)oldIt.qty+=isIn(m.type)?-m.qty:m.qty;
-  // تحقّق الرصيد على الصنف الجديد (بعد العكس إن كان نفسه)
-  if(m.type==="outbound"&&!allowOversell()&&nq>newIt.qty){
+  // التوفّر من الدفتر مباشرةً مع استبعاد أثر الحركة الجاري تعديلها (إن كانت لنفس الصنف)
+  const availNew=stockOf(newItemId)+(m.itemId===newItemId?(isIn(m.type)?-m.qty:m.qty):0);
+  // تحقّق الرصيد على الصنف الجديد
+  if(m.type==="outbound"&&!allowOversell()&&nq>availNew){
     if(oldIt)oldIt.qty+=isIn(m.type)?m.qty:-m.qty;   // تراجع عن العكس
-    $("#em_msg").textContent=`الرصيد غير كافٍ للصنف «${itemModel(newIt)}» (المتاح ${newIt.qty}).`;return;
+    $("#em_msg").textContent=`الرصيد غير كافٍ للصنف «${itemModel(newIt)}» (المتاح ${availNew}).`;return;
   }
   if(m.type==="inbound"&&!(+($("#em_sup")?.value))){
     if(oldIt)oldIt.qty+=isIn(m.type)?m.qty:-m.qty;   // تراجع عن العكس
@@ -1426,14 +1428,14 @@ function saveMovement(id){
 /* ---------- استرجاع الفاتورة برقمها ---------- */
 /* آخر حركة وارد للصنف (المورد/الفسح/التاريخ) */
 function lastInbound(itemId){
-  const inb=DB.movements.filter(m=>m.companyId===CO&&m.itemId===itemId&&m.type==="inbound")
+  const inb=uniqMovements().filter(m=>m.companyId===CO&&m.itemId===itemId&&m.type==="inbound")
     .sort((a,b)=>(a.date<b.date?1:a.date>b.date?-1:b.id-a.id));
   return inb[0]||null;
 }
 /* الوارد المُطابق لحركة بيع وفق «الوارد أولاً صادر أولاً» (FIFO)
    لا يُنسَب البيع أبداً إلى وارد تاريخه بعد تاريخ البيع */
 function inboundForSale(mv){
-  const all=DB.movements.filter(x=>x.companyId===CO&&x.itemId===mv.itemId&&x.type==="inbound")
+  const all=uniqMovements().filter(x=>x.companyId===CO&&x.itemId===mv.itemId&&x.type==="inbound")
     .sort((a,b)=>(a.date<b.date?-1:a.date>b.date?1:a.id-b.id));
   if(!all.length)return null;
   // المرشّحون: الوارد بتاريخ ≤ تاريخ البيع فقط (لا يمكن الصرف من وارد لاحق)
@@ -1441,7 +1443,7 @@ function inboundForSale(mv){
   const elig=all.filter(x=>((x.date||"")+"").slice(0,10)<=sd);
   const pool=(elig.length?elig:all).map(x=>({m:x,left:x.qty}));
   // استهلاك FIFO عبر حركات البيع المرتّبة زمنياً حتى هذا البيع
-  const outs=DB.movements.filter(x=>x.companyId===CO&&x.itemId===mv.itemId&&x.type==="outbound")
+  const outs=uniqMovements().filter(x=>x.companyId===CO&&x.itemId===mv.itemId&&x.type==="outbound")
     .sort((a,b)=>(a.date<b.date?-1:a.date>b.date?1:a.id-b.id));
   let picked=null;
   for(const o of outs){
@@ -1455,13 +1457,13 @@ function inboundForSale(mv){
 }
 /* كل دفعات الشراء التي خرجت منها حركة البيع وفق FIFO (قد تكون أكثر من دفعة) */
 function sourcesForSale(mv){
-  const all=DB.movements.filter(x=>x.companyId===CO&&x.itemId===mv.itemId&&x.type==="inbound")
+  const all=uniqMovements().filter(x=>x.companyId===CO&&x.itemId===mv.itemId&&x.type==="inbound")
     .sort((a,b)=>(a.date<b.date?-1:a.date>b.date?1:a.id-b.id));
   if(!all.length)return [];
   const sd=((mv.date||"")+"").slice(0,10);
   const elig=all.filter(x=>((x.date||"")+"").slice(0,10)<=sd);
   const pool=(elig.length?elig:all).map(x=>({m:x,left:x.qty}));
-  const outs=DB.movements.filter(x=>x.companyId===CO&&x.itemId===mv.itemId&&x.type==="outbound")
+  const outs=uniqMovements().filter(x=>x.companyId===CO&&x.itemId===mv.itemId&&x.type==="outbound")
     .sort((a,b)=>(a.date<b.date?-1:a.date>b.date?1:a.id-b.id));
   const taken=[];
   for(const o of outs){
@@ -1884,7 +1886,7 @@ function renderReport(){
   const inRange=d=>(!from||d>=from)&&(!to||d<=to);
   const items=citems().filter(i=>(!cat||i.category===cat)&&(!sq||(i.code+i.name+(i.model||"")+(i.category||"")).toLowerCase().includes(sq)));
   const rows=items.map(it=>{
-    const mv=DB.movements.filter(m=>m.itemId===it.id&&inRange(m.date));
+    const mv=uniqMovements().filter(m=>m.itemId===it.id&&inRange(m.date));
     const inMv=mv.filter(m=>isIn(m.type)),outMv=mv.filter(m=>m.type==="outbound");
     const inb=inMv.reduce((s,m)=>s+m.qty,0);
     const out=outMv.reduce((s,m)=>s+m.qty,0);
@@ -1893,7 +1895,7 @@ function renderReport(){
     const avgCost=inb?inVal/inb:0;                        // متوسط تكلفة الوحدة للمدة
     const profit=outVal-avgCost*out;                      // ربح تقريبي للمدة
     // الرصيد أول المدة = الرصيد الحالي − صافي حركة المدة (تقريبي بافتراض عدم وجود حركات لاحقة للتاريخ)
-    const after=DB.movements.filter(m=>m.itemId===it.id&&(!to||m.date>to)).reduce((s,m)=>s+(isIn(m.type)?m.qty:-m.qty),0);
+    const after=uniqMovements().filter(m=>m.itemId===it.id&&(!to||m.date>to)).reduce((s,m)=>s+(isIn(m.type)?m.qty:-m.qty),0);
     const closing=it.qty-after;const opening=closing-(inb-out);
     return {it,inb,out,inVal,outVal,profit,opening,closing,net:inb-out};
   }).filter(r=>r.inb||r.out||r.opening||r.closing);
@@ -2037,9 +2039,9 @@ function exportLedger(id){
 function itemStatus(i){if(i.qty<0)return "neg";if(i.qty===0)return "zero";if(i.reorder>0&&i.qty<=i.reorder)return "low";return "ok";}
 /* دفعات الوارد للصنف مع المتبقي منها (نظام: الأقدم يُباع أولاً FIFO) */
 function itemBatches(id){
-  const inb=DB.movements.filter(m=>m.companyId===CO&&m.itemId===id&&m.type==="inbound")
+  const inb=uniqMovements().filter(m=>m.companyId===CO&&m.itemId===id&&m.type==="inbound")
     .sort((a,b)=>(a.date<b.date?-1:a.date>b.date?1:a.id-b.id)); // الأقدم أولاً
-  let out=DB.movements.filter(m=>m.companyId===CO&&m.itemId===id&&m.type==="outbound").reduce((s,m)=>s+m.qty,0);
+  let out=uniqMovements().filter(m=>m.companyId===CO&&m.itemId===id&&m.type==="outbound").reduce((s,m)=>s+m.qty,0);
   return inb.map(m=>{
     const take=Math.min(m.qty,Math.max(out,0));out-=take;
     const s=DB.suppliers.find(x=>x.id===m.supplierId);
@@ -2520,7 +2522,7 @@ function renderSupStatement(id){
   if(mode==="financial"){
     // دفتر أستاذ: توريدات (مدين) + افتتاحي (مدين) + دفعات (دائن) مرتّبة بالتاريخ مع رصيد جارٍ
     let entries=[];
-    DB.movements.filter(m=>m.companyId===CO&&m.type==="inbound"&&m.supplierId===id).forEach(m=>{const it=DB.items.find(i=>i.id===m.itemId)||{};
+    uniqMovements().filter(m=>m.companyId===CO&&m.type==="inbound"&&m.supplierId===id).forEach(m=>{const it=DB.items.find(i=>i.id===m.itemId)||{};
       entries.push({date:m.date,desc:"توريد "+(m.model||itemModel(it))+" ×"+m.qty+(m.customs?" (فسح "+m.customs+")":""),debit:m.qty*m.price,credit:0});});
     DB.payments.filter(p=>p.companyId===CO&&p.supplierId===id).forEach(p=>{
       if(p.kind==="opening")entries.push({date:p.date,desc:"رصيد افتتاحي",debit:p.amount,credit:0});
