@@ -463,6 +463,10 @@ html[data-theme="dark"] .rt td.hl{background:#2e2814;color:var(--accent)}
     <div class="mg"><label>اسم المستخدم</label><input id="lg-user" autocomplete="username" placeholder="admin"></div>
     <div class="mg"><label>كلمة المرور</label><input id="lg-pass" type="password" autocomplete="current-password" placeholder="••••••••" onkeydown="if(event.key==='Enter')document.getElementById('lg-btn').click()"></div>
     <div class="mg" id="lg-pass2-w" style="display:none"><label>تأكيد كلمة المرور</label><input id="lg-pass2" type="password" placeholder="••••••••"></div>
+    <label id="lg-remember-w" style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:8px;font-size:.86rem;font-weight:600">
+      <input type="checkbox" id="lg-remember" checked style="width:18px;height:18px;cursor:pointer">
+      تذكّرني على هذا الجهاز (دخول تلقائي)
+    </label>
     <div id="lg-msg" style="color:var(--danger);font-size:.82rem;min-height:18px;margin-bottom:6px"></div>
     <div id="lg-ok" style="display:none;color:#1e8e4e;background:#e9f8ef;border:1px solid #b7e6c9;border-radius:8px;padding:9px 11px;font-size:.82rem;margin-bottom:8px"></div>
     <button class="btn btn-accent" style="width:100%" id="lg-btn" onclick="submitLogin()">🔓 دخول</button>
@@ -3946,6 +3950,12 @@ window.addEventListener('pagehide',    onAppClose);
 // ═══════════════════════════════════════════
 const USERS_KEY='scs_users';       // يُزامَن سحابياً (بادئة scs_)
 const SESSION_KEY='sess_current';  // محلي لكل جهاز (لا يُزامَن)
+const REMEMBER_KEY='scs_saved_login';  // بيانات دخول محفوظة على هذا الجهاز فقط (لا تُزامَن) — للدخول التلقائي
+// حفظ/قراءة/مسح بيانات الدخول المحفوظة (تخزين محلي مموّه بـ base64 — للراحة لا للحماية المطلقة)
+function saveLogin(u,p){ try{ localStorage.setItem(REMEMBER_KEY, btoa(unescape(encodeURIComponent(JSON.stringify({u:u,p:p}))))); }catch(e){} }
+function loadLogin(){ try{ var s=localStorage.getItem(REMEMBER_KEY); if(!s) return null; return JSON.parse(decodeURIComponent(escape(atob(s)))); }catch(e){ return null; } }
+function clearLogin(){ try{ localStorage.removeItem(REMEMBER_KEY); }catch(e){} }
+function rememberChecked(){ var c=document.getElementById('lg-remember'); return !c || c.checked; }
 const PERMS=[
   ['shipment','بيانات الشحنة'],
   ['costs','المصاريف'],
@@ -3984,6 +3994,9 @@ function authGate(){
   const u=currentUser();
   if(u && u.active!==0){ document.getElementById('login-overlay').style.display='none'; initApp(); return; }
   localStorage.removeItem(SESSION_KEY);
+  // دخول تلقائي إن حُفِظت بيانات المستخدم على هذا الجهاز («تذكّرني»)
+  var saved=loadLogin();
+  if(saved && saved.u && saved.p){ if(autoLogin(saved.u, saved.p)) return; }
   // جهاز فيه مستخدمون محليون، أو السحابة مفعّلة → اعرض الدخول (يمكن سحب الحساب من السحابة).
   // لا مستخدمين ولا سحابة → أنشئ المدير أول مرة.
   if(usersLoad().length || cloudEnabled()){ showLogin(); } else { showFirstRun(); }
@@ -3997,6 +4010,7 @@ function showLogin(){
   document.getElementById('login-sub').textContent='أدخل اسم المستخدم وكلمة المرور';
   document.getElementById('lg-name-w').style.display='none';
   document.getElementById('lg-pass2-w').style.display='none';
+  document.getElementById('lg-remember-w').style.display='flex';
   document.getElementById('lg-btn').textContent='🔓 دخول';
   document.getElementById('lg-btn').setAttribute('onclick','submitLogin()');
   document.getElementById('lg-msg').textContent=''; lgOk('');
@@ -4021,6 +4035,7 @@ function showJoin(){
   document.getElementById('login-sub').textContent='أنشئ بيانات دخولك ثم انتظر اعتماد المدير';
   document.getElementById('lg-name-w').style.display='';
   document.getElementById('lg-pass2-w').style.display='';
+  document.getElementById('lg-remember-w').style.display='none';
   document.getElementById('lg-btn').textContent='📨 إرسال طلب الانضمام';
   document.getElementById('lg-btn').setAttribute('onclick','submitJoinRequest()');
   document.getElementById('lg-msg').textContent=''; lgOk('');
@@ -4036,6 +4051,7 @@ function showFirstRun(){
   document.getElementById('login-sub').textContent='تهيئة أول تشغيل — أنشئ حساب المدير للتحكم بالمستخدمين والصلاحيات';
   document.getElementById('lg-name-w').style.display='';
   document.getElementById('lg-pass2-w').style.display='';
+  document.getElementById('lg-remember-w').style.display='flex';
   document.getElementById('lg-btn').textContent='🆕 إنشاء المدير والدخول';
   document.getElementById('lg-btn').setAttribute('onclick','createFirstAdmin()');
   document.getElementById('lg-msg').textContent=''; lgOk('');
@@ -4072,14 +4088,37 @@ function submitJoinRequest(){
   });
 }
 function lgMsg(t){ document.getElementById('lg-msg').textContent=t||''; }
+// دخول تلقائي صامت ببيانات محفوظة؛ يعيد true إن تولّى الدخول (لا حاجة لعرض الشاشة)
+function autoLogin(un,pw){
+  var u=usersLoad().find(x=>x.username.toLowerCase()===String(un).toLowerCase());
+  if(u){
+    if(u.active===0 || u.pass!==hashPw(pw)){ clearLogin(); return false; }
+    localStorage.setItem(SESSION_KEY,u.username);
+    document.getElementById('login-overlay').style.display='none';
+    initApp(); cloudSignIn(u.username,pw); logAction('دخول تلقائي','');
+    toast('👋 مرحباً '+(u.name||u.username));
+    return true;
+  }
+  if(cloudEnabled()){
+    // جهاز جديد: تحقّق عبر السحابة بصمت؛ اعرض الشاشة فقط إن فشل
+    cloudRemoteLogin(un,pw,function(ok){
+      if(ok){ document.getElementById('login-overlay').style.display='none'; initApp(); logAction('دخول تلقائي (سحابي)',''); toast('👋 مرحباً'); }
+      else { clearLogin(); showLogin(); }
+    });
+    return true;
+  }
+  return false;
+}
 function submitLogin(){
   const un=document.getElementById('lg-user').value.trim();
   const pw=document.getElementById('lg-pass').value;
   if(!un||!pw){ lgMsg('أدخل اسم المستخدم وكلمة المرور'); return; }
+  const rem=rememberChecked();
   const u=usersLoad().find(x=>x.username.toLowerCase()===un.toLowerCase());
   if(u){
     if(u.active===0){ lgMsg('هذا الحساب موقوف — راجع المدير'); return; }
     if(u.pass!==hashPw(pw)){ lgMsg('كلمة المرور غير صحيحة'); return; }
+    if(rem) saveLogin(u.username,pw); else clearLogin();
     localStorage.setItem(SESSION_KEY,u.username);
     document.getElementById('login-overlay').style.display='none';
     initApp();
@@ -4092,7 +4131,7 @@ function submitLogin(){
   if(cloudEnabled()){
     lgMsg('جارٍ التحقق من السحابة…');
     cloudRemoteLogin(un,pw,function(ok){
-      if(ok){ document.getElementById('login-overlay').style.display='none'; initApp(); logAction('تسجيل دخول (سحابي)',''); toast('👋 مرحباً'); }
+      if(ok){ if(rem) saveLogin(un,pw); else clearLogin(); document.getElementById('login-overlay').style.display='none'; initApp(); logAction('تسجيل دخول (سحابي)',''); toast('👋 مرحباً'); }
       else { lgMsg('اسم المستخدم أو كلمة المرور غير صحيحة'); }
     });
   } else { lgMsg('اسم المستخدم غير موجود'); }
@@ -4111,6 +4150,7 @@ function createFirstAdmin(){
   const users=usersLoad();
   users.push({id:Date.now(),name:name,username:un,pass:hashPw(pw),role:'admin',perms:permAll(true),active:1});
   usersSave(users);
+  if(rememberChecked()) saveLogin(un,pw); else clearLogin();
   localStorage.setItem(SESSION_KEY,un);
   document.getElementById('login-overlay').style.display='none';
   initApp();
@@ -4119,7 +4159,7 @@ function createFirstAdmin(){
   toast('✅ تم إنشاء حساب المدير');
 }
 function logout(){
-  confirm2('تسجيل الخروج؟', ()=>{ logAction('تسجيل خروج',''); cloudLogout(); localStorage.removeItem(SESSION_KEY); location.reload(); });
+  confirm2('تسجيل الخروج؟', ()=>{ logAction('تسجيل خروج',''); clearLogin(); cloudLogout(); localStorage.removeItem(SESSION_KEY); location.reload(); });
 }
 function changeMyPassword(){
   var u=currentUser(); if(!u){ return; }
@@ -4132,7 +4172,7 @@ function changeMyPassword(){
 }
 // ── قفل تلقائي عند الخمول (أمان) ──
 var _idleTimer=null, IDLE_MS=30*60*1000;
-function resetIdle(){ if(!currentUser()) return; clearTimeout(_idleTimer); _idleTimer=setTimeout(function(){ try{ logAction('خروج تلقائي (خمول)',''); cloudLogout(); }catch(e){} localStorage.removeItem(SESSION_KEY); location.reload(); }, IDLE_MS); }
+function resetIdle(){ if(!currentUser()) return; if(loadLogin()) return; /* «تذكّرني» مفعّل → لا قفل تلقائي */ clearTimeout(_idleTimer); _idleTimer=setTimeout(function(){ try{ logAction('خروج تلقائي (خمول)',''); cloudLogout(); }catch(e){} localStorage.removeItem(SESSION_KEY); location.reload(); }, IDLE_MS); }
 ['click','keydown','mousemove','touchstart'].forEach(function(ev){ try{ document.addEventListener(ev, resetIdle, {passive:true}); }catch(e){} });
 
 // ── تطبيق الصلاحيات على الواجهة ──
@@ -5784,7 +5824,7 @@ function exportPaymentsExcel(){
 // ═══════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════
-var APP_VERSION='v2026-09-23.8';   // رقم إصدار ظاهر للتحقق من تحميل أحدث نسخة (لا cache قديم)
+var APP_VERSION='v2026-09-23.9';   // رقم إصدار ظاهر للتحقق من تحميل أحدث نسخة (لا cache قديم)
 function initApp() {
   try{ var av=document.getElementById('app-ver'); if(av) av.textContent=APP_VERSION; }catch(e){}
   try{ reconcileProfiles(); }catch(e){}   // توحيد أي بروفايلات مكرّرة محلياً قبل العرض
