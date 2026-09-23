@@ -3408,6 +3408,7 @@ var _lsRemove = localStorage.removeItem.bind(localStorage);
 var CLOUD_CLIENT = Math.random().toString(36).slice(2);
 var cloudRef=null, cloudReady=false, cloudApplying=false, cloudAttaching=false, _cloudPushT=null;
 var cloudLastPushed='';   // آخر لقطة دفعناها/طبّقناها — لتجاهل صدى كتابتنا نحن (كنظام التوريد)
+var _cloudDirty=false;    // يوجد تغيير محلي لم يُرفع بعد — شبكة الأمان ترفعه فور جاهزية الاتصال
 var cloudSecondary=null, cloudAuthBusy=false;
 
 function cloudEnabled(){ return !!(CLOUD_CONFIG && CLOUD_CONFIG.apiKey && typeof firebase!=='undefined'); }
@@ -3423,6 +3424,7 @@ function cloudLabel(t){ var l=document.getElementById('cloud-label'); if(l) l.te
 
 function cloudPush(){
   if(!cloudRef||!cloudReady) return;
+  _cloudDirty=false;
   cloudSetDot('sync');
   var payload=cloudCollect();
   cloudLastPushed=JSON.stringify(payload);   // لتجاهل صدى هذه الكتابة عند عودتها من المستمع
@@ -3562,10 +3564,17 @@ function cloudReloadUI(){
 }
 
 // اعتراض التخزين المحلي لدفع أي تغيير للسحابة تلقائياً
-localStorage.setItem=function(k,v){ _lsSet(k,v); if(cloudReady&&!cloudApplying&&cloudSyncable(k)) cloudPushDebounced(); };
-localStorage.removeItem=function(k){ _lsRemove(k); if(cloudReady&&!cloudApplying&&cloudSyncable(k)) cloudPushDebounced(); };
+// نضع علم «يوجد تغيير» دائماً (حتى لو لم يكن الاتصال جاهزاً بعدُ)، وشبكةُ الأمان أدناه ترفعه فور الجاهزية
+localStorage.setItem=function(k,v){ _lsSet(k,v); if(cloudSyncable(k)&&!cloudApplying){ _cloudDirty=true; if(cloudReady) cloudPushDebounced(); } };
+localStorage.removeItem=function(k){ _lsRemove(k); if(cloudSyncable(k)&&!cloudApplying){ _cloudDirty=true; if(cloudReady) cloudPushDebounced(); } };
 // ادفع أي حفظ مؤجَّل فور إخفاء/إغلاق الصفحة كي لا يُفقد ما أُدخل عند التحديث السريع
 try{ window.addEventListener('visibilitychange',function(){ if(document.visibilityState==='hidden') cloudFlush(); }); window.addEventListener('pagehide',cloudFlush); }catch(e){}
+// شبكة أمان: تضمن رفع أي تغيير خلال ثوانٍ مهما كان توقيت جاهزية الاتصال، وتعيد الاتصال إن لزم
+try{ setInterval(function(){
+  if(!cloudEnabled()||!_cloudDirty) return;
+  if(cloudReady&&!cloudApplying){ _cloudDirty=false; cloudPush(); }
+  else if(!cloudReady&&!cloudAttaching){ try{ if(firebase.auth().currentUser&&currentUser()) cloudAttach(); }catch(e){} }
+}, 1500); }catch(e){}
 
 var _cloudInited=false;
 function cloudEnsureInit(){ if(_cloudInited||!cloudEnabled()) return; try{ firebase.initializeApp(CLOUD_CONFIG); }catch(e){} _cloudInited=true; }
