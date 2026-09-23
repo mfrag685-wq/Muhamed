@@ -3577,10 +3577,20 @@ localStorage.removeItem=function(k){ _lsRemove(k); if(cloudSyncable(k)&&!cloudAp
 try{ window.addEventListener('visibilitychange',function(){ if(document.visibilityState==='hidden') cloudFlush(); }); window.addEventListener('pagehide',cloudFlush); }catch(e){}
 // شبكة أمان: تضمن رفع أي تغيير خلال ثوانٍ مهما كان توقيت جاهزية الاتصال، وتعيد الاتصال إن لزم
 try{ setInterval(function(){
+  try{ cloudUpdateVerBadge(); }catch(e){}
   if(!cloudEnabled()||!_cloudDirty) return;
   if(cloudReady&&!cloudApplying){ _cloudDirty=false; cloudPush(); }
   else if(!cloudReady&&!cloudAttaching){ try{ if(firebase.auth().currentUser&&currentUser()) cloudAttach(); }catch(e){} }
 }, 1500); }catch(e){}
+// تشخيص ظاهر دائماً بجانب الإصدار: جزء من معرّف الحساب + آخر رفع ↑ وآخر استقبال ↓
+function _agoTxt(ts){ if(!ts) return '—'; var s=Math.round((Date.now()-ts)/1000); if(s<60) return s+'ث'; var m=Math.round(s/60); if(m<60) return m+'د'; return Math.round(m/60)+'س'; }
+function cloudUpdateVerBadge(){
+  var el=document.getElementById('app-ver'); if(!el) return;
+  var uid=''; try{ var cu=firebase.auth().currentUser; if(cu) uid=String(cu.uid).slice(0,6); }catch(e){}
+  var t=(typeof APP_VERSION!=='undefined'?APP_VERSION:'');
+  if(cloudEnabled()){ t+=' · '+(cloudReady?'☁':'⚠')+(uid?(' '+uid):'')+' ↑'+_agoTxt(_cloudLastPushAt)+' ↓'+_agoTxt(_cloudLastRecvAt); }
+  el.textContent=t;
+}
 
 var _cloudInited=false;
 function cloudEnsureInit(){ if(_cloudInited||!cloudEnabled()) return; try{ firebase.initializeApp(CLOUD_CONFIG); }catch(e){} _cloudInited=true; }
@@ -5763,7 +5773,7 @@ function exportPaymentsExcel(){
 // ═══════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════
-var APP_VERSION='v2026-09-23.5';   // رقم إصدار ظاهر للتحقق من تحميل أحدث نسخة (لا cache قديم)
+var APP_VERSION='v2026-09-23.6';   // رقم إصدار ظاهر للتحقق من تحميل أحدث نسخة (لا cache قديم)
 function initApp() {
   try{ var av=document.getElementById('app-ver'); if(av) av.textContent=APP_VERSION; }catch(e){}
   try{ reconcileProfiles(); }catch(e){}   // توحيد أي بروفايلات مكرّرة محلياً قبل العرض
