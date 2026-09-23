@@ -1508,13 +1508,7 @@ function delMark(id){ try{ var o=delLoad(); o[String(id)]=new Date().toISOString
 
 // ── DB CRUD ──
 function dbLoad() {
-  try {
-    var arr = JSON.parse(localStorage.getItem(getDbKey())||'[]');
-    if(!Array.isArray(arr)) return [];
-    var tomb = delLoad();
-    // أخفِ أي شحنة محذوفة (شاهد حذفها أحدث من آخر حفظ لها) — يسمح بإعادة الإضافة لاحقاً إن حُفِظت من جديد
-    return arr.filter(function(x){ if(!x||x.id==null) return true; var t=tomb[String(x.id)]; return !(t && t >= (x.savedAt||'')); });
-  } catch(e){ return []; }
+  try { var arr=JSON.parse(localStorage.getItem(getDbKey())||'[]'); return Array.isArray(arr)?arr:[]; } catch(e){ return []; }
 }
 function dbSave(arr) {
   try { localStorage.setItem(getDbKey(), JSON.stringify(arr)); return true; }
@@ -1911,7 +1905,6 @@ function loadShipment(id) {
 function deleteShipment(id) {
   if(isReadonly()||!can('delete')){ toast('لا تملك صلاحية الحذف',true); return; }
   confirm2('هل تريد حذف هذه الشحنة؟ لا يمكن التراجع.', ()=>{
-    delMark(id);                              // شاهد حذف يُزامَن عبر الأجهزة
     const db = dbLoad().filter(x=>x.id!==id);
     dbSave(db);
     if(S.currentId===id){ S.currentId=null; }
@@ -3414,7 +3407,7 @@ var _lsSet    = localStorage.setItem.bind(localStorage);
 var _lsRemove = localStorage.removeItem.bind(localStorage);
 var CLOUD_CLIENT = Math.random().toString(36).slice(2);
 var cloudRef=null, cloudReady=false, cloudApplying=false, cloudAttaching=false, _cloudPushT=null;
-var _cloudRemote={};   // آخر لقطة سحابية استُلمت — يُدمج الدفع فوقها كي لا يمحو دفعُ جهازٍ بياناتِ جهازٍ آخر
+var cloudLastPushed='';   // آخر لقطة دفعناها/طبّقناها — لتجاهل صدى كتابتنا نحن (كنظام التوريد)
 var cloudSecondary=null, cloudAuthBusy=false;
 
 function cloudEnabled(){ return !!(CLOUD_CONFIG && CLOUD_CONFIG.apiKey && typeof firebase!=='undefined'); }
@@ -3423,20 +3416,8 @@ function cloudWid(){ return (CLOUD_CONFIG&&CLOUD_CONFIG.workspaceId)||'main'; }
 function synthEmail(username){ return 'u'+hashPw(String(username||'').toLowerCase()).replace(/[^a-z0-9]/g,'')+'@'+cloudWid()+'.shiperp.app'; }
 function cloudSyncable(k){ if(!k||k.indexOf('scs_')!==0) return false; return ['scs_lastbackup_all','scs_lastbackup_at','scs_theme','scs_autobackup_pref'].indexOf(k)<0; }
 function scsKeys(){ return Object.keys(localStorage).filter(cloudSyncable); }
-function cloudCollect(){
-  // اجمع المحلي ثم ادمجه فوق آخر لقطة سحابية معروفة — دمج بالمعرّف لا استبدال —
-  // فلا يمحو دفعُ هذا الجهاز شحنةً/دفعةً أضافها جهازٌ آخر ولم تصل محلياً بعد (يحمي وثيقة السحابة نفسها)
-  var o={}, rem=_cloudRemote||{}, keys={};
-  scsKeys().forEach(function(k){ keys[k]=1; });
-  Object.keys(rem).forEach(function(k){ if(cloudSyncable(k)) keys[k]=1; });
-  Object.keys(keys).forEach(function(k){
-    var loc=localStorage.getItem(k), rmt=(rem[k]!=null?rem[k]:null);
-    if(rmt==null){ o[k]=loc; }               // مفتاح محلي فقط
-    else if(loc==null){ o[k]=rmt; }            // مفتاح سحابي فقط (لم يصل محلياً) — أبقِه
-    else { o[k]=cloudMergeValue(k, rmt, loc); } // كلاهما — المحلي «الوارد» فيفوز بالأحدث حفظاً
-  });
-  return o;
-}
+// لقطة كاملة من كل مفاتيح النظام القابلة للمزامنة (كنظام التوريد: مصدر واحد كامل)
+function cloudCollect(){ var o={}; scsKeys().forEach(function(k){ o[k]=localStorage.getItem(k); }); return o; }
 function cloudSetDot(c){ var d=document.getElementById('cloud-dot'); if(d) d.className='cloud-dot'+(c?(' '+c):''); }
 function cloudLabel(t){ var l=document.getElementById('cloud-label'); if(l) l.textContent=t; }
 
@@ -3444,10 +3425,13 @@ function cloudPush(){
   if(!cloudRef||!cloudReady) return;
   cloudSetDot('sync');
   var payload=cloudCollect();
+  cloudLastPushed=JSON.stringify(payload);   // لتجاهل صدى هذه الكتابة عند عودتها من المستمع
   cloudRef.set({by:CLOUD_CLIENT,at:Date.now(),data:payload})
-    .then(function(){ _cloudRemote=payload; cloudSetDot('on'); }).catch(function(){ cloudSetDot('err'); });
+    .then(function(){ cloudSetDot('on'); }).catch(function(){ cloudSetDot('err'); });
 }
-function cloudPushDebounced(){ cloudSetDot('sync'); clearTimeout(_cloudPushT); _cloudPushT=setTimeout(cloudPush,300); }
+function cloudPushDebounced(){ cloudSetDot('sync'); clearTimeout(_cloudPushT); _cloudPushT=setTimeout(cloudPush,250); }
+// دفع فوري لأي حفظ مؤجَّل قبل إغلاق/إخفاء الصفحة — كي لا يُفقد ما أُدخل عند التحديث السريع
+function cloudFlush(){ if(_cloudPushT){ clearTimeout(_cloudPushT); _cloudPushT=null; cloudPush(); } }
 function cloudMergeLog(localStr, remoteStr){
   try{
     var a=JSON.parse(localStr||'[]'), b=JSON.parse(remoteStr||'[]');
@@ -3463,16 +3447,15 @@ function cloudApply(data){
   cloudApplying=true;
   try{
     var inc=data||{};
-    _cloudRemote=inc;   // احفظ آخر لقطة سحابية كي يُدمج الدفع القادم فوقها
-    // حماية من المسح: المستخدمون، الشركة النشطة، والسجل + كل بيانات الشركات المالية/التشغيلية
-    // لا تُحذف محلياً لمجرد غيابها عن لقطة سحابية قد تكون قديمة/جزئية (يمنع فقد دفعات/بيانات لم تُزامَن بعد)
-    var PROTECT={scs_users:1, scs_active:1, scs_log:1};
-    var PROTECT_RE=/^scs_(db|cfg|pay|freightpay|suppliers|supplierpay|modelb|cmpcfg|cmppay|del)_/;
-    scsKeys().forEach(function(k){ if(!(k in inc) && !PROTECT[k] && !PROTECT_RE.test(k)) _lsRemove(k); });
+    cloudLastPushed=JSON.stringify(inc);
+    // نموذج نظام التوريد: السحابة هي المصدر — استبدال كامل للحالة، فما يُحفظ على أي جهاز يظهر فوراً على الجميع.
+    // احذف المفاتيح المحلية القابلة للمزامنة الغائبة عن اللقطة (فينتشر الحذف)، مع صون المستخدمين/الشركة النشطة والسجل.
+    scsKeys().forEach(function(k){ if(!(k in inc) && k!=='scs_users' && k!=='scs_active' && k!=='scs_log') _lsRemove(k); });
     Object.keys(inc).forEach(function(k){
       if(!cloudSyncable(k)) return;
-      // دمج بالسجلّ لا استبدال كلّي — يمنع أن تمحو لقطة سحابية قديمة إضافةً محلية لم تُرفع بعد
-      _lsSet(k, cloudMergeValue(k, localStorage.getItem(k), inc[k]));
+      // السجل وحده يُدمج باتحاد آمن كي لا تُفقد حركات جهاز؛ ما عداه استبدال كامل
+      if(k==='scs_log') _lsSet(k, cloudMergeLog(localStorage.getItem(k), inc[k]));
+      else _lsSet(k, inc[k]);
     });
   }catch(e){}
   cloudApplying=false;
@@ -3581,6 +3564,8 @@ function cloudReloadUI(){
 // اعتراض التخزين المحلي لدفع أي تغيير للسحابة تلقائياً
 localStorage.setItem=function(k,v){ _lsSet(k,v); if(cloudReady&&!cloudApplying&&cloudSyncable(k)) cloudPushDebounced(); };
 localStorage.removeItem=function(k){ _lsRemove(k); if(cloudReady&&!cloudApplying&&cloudSyncable(k)) cloudPushDebounced(); };
+// ادفع أي حفظ مؤجَّل فور إخفاء/إغلاق الصفحة كي لا يُفقد ما أُدخل عند التحديث السريع
+try{ window.addEventListener('visibilitychange',function(){ if(document.visibilityState==='hidden') cloudFlush(); }); window.addEventListener('pagehide',cloudFlush); }catch(e){}
 
 var _cloudInited=false;
 function cloudEnsureInit(){ if(_cloudInited||!cloudEnabled()) return; try{ firebase.initializeApp(CLOUD_CONFIG); }catch(e){} _cloudInited=true; }
@@ -3609,7 +3594,7 @@ function cloudAttach(cb){
     cloudReady=true; cloudAttaching=false;
     if(!(v&&v.data)) cloudPush();
     cloudSetDot('on'); cloudLabel('متزامن ☁');
-    cloudRef.on('value',function(s){ var val=s.val(); if(!val||!val.data) return; if(val.by===CLOUD_CLIENT) return; cloudApply(val.data); cloudSetDot('on'); });
+    cloudRef.on('value',function(s){ var val=s.val(); if(!val||!val.data) return; if(val.by===CLOUD_CLIENT) return; if(JSON.stringify(val.data)===cloudLastPushed) return; cloudApply(val.data); cloudSetDot('on'); });
     if(cb) cb(true);
   }).catch(function(){ cloudAttaching=false; cloudSetDot('err'); cloudLabel('تعذّر'); if(cb) cb(false); });
 }
@@ -3727,7 +3712,7 @@ function cloudRemoteLogin(username,password,cb){
         setFbUid(u.id,uid);
         cloudRef=r; cloudReady=true; cloudSetDot('on'); cloudLabel('متزامن ☁');
         cloudWriteMember(uid,u).catch(function(){});
-        r.on('value',function(s){ var val=s.val(); if(!val||!val.data) return; if(val.by===CLOUD_CLIENT) return; cloudApply(val.data); });
+        r.on('value',function(s){ var val=s.val(); if(!val||!val.data) return; if(val.by===CLOUD_CLIENT) return; if(JSON.stringify(val.data)===cloudLastPushed) return; cloudApply(val.data); });
         cb(true);
       } else { cb(false); }
     });
