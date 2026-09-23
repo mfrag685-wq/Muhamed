@@ -1501,10 +1501,20 @@ function setActiveProfileId(id) {
 // DB key depends on active profile
 function getDbKey()  { return 'scs_db_'  + (getActiveProfileId()||'default'); }
 function getCfgKey() { return 'scs_cfg_' + (getActiveProfileId()||'default'); }
+function getDelKey() { return 'scs_del_' + (getActiveProfileId()||'default'); }
+// شواهد الحذف (tombstones): { id: savedAt } — تجعل الحذف يُزامَن عبر الأجهزة رغم الدمج بالاتحاد
+function delLoad(){ try{ var o=JSON.parse(localStorage.getItem(getDelKey())||'{}'); return (o&&typeof o==='object'&&!Array.isArray(o))?o:{}; }catch(e){ return {}; } }
+function delMark(id){ try{ var o=delLoad(); o[String(id)]=new Date().toISOString(); localStorage.setItem(getDelKey(), JSON.stringify(o)); }catch(e){} }
 
 // ── DB CRUD ──
 function dbLoad() {
-  try { return JSON.parse(localStorage.getItem(getDbKey())||'[]'); } catch(e){ return []; }
+  try {
+    var arr = JSON.parse(localStorage.getItem(getDbKey())||'[]');
+    if(!Array.isArray(arr)) return [];
+    var tomb = delLoad();
+    // أخفِ أي شحنة محذوفة (شاهد حذفها أحدث من آخر حفظ لها) — يسمح بإعادة الإضافة لاحقاً إن حُفِظت من جديد
+    return arr.filter(function(x){ if(!x||x.id==null) return true; var t=tomb[String(x.id)]; return !(t && t >= (x.savedAt||'')); });
+  } catch(e){ return []; }
 }
 function dbSave(arr) {
   try { localStorage.setItem(getDbKey(), JSON.stringify(arr)); return true; }
@@ -1901,6 +1911,7 @@ function loadShipment(id) {
 function deleteShipment(id) {
   if(isReadonly()||!can('delete')){ toast('لا تملك صلاحية الحذف',true); return; }
   confirm2('هل تريد حذف هذه الشحنة؟ لا يمكن التراجع.', ()=>{
+    delMark(id);                              // شاهد حذف يُزامَن عبر الأجهزة
     const db = dbLoad().filter(x=>x.id!==id);
     dbSave(db);
     if(S.currentId===id){ S.currentId=null; }
@@ -3403,6 +3414,7 @@ var _lsSet    = localStorage.setItem.bind(localStorage);
 var _lsRemove = localStorage.removeItem.bind(localStorage);
 var CLOUD_CLIENT = Math.random().toString(36).slice(2);
 var cloudRef=null, cloudReady=false, cloudApplying=false, cloudAttaching=false, _cloudPushT=null;
+var _cloudRemote={};   // آخر لقطة سحابية استُلمت — يُدمج الدفع فوقها كي لا يمحو دفعُ جهازٍ بياناتِ جهازٍ آخر
 var cloudSecondary=null, cloudAuthBusy=false;
 
 function cloudEnabled(){ return !!(CLOUD_CONFIG && CLOUD_CONFIG.apiKey && typeof firebase!=='undefined'); }
@@ -3411,15 +3423,29 @@ function cloudWid(){ return (CLOUD_CONFIG&&CLOUD_CONFIG.workspaceId)||'main'; }
 function synthEmail(username){ return 'u'+hashPw(String(username||'').toLowerCase()).replace(/[^a-z0-9]/g,'')+'@'+cloudWid()+'.shiperp.app'; }
 function cloudSyncable(k){ if(!k||k.indexOf('scs_')!==0) return false; return ['scs_lastbackup_all','scs_lastbackup_at','scs_theme','scs_autobackup_pref'].indexOf(k)<0; }
 function scsKeys(){ return Object.keys(localStorage).filter(cloudSyncable); }
-function cloudCollect(){ var o={}; scsKeys().forEach(function(k){ o[k]=localStorage.getItem(k); }); return o; }
+function cloudCollect(){
+  // اجمع المحلي ثم ادمجه فوق آخر لقطة سحابية معروفة — دمج بالمعرّف لا استبدال —
+  // فلا يمحو دفعُ هذا الجهاز شحنةً/دفعةً أضافها جهازٌ آخر ولم تصل محلياً بعد (يحمي وثيقة السحابة نفسها)
+  var o={}, rem=_cloudRemote||{}, keys={};
+  scsKeys().forEach(function(k){ keys[k]=1; });
+  Object.keys(rem).forEach(function(k){ if(cloudSyncable(k)) keys[k]=1; });
+  Object.keys(keys).forEach(function(k){
+    var loc=localStorage.getItem(k), rmt=(rem[k]!=null?rem[k]:null);
+    if(rmt==null){ o[k]=loc; }               // مفتاح محلي فقط
+    else if(loc==null){ o[k]=rmt; }            // مفتاح سحابي فقط (لم يصل محلياً) — أبقِه
+    else { o[k]=cloudMergeValue(k, rmt, loc); } // كلاهما — المحلي «الوارد» فيفوز بالأحدث حفظاً
+  });
+  return o;
+}
 function cloudSetDot(c){ var d=document.getElementById('cloud-dot'); if(d) d.className='cloud-dot'+(c?(' '+c):''); }
 function cloudLabel(t){ var l=document.getElementById('cloud-label'); if(l) l.textContent=t; }
 
 function cloudPush(){
   if(!cloudRef||!cloudReady) return;
   cloudSetDot('sync');
-  cloudRef.set({by:CLOUD_CLIENT,at:Date.now(),data:cloudCollect()})
-    .then(function(){ cloudSetDot('on'); }).catch(function(){ cloudSetDot('err'); });
+  var payload=cloudCollect();
+  cloudRef.set({by:CLOUD_CLIENT,at:Date.now(),data:payload})
+    .then(function(){ _cloudRemote=payload; cloudSetDot('on'); }).catch(function(){ cloudSetDot('err'); });
 }
 function cloudPushDebounced(){ cloudSetDot('sync'); clearTimeout(_cloudPushT); _cloudPushT=setTimeout(cloudPush,300); }
 function cloudMergeLog(localStr, remoteStr){
@@ -3437,19 +3463,114 @@ function cloudApply(data){
   cloudApplying=true;
   try{
     var inc=data||{};
+    _cloudRemote=inc;   // احفظ آخر لقطة سحابية كي يُدمج الدفع القادم فوقها
     // حماية من المسح: المستخدمون، الشركة النشطة، والسجل + كل بيانات الشركات المالية/التشغيلية
     // لا تُحذف محلياً لمجرد غيابها عن لقطة سحابية قد تكون قديمة/جزئية (يمنع فقد دفعات/بيانات لم تُزامَن بعد)
     var PROTECT={scs_users:1, scs_active:1, scs_log:1};
-    var PROTECT_RE=/^scs_(db|cfg|pay|freightpay|suppliers|supplierpay|modelb|cmpcfg|cmppay)_/;
+    var PROTECT_RE=/^scs_(db|cfg|pay|freightpay|suppliers|supplierpay|modelb|cmpcfg|cmppay|del)_/;
     scsKeys().forEach(function(k){ if(!(k in inc) && !PROTECT[k] && !PROTECT_RE.test(k)) _lsRemove(k); });
     Object.keys(inc).forEach(function(k){
       if(!cloudSyncable(k)) return;
-      if(k==='scs_log'){ _lsSet(k, cloudMergeLog(localStorage.getItem(k), inc[k])); } // دمج السجل (اتحاد كل الأجهزة)
-      else { _lsSet(k, inc[k]); }
+      // دمج بالسجلّ لا استبدال كلّي — يمنع أن تمحو لقطة سحابية قديمة إضافةً محلية لم تُرفع بعد
+      _lsSet(k, cloudMergeValue(k, localStorage.getItem(k), inc[k]));
     });
   }catch(e){}
   cloudApplying=false;
+  try{ reconcileProfiles(); }catch(e){}   // توحيد البروفايلات المكرّرة بالاسم عبر الأجهزة ودمج بياناتها
   cloudReloadUI();
+}
+// دمج قيمة مفتاح وارد من السحابة مع المحلي (بدل الاستبدال) — حماية من فقد الإضافات غير المرفوعة
+function cloudMergeValue(k, localStr, incStr){
+  try{
+    if(k==='scs_log') return cloudMergeLog(localStr, incStr);
+    if(k==='scs_profiles') return mergeProfilesJson(localStr, incStr);
+    if(/^scs_db_/.test(k)){
+      // شحنات: اتحاد بالمعرّف، الأحدث حفظاً يفوز — فلا تُمحى شحنة أُضيفت محلياً ولم تُرفع
+      var la=_safeArr(localStr), ia=_safeArr(incStr), map={}, ord=[];
+      ia.concat(la).forEach(function(s){ if(s&&s.id!=null){ var id=String(s.id); if(!(id in map)){ord.push(id);map[id]=s;} else if((s.savedAt||'')>(map[id].savedAt||'')) map[id]=s; } });
+      return JSON.stringify(ord.map(function(id){return map[id];}));
+    }
+    if(/^scs_(pay|freightpay|suppliers|supplierpay|cmppay)_/.test(k)){
+      var lb=_safeArr(localStr), ib=_safeArr(incStr), seen={}, out=[];
+      ib.concat(lb).forEach(function(x){ var id=(x&&x.id)?String(x.id):JSON.stringify(x); if(!seen[id]){seen[id]=1;out.push(x);} });
+      return JSON.stringify(out);
+    }
+    if(/^scs_del_/.test(k)){
+      // شواهد الحذف: اتحاد بالمعرّف، الأحدث تاريخاً يفوز — فينتشر الحذف عبر الأجهزة
+      var ld=_safeObj(localStr), rd=_safeObj(incStr), md={};
+      Object.keys(ld).forEach(function(id){ md[id]=ld[id]; });
+      Object.keys(rd).forEach(function(id){ if(!(id in md) || rd[id]>md[id]) md[id]=rd[id]; });
+      return JSON.stringify(md);
+    }
+    if(/^scs_(modelb|cmpcfg)_/.test(k)){
+      var lo=_safeObj(localStr), io=_safeObj(incStr); return JSON.stringify(Object.assign({}, lo, io));
+    }
+    return (incStr!=null)?incStr:localStr; // إعدادات وغيرها: الوارد يفوز
+  }catch(e){ return (incStr!=null)?incStr:localStr; }
+}
+// اتحاد قائمتَي البروفايلات بالمعرّف (الوارد يفوز عند التكرار في نفس المعرّف)
+function mergeProfilesJson(aStr,bStr){
+  try{
+    var a=JSON.parse(aStr||'[]'), b=JSON.parse(bStr||'[]'); if(!Array.isArray(a))a=[]; if(!Array.isArray(b))b=[];
+    var map={}, order=[];
+    a.concat(b).forEach(function(p){ if(p&&p.id!=null){ var id=String(p.id); if(!(id in map)) order.push(id); map[id]=Object.assign({},map[id]||{},p); } });
+    return JSON.stringify(order.map(function(id){return map[id];}));
+  }catch(e){ return bStr||aStr||'[]'; }
+}
+// تطبيع اسم البروفايل للمقارنة (توحيد الألف/الهمزة/التاء المربوطة وإزالة المسافات)
+function _profNameKey(nm){ return String(nm||'').replace(/[إأآا]/g,'ا').replace(/ة/g,'ه').replace(/[ىي]/g,'ي').replace(/\s+/g,'').toLowerCase(); }
+function _safeArr(s){ try{ var a=JSON.parse(s||'[]'); return Array.isArray(a)?a:[]; }catch(e){ return []; } }
+function _safeObj(s){ try{ var o=JSON.parse(s||'{}'); return (o&&typeof o==='object'&&!Array.isArray(o))?o:{}; }catch(e){ return {}; } }
+// دمج بيانات بروفايل مكرّر (fromId) داخل البروفايل المعتمد (toId) — اتحاد بلا فقد
+function mergeProfileData(fromId,toId){
+  if(String(fromId)===String(toId)) return;
+  var gS=function(k){ return localStorage.getItem(k); };
+  // الشحنات: اتحاد بالمعرّف، الأحدث حفظاً يفوز
+  var f='scs_db_'+fromId, t='scs_db_'+toId;
+  if(gS(f)!=null){
+    var fa=_safeArr(gS(f)), ta=_safeArr(gS(t)), map={}, ord=[];
+    ta.concat(fa).forEach(function(s){ if(s&&s.id!=null){ var kk=String(s.id); if(!(kk in map)){ord.push(kk);map[kk]=s;} else if((s.savedAt||'')>(map[kk].savedAt||'')) map[kk]=s; } });
+    _lsSet(t, JSON.stringify(ord.map(function(kk){return map[kk];})));
+  }
+  // مصفوفات مالية: اتحاد بالمعرّف
+  ['scs_pay_','scs_freightpay_','scs_suppliers_','scs_supplierpay_','scs_cmppay_'].forEach(function(pfx){
+    var ff=pfx+fromId, tt=pfx+toId; if(gS(ff)==null) return;
+    var fa2=_safeArr(gS(ff)), ta2=_safeArr(gS(tt)), seen={}, out=[];
+    ta2.concat(fa2).forEach(function(x){ var kk=(x&&x.id)?String(x.id):JSON.stringify(x); if(!seen[kk]){seen[kk]=1;out.push(x);} });
+    _lsSet(tt, JSON.stringify(out));
+  });
+  // كائنات (نموذج ب / أسماء المقارنة): تعبئة المفاتيح الناقصة فقط
+  ['scs_modelb_','scs_cmpcfg_'].forEach(function(pfx){
+    var ff=pfx+fromId, tt=pfx+toId; if(gS(ff)==null) return;
+    var fo=_safeObj(gS(ff)), to=_safeObj(gS(tt)); Object.keys(fo).forEach(function(kk){ if(!(kk in to)) to[kk]=fo[kk]; }); _lsSet(tt, JSON.stringify(to));
+  });
+  // شواهد الحذف: اتحاد بالمعرّف، الأحدث يفوز
+  var fd='scs_del_'+fromId, td='scs_del_'+toId;
+  if(gS(fd)!=null){ var fdo=_safeObj(gS(fd)), tdo=_safeObj(gS(td)); Object.keys(fdo).forEach(function(id){ if(!(id in tdo) || fdo[id]>tdo[id]) tdo[id]=fdo[id]; }); _lsSet(td, JSON.stringify(tdo)); }
+  // الإعدادات: تُؤخذ من المكرّر فقط إن لم تكن للمعتمد إعدادات
+  var fc='scs_cfg_'+fromId, tc='scs_cfg_'+toId;
+  if(gS(tc)==null && gS(fc)!=null) _lsSet(tc, gS(fc));
+  // نترك مفاتيح المكرّر كما هي (يتيمة) تجنّباً لأي فقد أثناء المزامنة
+}
+// توحيد البروفايلات المتطابقة بالاسم إلى بروفايل واحد معتمد (نفس الاختيار على كل الأجهزة) + دمج بياناتها
+function reconcileProfiles(){
+  try{
+    var profs=profilesLoad(); if(!profs || profs.length<2){ return; }
+    var byName={}, order=[];
+    profs.forEach(function(p){ if(!p||p.id==null) return; var n=_profNameKey(p.name)||('id:'+p.id); if(!byName[n]){byName[n]=[];order.push(n);} byName[n].push(p); });
+    var out=[], remap={}, changed=false;
+    order.forEach(function(n){
+      var g=byName[n]; g.sort(function(x,y){ return String(x.id)<String(y.id)?-1:(String(x.id)>String(y.id)?1:0); }); // اختيار حتمي: أصغر معرّف
+      var canon=g[0]; out.push(canon);
+      for(var i=1;i<g.length;i++){ mergeProfileData(g[i].id, canon.id); remap[String(g[i].id)]=canon.id; changed=true; }
+    });
+    if(changed){
+      _lsSet(PROFILES_KEY, JSON.stringify(out));
+      var act=getActiveProfileId(); if(act && remap[String(act)]) _lsSet(ACTIVE_KEY, remap[String(act)]);
+      if(cloudReady && !cloudApplying){ try{ cloudPushDebounced(); }catch(e){} }
+      try{ logAction('توحيد بروفايلات مكرّرة', Object.keys(remap).length+' → مدمجة'); }catch(e){}
+    }
+  }catch(e){}
 }
 function cloudReloadUI(){
   try{ applyPermsUI(); cfgLoad(); applyTheme(); updateProfileBadge(); renderQuickSwitch();
@@ -5623,6 +5744,7 @@ function exportPaymentsExcel(){
 // INIT
 // ═══════════════════════════════════════════
 function initApp() {
+  try{ reconcileProfiles(); }catch(e){}   // توحيد أي بروفايلات مكرّرة محلياً قبل العرض
   renderQuickSwitch();
   updateAutoBackupLabel();
   cloudInit();
