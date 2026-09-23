@@ -3,6 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <title id="page-title">نظام تكلفة الشحنات</title>
 <style>
 :root{
@@ -679,6 +682,7 @@ html[data-theme="dark"] .rt td.hl{background:#2e2814;color:var(--accent)}
     <button class="profile-badge" onclick="openProfileModal()" id="active-profile-badge" title="إدارة النماذج / الشركات">🏢 ...</button>
     <button class="theme-toggle" onclick="toggleTheme()" id="theme-toggle-btn" title="تبديل الوضع الليلي / النهاري"><span id="theme-icon">🌙</span> <span id="theme-label">ليلي</span></button>
     <button class="cloud-badge" id="cloud-badge" onclick="openCloudModal()" title="المزامنة السحابية" style="display:none"><span class="cloud-dot" id="cloud-dot"></span><span id="cloud-label">سحابي</span></button>
+    <span id="app-ver" style="font-size:.6rem;color:rgba(255,255,255,.75);margin-inline-start:6px;white-space:nowrap"></span>
     <div class="save-ind"><div class="save-dot"></div><span id="save-status">جاهز</span></div>
     <button class="hbtn accent" onclick="saveShipment()">💾 حفظ الشحنة</button>
     <button class="hbtn" onclick="newShipment()">➕ شحنة جديدة</button>
@@ -5737,7 +5741,9 @@ function exportPaymentsExcel(){
 // ═══════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════
+var APP_VERSION='v2026-09-23.4';   // رقم إصدار ظاهر للتحقق من تحميل أحدث نسخة (لا cache قديم)
 function initApp() {
+  try{ var av=document.getElementById('app-ver'); if(av) av.textContent=APP_VERSION; }catch(e){}
   try{ reconcileProfiles(); }catch(e){}   // توحيد أي بروفايلات مكرّرة محلياً قبل العرض
   renderQuickSwitch();
   updateAutoBackupLabel();
