@@ -3414,6 +3414,7 @@ var cloudRef=null, cloudReady=false, cloudApplying=false, cloudAttaching=false, 
 var cloudLastPushed='';   // آخر لقطة دفعناها/طبّقناها — لتجاهل صدى كتابتنا نحن (كنظام التوريد)
 var _cloudDirty=false;    // يوجد تغيير محلي لم يُرفع بعد — شبكة الأمان ترفعه فور جاهزية الاتصال
 var _cloudLastPushAt=0, _cloudLastRecvAt=0;   // أوقات آخر رفع/استقبال — للتشخيص
+var _cloudTick=0, _cloudApplyingSince=0;      // نبض المؤقّت + لحظة بدء التطبيق (لحارس التعطّل)
 var cloudSecondary=null, cloudAuthBusy=false;
 
 function cloudEnabled(){ return !!(CLOUD_CONFIG && CLOUD_CONFIG.apiKey && typeof firebase!=='undefined'); }
@@ -3451,7 +3452,7 @@ function cloudMergeLog(localStr, remoteStr){
   }catch(e){ return remoteStr||localStr||'[]'; }
 }
 function cloudApply(data){
-  cloudApplying=true;
+  cloudApplying=true; _cloudApplyingSince=Date.now();
   _cloudLastRecvAt=Date.now();
   try{
     var inc=data||{};
@@ -3466,7 +3467,7 @@ function cloudApply(data){
       else _lsSet(k, inc[k]);
     });
   }catch(e){}
-  cloudApplying=false;
+  cloudApplying=false; _cloudApplyingSince=0;
   try{ reconcileProfiles(); }catch(e){}   // توحيد البروفايلات المكرّرة بالاسم عبر الأجهزة ودمج بياناتها
   cloudReloadUI();
 }
@@ -3571,15 +3572,19 @@ function cloudReloadUI(){
 
 // اعتراض التخزين المحلي لدفع أي تغيير للسحابة تلقائياً
 // نضع علم «يوجد تغيير» دائماً (حتى لو لم يكن الاتصال جاهزاً بعدُ)، وشبكةُ الأمان أدناه ترفعه فور الجاهزية
-localStorage.setItem=function(k,v){ _lsSet(k,v); if(cloudSyncable(k)&&!cloudApplying){ _cloudDirty=true; if(cloudReady) cloudPushDebounced(); } };
-localStorage.removeItem=function(k){ _lsRemove(k); if(cloudSyncable(k)&&!cloudApplying){ _cloudDirty=true; if(cloudReady) cloudPushDebounced(); } };
+// أي كتابة محلية = يوجد تغيير غير مرفوع. نضع العلم دائماً بلا أي شرط هشّ، وشبكة الأمان ترفعه.
+localStorage.setItem=function(k,v){ _lsSet(k,v); if(cloudSyncable(k)){ _cloudDirty=true; if(cloudReady&&!cloudApplying) cloudPushDebounced(); } };
+localStorage.removeItem=function(k){ _lsRemove(k); if(cloudSyncable(k)){ _cloudDirty=true; if(cloudReady&&!cloudApplying) cloudPushDebounced(); } };
 // ادفع أي حفظ مؤجَّل فور إخفاء/إغلاق الصفحة كي لا يُفقد ما أُدخل عند التحديث السريع
 try{ window.addEventListener('visibilitychange',function(){ if(document.visibilityState==='hidden') cloudFlush(); }); window.addEventListener('pagehide',cloudFlush); }catch(e){}
-// شبكة أمان: تضمن رفع أي تغيير خلال ثوانٍ مهما كان توقيت جاهزية الاتصال، وتعيد الاتصال إن لزم
+// شبكة أمان: ترفع أي تغيير خلال ثوانٍ مهما كان التوقيت، وتعيد الاتصال إن لزم، وتحرّر أي تعطّل في cloudApplying
 try{ setInterval(function(){
+  _cloudTick++;
+  // حارس: إن بقي cloudApplying مرفوعاً أكثر من 4ث فهذا تعطّل — حرّره كي لا يتوقف الرفع أبداً
+  if(cloudApplying && _cloudApplyingSince && (Date.now()-_cloudApplyingSince)>4000){ cloudApplying=false; _cloudApplyingSince=0; }
   try{ cloudUpdateVerBadge(); }catch(e){}
   if(!cloudEnabled()||!_cloudDirty) return;
-  if(cloudReady&&!cloudApplying){ _cloudDirty=false; cloudPush(); }
+  if(cloudReady&&cloudRef){ _cloudDirty=false; cloudPush(); }   // لا نشترط !cloudApplying — الدفع لقطة كاملة آمنة
   else if(!cloudReady&&!cloudAttaching){ try{ if(firebase.auth().currentUser&&currentUser()) cloudAttach(); }catch(e){} }
 }, 1500); }catch(e){}
 // تشخيص ظاهر دائماً بجانب الإصدار: جزء من معرّف الحساب + آخر رفع ↑ وآخر استقبال ↓
@@ -3757,6 +3762,7 @@ function openCloudModal(){
     +'عدد الشحنات بهذه الشركة: '+dbLoad().length+'\n'
     +'آخر رفع: '+(_cloudLastPushAt?new Date(_cloudLastPushAt).toLocaleTimeString('ar'):'لم يحدث بعد')+'\n'
     +'آخر استقبال: '+(_cloudLastRecvAt?new Date(_cloudLastRecvAt).toLocaleTimeString('ar'):'لم يحدث بعد')+'\n'
+    +'تغيير غير مرفوع: '+(_cloudDirty?'نعم':'لا')+' | جارٍ التطبيق: '+(cloudApplying?'نعم':'لا')+' | نبض: '+_cloudTick+'\n'
     +'━━━━━━━━━━━━━━━\n'
     +'اضغط «موافق» لمزامنة يدوية فورية (رفع ثم سحب).';
   if(!cloudEnabled()){ toast('المزامنة السحابية غير مفعّلة'); return; }
@@ -5773,7 +5779,7 @@ function exportPaymentsExcel(){
 // ═══════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════
-var APP_VERSION='v2026-09-23.6';   // رقم إصدار ظاهر للتحقق من تحميل أحدث نسخة (لا cache قديم)
+var APP_VERSION='v2026-09-23.7';   // رقم إصدار ظاهر للتحقق من تحميل أحدث نسخة (لا cache قديم)
 function initApp() {
   try{ var av=document.getElementById('app-ver'); if(av) av.textContent=APP_VERSION; }catch(e){}
   try{ reconcileProfiles(); }catch(e){}   // توحيد أي بروفايلات مكرّرة محلياً قبل العرض
