@@ -3414,7 +3414,7 @@ var cloudRef=null, cloudReady=false, cloudApplying=false, cloudAttaching=false, 
 var cloudLastPushed='';   // آخر لقطة دفعناها/طبّقناها — لتجاهل صدى كتابتنا نحن (كنظام التوريد)
 var _cloudDirty=false;    // يوجد تغيير محلي لم يُرفع بعد — شبكة الأمان ترفعه فور جاهزية الاتصال
 var _cloudLastPushAt=0, _cloudLastRecvAt=0;   // أوقات آخر رفع/استقبال — للتشخيص
-var _cloudTick=0, _cloudApplyingSince=0;      // نبض المؤقّت + لحظة بدء التطبيق (لحارس التعطّل)
+var _cloudTick=0, _cloudApplyingSince=0, _cloudPushCount=0;   // نبض + لحظة بدء التطبيق + عدد الرفعات
 var cloudSecondary=null, cloudAuthBusy=false;
 
 function cloudEnabled(){ return !!(CLOUD_CONFIG && CLOUD_CONFIG.apiKey && typeof firebase!=='undefined'); }
@@ -3425,15 +3425,17 @@ function cloudSyncable(k){ if(!k||k.indexOf('scs_')!==0) return false; return ['
 function scsKeys(){ return Object.keys(localStorage).filter(cloudSyncable); }
 // لقطة كاملة من كل مفاتيح النظام القابلة للمزامنة (كنظام التوريد: مصدر واحد كامل)
 function cloudCollect(){ var o={}; scsKeys().forEach(function(k){ o[k]=localStorage.getItem(k); }); return o; }
+// تمثيل نصّي مرتّب المفاتيح للمقارنة (مستقل عن ترتيب المفاتيح كي لا يحدث دفع وهمي متبادل)
+function cloudCanon(obj){ try{ var o=obj||cloudCollect(); var ks=Object.keys(o).sort(); var r={}; for(var i=0;i<ks.length;i++) r[ks[i]]=o[ks[i]]; return JSON.stringify(r); }catch(e){ return ''; } }
 function cloudSetDot(c){ var d=document.getElementById('cloud-dot'); if(d) d.className='cloud-dot'+(c?(' '+c):''); }
 function cloudLabel(t){ var l=document.getElementById('cloud-label'); if(l) l.textContent=t; }
 
 function cloudPush(){
   if(!cloudRef||!cloudReady) return;
-  _cloudDirty=false;
+  _cloudDirty=false; _cloudPushCount++;
   cloudSetDot('sync');
   var payload=cloudCollect();
-  cloudLastPushed=JSON.stringify(payload);   // لتجاهل صدى هذه الكتابة عند عودتها من المستمع
+  cloudLastPushed=cloudCanon(payload);   // مرتّب — لمقارنة موثوقة وتجاهل صدى كتابتنا
   cloudRef.set({by:CLOUD_CLIENT,at:Date.now(),data:payload})
     .then(function(){ _cloudLastPushAt=Date.now(); cloudSetDot('on'); }).catch(function(){ cloudSetDot('err'); });
 }
@@ -3456,7 +3458,6 @@ function cloudApply(data){
   _cloudLastRecvAt=Date.now();
   try{
     var inc=data||{};
-    cloudLastPushed=JSON.stringify(inc);
     // نموذج نظام التوريد: السحابة هي المصدر — استبدال كامل للحالة، فما يُحفظ على أي جهاز يظهر فوراً على الجميع.
     // احذف المفاتيح المحلية القابلة للمزامنة الغائبة عن اللقطة (فينتشر الحذف)، مع صون المستخدمين/الشركة النشطة والسجل.
     scsKeys().forEach(function(k){ if(!(k in inc) && k!=='scs_users' && k!=='scs_active' && k!=='scs_log') _lsRemove(k); });
@@ -3467,6 +3468,7 @@ function cloudApply(data){
       else _lsSet(k, inc[k]);
     });
   }catch(e){}
+  cloudLastPushed=cloudCanon();   // خطّ الأساس = الحالة المحلية الفعلية بعد التطبيق (يمنع دفعاً وهمياً)
   cloudApplying=false; _cloudApplyingSince=0;
   try{ reconcileProfiles(); }catch(e){}   // توحيد البروفايلات المكرّرة بالاسم عبر الأجهزة ودمج بياناتها
   cloudReloadUI();
@@ -3583,9 +3585,11 @@ try{ setInterval(function(){
   // حارس: إن بقي cloudApplying مرفوعاً أكثر من 4ث فهذا تعطّل — حرّره كي لا يتوقف الرفع أبداً
   if(cloudApplying && _cloudApplyingSince && (Date.now()-_cloudApplyingSince)>4000){ cloudApplying=false; _cloudApplyingSince=0; }
   try{ cloudUpdateVerBadge(); }catch(e){}
-  if(!cloudEnabled()||!_cloudDirty) return;
-  if(cloudReady&&cloudRef){ _cloudDirty=false; cloudPush(); }   // لا نشترط !cloudApplying — الدفع لقطة كاملة آمنة
-  else if(!cloudReady&&!cloudAttaching){ try{ if(firebase.auth().currentUser&&currentUser()) cloudAttach(); }catch(e){} }
+  if(!cloudEnabled()) return;
+  if(cloudReady&&cloudRef&&!cloudApplying){
+    // أسلوب نظام التوريد: قارن اللقطة الحالية بآخر ما رُفع؛ إن اختلفت فادفع — يلتقط أي حفظ مهما كانت طريقته
+    try{ if(cloudCanon()!==cloudLastPushed) cloudPush(); }catch(e){}
+  } else if(!cloudReady&&!cloudAttaching){ try{ if(firebase.auth().currentUser&&currentUser()) cloudAttach(); }catch(e){} }
 }, 1500); }catch(e){}
 // تشخيص ظاهر دائماً بجانب الإصدار: جزء من معرّف الحساب + آخر رفع ↑ وآخر استقبال ↓
 function _agoTxt(ts){ if(!ts) return '—'; var s=Math.round((Date.now()-ts)/1000); if(s<60) return s+'ث'; var m=Math.round(s/60); if(m<60) return m+'د'; return Math.round(m/60)+'س'; }
@@ -3624,7 +3628,7 @@ function cloudAttach(cb){
     cloudReady=true; cloudAttaching=false;
     if(!(v&&v.data)) cloudPush();
     cloudSetDot('on'); cloudLabel('متزامن ☁');
-    cloudRef.on('value',function(s){ var val=s.val(); if(!val||!val.data) return; if(val.by===CLOUD_CLIENT) return; if(JSON.stringify(val.data)===cloudLastPushed) return; cloudApply(val.data); cloudSetDot('on'); });
+    cloudRef.on('value',function(s){ var val=s.val(); if(!val||!val.data) return; if(val.by===CLOUD_CLIENT) return; if(cloudCanon(val.data)===cloudLastPushed) return; cloudApply(val.data); cloudSetDot('on'); });
     if(cb) cb(true);
   }).catch(function(){ cloudAttaching=false; cloudSetDot('err'); cloudLabel('تعذّر'); if(cb) cb(false); });
 }
@@ -3742,7 +3746,7 @@ function cloudRemoteLogin(username,password,cb){
         setFbUid(u.id,uid);
         cloudRef=r; cloudReady=true; cloudSetDot('on'); cloudLabel('متزامن ☁');
         cloudWriteMember(uid,u).catch(function(){});
-        r.on('value',function(s){ var val=s.val(); if(!val||!val.data) return; if(val.by===CLOUD_CLIENT) return; if(JSON.stringify(val.data)===cloudLastPushed) return; cloudApply(val.data); });
+        r.on('value',function(s){ var val=s.val(); if(!val||!val.data) return; if(val.by===CLOUD_CLIENT) return; if(cloudCanon(val.data)===cloudLastPushed) return; cloudApply(val.data); });
         cb(true);
       } else { cb(false); }
     });
@@ -3762,7 +3766,8 @@ function openCloudModal(){
     +'عدد الشحنات بهذه الشركة: '+dbLoad().length+'\n'
     +'آخر رفع: '+(_cloudLastPushAt?new Date(_cloudLastPushAt).toLocaleTimeString('ar'):'لم يحدث بعد')+'\n'
     +'آخر استقبال: '+(_cloudLastRecvAt?new Date(_cloudLastRecvAt).toLocaleTimeString('ar'):'لم يحدث بعد')+'\n'
-    +'تغيير غير مرفوع: '+(_cloudDirty?'نعم':'لا')+' | جارٍ التطبيق: '+(cloudApplying?'نعم':'لا')+' | نبض: '+_cloudTick+'\n'
+    +'تغيير غير مرفوع: '+((typeof cloudCanon==='function'&&cloudCanon()!==cloudLastPushed)?'نعم':'لا')+' | جارٍ التطبيق: '+(cloudApplying?'نعم':'لا')+'\n'
+    +'نبض: '+_cloudTick+' | عدد الرفعات: '+_cloudPushCount+'\n'
     +'━━━━━━━━━━━━━━━\n'
     +'اضغط «موافق» لمزامنة يدوية فورية (رفع ثم سحب).';
   if(!cloudEnabled()){ toast('المزامنة السحابية غير مفعّلة'); return; }
@@ -5779,7 +5784,7 @@ function exportPaymentsExcel(){
 // ═══════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════
-var APP_VERSION='v2026-09-23.7';   // رقم إصدار ظاهر للتحقق من تحميل أحدث نسخة (لا cache قديم)
+var APP_VERSION='v2026-09-23.8';   // رقم إصدار ظاهر للتحقق من تحميل أحدث نسخة (لا cache قديم)
 function initApp() {
   try{ var av=document.getElementById('app-ver'); if(av) av.textContent=APP_VERSION; }catch(e){}
   try{ reconcileProfiles(); }catch(e){}   // توحيد أي بروفايلات مكرّرة محلياً قبل العرض
