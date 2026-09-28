@@ -1770,7 +1770,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-28-e';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-28-f';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -1811,12 +1811,13 @@ var PERM_KEYS=[
  ['expenses','المصروفات'],['accounts','الحسابات والسداد (كامل)'],['opaccounts','الحسابات التشغيلية (سيارات/عمال)'],['reports','التقارير'],['income','قائمة الدخل'],
  ['master','البيانات الأساسية'],['users','المستخدمون'],['settings','الإعدادات'],
  ['accSuppliers','اطّلاع: أرصدة الموردين فقط'],['accClients','اطّلاع: أرصدة العملاء فقط'],
+ ['seeall','رؤية كل إدخالات المستخدمين (تجاوز العزل)'],
  ['canAdd','إضافة سجلات'],['canEdit','تعديل السجلات'],['canDelete','حذف السجلات'],['canExport','التصدير والطباعة']
 ];
 function preset(role){
   var p={}; PERM_KEYS.forEach(function(k){p[k[0]]=false;});
   if(role==='admin'){ PERM_KEYS.forEach(function(k){p[k[0]]=true;}); }
-  else if(role==='manager'){ PERM_KEYS.forEach(function(k){p[k[0]]=true;}); p.users=false; }
+  else if(role==='manager'){ PERM_KEYS.forEach(function(k){p[k[0]]=true;}); p.users=false; p.seeall=false; }   /* «رؤية الكل» تُمنح يدوياً فقط */
   else if(role==='accountant'){ ['dash','purchases','sales','returns','stock','itemdiag','expenses','accounts','reports','income','master','canAdd','canEdit','canExport'].forEach(function(k){p[k]=true;}); }
   else if(role==='entry'){ ['dash','purchases','sales','returns','stock','reports','canAdd'].forEach(function(k){p[k]=true;}); }
   else if(role==='viewer'){ ['dash','stock','reports','income','canExport'].forEach(function(k){p[k]=true;}); }
@@ -2094,9 +2095,9 @@ function can(k){ if(ME&&ME.role==='admin') return true;   /* المدير: صل�
   var p=effPerms(); return !!(p&&p[k]); }
 /* عزل الإدخالات: كل مستخدم يرى إدخالاته هو فقط في سجلات المشتريات/المبيعات/المصروفات/المرتجعات،
    ومدير النظام وحده يرى إدخالات الجميع. (لا يؤثر على المخزون والتكلفة — تبقى عامة وصحيحة) */
-function canSeeRec(r){ if(ME&&ME.role==='admin') return true; if(!ME) return false; return !!(r&&r.uid===ME.id); }
+function canSeeRec(r){ if(ME&&ME.role==='admin') return true; if(!ME) return false; if(can('seeall')) return true; return !!(r&&r.uid===ME.id); }
 /* صف تنبيه أعلى السجل لغير المدير: يوضّح أنه يرى إدخالاته فقط */
-function mineOnlyRow(cols){ return (ME&&ME.role==='admin')?'':'<tr><td colspan="'+cols+'" style="background:#fff7ed;color:#9a3412;padding:7px 10px;font-size:12px;border-bottom:1px solid #fed7aa">🔒 تعرض هذه الشاشة <b>إدخالاتك أنت فقط</b> — مدير النظام وحده يرى إدخالات جميع المستخدمين.</td></tr>'; }
+function mineOnlyRow(cols){ return (ME&&(ME.role==='admin'||can('seeall')))?'':'<tr><td colspan="'+cols+'" style="background:#fff7ed;color:#9a3412;padding:7px 10px;font-size:12px;border-bottom:1px solid #fed7aa">🔒 تعرض هذه الشاشة <b>إدخالاتك أنت فقط</b> — مدير النظام (أو مستخدم له صلاحية «رؤية الكل») يرى إدخالات جميع المستخدمين.</td></tr>'; }
 /* هل يُسمح لهذا المستخدم برؤية الأرصدة المالية للموردين/العملاء؟ */
 function canSeeBalances(){ return can('accounts')||can('accSuppliers')||can('accClients'); }
 /* هل يُسمح له برؤية الأرباح والتكاليف والهوامش؟ (مرتبط بصلاحية قائمة الدخل) */
@@ -3006,7 +3007,7 @@ function cancelDoc(k){
       os:['os_units','os_uw','os_price','os_total']};
     if(k==='r'){ setVal('r_doc',''); setVal('r_search',''); setVal('r_vatrate',vatRate()); setVatMode('r','add'); onReturnType(true); onReturnDoc(true); }
     if(k==='e'){ db.clients.forEach(function(c){ setVal('esp_'+c.id,''); }); setVal('e_amortUnit','none'); setVal('e_amortCount',''); onAmortChange(); setVal('e_supplierSearch',''); filterExpenseSupplier();
-      var _g=document.getElementById('e_grouped'); if(_g) _g.checked=false; expGrp=[]; if(typeof toggleGroupExpense==='function') toggleGroupExpense();   /* إعادة ضبط السند المجمّع */
+      var _g=document.getElementById('e_grouped'); if(_g) _g.checked=false; expGrp=[]; grpEdit=null; if(typeof toggleGroupExpense==='function') toggleGroupExpense();   /* إعادة ضبط السند المجمّع */
       setVal('e_find',''); var _fr=document.getElementById('e_findResults'); if(_fr){ _fr.classList.add('hidden'); _fr.innerHTML=''; } }
     if(k==='u'){ setVal('u_role','entry'); applyRolePreset(); renderDeptGrid(null); renderDeptPermGrids(null); }
     if(k==='cl') setVal('cl_hasWh','yes');
@@ -3436,6 +3437,7 @@ function expenseReuse(id){
 }
 /* ===== سند مصروفات مجمّع: مبلغ واحد موزّع على عدة بنود (تصنيفات) ===== */
 var expGrp=[];   /* [{cat,desc,amount}] */
+var grpEdit=null;   /* {grp,uid} عند تعديل سند مجمّع قائم */
 function toggleGroupExpense(){
   var cb=document.getElementById('e_grouped'), on=!!(cb&&cb.checked);
   ['e_catField','e_amountField','e_amortField'].forEach(function(id){ var el=document.getElementById(id); if(el) el.style.display=on?'none':'flex'; });
@@ -3467,6 +3469,8 @@ function renderGrp(){
   grpTotalRender();
 }
 function saveGroupExpense(){
+  var editing=!!grpEdit;
+  if(editing&&!can('canEdit')){ toast('لا تملك صلاحية تعديل السجلات'); return; }
   var t=val('e_type');
   if(t==='amounts'){ toast('السند المجمّع لا يدعم التوزيع اليدوي بمبالغ لكل فرع — اختر «مشترك» أو «مباشر» أو «نسب مئوية»'); return; }
   var date=val('e_date'); if(!date){ toast('أدخل التاريخ'); return; }
@@ -3480,18 +3484,41 @@ function saveGroupExpense(){
   if(t==='percents'){ splits={}; var sum=0; db.clients.forEach(function(c){ var v=fnum('esp_'+c.id); if(v>0){ splits[c.id]=v; sum+=v; } });
     if(Math.abs(sum-100)>0.01){ toast('مجموع النسب يجب أن يساوي 100% — الحالي '+num(sum)+'%'); return; } }
   var supplierId=(+val('e_supplier')||null), voucher=val('e_desc').trim();
-  var grpId=uid(), total=0; lines.forEach(function(x){ total+=x.amount; });
+  var grpId=editing?grpEdit.grp:uid(), owner=editing?grpEdit.uid:ME.id, total=0; lines.forEach(function(x){ total+=x.amount; });
+  if(editing) db.expenses=db.expenses.filter(function(x){ return x.grp!==grpId; });   /* استبدال بنود السند القديمة كلها */
   lines.forEach(function(x){
     db.expenses.push({id:uid(),date:date,type:t,clientId:clientId,exclClientId:exclId,supplierId:supplierId,
       cat:x.cat,amount:x.amount,desc:(x.desc||x.cat),splits:(splits?Object.assign({},splits):null),
-      amortUnit:'none',amortCount:0,grp:grpId,voucher:(voucher||('سند #'+grpId)),uid:ME.id,ts:nowTs()});
+      amortUnit:'none',amortCount:0,grp:grpId,voucher:(voucher||('سند #'+grpId)),uid:owner,ts:nowTs()});
   });
-  log('add','المصروفات','سند مصروفات مجمّع'+(voucher?' «'+voucher+'»':'')+' — '+lines.length+' بند بإجمالي '+num(total));
-  expGrp=[]; cancelDoc('e'); commit('تم حفظ السند المجمّع ('+lines.length+' بند بإجمالي '+num(total)+')');
+  log(editing?'edit':'add','المصروفات',(editing?'تعديل ':'')+'سند مصروفات مجمّع'+(voucher?' «'+voucher+'»':'')+' — '+lines.length+' بند بإجمالي '+num(total));
+  grpEdit=null; expGrp=[]; cancelDoc('e'); commit((editing?'تم تعديل':'تم حفظ')+' السند المجمّع ('+lines.length+' بند بإجمالي '+num(total)+')');
+}
+/* تعديل سند مجمّع: يعرض كل بنوده معاً لتعديل/حذف أيٍّ منها ثم حفظها دفعة واحدة */
+function editGroupVoucher(grp){
+  if(!guard('canEdit')) return;
+  var lines=(db.expenses||[]).filter(function(x){ return x.grp===grp&&canSeeRec(x); });
+  if(!lines.length){ toast('السند غير موجود'); return; }
+  var first=lines[0];
+  editId.e=null;
+  setVal('e_type',first.type||'shared'); onExpenseType();
+  setVal('e_date',first.date||today());
+  setVal('e_desc',first.voucher||'');
+  setVal('e_supplierSearch',''); filterExpenseSupplier(); setVal('e_supplier',first.supplierId||''); onExpenseSupplier();
+  if(first.type==='direct') setVal('e_client',first.clientId||'');
+  if(first.type==='shared_ex') setVal('e_exclClient',first.exclClientId||'');
+  if(first.type==='percents'&&first.splits){ renderExpenseSplits(); db.clients.forEach(function(c){ setVal('esp_'+c.id, first.splits[c.id]!=null?first.splits[c.id]:''); }); updateSplitSummary(); }
+  expGrp=lines.map(function(x){ return {cat:x.cat||'', desc:((x.desc===x.cat)?'':(x.desc||'')), amount:x.amount}; });
+  grpEdit={grp:grp, uid:first.uid};
+  var cb=document.getElementById('e_grouped'); if(cb) cb.checked=true; toggleGroupExpense();   /* يعرض الجدول ويُبقي expGrp */
+  var edn=document.getElementById('e_editing'); if(edn) edn.textContent='تعديل سند مجمّع — '+lines.length+' بند (عدّل أو احذف أي بند)';
+  showTab('expenses');
+  var fb=document.getElementById('expenseFormBox'); if(fb&&fb.scrollIntoView) try{ fb.scrollIntoView({behavior:'smooth',block:'center'}); }catch(e){}
+  toast('تظهر كل بنود السند — عدّل أو احذف أي بند ثم اضغط «حفظ المصروف»');
 }
 function saveExpense(){
   if(!guard('canAdd')) return;
-  var _g=document.getElementById('e_grouped'); if(_g&&_g.checked&&!editId.e) return saveGroupExpense();   /* السند المجمّع (إضافة فقط) */
+  var _g=document.getElementById('e_grouped'); if(_g&&_g.checked) return saveGroupExpense();   /* السند المجمّع (إضافة أو تعديل) */
   var t=val('e_type'), a=fnum('e_amount');
   if(a<=0){ toast('أدخل قيمة المصروف'); return; }
   if(!val('e_desc').trim()){ toast('أدخل بيان المصروف'); return; }
@@ -3522,7 +3549,8 @@ function saveExpense(){
 function editExpense(id){
   if(!guard('canEdit')) return;
   var r=byId(db.expenses,id); if(!r) return;
-  var _g=document.getElementById('e_grouped'); if(_g) _g.checked=false; expGrp=[]; toggleGroupExpense();   /* تعديل بند مفرد دائماً (لا وضع مجمّع) */
+  if(r.grp){ return editGroupVoucher(r.grp); }   /* بند ضمن سند مجمّع ⇒ افتح كل بنوده */
+  var _g=document.getElementById('e_grouped'); if(_g) _g.checked=false; expGrp=[]; grpEdit=null; toggleGroupExpense();   /* تعديل بند مفرد دائماً (لا وضع مجمّع) */
   editId.e=id; setVal('e_date',r.date); setVal('e_type',r.type);
   fillExpCats(r.cat); setVal('e_cat',r.cat); setVal('e_amount',r.amount); setVal('e_desc',r.desc);
   setVal('e_supplierSearch',''); filterExpenseSupplier();
@@ -5118,7 +5146,7 @@ function renderStock(){
    إن كان المعروض أقل من المتاح فالسبب فلتر مُفعّل؛ ولغير المدير يوضّح أن إدخالات غيره مخفيّة. */
 function renderExpReconcile(shownN, shownSum){
   var el=document.getElementById('expReconcile'); if(!el) return;
-  var isAdm=(ME&&ME.role==='admin');
+  var isAdm=(ME&&(ME.role==='admin'||can('seeall')));
   var mine=(db.expenses||[]).filter(canSeeRec);              /* كل ما يحق لهذا المستخدم رؤيته (بلا فلاتر) */
   var mineN=mine.length, mineSum=0; mine.forEach(function(x){ mineSum+=(+x.amount||0); });
   var allN=(db.expenses||[]).length, allSum=0; (db.expenses||[]).forEach(function(x){ allSum+=(+x.amount||0); });
