@@ -903,17 +903,19 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
         <option value="direct">مباشر — يخص فرعاً واحداً</option>
         <option value="amounts">توزيع يدوي بمبلغ محدد لكل فرع</option>
         <option value="percents">توزيع يدوي بنسبة مئوية لكل فرع</option></select></div>
+      <div class="field" id="e_groupedField"><label>سند مجمّع؟ <span class="hint">مبلغ واحد لعدة بنود</span></label>
+        <label style="display:flex;gap:8px;align-items:center;font-weight:400"><input type="checkbox" id="e_grouped" onchange="toggleGroupExpense()" style="width:auto"> سند به عدة بنود (اتصالات/ديزل/عمال…)</label></div>
       <div class="field" id="e_clientWrap"><label>الفرع المستفيد</label><select id="e_client"></select></div>
       <div class="field" id="e_exclWrap" style="display:none"><label>الفرع المستثنى من التوزيع</label><select id="e_exclClient"></select></div>
-      <div class="field"><label>التصنيف</label>
+      <div class="field" id="e_catField"><label>التصنيف</label>
         <div class="inline-add"><select id="e_cat"></select><button class="btn btn-sm" onclick="quickAddExpCat()" title="تصنيف جديد">+</button></div></div>
       <div class="field"><label>بحث عن المورد <span class="hint">اختياري — اكتب لتصفية القائمة</span></label>
         <input type="text" id="e_supplierSearch" list="dl_eSup" autocomplete="off" oninput="filterExpenseSupplier()" placeholder="🔍 اكتب اسم المورد">
         <datalist id="dl_eSup"></datalist></div>
       <div class="field"><label>المورد المرتبط (اختياري)</label><select id="e_supplier" onchange="onExpenseSupplier()"></select></div>
-      <div class="field"><label>القيمة</label><input type="number" id="e_amount" step="0.01" min="0"></div>
-      <div class="field"><label>البيان</label><input type="text" id="e_desc" placeholder="فاتورة كهرباء المستودع"></div>
-      <div class="field"><label>توزيع المصروف على فترة</label><select id="e_amortUnit" onchange="onAmortChange()">
+      <div class="field" id="e_amountField"><label>القيمة</label><input type="number" id="e_amount" step="0.01" min="0"></div>
+      <div class="field"><label id="e_descLbl">البيان</label><input type="text" id="e_desc" placeholder="فاتورة كهرباء المستودع"></div>
+      <div class="field" id="e_amortField"><label>توزيع المصروف على فترة</label><select id="e_amortUnit" onchange="onAmortChange()">
         <option value="none">دفعة واحدة (لا توزيع)</option>
         <option value="day">توزيع يومي</option>
         <option value="month">توزيع شهري</option>
@@ -927,6 +929,13 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
       <div class="sec-title" style="margin-top:0">توزيع المصروف على الفروع</div>
       <div class="grid" id="e_splitGrid"></div>
       <div class="doc-total" id="e_splitSummary" style="margin-top:10px"></div>
+    </div>
+    <div id="e_grpBox" class="hidden" style="margin-top:12px">
+      <div class="sec-title" style="margin-top:0">بنود السند المجمّع <span class="hint">كل بند بتصنيفه ومبلغه — الإجمالي = مجموع البنود</span></div>
+      <div class="table-scroll"><table><thead><tr><th class="name">التصنيف</th><th class="name">البيان (اختياري)</th><th>المبلغ</th><th></th></tr></thead>
+        <tbody id="e_grpGrid"></tbody></table></div>
+      <div class="form-foot" style="margin-top:8px"><button class="btn" onclick="addGrpLine()">➕ إضافة بند</button>
+        <span class="doc-total" id="e_grpTotal" style="margin-inline-start:auto"></span></div>
     </div>
     <div class="form-foot"><button class="btn-main" onclick="saveExpense()">حفظ المصروف</button>
       <button class="btn" onclick="cancelDoc('e')">إلغاء</button>
@@ -1753,7 +1762,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-28-ai';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-28-b';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -2988,7 +2997,8 @@ function cancelDoc(k){
       wh:['wh_name'],it:['it_name','it_uw','it_min'],un:['un_name','un_weights'],u:['u_name','u_user','u_pass'],
       os:['os_units','os_uw','os_price','os_total']};
     if(k==='r'){ setVal('r_doc',''); setVal('r_search',''); setVal('r_vatrate',vatRate()); setVatMode('r','add'); onReturnType(true); onReturnDoc(true); }
-    if(k==='e'){ db.clients.forEach(function(c){ setVal('esp_'+c.id,''); }); setVal('e_amortUnit','none'); setVal('e_amortCount',''); onAmortChange(); setVal('e_supplierSearch',''); filterExpenseSupplier(); }
+    if(k==='e'){ db.clients.forEach(function(c){ setVal('esp_'+c.id,''); }); setVal('e_amortUnit','none'); setVal('e_amortCount',''); onAmortChange(); setVal('e_supplierSearch',''); filterExpenseSupplier();
+      var _g=document.getElementById('e_grouped'); if(_g) _g.checked=false; expGrp=[]; if(typeof toggleGroupExpense==='function') toggleGroupExpense(); }   /* إعادة ضبط السند المجمّع */
     if(k==='u'){ setVal('u_role','entry'); applyRolePreset(); renderDeptGrid(null); renderDeptPermGrids(null); }
     if(k==='cl') setVal('cl_hasWh','yes');
     (ids[k]||[]).forEach(function(id){ setVal(id,''); });
@@ -3381,8 +3391,64 @@ function quickAddExpCat(){
   fillExpCats(n);
   toast('أُضيف التصنيف: '+n);
 }
+/* ===== سند مصروفات مجمّع: مبلغ واحد موزّع على عدة بنود (تصنيفات) ===== */
+var expGrp=[];   /* [{cat,desc,amount}] */
+function toggleGroupExpense(){
+  var cb=document.getElementById('e_grouped'), on=!!(cb&&cb.checked);
+  ['e_catField','e_amountField','e_amortField'].forEach(function(id){ var el=document.getElementById(id); if(el) el.style.display=on?'none':'flex'; });
+  if(on){ var amc=document.getElementById('e_amortCountWrap'); if(amc) amc.style.display='none'; }
+  var box=document.getElementById('e_grpBox'); if(box) box.classList.toggle('hidden',!on);
+  var dl=document.getElementById('e_descLbl'); if(dl) dl.textContent=on?'بيان السند / رقم السند (اختياري)':'البيان';
+  if(on){ if(!expGrp.length) expGrp=[{cat:'',desc:'',amount:''},{cat:'',desc:'',amount:''},{cat:'',desc:'',amount:''}]; renderGrp(); }
+}
+function addGrpLine(){ expGrp.push({cat:'',desc:'',amount:''}); renderGrp(); }
+function delGrpLine(i){ if(expGrp.length<=1){ expGrp[0]={cat:'',desc:'',amount:''}; } else expGrp.splice(i,1); renderGrp(); }
+function updGrp(i,f,el){ if(expGrp[i]){ expGrp[i][f]=el.value; if(f==='amount') grpTotalRender(); } }
+function grpTotalRender(){
+  var el=document.getElementById('e_grpTotal'); if(!el) return;
+  var s=0; expGrp.forEach(function(x){ s+=(+x.amount||0); });
+  el.innerHTML='إجمالي السند: <span class="v">'+money(s)+'</span> · '+expGrp.length+' بند';
+}
+function renderGrp(){
+  var tb=document.getElementById('e_grpGrid'); if(!tb) return;
+  var opts=expCatList().map(function(c){ return '<option value="'+esc(c)+'">'+esc(c)+'</option>'; }).join('');
+  tb.innerHTML=expGrp.map(function(x,i){
+    var sel='<select onchange="updGrp('+i+',\'cat\',this)"><option value="">— اختر —</option>'+opts+'</select>';
+    return '<tr><td class="name">'+sel+'</td>'
+      +'<td class="name"><input type="text" value="'+esc(x.desc||'')+'" oninput="updGrp('+i+',\'desc\',this)" placeholder="مثال: ديزل السيارات"></td>'
+      +'<td><input type="number" step="0.01" min="0" value="'+esc(String(x.amount||''))+'" oninput="updGrp('+i+',\'amount\',this)"></td>'
+      +'<td><button class="btn-sm del" onclick="delGrpLine('+i+')">حذف</button></td></tr>';
+  }).join('');
+  /* ضبط قيمة كل قائمة تصنيف على المحفوظ (لأن value في select يُضبط بعد الإدراج) */
+  expGrp.forEach(function(x,i){ var s=tb.querySelectorAll('select')[i]; if(s&&x.cat) s.value=x.cat; });
+  grpTotalRender();
+}
+function saveGroupExpense(){
+  var t=val('e_type');
+  if(t==='amounts'){ toast('السند المجمّع لا يدعم التوزيع اليدوي بمبالغ لكل فرع — اختر «مشترك» أو «مباشر» أو «نسب مئوية»'); return; }
+  var date=val('e_date'); if(!date){ toast('أدخل التاريخ'); return; }
+  var lines=expGrp.map(function(x){ return {cat:(x.cat||'').trim(),desc:(x.desc||'').trim(),amount:(+x.amount||0)}; }).filter(function(x){ return x.amount>0; });
+  if(!lines.length){ toast('أضف بنداً واحداً على الأقل بمبلغ'); return; }
+  if(lines.some(function(x){ return !x.cat; })){ toast('اختر تصنيف كل بند'); return; }
+  var clientId=(t==='direct')?+val('e_client'):null;
+  if(t==='direct'&&!clientId){ toast('اختر الفرع المستفيد'); return; }
+  var exclId=null; if(t==='shared_ex'){ exclId=+val('e_exclClient')||null; if(!exclId){ toast('اختر الفرع المستثنى'); return; } }
+  var splits=null;
+  if(t==='percents'){ splits={}; var sum=0; db.clients.forEach(function(c){ var v=fnum('esp_'+c.id); if(v>0){ splits[c.id]=v; sum+=v; } });
+    if(Math.abs(sum-100)>0.01){ toast('مجموع النسب يجب أن يساوي 100% — الحالي '+num(sum)+'%'); return; } }
+  var supplierId=(+val('e_supplier')||null), voucher=val('e_desc').trim();
+  var grpId=uid(), total=0; lines.forEach(function(x){ total+=x.amount; });
+  lines.forEach(function(x){
+    db.expenses.push({id:uid(),date:date,type:t,clientId:clientId,exclClientId:exclId,supplierId:supplierId,
+      cat:x.cat,amount:x.amount,desc:(x.desc||x.cat),splits:(splits?Object.assign({},splits):null),
+      amortUnit:'none',amortCount:0,grp:grpId,voucher:(voucher||('سند #'+grpId)),uid:ME.id,ts:nowTs()});
+  });
+  log('add','المصروفات','سند مصروفات مجمّع'+(voucher?' «'+voucher+'»':'')+' — '+lines.length+' بند بإجمالي '+num(total));
+  expGrp=[]; cancelDoc('e'); commit('تم حفظ السند المجمّع ('+lines.length+' بند بإجمالي '+num(total)+')');
+}
 function saveExpense(){
   if(!guard('canAdd')) return;
+  var _g=document.getElementById('e_grouped'); if(_g&&_g.checked&&!editId.e) return saveGroupExpense();   /* السند المجمّع (إضافة فقط) */
   var t=val('e_type'), a=fnum('e_amount');
   if(a<=0){ toast('أدخل قيمة المصروف'); return; }
   if(!val('e_desc').trim()){ toast('أدخل بيان المصروف'); return; }
@@ -3413,6 +3479,7 @@ function saveExpense(){
 function editExpense(id){
   if(!guard('canEdit')) return;
   var r=byId(db.expenses,id); if(!r) return;
+  var _g=document.getElementById('e_grouped'); if(_g) _g.checked=false; expGrp=[]; toggleGroupExpense();   /* تعديل بند مفرد دائماً (لا وضع مجمّع) */
   editId.e=id; setVal('e_date',r.date); setVal('e_type',r.type);
   fillExpCats(r.cat); setVal('e_cat',r.cat); setVal('e_amount',r.amount); setVal('e_desc',r.desc);
   setVal('e_supplierSearch',''); filterExpenseSupplier();
@@ -5033,7 +5100,8 @@ function renderExpenses(){
     h+='<tr><td>'+esc(x.date)+'</td><td><span class="pill '+(x.type==='direct'?'pill-ok':(x.type==='shared'?'pill-warn':'pill-info'))+'">'
       +esc(expTypeLabel(x.type))+'</span></td>'
       +'<td class="name">'+esc(expTargetLabel(x))+'</td>'
-      +'<td class="name">'+esc(x.cat||'')+'</td><td>'+money(x.amount)+(amortInfo(x)?' <span class="pill pill-info">'+esc(amortLabel(x))+'</span>':'')+'</td><td class="name">'+esc(x.desc)+'</td>'
+      +'<td class="name">'+esc(x.cat||'')+'</td><td>'+money(x.amount)+(amortInfo(x)?' <span class="pill pill-info">'+esc(amortLabel(x))+'</span>':'')+'</td>'
+      +'<td class="name">'+esc(x.desc)+(x.grp?' <span class="pill pill-info" title="بند ضمن سند مجمّع">🧾 '+esc(x.voucher||'سند مجمّع')+'</span>':'')+'</td>'
       +'<td class="name muted">'+esc(userName(x.uid))+'</td>'
       +'<td>'+actionBtns('expenses',x.id,'editExpense('+x.id+')')+'</td></tr>';
   });
