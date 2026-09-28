@@ -895,6 +895,11 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
   <div class="print-head"><span class="print-logo"></span><h3>سجل المصروفات</h3><p>إعداد محمد فرج</p></div>
   <div class="panel-title">المصروفات ومراكز التكلفة</div>
   <div class="doc-box no-print" id="expenseFormBox">
+    <div class="field" style="margin-bottom:8px;position:relative">
+      <label>🔍 بحث عن مصروف سابق <span class="hint">اكتب كلمة من البيان أو التصنيف أو المبلغ — اضغط النتيجة لإعادة استخدامها</span></label>
+      <input type="text" id="e_find" autocomplete="off" oninput="expenseFindSearch()" onfocus="expenseFindSearch()" onblur="setTimeout(function(){var r=document.getElementById('e_findResults');if(r)r.classList.add('hidden');},200)" placeholder="🔍 ابحث في المصروفات السابقة…">
+      <div id="e_findResults" class="hidden" style="position:absolute;z-index:30;left:0;right:0;background:var(--card,#fff);border:1px solid var(--line,#e2e8f0);border-radius:8px;margin-top:2px;max-height:260px;overflow:auto;box-shadow:0 8px 24px rgba(0,0,0,.12)"></div>
+    </div>
     <div class="grid">
       <div class="field"><label>التاريخ</label><input type="date" id="e_date"></div>
       <div class="field"><label>نوع المصروف وطريقة التوزيع</label><select id="e_type" onchange="onExpenseType()">
@@ -1765,7 +1770,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-28-d';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-28-e';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -3001,7 +3006,8 @@ function cancelDoc(k){
       os:['os_units','os_uw','os_price','os_total']};
     if(k==='r'){ setVal('r_doc',''); setVal('r_search',''); setVal('r_vatrate',vatRate()); setVatMode('r','add'); onReturnType(true); onReturnDoc(true); }
     if(k==='e'){ db.clients.forEach(function(c){ setVal('esp_'+c.id,''); }); setVal('e_amortUnit','none'); setVal('e_amortCount',''); onAmortChange(); setVal('e_supplierSearch',''); filterExpenseSupplier();
-      var _g=document.getElementById('e_grouped'); if(_g) _g.checked=false; expGrp=[]; if(typeof toggleGroupExpense==='function') toggleGroupExpense(); }   /* إعادة ضبط السند المجمّع */
+      var _g=document.getElementById('e_grouped'); if(_g) _g.checked=false; expGrp=[]; if(typeof toggleGroupExpense==='function') toggleGroupExpense();   /* إعادة ضبط السند المجمّع */
+      setVal('e_find',''); var _fr=document.getElementById('e_findResults'); if(_fr){ _fr.classList.add('hidden'); _fr.innerHTML=''; } }
     if(k==='u'){ setVal('u_role','entry'); applyRolePreset(); renderDeptGrid(null); renderDeptPermGrids(null); }
     if(k==='cl') setVal('cl_hasWh','yes');
     (ids[k]||[]).forEach(function(id){ setVal(id,''); });
@@ -3393,6 +3399,40 @@ function quickAddExpCat(){
   if(expCatList().indexOf(n)<0){ db.settings.expCats.push(n); persist(); }
   fillExpCats(n);
   toast('أُضيف التصنيف: '+n);
+}
+/* ===== بحث سريع عن مصروف سابق أثناء الإدخال — لإعادة استخدامه ===== */
+function expenseFindSearch(){
+  var box=document.getElementById('e_findResults'); if(!box) return;
+  var q=(val('e_find')||'').trim();
+  if(!q){ box.classList.add('hidden'); box.innerHTML=''; return; }
+  var ql=q.toLowerCase();
+  var list=(db.expenses||[]).filter(canSeeRec).filter(function(x){
+    var hay=((x.desc||'')+' '+(x.cat||'')+' '+(x.voucher||'')+' '+(x.supplierId?supName(x.supplierId):'')+' '+(x.amount||'')).toLowerCase();
+    return hay.indexOf(ql)>-1;
+  }).sort(function(a,b){ return (a.date<b.date?1:-1); }).slice(0,12);
+  if(!list.length){ box.innerHTML='<div style="padding:10px;color:#94a3b8;font-size:13px">لا نتائج مطابقة.</div>'; box.classList.remove('hidden'); return; }
+  box.innerHTML=list.map(function(x){
+    return '<div onmousedown="expenseReuse('+x.id+')" style="padding:8px 10px;border-bottom:1px solid var(--line,#eee);cursor:pointer;display:flex;gap:10px;justify-content:space-between;align-items:center" onmouseover="this.style.background=\'#f1f5f9\'" onmouseout="this.style.background=\'transparent\'">'
+      +'<span><b>'+esc(x.cat||'—')+'</b> <span class="muted" style="font-size:12px">'+esc(x.desc||'')+'</span></span>'
+      +'<span style="white-space:nowrap"><b>'+money(x.amount)+'</b> <span class="muted" style="font-size:11px">'+esc(x.date||'')+'</span></span></div>';
+  }).join('');
+  box.classList.remove('hidden');
+}
+function expenseReuse(id){
+  var r=byId(db.expenses,id); if(!r) return;
+  var g=document.getElementById('e_grouped'); if(g) g.checked=false; expGrp=[]; if(typeof toggleGroupExpense==='function') toggleGroupExpense();
+  editId.e=null; var ne=document.getElementById('e_editing'); if(ne) ne.textContent='';
+  setVal('e_type',r.type||'shared'); onExpenseType();
+  fillExpCats(r.cat); setVal('e_cat',r.cat||'');
+  setVal('e_amount',r.amount||''); setVal('e_desc',r.desc||'');
+  setVal('e_supplierSearch',''); filterExpenseSupplier(); setVal('e_supplier',r.supplierId||''); onExpenseSupplier();
+  if(r.type==='direct') setVal('e_client',r.clientId||'');
+  if(r.type==='shared_ex') setVal('e_exclClient',r.exclClientId||'');
+  setVal('e_amortUnit',r.amortUnit||'none'); setVal('e_amortCount',r.amortCount||''); onAmortChange();
+  if((r.type==='amounts'||r.type==='percents')&&r.splits){ renderExpenseSplits(); db.clients.forEach(function(c){ setVal('esp_'+c.id, r.splits[c.id]!=null?r.splits[c.id]:''); }); updateSplitSummary(); }
+  var box=document.getElementById('e_findResults'); if(box){ box.classList.add('hidden'); box.innerHTML=''; } setVal('e_find','');
+  focusField('e_amount');
+  toast('تم نسخ بيانات المصروف — عدّل ثم احفظ كإدخال جديد');
 }
 /* ===== سند مصروفات مجمّع: مبلغ واحد موزّع على عدة بنود (تصنيفات) ===== */
 var expGrp=[];   /* [{cat,desc,amount}] */
