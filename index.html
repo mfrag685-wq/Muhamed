@@ -936,8 +936,8 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
       <div class="doc-total" id="e_splitSummary" style="margin-top:10px"></div>
     </div>
     <div id="e_grpBox" class="hidden" style="margin-top:12px">
-      <div class="sec-title" style="margin-top:0">بنود السند المجمّع <span class="hint">كل بند بتصنيفه ومبلغه — الإجمالي = مجموع البنود</span></div>
-      <div class="table-scroll"><table><thead><tr><th class="name">التصنيف</th><th class="name">البيان (اختياري)</th><th>المبلغ</th><th></th></tr></thead>
+      <div class="sec-title" style="margin-top:0">بنود السند المجمّع <span class="hint">كل بند بتصنيفه ومبلغه وتوزيعه — الإجمالي = مجموع البنود</span></div>
+      <div class="table-scroll"><table><thead><tr><th class="name">التصنيف</th><th class="name">البيان (اختياري)</th><th>المبلغ</th><th class="name">التوزيع</th><th></th></tr></thead>
         <tbody id="e_grpGrid"></tbody></table></div>
       <div class="form-foot" style="margin-top:8px"><button class="btn" onclick="addGrpLine()">➕ إضافة بند</button>
         <span class="doc-total" id="e_grpTotal" style="margin-inline-start:auto"></span></div>
@@ -1770,7 +1770,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-28-f';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-28-g';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -3444,11 +3444,15 @@ function toggleGroupExpense(){
   if(on){ var amc=document.getElementById('e_amortCountWrap'); if(amc) amc.style.display='none'; }
   var box=document.getElementById('e_grpBox'); if(box) box.classList.toggle('hidden',!on);
   var dl=document.getElementById('e_descLbl'); if(dl) dl.textContent=on?'بيان السند / رقم السند (اختياري)':'البيان';
-  if(on){ if(!expGrp.length) expGrp=[{cat:'',desc:'',amount:''},{cat:'',desc:'',amount:''},{cat:'',desc:'',amount:''}]; renderGrp(); }
+  if(on){ if(!expGrp.length) expGrp=[grpBlank(),grpBlank(),grpBlank()]; renderGrp(); }
 }
-function addGrpLine(){ expGrp.push({cat:'',desc:'',amount:''}); renderGrp(); }
-function delGrpLine(i){ if(expGrp.length<=1){ expGrp[0]={cat:'',desc:'',amount:''}; } else expGrp.splice(i,1); renderGrp(); }
-function updGrp(i,f,el){ if(expGrp[i]){ expGrp[i][f]=el.value; if(f==='amount') grpTotalRender(); } }
+function grpBlank(){ return {cat:'',desc:'',amount:'',dist:'',distTarget:''}; }
+function addGrpLine(){ expGrp.push(grpBlank()); renderGrp(); }
+function delGrpLine(i){ if(expGrp.length<=1){ expGrp[0]=grpBlank(); } else expGrp.splice(i,1); renderGrp(); }
+function updGrp(i,f,el){ if(!expGrp[i]) return; expGrp[i][f]=el.value;
+  if(f==='amount'){ grpTotalRender(); return; }
+  if(f==='dist'){ if(el.value!=='direct'&&el.value!=='shared_ex') expGrp[i].distTarget=''; renderGrp(); }   /* أعد الرسم لإظهار/إخفاء اختيار الفرع */
+}
 function grpTotalRender(){
   var el=document.getElementById('e_grpTotal'); if(!el) return;
   var s=0; expGrp.forEach(function(x){ s+=(+x.amount||0); });
@@ -3457,15 +3461,29 @@ function grpTotalRender(){
 function renderGrp(){
   var tb=document.getElementById('e_grpGrid'); if(!tb) return;
   var opts=expCatList().map(function(c){ return '<option value="'+esc(c)+'">'+esc(c)+'</option>'; }).join('');
+  var brOpts=db.clients.map(function(c){ return '<option value="'+c.id+'">'+esc(c.name)+'</option>'; }).join('');
   tb.innerHTML=expGrp.map(function(x,i){
-    var sel='<select onchange="updGrp('+i+',\'cat\',this)"><option value="">— اختر —</option>'+opts+'</select>';
+    var sel='<select id="grpcat_'+i+'" onchange="updGrp('+i+',\'cat\',this)"><option value="">— اختر —</option>'+opts+'</select>';
+    var distSel='<select id="grpdist_'+i+'" onchange="updGrp('+i+',\'dist\',this)">'
+      +'<option value="">كالسند (افتراضي)</option>'
+      +'<option value="shared">مشترك (كل الفروع)</option>'
+      +'<option value="direct">مباشر لفرع…</option>'
+      +'<option value="shared_ex">كل الفروع عدا…</option></select>';
+    var needTgt=(x.dist==='direct'||x.dist==='shared_ex');
+    var tgtSel=needTgt?('<select id="grptgt_'+i+'" onchange="updGrp('+i+',\'distTarget\',this)" style="margin-top:4px">'
+      +'<option value="">— اختر الفرع —</option>'+brOpts+'</select>'):'';
     return '<tr><td class="name">'+sel+'</td>'
       +'<td class="name"><input type="text" value="'+esc(x.desc||'')+'" oninput="updGrp('+i+',\'desc\',this)" placeholder="مثال: ديزل السيارات"></td>'
       +'<td><input type="number" step="0.01" min="0" value="'+esc(String(x.amount||''))+'" oninput="updGrp('+i+',\'amount\',this)"></td>'
+      +'<td class="name">'+distSel+tgtSel+'</td>'
       +'<td><button class="btn-sm del" onclick="delGrpLine('+i+')">حذف</button></td></tr>';
   }).join('');
-  /* ضبط قيمة كل قائمة تصنيف على المحفوظ (لأن value في select يُضبط بعد الإدراج) */
-  expGrp.forEach(function(x,i){ var s=tb.querySelectorAll('select')[i]; if(s&&x.cat) s.value=x.cat; });
+  /* ضبط قيم القوائم على المحفوظ (value يُضبط بعد الإدراج) */
+  expGrp.forEach(function(x,i){
+    var cs=document.getElementById('grpcat_'+i); if(cs&&x.cat) cs.value=x.cat;
+    var ds=document.getElementById('grpdist_'+i); if(ds) ds.value=x.dist||'';
+    var ts=document.getElementById('grptgt_'+i); if(ts&&x.distTarget) ts.value=x.distTarget;
+  });
   grpTotalRender();
 }
 function saveGroupExpense(){
@@ -3474,21 +3492,33 @@ function saveGroupExpense(){
   var t=val('e_type');
   if(t==='amounts'){ toast('السند المجمّع لا يدعم التوزيع اليدوي بمبالغ لكل فرع — اختر «مشترك» أو «مباشر» أو «نسب مئوية»'); return; }
   var date=val('e_date'); if(!date){ toast('أدخل التاريخ'); return; }
-  var lines=expGrp.map(function(x){ return {cat:(x.cat||'').trim(),desc:(x.desc||'').trim(),amount:(+x.amount||0)}; }).filter(function(x){ return x.amount>0; });
+  var lines=expGrp.map(function(x){ return {cat:(x.cat||'').trim(),desc:(x.desc||'').trim(),amount:(+x.amount||0),dist:x.dist||'',distTarget:+x.distTarget||0}; }).filter(function(x){ return x.amount>0; });
   if(!lines.length){ toast('أضف بنداً واحداً على الأقل بمبلغ'); return; }
   if(lines.some(function(x){ return !x.cat; })){ toast('اختر تصنيف كل بند'); return; }
-  var clientId=(t==='direct')?+val('e_client'):null;
-  if(t==='direct'&&!clientId){ toast('اختر الفرع المستفيد'); return; }
-  var exclId=null; if(t==='shared_ex'){ exclId=+val('e_exclClient')||null; if(!exclId){ toast('اختر الفرع المستثنى'); return; } }
+  /* التحقق من فرع التوزيع لكل بند مُخصَّص */
+  if(lines.some(function(x){ return (x.dist==='direct'||x.dist==='shared_ex')&&!x.distTarget; })){ toast('اختر فرع التوزيع للبند المخصّص'); return; }
+  /* التوزيع الافتراضي للسند (يرثه كل بند لم يُخصَّص توزيعه) */
+  var anyInherit=lines.some(function(x){ return !x.dist; });
+  var clientId=(t==='direct')?(+val('e_client')||null):null;
+  if(t==='direct'&&anyInherit&&!clientId){ toast('اختر الفرع المستفيد (التوزيع الافتراضي للسند)'); return; }
+  var exclId=(t==='shared_ex')?(+val('e_exclClient')||null):null;
+  if(t==='shared_ex'&&anyInherit&&!exclId){ toast('اختر الفرع المستثنى (التوزيع الافتراضي للسند)'); return; }
   var splits=null;
   if(t==='percents'){ splits={}; var sum=0; db.clients.forEach(function(c){ var v=fnum('esp_'+c.id); if(v>0){ splits[c.id]=v; sum+=v; } });
-    if(Math.abs(sum-100)>0.01){ toast('مجموع النسب يجب أن يساوي 100% — الحالي '+num(sum)+'%'); return; } }
+    if(anyInherit&&Math.abs(sum-100)>0.01){ toast('مجموع النسب يجب أن يساوي 100% — الحالي '+num(sum)+'%'); return; } }
   var supplierId=(+val('e_supplier')||null), voucher=val('e_desc').trim();
   var grpId=editing?grpEdit.grp:uid(), owner=editing?grpEdit.uid:ME.id, total=0; lines.forEach(function(x){ total+=x.amount; });
   if(editing) db.expenses=db.expenses.filter(function(x){ return x.grp!==grpId; });   /* استبدال بنود السند القديمة كلها */
   lines.forEach(function(x){
-    db.expenses.push({id:uid(),date:date,type:t,clientId:clientId,exclClientId:exclId,supplierId:supplierId,
-      cat:x.cat,amount:x.amount,desc:(x.desc||x.cat),splits:(splits?Object.assign({},splits):null),
+    var lt=t, lcid=clientId, lex=exclId, lsp=splits;   /* الافتراضي = توزيع السند */
+    if(x.dist){                                        /* توزيع مخصّص لهذا البند فقط */
+      lt=x.dist;
+      if(x.dist==='shared'){ lcid=null; lex=null; lsp=null; }
+      else if(x.dist==='direct'){ lcid=x.distTarget; lex=null; lsp=null; }
+      else if(x.dist==='shared_ex'){ lex=x.distTarget; lcid=null; lsp=null; }
+    }
+    db.expenses.push({id:uid(),date:date,type:lt,clientId:lcid,exclClientId:lex,supplierId:supplierId,
+      cat:x.cat,amount:x.amount,desc:(x.desc||x.cat),splits:(lsp?Object.assign({},lsp):null),
       amortUnit:'none',amortCount:0,grp:grpId,voucher:(voucher||('سند #'+grpId)),uid:owner,ts:nowTs()});
   });
   log(editing?'edit':'add','المصروفات',(editing?'تعديل ':'')+'سند مصروفات مجمّع'+(voucher?' «'+voucher+'»':'')+' — '+lines.length+' بند بإجمالي '+num(total));
@@ -3499,16 +3529,23 @@ function editGroupVoucher(grp){
   if(!guard('canEdit')) return;
   var lines=(db.expenses||[]).filter(function(x){ return x.grp===grp&&canSeeRec(x); });
   if(!lines.length){ toast('السند غير موجود'); return; }
-  var first=lines[0];
+  /* التوزيع الافتراضي للسند = التوزيع الأكثر تكراراً بين البنود؛ ما خالفه = مخصّص */
+  function sig(x){ return (x.type||'shared')+'|'+((x.type==='direct')?(+x.clientId||0):((x.type==='shared_ex')?(+x.exclClientId||0):0)); }
+  var freq={}, rep={}; lines.forEach(function(x){ var s=sig(x); freq[s]=(freq[s]||0)+1; if(!rep[s]) rep[s]=x; });
+  var baseSig=Object.keys(freq).sort(function(a,b){ return freq[b]-freq[a]; })[0], base=rep[baseSig], first=lines[0];
   editId.e=null;
-  setVal('e_type',first.type||'shared'); onExpenseType();
+  setVal('e_type',base.type||'shared'); onExpenseType();
   setVal('e_date',first.date||today());
   setVal('e_desc',first.voucher||'');
   setVal('e_supplierSearch',''); filterExpenseSupplier(); setVal('e_supplier',first.supplierId||''); onExpenseSupplier();
-  if(first.type==='direct') setVal('e_client',first.clientId||'');
-  if(first.type==='shared_ex') setVal('e_exclClient',first.exclClientId||'');
-  if(first.type==='percents'&&first.splits){ renderExpenseSplits(); db.clients.forEach(function(c){ setVal('esp_'+c.id, first.splits[c.id]!=null?first.splits[c.id]:''); }); updateSplitSummary(); }
-  expGrp=lines.map(function(x){ return {cat:x.cat||'', desc:((x.desc===x.cat)?'':(x.desc||'')), amount:x.amount}; });
+  if(base.type==='direct') setVal('e_client',base.clientId||'');
+  if(base.type==='shared_ex') setVal('e_exclClient',base.exclClientId||'');
+  if(base.type==='percents'&&base.splits){ renderExpenseSplits(); db.clients.forEach(function(c){ setVal('esp_'+c.id, base.splits[c.id]!=null?base.splits[c.id]:''); }); updateSplitSummary(); }
+  expGrp=lines.map(function(x){
+    var isBase=(sig(x)===baseSig);
+    return {cat:x.cat||'', desc:((x.desc===x.cat)?'':(x.desc||'')), amount:x.amount,
+      dist:isBase?'':(x.type||''), distTarget:isBase?'':(x.type==='direct'?(x.clientId||''):(x.type==='shared_ex'?(x.exclClientId||''):''))};
+  });
   grpEdit={grp:grp, uid:first.uid};
   var cb=document.getElementById('e_grouped'); if(cb) cb.checked=true; toggleGroupExpense();   /* يعرض الجدول ويُبقي expGrp */
   var edn=document.getElementById('e_editing'); if(edn) edn.textContent='تعديل سند مجمّع — '+lines.length+' بند (عدّل أو احذف أي بند)';
