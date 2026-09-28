@@ -1178,8 +1178,10 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
     </div>
     <div class="form-foot"><button class="btn-main" onclick="simplePeriodReport()">احتساب الفرق</button>
       <button class="btn" onclick="spRangeThisMonth()">الشهر الحالي</button>
+      <button class="btn" id="spDetailBtn" onclick="toggleSpDetail()">🔍 تفصيل المبالغ</button>
       <span class="mini">شامل الضريبة كقيمة نقدية فعلية.</span></div>
     <div id="spBox" style="margin-top:10px"></div>
+    <div id="spDetail" class="hidden" style="margin-top:10px"></div>
   </div>
 
   <div class="panel-title">التقارير التفصيلية <span class="hint">مجمّعة يومياً مع إجمالي لكل يوم</span></div>
@@ -1762,7 +1764,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-28-b';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-28-c';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -6930,6 +6932,55 @@ function simplePeriodReport(){
     +'<div class="mini" style="color:var(--ink-2)">قبل الضريبة: المبيعات '+money(netSellN)+' − (مشتريات '+money(netBuyN)+' + مصروفات '+money(exp)+') = <b>'+money(diffN)+'</b>.<br>'
     +'صافي الضريبة (مخرجات − مدخلات) = '+money(sellVat)+' − '+money(buyVat)+' = <b>'+money(sellVat-buyVat)+'</b>.<br>'
     +'مؤشّر نقدي مبسّط لا يخصم المخزون المتبقّي (أصل) — للربح المحاسبي الدقيق راجع «قائمة الدخل».</div>';
+  var dt=document.getElementById('spDetail'); if(dt&&!dt.classList.contains('hidden')) renderSpDetail();   /* حدّث التفصيل إن كان مفتوحاً */
+}
+/* زر «تفصيل المبالغ»: يوضّح ممّ تتكوّن كل قيمة — خاصةً المصروفات (حسب التصنيف)
+   ويكشف بنوداً تُدار خارج «سجل المصروفات» (الحسابات التشغيلية: سيارات/عمال) */
+function toggleSpDetail(){
+  var dt=document.getElementById('spDetail'), btn=document.getElementById('spDetailBtn'); if(!dt) return;
+  var show=dt.classList.contains('hidden');
+  dt.classList.toggle('hidden',!show);
+  if(btn) btn.textContent=show?'✖ إخفاء التفصيل':'🔍 تفصيل المبالغ';
+  if(show) renderSpDetail();
+}
+function renderSpDetail(){
+  var dt=document.getElementById('spDetail'); if(!dt) return;
+  if(!val('sp_from')&&!val('sp_to')) spRangeThisMonth(true);
+  var from=val('sp_from')||'', to=val('sp_to')||today();
+  var inR=function(d){ return inRange(d,from,to); };
+  /* المصروفات حسب التصنيف (سجل المصروفات فقط) */
+  var cats={}, expTot=0, expN=0;
+  (db.expenses||[]).forEach(function(e){ if(!inR(e.date)) return; var c=e.cat||'أخرى'; cats[c]=(cats[c]||0)+(+e.amount||0); expTot+=(+e.amount||0); expN++; });
+  var catKeys=Object.keys(cats).sort(function(a,b){ return cats[b]-cats[a]; });
+  var catRows=catKeys.map(function(c){ return '<tr><td class="name">'+esc(c)+'</td><td class="num">'+money(cats[c])+'</td><td class="num muted">'+pct(cats[c],expTot)+'</td></tr>'; }).join('')
+    ||'<tr><td colspan="3" class="empty">لا مصروفات في سجل المصروفات ضمن الفترة.</td></tr>';
+  /* الحسابات التشغيلية (سيارات/عمال) — استحقاقات ضمن الفترة (غير مضمّنة في «المصروفات» أعلاه) */
+  var opVeh=0, opLab=0, opN=0;
+  (db.opTxns||[]).forEach(function(t){ if(t.kind!=='charge'||!inR(t.date)) return; var a=byId(db.opAccounts,t.accId);
+    if(a&&a.type==='vehicle') opVeh+=(+t.amount||0); else opLab+=(+t.amount||0); opN++; });
+  var opTot=opVeh+opLab;
+  var nSell=db.sales.filter(function(s){return inR(s.date);}).length;
+  var nBuy=db.purchases.filter(function(p){return inR(p.date);}).length;
+  var h='';
+  h+='<div class="note" style="border-right-color:var(--leaf-dark)"><b>تفصيل مبالغ الفترة: '+(from?esc(from):'البداية')+' ← '+esc(to)+'</b></div>';
+  h+='<div class="sec-title" style="margin-top:8px">مصروفات «سجل المصروفات» حسب التصنيف — '+expN+' بند · الإجمالي '+money(expTot)+'</div>';
+  h+='<div class="table-scroll"><table><thead><tr><th class="name">التصنيف</th><th class="num">المبلغ</th><th class="num">%</th></tr></thead><tbody>'
+    +catRows+'<tr class="total-row"><td class="name">الإجمالي</td><td class="num">'+money(expTot)+'</td><td></td></tr></tbody></table></div>';
+  h+='<div class="sec-title" style="margin-top:12px">بنود تُدار خارج «سجل المصروفات» — قد تبحث عنها</div>';
+  h+='<div class="note" style="border-right-color:var(--citrus)">قيمة «المصروفات» في المؤشّر أعلاه = <b>سجل المصروفات فقط ('+money(expTot)+')</b>. البنود التالية <b>غير مضمّنة</b> فيها لأنها تُدار في وحدات أخرى:</div>';
+  h+='<div class="table-scroll"><table><thead><tr><th class="name">البند</th><th class="num">القيمة خلال الفترة</th><th class="name">أين تُسجّل</th></tr></thead><tbody>'
+    +'<tr><td class="name">الحسابات التشغيلية — سيارات ونقل (استحقاقات)</td><td class="num">'+money(opVeh)+'</td><td class="name muted">تبويب «الحسابات التشغيلية»</td></tr>'
+    +'<tr><td class="name">الحسابات التشغيلية — عمال وأجور (استحقاقات)</td><td class="num">'+money(opLab)+'</td><td class="name muted">تبويب «الحسابات التشغيلية»</td></tr>'
+    +'<tr class="total-row"><td class="name">إجمالي الحسابات التشغيلية ('+opN+' حركة)</td><td class="num">'+money(opTot)+'</td><td></td></tr>'
+    +'<tr><td class="name">المشتريات (سلع للبيع)</td><td class="num">'+money((function(){var s=0;db.purchases.forEach(function(p){if(inR(p.date))s+=(+p.total||0);});return s;})())+'</td><td class="name muted">تبويب «المشتريات» — تُعرض منفصلة</td></tr>'
+    +'</tbody></table></div>';
+  h+='<div class="rb-kpis" style="display:flex;gap:10px;flex-wrap:wrap;margin:10px 0">'
+    +'<div class="rb-kpi"><div class="k">فواتير مبيعات</div><div class="v">'+nSell+'</div></div>'
+    +'<div class="rb-kpi"><div class="k">فواتير مشتريات</div><div class="v">'+nBuy+'</div></div>'
+    +'<div class="rb-kpi '+(opTot>0?'blue':'')+'"><div class="k">مصروفات + تشغيلية</div><div class="v">'+money(expTot+opTot)+'</div></div>'
+    +'</div>';
+  h+='<div class="mini" style="color:var(--ink-2)">لو أردت أن يشمل مؤشّر «المصروفات» الحسابات التشغيلية (سيارات/عمال) تلقائياً، أخبرني لأضمّها في الحساب.</div>';
+  dt.innerHTML=h;
 }
 function renderReport(){
   if(!val('rp_type')) fillReportTypes();
