@@ -956,6 +956,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
     <button class="btn" onclick="clearExpenseFilters()">إلغاء الفلترة</button>
     <button class="btn" onclick="exportTable('expenses')">تصدير Excel</button>
   </div>
+  <div id="expReconcile" class="note no-print" style="display:none;margin-bottom:8px"></div>
   <div class="table-scroll"><table>
     <thead><tr><th>التاريخ</th><th>النوع</th><th class="name">الجهة</th><th class="name">التصنيف</th>
       <th>القيمة</th><th class="name">البيان</th><th class="name">أدخلها</th><th>إجراء</th></tr></thead>
@@ -1764,7 +1765,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-28-c';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-28-d';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -5073,6 +5074,26 @@ function renderStock(){
     :'<tr><td colspan="8" class="empty">لا يوجد رصيد افتتاحي مسجل بعد.</td></tr>';
 }
 
+/* سطر مطابقة: يكشف كم بنداً معروضاً مقابل المتاح فعلاً — ليجيب «أين باقي المصروفات؟»
+   إن كان المعروض أقل من المتاح فالسبب فلتر مُفعّل؛ ولغير المدير يوضّح أن إدخالات غيره مخفيّة. */
+function renderExpReconcile(shownN, shownSum){
+  var el=document.getElementById('expReconcile'); if(!el) return;
+  var isAdm=(ME&&ME.role==='admin');
+  var mine=(db.expenses||[]).filter(canSeeRec);              /* كل ما يحق لهذا المستخدم رؤيته (بلا فلاتر) */
+  var mineN=mine.length, mineSum=0; mine.forEach(function(x){ mineSum+=(+x.amount||0); });
+  var allN=(db.expenses||[]).length, allSum=0; (db.expenses||[]).forEach(function(x){ allSum+=(+x.amount||0); });
+  var parts=[], filtered=(mineN>shownN+0.0001)||Math.abs(mineSum-shownSum)>0.01;
+  parts.push('المعروض الآن: <b>'+shownN+'</b> بند بقيمة <b>'+money(shownSum)+'</b>.');
+  if(filtered) parts.push('<span style="color:#9a3412">يوجد فلتر مُفعّل يُخفي '+(mineN-shownN)+' بنداً ('+money(mineSum-shownSum)+') — اضغط «إلغاء الفلترة» لعرض الكل ('+mineN+' بند بقيمة '+money(mineSum)+').</span>');
+  else parts.push('لا فلاتر مخفية — هذا كامل المتاح لك ('+mineN+' بند بقيمة '+money(mineSum)+').');
+  if(isAdm){
+    if(allN>mineN) parts.push('إجمالي كل المستخدمين: '+allN+' بند بقيمة '+money(allSum)+'.');
+  } else {
+    parts.push('<span style="color:#9a3412">🔒 لا تظهر إدخالات المستخدمين الآخرين — للاطلاع على الكل ادخل بحساب «مدير النظام».</span>');
+  }
+  el.innerHTML=parts.join(' ');
+  el.style.display='';
+}
 function clearExpenseFilters(){ ['ef_search','ef_from','ef_to','ef_type','ef_supplier','ef_cat','ef_min','ef_max'].forEach(function(id){setVal(id,'');}); renderExpenses(); }
 /* فلترة المصروفات — مصدر واحد للشاشة وتصدير Excel */
 function filteredExpenses(){
@@ -5112,7 +5133,8 @@ function renderExpenses(){
   var ch=Object.keys(cats).sort(function(a,b){return (cats[b].d+cats[b].s)-(cats[a].d+cats[a].s);}).map(function(k){
     var v=cats[k],s=v.d+v.s;
     return '<tr><td class="name">'+esc(k)+'</td><td>'+money(v.d)+'</td><td>'+money(v.s)+'</td><td>'+money(s)+'</td><td class="muted">'+pct(s,T)+'</td></tr>'; }).join('');
-  document.getElementById('tbExpCat').innerHTML=ch||'<tr><td colspan="5" class="empty">—</td></tr>';
+  document.getElementById('tbExpCat').innerHTML=mineOnlyRow(5)+(ch||'<tr><td colspan="5" class="empty">—</td></tr>');
+  renderExpReconcile(rows.length, T);
 }
 
 /* الرصيد النهائي لجهة — مصدر واحد يشمل كل المكوّنات (قيود التسوية adj ضمنها) */
