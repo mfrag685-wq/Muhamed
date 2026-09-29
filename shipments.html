@@ -1209,7 +1209,7 @@ html[data-theme="dark"] .rt td.hl{background:#2e2814;color:var(--accent)}
 
 <!-- ══ PAGE 8: SUPPLIER ACCOUNT (كشف حساب المورد) ══ -->
 <div id="page-supacct" class="page">
-  <div class="alert ai" style="margin-bottom:12px">📒 <strong>كشف حساب المورد</strong> — رصيد <strong>مدين</strong> = قيمة الشراء (FOB) لشحنات هذا المورد (نفس إجمالي «سجل الشحنات»)، ورصيد <strong>دائن</strong> = دفعاته المسجَّلة، مع <strong>الرصيد المتبقّي</strong>. أجور الشحن تبقى في «كشف حساب الشحن» منفصلةً.</div>
+  <div class="alert ai" style="margin-bottom:12px">📒 <strong>كشف حساب المورد</strong> — رصيد <strong>مدين</strong> = قيمة الشراء (FOB) لشحنات هذا المورد (نفس إجمالي «سجل الشحنات»)، ورصيد <strong>دائن</strong> = دفعاته المسجَّلة، مع <strong>الرصيد المتبقّي</strong>. يمكن أيضاً استيراد <strong>فواتير مشتريات</strong> (تزيد المدين) و<strong>مجموعة دفعات</strong> تظهر هنا وفي كشف المقارنة. أجور الشحن تبقى في «كشف حساب الشحن» منفصلةً.</div>
 
   <div class="card" style="margin-bottom:12px">
     <div class="card-body" style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
@@ -1223,6 +1223,34 @@ html[data-theme="dark"] .rt td.hl{background:#2e2814;color:var(--accent)}
       <button class="btn btn-outline btn-sm" onclick="document.getElementById('spay-import-file').click()">⬆️ استيراد الدفعات</button>
       <button class="btn btn-outline btn-sm" onclick="undoLastImport()">↩ تراجع عن آخر استيراد</button>
       <input type="file" id="spay-import-file" accept=".xlsx,.xls,.csv" style="display:none" onchange="handleSupplierPayImport(event)">
+    </div>
+  </div>
+
+  <div class="card import-card" style="margin-bottom:12px">
+    <div class="card-header">🧾📥 استيراد مجموعة — تظهر في كشف حساب المورد وفي كشف المقارنة</div>
+    <div class="card-body">
+      <p style="margin:0 0 10px;font-size:.82rem;color:var(--muted)">استورد مجموعة <strong>دفعات</strong> (مشتركة أو تخص جهة) أو مجموعة <strong>فواتير مشتريات</strong> (قيمة شراء لكل شحنة). عمود <strong>الوجهة</strong>: <em>مشتركة</em> = تظهر للنموذجين · <em>أ</em> / <em>ب</em> = تخص نموذجاً واحداً. الدفعات تُسجَّل في حساب المورد + دفعات المقارنة، والفواتير تزيد رصيد المورد وتظهر في كشف المقارنة.</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
+        <strong style="font-size:.82rem;min-width:70px">💳 دفعات:</strong>
+        <button class="btn btn-outline btn-sm" onclick="downloadGroupPayTemplate()">⬇️ نموذج دفعات جماعية</button>
+        <button class="btn btn-primary btn-sm" onclick="document.getElementById('grp-pay-xlsx').click()">📊 استيراد Excel</button>
+        <button class="btn btn-outline btn-sm" onclick="document.getElementById('grp-pay-csv').click()">📄 استيراد CSV</button>
+        <input type="file" id="grp-pay-xlsx" accept=".xlsx,.xls" style="display:none" onchange="handleGroupPayImport(event,'xlsx')">
+        <input type="file" id="grp-pay-csv" accept=".csv,.txt" style="display:none" onchange="handleGroupPayImport(event,'csv')">
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
+        <strong style="font-size:.82rem;min-width:70px">🧾 فواتير:</strong>
+        <button class="btn btn-outline btn-sm" onclick="downloadGroupInvTemplate()">⬇️ نموذج فواتير مشتريات</button>
+        <button class="btn btn-primary btn-sm" onclick="document.getElementById('grp-inv-xlsx').click()">📊 استيراد Excel</button>
+        <button class="btn btn-outline btn-sm" onclick="document.getElementById('grp-inv-csv').click()">📄 استيراد CSV</button>
+        <input type="file" id="grp-inv-xlsx" accept=".xlsx,.xls" style="display:none" onchange="handleGroupInvImport(event,'xlsx')">
+        <input type="file" id="grp-inv-csv" accept=".csv,.txt" style="display:none" onchange="handleGroupInvImport(event,'csv')">
+      </div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center">
+        <label style="display:flex;align-items:center;gap:6px;font-size:.82rem"><input type="checkbox" id="grp-replace" style="width:auto"> استبدال المستورد سابقاً لكل شركة</label>
+        <button class="btn btn-outline btn-sm" onclick="undoLastImport()">↩ تراجع عن آخر استيراد</button>
+      </div>
+      <div id="grp-import-status" style="font-size:.82rem;color:var(--success);margin-top:8px"></div>
     </div>
   </div>
 
@@ -1668,6 +1696,7 @@ function deleteProfile(id) {
     localStorage.removeItem('scs_supplierpay_'+id);
     localStorage.removeItem('scs_modelb_'+id);
     localStorage.removeItem('scs_cmppay_'+id);
+    localStorage.removeItem('scs_supinv_'+id);
     profilesSave(profiles.filter(x=>x.id!==id));
     // If was active, clear active
     if (getActiveProfileId()===id) localStorage.removeItem(ACTIVE_KEY);
@@ -3531,7 +3560,7 @@ function mergeProfileData(fromId,toId){
     _lsSet(t, JSON.stringify(ord.map(function(kk){return map[kk];})));
   }
   // مصفوفات مالية: اتحاد بالمعرّف
-  ['scs_pay_','scs_freightpay_','scs_suppliers_','scs_supplierpay_','scs_cmppay_'].forEach(function(pfx){
+  ['scs_pay_','scs_freightpay_','scs_suppliers_','scs_supplierpay_','scs_cmppay_','scs_supinv_'].forEach(function(pfx){
     var ff=pfx+fromId, tt=pfx+toId; if(gS(ff)==null) return;
     var fa2=_safeArr(gS(ff)), ta2=_safeArr(gS(tt)), seen={}, out=[];
     ta2.concat(fa2).forEach(function(x){ var kk=(x&&x.id)?String(x.id):JSON.stringify(x); if(!seen[kk]){seen[kk]=1;out.push(x);} });
@@ -3813,7 +3842,8 @@ function buildFullBackup(){
       spay: JSON.parse(localStorage.getItem('scs_supplierpay_'+p.id)||'[]'),
       mb: JSON.parse(localStorage.getItem('scs_modelb_'+p.id)||'{}'),
       cmp: JSON.parse(localStorage.getItem('scs_cmpcfg_'+p.id)||'{}'),
-      cmppay: JSON.parse(localStorage.getItem('scs_cmppay_'+p.id)||'[]')
+      cmppay: JSON.parse(localStorage.getItem('scs_cmppay_'+p.id)||'[]'),
+      supinv: JSON.parse(localStorage.getItem('scs_supinv_'+p.id)||'[]')
     });
   });
   return out;
@@ -3855,6 +3885,7 @@ function importFullBackup(){
             if(entry.mb) localStorage.setItem('scs_modelb_'+p.id, JSON.stringify(entry.mb||{}));
             if(entry.cmp) localStorage.setItem('scs_cmpcfg_'+p.id, JSON.stringify(entry.cmp||{}));
             if(entry.cmppay) localStorage.setItem('scs_cmppay_'+p.id, JSON.stringify(entry.cmppay||[]));
+            if(entry.supinv) localStorage.setItem('scs_supinv_'+p.id, JSON.stringify(entry.supinv||[]));
           });
           profilesSave(profiles);
           renderQuickSwitch(); renderArchive();
@@ -3925,6 +3956,7 @@ function restoreAutoBackup(){
       if(entry.mb) localStorage.setItem('scs_modelb_'+p.id, JSON.stringify(entry.mb||{}));
       if(entry.cmp) localStorage.setItem('scs_cmpcfg_'+p.id, JSON.stringify(entry.cmp||{}));
       if(entry.cmppay) localStorage.setItem('scs_cmppay_'+p.id, JSON.stringify(entry.cmppay||[]));
+      if(entry.supinv) localStorage.setItem('scs_supinv_'+p.id, JSON.stringify(entry.supinv||[]));
     });
     profilesSave(profiles);
     renderQuickSwitch(); renderArchive();
@@ -4894,7 +4926,10 @@ function supAcctLedger(name, from, to){
   // حساب نموذج أ يشمل الدفعات الموسومة «أ» أو «كلاهما» (والقديمة بلا وسم تُعامل كـ«أ»)
   var pays=saPayLoad().filter(function(p){ var tg=p.target||'a'; return String(p.supplier||'').toLowerCase()===lname && (tg==='a'||tg==='both'); })
     .map(function(p){ var m=(p.method==='transfer')?('تحويل'+(p.bank?' — '+p.bank:'')):'نقدًا'; var tgl=(p.target==='both')?' [أ+ب]':''; return {date:p.date||'', kind:'pay', id:p.id, label:'دفعة ('+m+')'+tgl+(p.ref?' #'+p.ref:'')+(p.notes?' — '+p.notes:''), dr:0, cr:saPayToSar(p)}; });
-  var all=ships.concat(pays);
+  // فواتير مشتريات مستوردة (مدين) — تخص نموذج أ أو مشتركة (نفس منطق الدفعات)
+  var invs=supInvLoad().filter(function(v){ var tg=v.target||'both'; return String(v.supplier||'').toLowerCase()===lname && (tg==='a'||tg==='both'); })
+    .map(function(v){ return {date:v.date||'', kind:'inv', id:v.id, label:'فاتورة شراء'+(v.shipmentNo?' — شحنة '+v.shipmentNo:'')+((v.target==='both')?' [أ+ب]':'')+(v.notes?' — '+v.notes:''), dr:supInvToSar(v), cr:0}; });
+  var all=ships.concat(pays).concat(invs);
   // رصيد افتتاحي للمورد (تاريخ فارغ = أقدم حركة)
   var sup=supLoad().find(function(x){ return x.name.toLowerCase()===lname; });
   var op=saOpeningSar(sup);
@@ -5356,12 +5391,17 @@ function renderCmpNet(){
   function colHtml(model,label,accent){
     var total=0, ships=[];
     rows.forEach(function(r){ var amt=(model==='a')?r.aTot:r.bTot; if(amt>0){ total+=amt; ships.push({num:r.num, amt:amt}); } });
+    // فواتير مشتريات مستوردة تخص هذا النموذج (أو مشتركة) — تُضاف للإجمالي (مدين)
+    var invList=supInvLoad().filter(function(v){ var t=v.target||'both'; return t===model||t==='both'; });
+    var invTot=invList.reduce(function(s,v){return s+supInvToSar(v);},0);
+    total+=invTot;
     var pl=pays.filter(function(p){ var t=p.target||'both'; return t===model||t==='both'; });
     var paid=pl.reduce(function(s,p){return s+cmpPayToSar(p);},0);
     var rem=total-paid;
     var h='<div class="card" style="border-top:3px solid '+accent+';margin:0">'+
       '<div class="card-header" style="justify-content:flex-start;color:'+accent+'">'+escH(label)+'</div><div class="card-body">'+
-      '<div style="display:flex;justify-content:space-between;padding:3px 0"><span style="color:var(--muted)">إجمالي الشحنات (ر.س)</span><b>'+fmtD(total)+'</b></div>'+
+      '<div style="display:flex;justify-content:space-between;padding:3px 0"><span style="color:var(--muted)">إجمالي المدين (شحنات'+(invTot>0?' + فواتير مستوردة':'')+') (ر.س)</span><b>'+fmtD(total)+'</b></div>'+
+      (invTot>0?'<div style="display:flex;justify-content:space-between;padding:3px 0;font-size:.8rem"><span style="color:var(--muted)">— منها فواتير مشتريات مستوردة</span><b style="color:#7a3e10">'+fmtD(invTot)+'</b></div>':'')+
       '<div style="display:flex;justify-content:space-between;padding:3px 0"><span style="color:var(--muted)">إجمالي الدفعات (ر.س)</span><b>'+fmtD(paid)+'</b></div>'+
       '<div style="display:flex;justify-content:space-between;padding:6px 0;border-top:1px solid var(--border);margin-top:4px;font-weight:800"><span>'+(rem>=0?'المتبقّي':'فائض مدفوع')+'</span><b style="color:'+(rem>0?'var(--danger)':'var(--success)')+'">'+fmtD(Math.abs(rem))+' ر.س</b></div>';
     if(_cmpAcctMode==='detail'){
@@ -5371,6 +5411,10 @@ function renderCmpNet(){
           '<span>▾ شحنة #'+escH(s.num)+'</span><b>'+fmtD(s.amt)+' ر.س</b></div>'+
           '<div id="'+rid+'" style="padding:6px 10px;background:#fafbfc;overflow-x:auto">'+modelDetailRows(s.num,model)+'</div></div>';
       });
+      if(invList.length){
+        h+='<div style="margin-top:10px;font-weight:700;color:#7a3e10">فواتير مشتريات مستوردة</div>';
+        invList.forEach(function(v){ h+='<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px dashed var(--border);font-size:.82rem"><span>'+escH(v.date||'')+(v.shipmentNo?' — شحنة '+escH(v.shipmentNo):'')+(v.supplier?' — '+escH(v.supplier):'')+(v.target==='both'?' <span style="color:#7a3e10">(مشتركة)</span>':'')+'</span><b>+ '+fmtD(supInvToSar(v))+' ر.س</b></div>'; });
+      }
       if(pl.length){
         h+='<div style="margin-top:10px;font-weight:700;color:var(--muted)">الدفعات المخصومة</div>';
         pl.forEach(function(p){ h+='<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px dashed var(--border);font-size:.82rem"><span>'+escH(p.date||'')+' — '+escH(p.bank||(p.method==='transfer'?'تحويل':'نقد'))+(p.target==='both'?' <span style="color:#7a3e10">(مشتركة)</span>':'')+'</span><b style="color:var(--success)">− '+fmtD(cmpPayToSar(p))+' ر.س</b></div>'; });
@@ -5630,6 +5674,137 @@ function applySupplierPayRows(aoa){
   saPaySave(list.concat(addRows)); if(document.getElementById('page-supacct').classList.contains('active')) renderSupAcct();
   logAction('استيراد دفعات موردين Excel', added+' دفعة'); toast('✅ تم استيراد '+added+' دفعة مورد — للتراجع اضغط «↩ تراجع عن آخر استيراد»');
 }
+// ═══════════════════════════════════════════
+// 🧾📥 استيراد مجموعة: دفعات (حساب المورد + المقارنة) + فواتير مشتريات (رصيد المورد + المقارنة)
+// ═══════════════════════════════════════════
+function supInvKey(pid){ return 'scs_supinv_'+(pid||getActiveProfileId()||'default'); }
+function supInvLoad(pid){ try{ var a=JSON.parse(localStorage.getItem(supInvKey(pid))||'[]'); return Array.isArray(a)?a:[]; }catch(e){ return []; } }
+function supInvSave(a,pid){ try{ localStorage.setItem(supInvKey(pid),JSON.stringify(a)); return true; }catch(e){ toast('⚠️ فشل حفظ الفواتير: التخزين ممتلئ',true); return false; } }
+function supInvToSar(v){ var a=parseFloat(v&&v.amount)||0; return (v&&v.cur==='USD')?a*(parseFloat(v&&v.rate)||S.fxUsdSar||3.756):a; }
+// تطبيع «الوجهة»: مشتركة/معاً → both · أ/a → a · ب/b → b (مع دعم أسماء نماذج المقارنة)
+function grpNormTarget(s){
+  var t=String(s==null?'':s).replace(/[إأآا]/g,'ا').replace(/\s+/g,'').toLowerCase();
+  if(!t) return 'both';
+  if(t==='both'||/مشترك|معا|كلاهما|كليهما|الاثنين|الشركتان/.test(t)) return 'both';
+  if(t==='b'||t==='ب') return 'b';
+  if(t==='a'||t==='ا') return 'a';
+  try{ var L=cmpLabels(); var na=String(L.a).replace(/\s+/g,'').toLowerCase(), nb=String(L.b).replace(/\s+/g,'').toLowerCase(); if(t===na) return 'a'; if(t===nb) return 'b'; }catch(e){}
+  if(/نموذجا/.test(t)) return 'a'; if(/نموذجب/.test(t)) return 'b';
+  return 'both';
+}
+function _grpNorm(s){ return String(s==null?'':s).replace(/[إأآا]/g,'ا').replace(/[ة]/g,'ه').replace(/\s+/g,'').toLowerCase(); }
+function _grpIdx(header){ return function(exact,inc){ var i=header.findIndex(function(h){return _grpNorm(h)===_grpNorm(exact);}); if(i<0&&inc) i=header.findIndex(function(h){return _grpNorm(h).indexOf(_grpNorm(inc))>=0;}); return i; }; }
+function grpReadFile(e,kind,cb){
+  var f=e.target.files[0]; if(!f) return;
+  if(isReadonly()){ toast('👁 وضع القراءة فقط',true); e.target.value=''; return; }
+  var reader=new FileReader();
+  reader.onload=function(ev){
+    try{
+      var aoa;
+      if(kind==='csv'){ aoa=parseCSV(ev.target.result); }
+      else { if(typeof XLSX==='undefined'){ toast('⚠️ مكتبة Excel غير محمّلة',true); e.target.value=''; return; } var wb=XLSX.read(ev.target.result,{type:'array',cellDates:true}); aoa=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:''}); }
+      cb(aoa, f.name);
+    }catch(err){ toast('⚠️ خطأ في قراءة الملف: '+err.message,true); }
+    e.target.value='';
+  };
+  if(kind==='csv') reader.readAsText(f,'utf-8'); else reader.readAsArrayBuffer(f);
+}
+function handleGroupPayImport(e,kind){ grpReadFile(e,kind,applyGroupPayRows); }
+function handleGroupInvImport(e,kind){ grpReadFile(e,kind,applyGroupInvRows); }
+
+function applyGroupPayRows(aoa,fname){
+  if(!aoa||!aoa.length){ toast('⚠️ الملف فارغ',true); return; }
+  var hi=aoa.findIndex(function(r){return Array.isArray(r)&&r.some(function(c){return String(c).trim()!=='';});});
+  if(hi<0){ toast('⚠️ لا بيانات في الملف',true); return; }
+  var header=aoa[hi]||[], idx=_grpIdx(header);
+  var cSup=idx('المورد','مورد'), cDate=idx('التاريخ','تاريخ'), cAmt=idx('المبلغ','مبلغ'), cCur=idx('العملة','عمل'),
+      cMeth=idx('طريقة الدفع','طريقه'), cBank=idx('البنك','بنك'), cRef=idx('مرجع العملية','مرجع'), cTg=idx('الوجهة','وجه'), cNotes=idx('ملاحظات','ملاحظ'), start=hi+1;
+  if(cAmt<0){ cSup=0;cDate=1;cAmt=2;cCur=3;cMeth=4;cBank=5;cRef=6;cTg=7;cNotes=8; start=hi; }
+  var v=function(r,c){return c>=0?String(r[c]!=null?r[c]:'').trim():'';};
+  var pid=getActiveProfileId(), batch='grp_'+Date.now(), spays=[], cpays=[], n=0;
+  for(var i=start;i<aoa.length;i++){ var r=aoa[i]; if(!Array.isArray(r)) continue;
+    var amt=parseFloat(String(r[cAmt]!=null?r[cAmt]:'').replace(/[^\d.\-]/g,''))||0; if(amt<=0) continue;
+    var sup=v(r,cSup), cur=v(r,cCur).toUpperCase(); if(cur!=='USD'&&cur!=='SAR') cur='SAR';
+    var mv=_grpNorm(v(r,cMeth)), method=(mv.indexOf('تحويل')>=0||mv.indexOf('بنك')>=0||mv.indexOf('transfer')>=0)?'transfer':'cash';
+    var target=grpNormTarget(v(r,cTg)), date=toDateStr(r[cDate])||new Date().toISOString().slice(0,10);
+    var bank=v(r,cBank), ref=v(r,cRef), notes=v(r,cNotes), rate=(S.fxUsdSar||3.756);
+    spays.push({id:'sp_'+Date.now()+'_'+n, batch:batch, supplier:sup, date:date, amount:amt, cur:cur, rate:rate, target:target, method:method, bank:bank, ref:ref, notes:notes});
+    cpays.push({id:'cpay_'+Date.now()+'_'+n, batch:batch, date:date, amount:amt, cur:cur, rate:(cur==='USD'?rate:''), target:target, method:method, bank:bank, note:(sup?(sup+(notes?' — '+notes:'')):notes)});
+    n++;
+  }
+  if(!n){ toast('⚠️ لا دفعات صالحة (تحقق من المبلغ)',true); return; }
+  var replace=document.getElementById('grp-replace') && document.getElementById('grp-replace').checked;
+  importBackup('استيراد مجموعة دفعات', [saPayKey(pid), cmpPayKey(pid)]);
+  var baseSp=replace?saPayLoad(pid).filter(function(x){return !x.batch;}):saPayLoad(pid);
+  var baseCp=replace?cmpPayLoad(pid).filter(function(x){return !x.batch;}):cmpPayLoad(pid);
+  saPaySave(baseSp.concat(spays),pid); cmpPaySave(baseCp.concat(cpays),pid);
+  try{ if(document.getElementById('page-supacct').classList.contains('active')) renderSupAcct(); }catch(e){}
+  try{ renderCmpPayList(); renderCmpNet(); }catch(e){}
+  var st=document.getElementById('grp-import-status'); if(st) st.textContent='✅ استُوردت '+n+' دفعة (حساب المورد + دفعات المقارنة) من: '+fname;
+  logAction('استيراد مجموعة دفعات', n+' دفعة'); toast('✅ تم استيراد '+n+' دفعة — للتراجع اضغط «↩ تراجع»');
+}
+
+function applyGroupInvRows(aoa,fname){
+  if(!aoa||!aoa.length){ toast('⚠️ الملف فارغ',true); return; }
+  var hi=aoa.findIndex(function(r){return Array.isArray(r)&&r.some(function(c){return String(c).trim()!=='';});});
+  if(hi<0){ toast('⚠️ لا بيانات في الملف',true); return; }
+  var header=aoa[hi]||[], idx=_grpIdx(header);
+  var cSup=idx('المورد','مورد'), cShip=idx('رقم الشحنة','شحن'), cDate=idx('التاريخ','تاريخ'), cAmt=idx('المبلغ','مبلغ'),
+      cCur=idx('العملة','عمل'), cTg=idx('الوجهة','وجه'), cNotes=idx('ملاحظات','ملاحظ'), start=hi+1;
+  if(cAmt<0){ cSup=0;cShip=1;cDate=2;cAmt=3;cCur=4;cTg=5;cNotes=6; start=hi; }
+  var v=function(r,c){return c>=0?String(r[c]!=null?r[c]:'').trim():'';};
+  var pid=getActiveProfileId(), batch='grp_'+Date.now(), invs=[], n=0;
+  for(var i=start;i<aoa.length;i++){ var r=aoa[i]; if(!Array.isArray(r)) continue;
+    var amt=parseFloat(String(r[cAmt]!=null?r[cAmt]:'').replace(/[^\d.\-]/g,''))||0; if(amt<=0) continue;
+    var cur=v(r,cCur).toUpperCase(); if(cur!=='USD'&&cur!=='SAR') cur='SAR';
+    invs.push({id:'inv_'+Date.now()+'_'+n, batch:batch, supplier:v(r,cSup), shipmentNo:v(r,cShip),
+      date:toDateStr(r[cDate])||new Date().toISOString().slice(0,10), amount:amt, cur:cur,
+      rate:(S.fxUsdSar||3.756), target:grpNormTarget(v(r,cTg)), notes:v(r,cNotes)});
+    n++;
+  }
+  if(!n){ toast('⚠️ لا فواتير صالحة (تحقق من المبلغ)',true); return; }
+  var replace=document.getElementById('grp-replace') && document.getElementById('grp-replace').checked;
+  importBackup('استيراد فواتير مشتريات', [supInvKey(pid)]);
+  var base=replace?supInvLoad(pid).filter(function(x){return !x.batch;}):supInvLoad(pid);
+  supInvSave(base.concat(invs),pid);
+  try{ if(document.getElementById('page-supacct').classList.contains('active')) renderSupAcct(); }catch(e){}
+  try{ renderCmpNet(); }catch(e){}
+  var st=document.getElementById('grp-import-status'); if(st) st.textContent='✅ استُوردت '+n+' فاتورة شراء (رصيد المورد + كشف المقارنة) من: '+fname;
+  logAction('استيراد فواتير مشتريات', n+' فاتورة'); toast('✅ تم استيراد '+n+' فاتورة — للتراجع اضغط «↩ تراجع»');
+}
+
+function downloadGroupPayTemplate(){
+  if(typeof XLSX==='undefined'){ toast('⚠️ مكتبة Excel غير محمّلة',true); return; }
+  var rows=[['المورد','التاريخ','المبلغ','العملة','طريقة الدفع','البنك','مرجع العملية','الوجهة','ملاحظات'],
+    ['مورد الصين','2025-06-01',20000,'SAR','تحويل','الراجحي','TRX-1','مشتركة','دفعة مشتركة للنموذجين'],
+    ['مورد الصين','2025-06-05',5000,'USD','نقدا','','','أ','تخص نموذج أ فقط'],
+    ['مورد الصين','2025-06-08',3000,'SAR','تحويل','الأهلي','TRX-2','ب','تخص نموذج ب فقط']];
+  var ws=XLSX.utils.aoa_to_sheet(rows); ws['!cols']=[{wch:18},{wch:12},{wch:12},{wch:9},{wch:12},{wch:14},{wch:14},{wch:12},{wch:22}];
+  var info=XLSX.utils.aoa_to_sheet([['📘 تعليمات استيراد مجموعة الدفعات'],[''],
+    ['• عمود «الوجهة»: مشتركة (تظهر للنموذجين) / أ / ب.'],
+    ['• «العملة»: SAR أو USD (USD يُحوَّل بسعر الصرف الحالي).'],
+    ['• «طريقة الدفع»: تحويل أو نقدا.'],
+    ['• تُسجَّل الدفعة في كشف حساب المورد وفي دفعات المقارنة معاً.'],
+    ['• بعد الاستيراد يمكن التراجع بزر «↩ تراجع عن آخر استيراد».']]);
+  var wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'الدفعات'); XLSX.utils.book_append_sheet(wb,info,'تعليمات');
+  XLSX.writeFile(wb,'نموذج_مجموعة_دفعات.xlsx'); toast('⬇️ تم تنزيل نموذج الدفعات الجماعية');
+}
+function downloadGroupInvTemplate(){
+  if(typeof XLSX==='undefined'){ toast('⚠️ مكتبة Excel غير محمّلة',true); return; }
+  var rows=[['المورد','رقم الشحنة','التاريخ','المبلغ','العملة','الوجهة','ملاحظات'],
+    ['مورد الصين','1','2025-06-01',50000,'SAR','مشتركة','فاتورة شراء شحنة 1'],
+    ['مورد الصين','2','2025-06-10',54000,'SAR','مشتركة','فاتورة شراء شحنة 2'],
+    ['مورد الصين','3','2025-06-15',12000,'USD','أ','تخص نموذج أ']];
+  var ws=XLSX.utils.aoa_to_sheet(rows); ws['!cols']=[{wch:18},{wch:12},{wch:12},{wch:12},{wch:9},{wch:12},{wch:22}];
+  var info=XLSX.utils.aoa_to_sheet([['📘 تعليمات استيراد فواتير المشتريات'],[''],
+    ['• كل سطر = فاتورة شراء لشحنة (قيمة الشراء).'],
+    ['• تزيد رصيد المورد (مدين) وتظهر في كشف المقارنة.'],
+    ['• عمود «الوجهة»: مشتركة / أ / ب.'],
+    ['• «العملة»: SAR أو USD.'],
+    ['• بعد الاستيراد يمكن التراجع بزر «↩ تراجع عن آخر استيراد».']]);
+  var wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'الفواتير'); XLSX.utils.book_append_sheet(wb,info,'تعليمات');
+  XLSX.writeFile(wb,'نموذج_فواتير_مشتريات.xlsx'); toast('⬇️ تم تنزيل نموذج فواتير المشتريات');
+}
 // ── الطباعة ──
 function cmpPrintWindow(title, inner){
   var pname=(profilesLoad().find(function(p){return p.id===getActiveProfileId();})||{}).name||'';
@@ -5824,7 +5999,7 @@ function exportPaymentsExcel(){
 // ═══════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════
-var APP_VERSION='v2026-09-23.9';   // رقم إصدار ظاهر للتحقق من تحميل أحدث نسخة (لا cache قديم)
+var APP_VERSION='v2026-09-29.10';   // رقم إصدار ظاهر للتحقق من تحميل أحدث نسخة (لا cache قديم)
 function initApp() {
   try{ var av=document.getElementById('app-ver'); if(av) av.textContent=APP_VERSION; }catch(e){}
   try{ reconcileProfiles(); }catch(e){}   // توحيد أي بروفايلات مكرّرة محلياً قبل العرض
