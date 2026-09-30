@@ -207,7 +207,7 @@ tr:hover td{background:#f8fafc}
     <button class="navbtn" data-page="import">🚚 الموردون</button>
     <button class="navbtn" data-page="employees">👥 الموظفون</button>
     <button class="navbtn" data-page="settings">⚙️ الإعدادات</button>
-    <a class="navlink hidden" id="navFormatter" href="منسق_التقارير.html">🎨 منسق تقارير Excel</a>
+    <a class="navlink hidden" id="navFormatter" href="منسق_التقارير.html" onclick="handoffFormatter()" onauxclick="handoffFormatter()">🎨 منسق تقارير Excel</a>
     <div class="foot">
       <b id="who"></b>
       <div style="margin-bottom:6px"><span class="cloud-status off" id="cloudStatus2">غير مفعّل</span></div>
@@ -235,7 +235,7 @@ tr:hover td{background:#f8fafc}
    ============================================================ */
 const KEY="inv_system_v2";
 /* رقم إصدار التطبيق — يُزاد مع كل تحديث؛ يُقارَن بالنسخة المنشورة لإظهار زر التحديث */
-const APP_VERSION="2026-09-30-01";
+const APP_VERSION="2026-09-30-02";
 let DB,ME;
 /* التحقق من توفّر نسخة أحدث بجلب الملف نفسه (بدون كاش) ومقارنة رقم الإصدار */
 function checkForUpdate(){
@@ -297,6 +297,9 @@ function can(k){if(!ME||!ME.perms)return false;
 function allowedCompanies(){if(!ME)return DB.companies;const a=ME.companies;return (a&&a.length)?DB.companies.filter(c=>a.includes(c.id)):DB.companies;}
 function mayAccessCompany(id){if(!ME)return true;const a=ME.companies;return !a||!a.length||a.includes(id);}
 function guard(k,msg){if(can(k))return true;toast(msg||"لا تملك صلاحية لهذا الإجراء");return false;}
+/* تسليم هوية المستخدم لمنسق التقارير (مفتاح لمرة واحدة صالح دقيقتين) ليعرض له قوالبه الخاصة فقط — لا يمس بيانات المخزون */
+function handoffFormatter(){try{if(!ME||!can("reportFormatter"))return;
+  localStorage.setItem("rf-handoff",JSON.stringify({key:ME.fbUid||("id"+ME.id),name:ME.name||ME.username,role:ME.role,t:Date.now()}));}catch(e){}}
 function applyNav(){
   document.querySelectorAll(".navbtn").forEach(b=>b.classList.toggle("hidden",!can(b.dataset.page)));
   const nf=$("#navFormatter");if(nf)nf.classList.toggle("hidden",!can("reportFormatter")); // أداة مستقلة — لا تقرأ ولا تعدّل بيانات المخزون
