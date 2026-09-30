@@ -131,7 +131,7 @@ button{cursor:pointer}
   <h1>🎨 منسق تقارير Excel</h1>
   <span>ارفع تقريرك كما هو ← اختر الألوان والنمط ← نزّله Excel منسقاً أو PDF</span>
   <div class="sp"></div>
-  <a href="inventory.html">↩ رجوع للنظام</a>
+  <a href="index.html" id="backLink">↩ رجوع للنظام</a>
 </div>
 
 <div class="wrap">
@@ -718,6 +718,8 @@ function downloadPdf() {
   setTimeout(() => window.print(), 50);
 }
 
+// زر الرجوع يعود للنظام الذي فُتح المنسق منه (التوريد أو المخزون)
+try { const r = new URL(document.referrer); if (r.origin === location.origin && /\.html$|\/$/.test(r.pathname)) $('backLink').href = r.href; } catch (e) {}
 renderSwatches(); syncInputs();
 </script>
 </body>
