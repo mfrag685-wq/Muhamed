@@ -89,6 +89,21 @@ button{cursor:pointer}
 .cols td:nth-child(2){max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .cols select{border:1px solid var(--line);border-radius:6px;padding:3px;font-size:12px;background:#fff}
 .cols th{font-size:11.5px;color:var(--muted);font-weight:600;text-align:start;padding:3px}
+.cols tr.off td:nth-child(2){color:#94a3b8;text-decoration:line-through}
+.ib{border:1px solid var(--line);background:#fff;border-radius:7px;width:28px;height:26px;cursor:pointer;font-size:13px;padding:0}
+.ib:hover{background:#f1f5f9}
+.ib.del:hover{background:#fee2e2;border-color:#fca5a5}
+.restore{margin-top:8px}
+.hidbar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:12.5px;color:var(--muted);margin-bottom:10px}
+.hidbar:empty{display:none}
+.chip{border:1px dashed #94a3b8;background:#fff;border-radius:999px;padding:4px 11px;font-size:12px;color:#334155;cursor:pointer}
+.chip:hover{border-color:var(--brand);color:var(--brand-d);background:#f0fdfa}
+.rep th{position:relative}
+.rep th .hx{position:absolute;top:2px;inset-inline-end:2px;width:18px;height:18px;border-radius:50%;border:0;background:rgba(0,0,0,.35);
+  color:#fff;font-size:11px;line-height:18px;padding:0;cursor:pointer;opacity:0;transition:.15s}
+.rep th:hover .hx{opacity:1}
+.rep th .hx:hover{background:#dc2626}
+@media(hover:none){.rep th .hx{opacity:.75}}
 
 .pv{min-width:0}
 .bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
@@ -279,9 +294,11 @@ button{cursor:pointer}
 
       <div class="card">
         <h3>📐 الأعمدة <small>للورقة الحالية</small></h3>
-        <table class="cols"><thead><tr><th></th><th>العمود</th><th>النوع</th><th title="يُجمع في صف الإجمالي">Σ</th><th title="يظهر بجانبه رمز العملة">💲</th></tr></thead>
+        <table class="cols"><thead><tr><th title="إظهار / إخفاء">👁</th><th>العمود</th><th>النوع</th><th title="يُجمع في صف الإجمالي">Σ</th><th title="يظهر بجانبه رمز العملة">💲</th><th title="حذف العمود">🗑</th></tr></thead>
           <tbody id="cols"></tbody></table>
-        <div class="hint">ألغِ تحديد عمود لإخفائه، وغيّر نوعه إن أخطأ الاكتشاف التلقائي. Σ = يُجمع في الإجمالي، 💲 = يظهر معه رمز العملة.</div>
+        <div id="colsRestore"></div>
+        <div class="hint">👁 إخفاء/إظهار العمود · 🗑 حذفه من القائمة · يمكنك أيضاً الإخفاء بزر ✕ على رأس العمود في المعاينة.
+          غيّر النوع إن أخطأ الاكتشاف التلقائي. Σ = يُجمع في الإجمالي، 💲 = يظهر معه رمز العملة.</div>
       </div>
     </aside>
 
@@ -293,6 +310,7 @@ button{cursor:pointer}
         <button class="btn pdf" onclick="downloadPdf()">⬇ تنزيل PDF</button>
       </div>
       <div class="stats" id="stats"></div>
+      <div class="hidbar" id="hidbar"></div>
       <div class="paper"><div id="preview"></div></div>
       <div class="hint">PDF: في نافذة الطباعة اختر «حفظ بتنسيق PDF / Save as PDF» كوجهة للطابعة.</div>
     </section>
@@ -504,7 +522,7 @@ const round = n => Math.round(n * 1e8) / 1e8;
 // نموذج موحّد للورقة تستخدمه المعاينة وExcel وPDF معاً
 function model(sheet) {
   const rtl = O.dir === 'auto' ? sheet.isAr : O.dir === 'rtl';
-  const idx = sheet.cols.map((c, i) => i).filter(i => sheet.cols[i].include);
+  const idx = sheet.cols.map((c, i) => i).filter(i => sheet.cols[i].include && !sheet.cols[i].deleted);
   const cols = idx.map(i => ({...sheet.cols[i], src: i, dec: decimalsFor(sheet, i)}));
   if (O.serial) cols.unshift({name: rtl ? 'م' : '#', type: 'serial', src: -1, dec: 0});
   let k = 0;
@@ -548,7 +566,7 @@ const headFont = () => O.fontHead === 'same' ? O.font : O.fontHead;
 const dens = () => DENSITY[O.density] || DENSITY.normal;
 
 /* ================= المعاينة (HTML) ================= */
-function renderHTML(m) {
+function renderHTML(m, preview) {
   const t = theme(), s = m.sheet;
   const cls = ['rep', O.headStyle === 'soft' ? 'hd-soft' : '', O.borders === 'h' ? 'b-h' : O.borders === 'none' ? 'b-n' : '',
     O.zebra ? 'zb' : '', O.frame ? 'fr' : '', O.dataAlign !== 'auto' ? 'da-' + O.dataAlign : ''].join(' ');
@@ -562,7 +580,7 @@ function renderHTML(m) {
   if (s.title) h += `<div class="ti ${O.titleStyle === 'bar' ? 'barred' : ''}">${esc(s.title)}</div>`;
   if (s.subtitle) h += `<div class="su">${esc(s.subtitle)}</div>`;
   if (O.showDate) h += `<div class="dt">${m.rtl ? 'تاريخ الإعداد' : 'Prepared on'}: ${today()}</div>`;
-  h += '<table><thead><tr>' + m.cols.map(c => `<th>${esc(c.name)}</th>`).join('') + '</tr></thead><tbody>';
+  h += '<table><thead><tr>' + m.cols.map(c => `<th>${esc(c.name)}${preview && c.src >= 0 ? `<button class="hx" data-src="${c.src}" title="إخفاء هذا العمود">✕</button>` : ''}</th>`).join('') + '</tr></thead><tbody>';
   const row = r => `<tr class="${r.total ? 't' : 'd'}">` + r.vals.map((v, i) => {
     const c = m.cols[i], isN = typeof v === 'number';
     const k = (isN || c.type === 'serial') ? 'n' : (v && typeof v === 'object') ? 'c' : '';
@@ -662,17 +680,31 @@ function renderSheets() {
 const TYPES = [['text', 'نص'], ['num', 'رقم'], ['date', 'تاريخ'], ['pct', 'نسبة %']];
 function renderCols() {
   const s = cur();
-  $('cols').innerHTML = s.cols.map((c, i) => `<tr data-i="${i}">
-    <td><input type="checkbox" data-k="include" ${c.include ? 'checked' : ''}></td>
+  $('cols').innerHTML = s.cols.map((c, i) => c.deleted ? '' : `<tr data-i="${i}" class="${c.include ? '' : 'off'}">
+    <td><button class="ib" data-act="toggle" title="${c.include ? 'إخفاء العمود' : 'إظهار العمود'}">${c.include ? '👁' : '🚫'}</button></td>
     <td title="${esc(c.name)}">${esc(c.name)}</td>
     <td><select data-k="type">${TYPES.map(([v, l]) => `<option value="${v}" ${c.type === v ? 'selected' : ''}>${l}</option>`).join('')}</select></td>
     <td><input type="checkbox" data-k="sum" ${c.sum ? 'checked' : ''} ${c.type === 'num' ? '' : 'disabled'}></td>
-    <td><input type="checkbox" data-k="cur" ${c.cur ? 'checked' : ''} ${c.type === 'num' ? '' : 'disabled'}></td></tr>`).join('');
+    <td><input type="checkbox" data-k="cur" ${c.cur ? 'checked' : ''} ${c.type === 'num' ? '' : 'disabled'}></td>
+    <td><button class="ib del" data-act="del" title="حذف العمود">🗑</button></td></tr>`).join('');
+  const nDel = s.cols.filter(c => c.deleted).length;
+  $('colsRestore').innerHTML = nDel ? `<button class="btn ghost sm restore" data-act="restore">↺ استعادة ${nDel} عمود محذوف</button>` : '';
+}
+function renderHidden() {
+  const s = cur(), hid = s.cols.map((c, i) => [c, i]).filter(([c]) => !c.include && !c.deleted);
+  $('hidbar').innerHTML = hid.length ? 'أعمدة مخفية (اضغط لإظهارها): ' +
+    hid.map(([c, i]) => `<button class="chip" data-i="${i}">👁 ${esc(c.name)}</button>`).join('') : '';
+}
+function setCol(i, patch, msg) {
+  Object.assign(cur().cols[i], patch);
+  renderCols(); renderPreview();
+  if (msg) toast(msg);
 }
 function renderPreview() {
   const s = cur(); if (!s) return;
+  renderHidden();
   const m = model(s);
-  $('preview').innerHTML = renderHTML(m);
+  $('preview').innerHTML = renderHTML(m, true);
   const nNum = m.cols.filter(c => c.type === 'num').length;
   $('stats').innerHTML = `<b>${m.dataCount}</b> صف بيانات · <b>${m.cols.length}</b> عمود (${nNum} رقمي) · ` +
     (s.hasFinalTotal ? 'صف إجمالي موجود في الملف' : m.totalRow ? 'صف إجمالي مضاف تلقائياً' : 'بدون صف إجمالي') +
@@ -698,6 +730,26 @@ $('sheets').addEventListener('click', e => {
   S.active = i; renderAll();
 });
 $('tabs').addEventListener('click', e => { const b = e.target.closest('.tab'); if (b) { S.active = +b.dataset.i; renderAll(); } });
+$('cols').addEventListener('click', e => {
+  const b = e.target.closest('[data-act]'); if (!b) return;
+  const i = +b.closest('tr').dataset.i, c = cur().cols[i];
+  if (b.dataset.act === 'toggle') setCol(i, {include: !c.include});
+  else if (b.dataset.act === 'del' && confirm('حذف عمود «' + c.name + '» من التقرير؟\n(يمكن استعادته من زر «استعادة» أسفل القائمة)'))
+    setCol(i, {deleted: true}, 'تم حذف العمود «' + c.name + '»');
+});
+$('colsRestore').addEventListener('click', e => {
+  if (!e.target.closest('[data-act="restore"]')) return;
+  cur().cols.forEach(c => { if (c.deleted) { c.deleted = false; c.include = true; } });
+  renderCols(); renderPreview(); toast('تمت استعادة الأعمدة المحذوفة');
+});
+$('preview').addEventListener('click', e => {
+  const b = e.target.closest('.hx'); if (!b) return;
+  const i = +b.dataset.src;
+  setCol(i, {include: false}, 'تم إخفاء «' + cur().cols[i].name + '» — لإظهاره اضغط عليه أعلى الجدول');
+});
+$('hidbar').addEventListener('click', e => {
+  const b = e.target.closest('.chip'); if (b) setCol(+b.dataset.i, {include: true});
+});
 $('cols').addEventListener('change', e => {
   const tr = e.target.closest('tr'); if (!tr) return;
   const c = cur().cols[+tr.dataset.i], k = e.target.dataset.k;
@@ -880,7 +932,7 @@ function saveBlob(blob, name) {
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 4000);
 }
-const chosen = () => S.sheets.filter(s => s.include && s.cols.some(c => c.include));
+const chosen = () => S.sheets.filter(s => s.include && s.cols.some(c => c.include && !c.deleted));
 
 async function downloadXlsx() {
   if (typeof ExcelJS === 'undefined') return toast('تعذّر تحميل مكتبة Excel — تأكد من الاتصال بالإنترنت');
@@ -904,7 +956,7 @@ function downloadPdf() {
   const models = list.map(model);
   const orient = models.some(m => m.orient === 'landscape') ? 'landscape' : 'portrait';
   $('pageStyle').textContent = `@page{size:${O.paper === 'Letter' ? 'letter' : O.paper} ${orient};margin:10mm}`;
-  $('printArea').innerHTML = models.map(renderHTML).join('');
+  $('printArea').innerHTML = models.map(m => renderHTML(m)).join('');
   const old = document.title;
   document.title = outName('pdf').replace(/\.pdf$/, ''); // يصبح الاسم الافتراضي لملف PDF
   const done = () => { document.title = old; $('printArea').innerHTML = ''; window.removeEventListener('afterprint', done); };
