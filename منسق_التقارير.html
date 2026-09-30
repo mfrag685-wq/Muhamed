@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>منسق تقارير Excel</title>
+<meta name="theme-color" content="#0f172a">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<!-- SheetJS للقراءة (xlsx / xls / csv) و ExcelJS للكتابة بالتنسيق الكامل -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+<style id="pageStyle">@page{size:A4 portrait;margin:10mm}</style>
+<style>
+:root{--bg:#f1f5f9;--card:#fff;--ink:#0f172a;--muted:#64748b;--line:#e2e8f0;
+  --brand:#0d9488;--brand-d:#0f766e;--blue:#2563eb;--red:#dc2626;--shadow:0 1px 3px rgba(0,0,0,.08)}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{font-family:"Segoe UI",Tahoma,system-ui,sans-serif;background:var(--bg);color:var(--ink);font-size:14px}
+button,input,select{font-family:inherit;font-size:inherit}
+button{cursor:pointer}
+
+.top{background:#0f172a;color:#fff;padding:14px 20px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.top h1{font-size:18px}
+.top span{color:#94a3b8;font-size:13px}
+.top .sp{flex:1}
+.top a{color:#5eead4;text-decoration:none;font-size:13px}
+
+.wrap{padding:18px;max-width:1500px;margin:0 auto}
+.drop{background:var(--card);border:2px dashed #94a3b8;border-radius:16px;padding:48px 20px;text-align:center;
+  box-shadow:var(--shadow);transition:.15s}
+.drop.over{border-color:var(--brand);background:#f0fdfa}
+.drop .ic{font-size:46px;margin-bottom:10px}
+.drop h2{font-size:19px;margin-bottom:6px}
+.drop p{color:var(--muted);margin-bottom:18px;line-height:1.7}
+.steps{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:22px}
+.steps div{background:#f8fafc;border:1px solid var(--line);border-radius:10px;padding:10px 14px;font-size:13px;color:#334155}
+.steps b{color:var(--brand-d)}
+
+.btn{border:0;border-radius:9px;padding:10px 16px;font-weight:600;background:#e2e8f0;color:#0f172a;display:inline-flex;align-items:center;gap:6px}
+.btn:hover{filter:brightness(.96)}
+.btn.pri{background:var(--brand);color:#fff}
+.btn.xl{background:#16a34a;color:#fff}
+.btn.pdf{background:#dc2626;color:#fff}
+.btn.ghost{background:transparent;border:1px solid var(--line)}
+.btn:disabled{opacity:.5;cursor:wait}
+
+.work{display:grid;grid-template-columns:340px 1fr;gap:16px;align-items:start}
+@media(max-width:980px){.work{grid-template-columns:1fr}}
+.panel{display:flex;flex-direction:column;gap:12px}
+.card{background:var(--card);border-radius:14px;box-shadow:var(--shadow);padding:14px}
+.card h3{font-size:14px;margin-bottom:10px;display:flex;align-items:center;gap:6px}
+.card h3 small{color:var(--muted);font-weight:400;margin-inline-start:auto}
+.row{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.row label{flex:0 0 108px;color:#334155;font-size:13px}
+.row input[type=text],.row select{flex:1;min-width:0;border:1px solid var(--line);border-radius:8px;padding:7px 9px;background:#fff}
+.chk{display:flex;align-items:center;gap:8px;margin-bottom:7px;font-size:13px;cursor:pointer}
+.chk input{width:16px;height:16px;accent-color:var(--brand)}
+
+.swatches{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:10px}
+.sw{height:40px;border-radius:9px;border:2px solid transparent;overflow:hidden;display:flex;flex-direction:column;padding:0;background:none}
+.sw i{flex:3}.sw b{flex:1}
+.sw.on{border-color:#0f172a;box-shadow:0 0 0 2px #fff inset}
+.colors{display:flex;gap:10px}
+.colors label{flex:1;display:flex;align-items:center;gap:6px;font-size:13px;border:1px solid var(--line);border-radius:8px;padding:5px 8px}
+.colors input[type=color]{width:34px;height:26px;border:0;background:none;padding:0;cursor:pointer}
+
+.sheets{display:flex;flex-direction:column;gap:6px}
+.sheets .s{display:flex;align-items:center;gap:8px;padding:7px 9px;border:1px solid var(--line);border-radius:9px;cursor:pointer;font-size:13px}
+.sheets .s.on{border-color:var(--brand);background:#f0fdfa}
+.sheets .s span{flex:1}
+.sheets .s em{color:var(--muted);font-style:normal;font-size:12px}
+.fname{font-size:13px;color:var(--muted);margin-bottom:10px;word-break:break-all}
+
+.cols{width:100%;border-collapse:collapse;font-size:12.5px}
+.cols td{padding:4px 3px;border-bottom:1px solid #f1f5f9}
+.cols td:nth-child(2){max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cols select{border:1px solid var(--line);border-radius:6px;padding:3px;font-size:12px;background:#fff}
+.cols th{font-size:11.5px;color:var(--muted);font-weight:600;text-align:start;padding:3px}
+
+.pv{min-width:0}
+.bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+.bar .sp{flex:1}
+.tabs{display:flex;gap:6px;flex-wrap:wrap}
+.tab{border:1px solid var(--line);background:#fff;border-radius:999px;padding:6px 13px;font-size:13px}
+.tab.on{background:#0f172a;color:#fff;border-color:#0f172a}
+.stats{font-size:12.5px;color:var(--muted);margin-bottom:10px}
+.stats b{color:var(--ink)}
+.paper{background:#fff;border-radius:6px;box-shadow:0 6px 24px rgba(15,23,42,.12);padding:26px;overflow-x:auto;min-height:300px}
+
+/* ——— الجدول المنسّق (معاينة + PDF) ——— */
+.rep{--p:#1e3a8a;--pt:#fff;--z:#eef2ff;--bd:#c7d2fe;--tb:#fde68a;--tt:#78350f;--ta:#f59e0b;
+  font-family:var(--ff,Arial),Tahoma,sans-serif}
+.rep .co{font-weight:700;font-size:1.25em;color:var(--p);text-align:center}
+.rep .ti{font-weight:800;font-size:1.6em;text-align:center;color:var(--p);padding:6px 8px;margin:4px 0}
+.rep .ti.barred{background:var(--p);color:var(--pt);border-radius:4px}
+.rep .su{text-align:center;color:#475569;font-style:italic;margin-bottom:2px}
+.rep .dt{text-align:center;color:#64748b;font-size:.85em;margin-bottom:10px}
+.rep table{border-collapse:collapse;width:100%;margin-top:6px}
+.rep th{background:var(--p);color:var(--pt);font-weight:700;padding:7px 8px;text-align:center;border:1px solid var(--bd)}
+.rep.hd-soft th{background:var(--z);color:var(--p);border-bottom:2px solid var(--p)}
+.rep td{padding:5px 8px;border:1px solid var(--bd);white-space:nowrap}
+.rep.b-h td,.rep.b-h th{border-left:0;border-right:0}
+.rep.b-n td{border-color:transparent}
+.rep.zb tbody tr.d:nth-child(even) td{background:var(--z)}
+.rep td.n{text-align:center;font-variant-numeric:tabular-nums;direction:ltr}
+.rep td.c{text-align:center}
+.rep td.neg{color:#dc2626}
+.rep tr.t td{background:var(--tb);color:var(--tt);font-weight:700;border-top:2px solid var(--ta)}
+.rep .ft{margin-top:10px;color:#475569;font-size:.9em}
+
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#0f172a;color:#fff;padding:11px 18px;border-radius:10px;
+  font-size:13.5px;opacity:0;pointer-events:none;transition:.2s;z-index:99;max-width:90vw}
+.toast.on{opacity:1}
+.hint{font-size:12px;color:var(--muted);line-height:1.6;margin-top:6px}
+
+#printArea{display:none}
+@media print{
+  body{background:#fff}
+  body>*:not(#printArea){display:none!important}
+  #printArea{display:block}
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .rep{page-break-after:always;font-size:var(--pfs,11px)}
+  .rep:last-child{page-break-after:auto}
+  .rep thead{display:table-header-group}
+  .rep tr{page-break-inside:avoid}
+  .rep td{white-space:normal}
+}
+</style>
+</head>
+<body>
+<div class="top">
+  <h1>🎨 منسق تقارير Excel</h1>
+  <span>ارفع تقريرك كما هو ← اختر الألوان والنمط ← نزّله Excel منسقاً أو PDF</span>
+  <div class="sp"></div>
+  <a href="inventory.html" id="backLink">↩ رجوع للنظام</a>
+</div>
+
+<div class="wrap">
+  <!-- الخطوة 1: رفع الملف -->
+  <section id="drop" class="drop">
+    <div class="ic">📊</div>
+    <h2>اسحب ملف التقرير هنا أو اضغط للاختيار</h2>
+    <p>يقبل ملفات ‎.xlsx‎ و ‎.xls‎ و ‎.csv‎ — منسقة أو غير منسقة.<br>
+      يُكتشف تلقائياً: صف العناوين، عنوان التقرير، الأعمدة الرقمية والتواريخ، وصفوف الإجمالي.</p>
+    <input type="file" id="file" accept=".xlsx,.xlsm,.xls,.csv" hidden>
+    <button class="btn pri" onclick="$('file').click()">📂 اختيار ملف</button>
+    <button class="btn ghost" onclick="loadSample()">🧪 جرّب بملف تجريبي</button>
+    <div class="steps">
+      <div><b>١</b> تنظيف: حذف الصفوف والأعمدة الفارغة والعناوين المكررة</div>
+      <div><b>٢</b> تحويل الأرقام المكتوبة كنص إلى أرقام حقيقية</div>
+      <div><b>٣</b> ألوان وحدود وتظليل وصف إجمالي بمعادلات</div>
+      <div><b>٤</b> تنزيل Excel جاهز للطباعة أو PDF</div>
+    </div>
+  </section>
+
+  <!-- الخطوة 2: الإعدادات + المعاينة -->
+  <div id="work" class="work" hidden>
+    <aside class="panel">
+      <div class="card">
+        <h3>📁 الملف <small><button class="btn ghost" style="padding:4px 10px" onclick="$('file').click()">ملف آخر</button></small></h3>
+        <div class="fname" id="fname"></div>
+        <div class="sheets" id="sheets"></div>
+      </div>
+
+      <div class="card">
+        <h3>🎨 الألوان</h3>
+        <div class="swatches" id="swatches"></div>
+        <div class="colors">
+          <label><input type="color" id="o_primary" data-o="primary"> اللون الرئيسي</label>
+          <label><input type="color" id="o_accent" data-o="accent"> لون الإجمالي</label>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>📝 العناوين <small>للورقة الحالية</small></h3>
+        <div class="row"><label>اسم الجهة</label><input type="text" id="o_company" data-o="company" placeholder="مثال: شركة ..."></div>
+        <div class="row"><label>عنوان التقرير</label><input type="text" id="s_title" data-s="title"></div>
+        <div class="row"><label>عنوان فرعي</label><input type="text" id="s_subtitle" data-s="subtitle" placeholder="مثال: عن الفترة من ... إلى ..."></div>
+        <div class="row"><label>ملاحظة ختامية</label><input type="text" id="o_footer" data-o="footer" placeholder="تظهر أسفل الجدول"></div>
+        <label class="chk"><input type="checkbox" id="o_showDate" data-o="showDate"> إظهار تاريخ الإعداد</label>
+      </div>
+
+      <div class="card">
+        <h3>🧩 النمط</h3>
+        <div class="row"><label>شكل العنوان</label><select id="o_titleStyle" data-o="titleStyle">
+          <option value="bar">شريط ملوّن</option><option value="plain">نص ملوّن فقط</option></select></div>
+        <div class="row"><label>رأس الجدول</label><select id="o_headStyle" data-o="headStyle">
+          <option value="filled">ممتلئ باللون</option><option value="soft">فاتح بخط سفلي</option></select></div>
+        <div class="row"><label>الحدود</label><select id="o_borders" data-o="borders">
+          <option value="all">شبكة كاملة</option><option value="h">أفقية فقط</option><option value="none">بدون حدود</option></select></div>
+        <div class="row"><label>الخط</label><select id="o_font" data-o="font">
+          <option>Arial</option><option>Tahoma</option><option>Calibri</option><option>Segoe UI</option>
+          <option>Sakkal Majalla</option><option>Traditional Arabic</option><option>Times New Roman</option></select></div>
+        <div class="row"><label>حجم الخط</label><select id="o_size" data-o="size">
+          <option value="9">9</option><option value="10">10</option><option value="11">11</option><option value="12">12</option><option value="14">14</option></select></div>
+        <div class="row"><label>المنازل العشرية</label><select id="o_decimals" data-o="decimals">
+          <option value="auto">تلقائي</option><option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option></select></div>
+        <div class="row"><label>الاتجاه</label><select id="o_dir" data-o="dir">
+          <option value="auto">تلقائي</option><option value="rtl">من اليمين (عربي)</option><option value="ltr">من اليسار</option></select></div>
+        <div class="row"><label>اتجاه الصفحة</label><select id="o_orient" data-o="orient">
+          <option value="auto">تلقائي</option><option value="portrait">طولي</option><option value="landscape">عرضي</option></select></div>
+        <label class="chk"><input type="checkbox" id="o_zebra" data-o="zebra"> تظليل الصفوف بالتناوب</label>
+        <label class="chk"><input type="checkbox" id="o_serial" data-o="serial"> إضافة عمود مسلسل (م)</label>
+        <label class="chk"><input type="checkbox" id="o_autoTotal" data-o="autoTotal"> إضافة صف إجمالي تلقائي</label>
+        <label class="chk"><input type="checkbox" id="o_negRed" data-o="negRed"> الأرقام السالبة بالأحمر</label>
+        <label class="chk"><input type="checkbox" id="o_filter" data-o="filter"> أزرار الفلترة في Excel</label>
+      </div>
+
+      <div class="card">
+        <h3>📐 الأعمدة <small>للورقة الحالية</small></h3>
+        <table class="cols"><thead><tr><th></th><th>العمود</th><th>النوع</th><th title="يُجمع في صف الإجمالي">Σ</th></tr></thead>
+          <tbody id="cols"></tbody></table>
+        <div class="hint">ألغِ تحديد عمود لإخفائه، وغيّر نوعه إن أخطأ الاكتشاف التلقائي.</div>
+      </div>
+    </aside>
+
+    <section class="pv">
+      <div class="bar">
+        <div class="tabs" id="tabs"></div>
+        <div class="sp"></div>
+        <button class="btn xl" id="bXlsx" onclick="downloadXlsx()">⬇ تنزيل Excel</button>
+        <button class="btn pdf" onclick="downloadPdf()">⬇ تنزيل PDF</button>
+      </div>
+      <div class="stats" id="stats"></div>
+      <div class="paper"><div id="preview"></div></div>
+      <div class="hint">PDF: في نافذة الطباعة اختر «حفظ بتنسيق PDF / Save as PDF» كوجهة للطابعة.</div>
+    </section>
+  </div>
+</div>
+
+<div id="printArea"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+const $ = id => document.getElementById(id);
+
+/* ================= الإعدادات والثيمات ================= */
+const PRESETS = [
+  ['كحلي وذهبي', '#1e3a8a', '#d97706'],
+  ['فيروزي',      '#0f766e', '#0369a1'],
+  ['أخضر',        '#166534', '#ca8a04'],
+  ['عنابي',       '#7f1d1d', '#b45309'],
+  ['بنفسجي',      '#5b21b6', '#db2777'],
+  ['رمادي رسمي',  '#334155', '#0f766e'],
+  ['برتقالي',     '#c2410c', '#1e3a8a'],
+  ['أسود وذهبي',  '#111827', '#b8860b'],
+  ['Excel كلاسيكي','#4472c4', '#ed7d31'],
+  ['وردي',        '#9d174d', '#6d28d9'],
+];
+const DEFAULTS = {primary:'#1e3a8a', accent:'#d97706', company:'', footer:'', showDate:true,
+  titleStyle:'bar', headStyle:'filled', borders:'all', font:'Arial', size:'11', decimals:'auto',
+  dir:'auto', orient:'auto', zebra:true, serial:false, autoTotal:true, negRed:true, filter:true};
+let O = Object.assign({}, DEFAULTS);
+try { Object.assign(O, JSON.parse(localStorage.getItem('rf-opts') || '{}')); } catch (e) {}
+function saveOpts() { try { localStorage.setItem('rf-opts', JSON.stringify(O)); } catch (e) {} }
+
+const S = {file:'', sheets:[], active:0};
+
+/* ================= أدوات الألوان ================= */
+function rgb(h) { h = h.replace('#', ''); return [0, 2, 4].map(i => parseInt(h.substr(i, 2), 16)); }
+function hex(a) { return '#' + a.map(v => Math.round(Math.max(0, Math.min(255, v))).toString(16).padStart(2, '0')).join(''); }
+function mix(a, b, t) { const x = rgb(a), y = rgb(b); return hex(x.map((v, i) => v + (y[i] - v) * t)); }
+function lum(h) { const [r, g, b] = rgb(h).map(v => { v /= 255; return v <= .03928 ? v / 12.92 : Math.pow((v + .055) / 1.055, 2.4); }); return .2126 * r + .7152 * g + .0722 * b; }
+function onColor(h) { return lum(h) > .45 ? '#111827' : '#ffffff'; }
+function theme() {
+  const p = O.primary, a = O.accent;
+  return {p, pt: onColor(p), z: mix(p, '#ffffff', .91), bd: mix(p, '#ffffff', .68),
+    tb: mix(a, '#ffffff', .8), tt: mix(a, '#000000', .45), ta: a};
+}
+const argb = h => 'FF' + h.replace('#', '').toUpperCase();
+
+/* ================= تحليل البيانات ================= */
+const AR_DIGITS = /[٠-٩۰-۹]/g;
+function normDigits(s) {
+  return s.replace(AR_DIGITS, d => { const c = d.charCodeAt(0); return String(c >= 0x06F0 ? c - 0x06F0 : c - 0x0660); })
+    .replace(/٫/g, '.').replace(/٬/g, ',');
+}
+const empty = v => v == null || (typeof v === 'string' && v.trim() === '');
+const CURRENCY = /(ر\.?\s?س|ريال|جنيه|ج\.?\s?م|درهم|دينار|د\.?\s?ك|SAR|EGP|AED|KWD|USD|US\$|\$|€|£)/gi;
+
+// يرجع رقماً أو null — لا يحوّل الأكواد التي تبدأ بصفر (أرقام هواتف / أكواد أصناف)
+function parseNum(v) {
+  if (typeof v === 'number') return isFinite(v) ? v : null;
+  if (typeof v !== 'string') return null;
+  let t = normDigits(v).replace(CURRENCY, '').replace(/[\s ‎‏]/g, '');
+  if (!t) return null;
+  let neg = false, pct = false;
+  if (/^\(.*\)$/.test(t)) { neg = true; t = t.slice(1, -1); }
+  if (/-$/.test(t)) { neg = true; t = t.slice(0, -1); }
+  if (/%$/.test(t)) { pct = true; t = t.slice(0, -1); }
+  if (!/^[-+]?(\d{1,3}(,\d{3})+|\d+)(\.\d+)?$/.test(t) && !/^[-+]?\.\d+$/.test(t)) return null;
+  if (/^[-+]?0\d/.test(t)) return null;
+  let n = parseFloat(t.replace(/,/g, ''));
+  if (neg) n = -n;
+  if (pct) n /= 100;
+  return n;
+}
+const isPct = v => typeof v === 'string' && /%\s*$/.test(v.trim()) && parseNum(v) !== null;
+
+// التواريخ تُخزَّن كرقم تسلسلي بنظام Excel لتفادي مشاكل المناطق الزمنية
+const EPOCH = Date.UTC(1899, 11, 30);
+const serialOf = (y, m, d) => (Date.UTC(y, m - 1, d) - EPOCH) / 864e5;
+function parseDate(v) {
+  if (v instanceof Date && !isNaN(v)) {
+    return (Date.UTC(v.getFullYear(), v.getMonth(), v.getDate(), v.getHours(), v.getMinutes(), v.getSeconds()) - EPOCH) / 864e5;
+  }
+  if (typeof v === 'string') {
+    const t = normDigits(v.trim());
+    let m = t.match(/^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})$/);
+    if (m && +m[2] <= 12 && +m[3] <= 31) return serialOf(+m[1], +m[2], +m[3]);
+    m = t.match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{4})$/);
+    if (m && +m[2] <= 12 && +m[1] <= 31) return serialOf(+m[3], +m[2], +m[1]);
+  }
+  return null;
+}
+function fmtDate(s) {
+  const d = new Date(EPOCH + Math.round(s * 864e5));
+  return d.getUTCFullYear() + '/' + String(d.getUTCMonth() + 1).padStart(2, '0') + '/' + String(d.getUTCDate()).padStart(2, '0');
+}
+
+const TOTAL_RE = /^(ال)?(إ|ا)جمال(ي|ى)|^(ال)?مجموع|^total|^grand\s*total|^sum$|^subtotal/i;
+const NO_SUM_RE = /(^م$|^#$|رقم|كود|الكود|هاتف|جوال|موبايل|سنة|العام|مسلسل|تسلسل|الرمز|^code|^id$|^no\.?$|phone|mobile|year|serial|zip|نسبة|%|سعر|price|rate)/i;
+const AR_RE = /[؀-ۿ]/;
+
+function cleanCell(v) {
+  if (v === undefined) return null;
+  if (typeof v === 'string') { const t = v.replace(/\s+/g, ' ').trim(); return t === '' ? null : t; }
+  return v;
+}
+
+function analyze(name, aoa) {
+  let rows = (aoa || []).map(r => Array.from(r || [], cleanCell)).filter(r => r.some(v => !empty(v)));
+  if (!rows.length) return null;
+  let w = Math.max(...rows.map(r => r.length));
+  rows = rows.map(r => { const x = r.slice(); while (x.length < w) x.push(null); return x; });
+  // حذف الأعمدة الفارغة تماماً
+  const keep = [];
+  for (let j = 0; j < w; j++) if (rows.some(r => !empty(r[j]))) keep.push(j);
+  rows = rows.map(r => keep.map(j => r[j]));
+  w = keep.length;
+
+  // اكتشاف صف العناوين: أول صف معظم خلاياه نصوص ويغطي نصف الأعمدة على الأقل
+  let h = -1;
+  for (let i = 0; i < Math.min(rows.length, 25); i++) {
+    const ne = rows[i].filter(v => !empty(v));
+    const str = ne.filter(v => typeof v === 'string' && parseNum(v) === null);
+    if (ne.length >= Math.max(w === 1 ? 1 : 2, Math.ceil(w * .5)) && str.length >= ne.length * .6) { h = i; break; }
+  }
+  if (h < 0) h = 0;
+  const titles = rows.slice(0, h).map(r => r.filter(v => !empty(v)).join(' - ')).filter(Boolean);
+  const header = rows[h].map((v, j) => empty(v) ? 'عمود ' + (j + 1) : String(v instanceof Date ? fmtDate(parseDate(v)) : v));
+  const hKey = header.join('|');
+
+  const body = [];
+  for (const r of rows.slice(h + 1)) {
+    if (r.map((v, j) => empty(v) ? header[j] : String(v)).join('|') === hKey) continue; // عنوان مكرر (تقارير متعددة الصفحات)
+    const firstTexts = r.filter(v => typeof v === 'string').slice(0, 3);
+    body.push({cells: r, total: firstTexts.some(t => TOTAL_RE.test(t))});
+  }
+
+  const cols = header.map((nm, j) => {
+    const vals = body.filter(r => !r.total).map(r => r.cells[j]).filter(v => !empty(v));
+    const n = vals.length || 1;
+    const dates = vals.filter(v => v instanceof Date || (typeof v === 'string' && parseDate(v) !== null)).length;
+    const nums = vals.filter(v => !(v instanceof Date) && parseNum(v) !== null).length;
+    const pcts = vals.filter(isPct).length;
+    let type = 'text';
+    if (vals.length && dates >= n * .6) type = 'date';
+    else if (vals.length && pcts >= n * .6) type = 'pct';
+    else if (vals.length && nums >= n * .7) type = 'num';
+    return {name: nm, type, include: true, sum: type === 'num' && !NO_SUM_RE.test(nm)};
+  });
+
+  const hasFinalTotal = body.length && body[body.length - 1].total;
+  const isAr = AR_RE.test(header.join('') + titles.join(''));
+  return {name, titles, title: titles[0] || '', subtitle: titles.slice(1).join(' — '),
+    cols, body, include: true, hasFinalTotal, isAr, cleaned: {dropped: (aoa || []).length - rows.length}};
+}
+
+/* ================= تحويل القيم حسب نوع العمود ================= */
+function valueOf(raw, col) {
+  if (empty(raw)) return null;
+  switch (col.type) {
+    case 'num': { const n = parseNum(raw); return n === null ? raw : n; }
+    case 'pct': { const n = parseNum(raw); return n === null ? raw : n; }
+    case 'date': { const d = parseDate(raw); if (d !== null) return {date: d};
+      if (typeof raw === 'number' && raw > 1000 && raw < 80000) return {date: raw}; return raw; }
+    default: return raw instanceof Date ? fmtDate(parseDate(raw)) : raw;
+  }
+}
+function decimalsFor(sheet, ci) {
+  if (O.decimals !== 'auto') return +O.decimals;
+  const col = sheet.cols[ci], k = col.type === 'pct' ? 100 : 1;
+  const frac = sheet.body.some(r => { const v = valueOf(r.cells[ci], col); return typeof v === 'number' && Math.abs(v * k - Math.round(v * k)) > 1e-9; });
+  return frac ? (col.type === 'pct' ? 1 : 2) : 0;
+}
+function numFmt(dec, pct) {
+  const base = (pct ? '0' : '#,##0') + (dec ? '.' + '0'.repeat(dec) : '') + (pct ? '%' : '');
+  return O.negRed ? base + ';[Red]-' + base : base;
+}
+const round = n => Math.round(n * 1e8) / 1e8;
+
+// نموذج موحّد للورقة تستخدمه المعاينة وExcel وPDF معاً
+function model(sheet) {
+  const rtl = O.dir === 'auto' ? sheet.isAr : O.dir === 'rtl';
+  const idx = sheet.cols.map((c, i) => i).filter(i => sheet.cols[i].include);
+  const cols = idx.map(i => ({...sheet.cols[i], src: i, dec: decimalsFor(sheet, i)}));
+  if (O.serial) cols.unshift({name: rtl ? 'م' : '#', type: 'serial', src: -1, dec: 0});
+  let k = 0;
+  const rows = sheet.body.map(r => ({total: r.total,
+    vals: cols.map(c => c.src < 0 ? (r.total ? null : ++k) : valueOf(r.cells[c.src], c))}));
+  let totalRow = null;
+  if (O.autoTotal && !sheet.hasFinalTotal && cols.some(c => c.sum)) {
+    const data = rows.filter(r => !r.total);
+    const vals = cols.map((c, j) => c.sum ? round(data.reduce((t, r) => t + (typeof r.vals[j] === 'number' ? r.vals[j] : 0), 0)) : null);
+    let li = cols.findIndex(c => c.type === 'text' && !c.sum);
+    if (li < 0) li = cols.findIndex(c => c.type === 'serial');
+    if (li < 0) li = cols.findIndex(c => !c.sum);
+    if (li >= 0) vals[li] = rtl ? 'الإجمالي' : 'Total';
+    totalRow = {total: true, auto: true, vals};
+  }
+  const orient = O.orient !== 'auto' ? O.orient : (cols.length > 6 ? 'landscape' : 'portrait');
+  return {sheet, rtl, cols, rows, totalRow, orient, dataCount: rows.filter(r => !r.total).length};
+}
+
+function display(v, c) {
+  if (v == null) return '';
+  if (typeof v === 'object' && 'date' in v) return fmtDate(v.date);
+  if (typeof v === 'number') {
+    if (c.type === 'serial') return String(v);
+    if (c.type === 'pct') return (v * 100).toLocaleString('en-US', {minimumFractionDigits: c.dec, maximumFractionDigits: c.dec}) + '%';
+    if (c.type === 'num') return v.toLocaleString('en-US', {minimumFractionDigits: c.dec, maximumFractionDigits: c.dec});
+    return String(v);
+  }
+  return String(v);
+}
+const esc = s => String(s).replace(/[&<>"]/g, ch => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[ch]));
+const today = () => { const d = new Date(); return d.getFullYear() + '/' + String(d.getMonth() + 1).padStart(2, '0') + '/' + String(d.getDate()).padStart(2, '0'); };
+
+/* ================= المعاينة (HTML) ================= */
+function renderHTML(m) {
+  const t = theme(), s = m.sheet;
+  const cls = ['rep', O.headStyle === 'soft' ? 'hd-soft' : '', O.borders === 'h' ? 'b-h' : O.borders === 'none' ? 'b-n' : '', O.zebra ? 'zb' : ''].join(' ');
+  const style = `--p:${t.p};--pt:${t.pt};--z:${t.z};--bd:${t.bd};--tb:${t.tb};--tt:${t.tt};--ta:${t.ta};--ff:'${O.font}';font-size:${O.size * 1.25}px;--pfs:${O.size}pt`;
+  let h = `<div class="${cls}" dir="${m.rtl ? 'rtl' : 'ltr'}" style="${style}">`;
+  if (O.company) h += `<div class="co">${esc(O.company)}</div>`;
+  if (s.title) h += `<div class="ti ${O.titleStyle === 'bar' ? 'barred' : ''}">${esc(s.title)}</div>`;
+  if (s.subtitle) h += `<div class="su">${esc(s.subtitle)}</div>`;
+  if (O.showDate) h += `<div class="dt">${m.rtl ? 'تاريخ الإعداد' : 'Prepared on'}: ${today()}</div>`;
+  h += '<table><thead><tr>' + m.cols.map(c => `<th>${esc(c.name)}</th>`).join('') + '</tr></thead><tbody>';
+  const row = r => `<tr class="${r.total ? 't' : 'd'}">` + r.vals.map((v, i) => {
+    const c = m.cols[i], isN = typeof v === 'number';
+    const k = (isN || c.type === 'serial') ? 'n' : (v && typeof v === 'object') ? 'c' : '';
+    return `<td class="${k}${isN && v < 0 && O.negRed && c.type !== 'serial' ? ' neg' : ''}">${esc(display(v, c))}</td>`;
+  }).join('') + '</tr>';
+  h += m.rows.map(row).join('');
+  if (m.totalRow) h += row(m.totalRow);
+  h += '</tbody></table>';
+  if (O.footer) h += `<div class="ft">${esc(O.footer)}</div>`;
+  return h + '</div>';
+}
+
+/* ================= واجهة المستخدم ================= */
+let toastT;
+function toast(msg, ms = 2600) { const el = $('toast'); el.textContent = msg; el.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove('on'), ms); }
+const cur = () => S.sheets[S.active];
+
+function renderSwatches() {
+  $('swatches').innerHTML = PRESETS.map(([n, p, a], i) =>
+    `<button class="sw ${O.primary === p && O.accent === a ? 'on' : ''}" title="${n}" data-i="${i}"><i style="background:${p}"></i><b style="background:${a}"></b></button>`).join('');
+}
+function syncInputs() {
+  document.querySelectorAll('[data-o]').forEach(el => { if (el.type === 'checkbox') el.checked = !!O[el.dataset.o]; else el.value = O[el.dataset.o]; });
+  const s = cur();
+  document.querySelectorAll('[data-s]').forEach(el => el.value = s ? s[el.dataset.s] : '');
+}
+function renderSheets() {
+  $('fname').textContent = S.file;
+  $('sheets').innerHTML = S.sheets.map((s, i) => `<div class="s ${i === S.active ? 'on' : ''}" data-i="${i}">
+    <input type="checkbox" ${s.include ? 'checked' : ''} title="تضمين في الملف النهائي"><span>${esc(s.name)}</span><em>${s.body.length} صف</em></div>`).join('');
+  $('tabs').innerHTML = S.sheets.length > 1 ? S.sheets.map((s, i) => `<button class="tab ${i === S.active ? 'on' : ''}" data-i="${i}">${esc(s.name)}</button>`).join('') : '';
+}
+const TYPES = [['text', 'نص'], ['num', 'رقم'], ['date', 'تاريخ'], ['pct', 'نسبة %']];
+function renderCols() {
+  const s = cur();
+  $('cols').innerHTML = s.cols.map((c, i) => `<tr data-i="${i}">
+    <td><input type="checkbox" data-k="include" ${c.include ? 'checked' : ''}></td>
+    <td title="${esc(c.name)}">${esc(c.name)}</td>
+    <td><select data-k="type">${TYPES.map(([v, l]) => `<option value="${v}" ${c.type === v ? 'selected' : ''}>${l}</option>`).join('')}</select></td>
+    <td><input type="checkbox" data-k="sum" ${c.sum ? 'checked' : ''} ${c.type === 'num' ? '' : 'disabled'}></td></tr>`).join('');
+}
+function renderPreview() {
+  const s = cur(); if (!s) return;
+  const m = model(s);
+  $('preview').innerHTML = renderHTML(m);
+  const nNum = m.cols.filter(c => c.type === 'num').length;
+  $('stats').innerHTML = `<b>${m.dataCount}</b> صف بيانات · <b>${m.cols.length}</b> عمود (${nNum} رقمي) · ` +
+    (s.hasFinalTotal ? 'صف إجمالي موجود في الملف' : m.totalRow ? 'صف إجمالي مضاف تلقائياً' : 'بدون صف إجمالي') +
+    ` · الصفحة ${m.orient === 'landscape' ? 'عرضية' : 'طولية'}`;
+}
+function renderAll() { renderSwatches(); syncInputs(); renderSheets(); renderCols(); renderPreview(); }
+
+// الأحداث
+$('swatches').addEventListener('click', e => {
+  const b = e.target.closest('.sw'); if (!b) return;
+  const [, p, a] = PRESETS[+b.dataset.i]; O.primary = p; O.accent = a; saveOpts(); renderSwatches(); syncInputs(); renderPreview();
+});
+document.querySelectorAll('[data-o]').forEach(el => el.addEventListener(el.type === 'text' || el.type === 'color' ? 'input' : 'change', () => {
+  O[el.dataset.o] = el.type === 'checkbox' ? el.checked : el.value; saveOpts();
+  if (el.type === 'color') renderSwatches();
+  renderPreview();
+}));
+document.querySelectorAll('[data-s]').forEach(el => el.addEventListener('input', () => { cur()[el.dataset.s] = el.value; renderPreview(); }));
+$('sheets').addEventListener('click', e => {
+  const d = e.target.closest('.s'); if (!d) return;
+  const i = +d.dataset.i;
+  if (e.target.type === 'checkbox') { S.sheets[i].include = e.target.checked; return; }
+  S.active = i; renderAll();
+});
+$('tabs').addEventListener('click', e => { const b = e.target.closest('.tab'); if (b) { S.active = +b.dataset.i; renderAll(); } });
+$('cols').addEventListener('change', e => {
+  const tr = e.target.closest('tr'); if (!tr) return;
+  const c = cur().cols[+tr.dataset.i], k = e.target.dataset.k;
+  c[k] = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
+  if (k === 'type') { c.sum = c.type === 'num' && !NO_SUM_RE.test(c.name); renderCols(); }
+  renderPreview();
+});
+
+/* ================= قراءة الملف ================= */
+$('file').addEventListener('change', e => { const f = e.target.files[0]; if (f) readFile(f); e.target.value = ''; });
+const drop = $('drop');
+['dragenter', 'dragover'].forEach(t => document.addEventListener(t, e => { e.preventDefault(); drop.classList.add('over'); }));
+['dragleave', 'drop'].forEach(t => document.addEventListener(t, e => { e.preventDefault(); drop.classList.remove('over'); }));
+document.addEventListener('drop', e => { const f = e.dataTransfer.files[0]; if (f) readFile(f); });
+
+async function readFile(f) {
+  if (typeof XLSX === 'undefined') return toast('تعذّر تحميل مكتبة Excel — تأكد من الاتصال بالإنترنت');
+  try {
+    let wb;
+    if (/\.csv$/i.test(f.name)) {
+      const buf = await f.arrayBuffer();
+      let txt = new TextDecoder('utf-8').decode(buf);
+      if (txt.includes('�')) txt = new TextDecoder('windows-1256').decode(buf); // CSV عربي بترميز ويندوز
+      wb = XLSX.read(txt.replace(/^﻿/, ''), {type: 'string', raw: true});
+    } else {
+      wb = XLSX.read(await f.arrayBuffer(), {type: 'array', cellDates: true});
+    }
+    const sheets = wb.SheetNames.map(n => analyze(n, XLSX.utils.sheet_to_json(wb.Sheets[n], {header: 1, raw: true, defval: null, blankrows: false})))
+      .filter(Boolean);
+    load(f.name, sheets);
+  } catch (err) {
+    console.error(err); toast('تعذّرت قراءة الملف: ' + err.message, 5000);
+  }
+}
+function load(fileName, sheets) {
+  if (!sheets.length) return toast('الملف لا يحتوي على بيانات');
+  const base = fileName.replace(/\.[^.]+$/, '').replace(/_/g, ' ');
+  sheets.forEach(s => { if (!s.title) s.title = sheets.length > 1 ? s.name : base; });
+  S.file = fileName; S.sheets = sheets; S.active = 0;
+  $('drop').hidden = true; $('work').hidden = false;
+  renderAll();
+  const cleaned = sheets.reduce((a, s) => a + s.cleaned.dropped, 0);
+  toast(`تم تحليل ${sheets.length} ورقة` + (cleaned ? ` — حُذف ${cleaned} صف فارغ` : ''));
+}
+
+function loadSample() {
+  const aoa = [
+    ['شركة النور للتجارة'], ['تقرير مبيعات الفروع - الربع الثالث'], [],
+    ['رقم الفاتورة', 'التاريخ', 'الفرع', 'العميل', 'الكمية', 'سعر الوحدة', 'الإجمالي قبل الضريبة', 'الضريبة', 'الصافي', null],
+    ['INV-1001', '2026/07/03', 'الرياض', 'مؤسسة الأمل', '١٢', '1,250.00', '15,000', '2,250', '17,250 ر.س', null],
+    ['INV-1002', '05/07/2026', 'جدة', 'شركة الريان', 8, 980.5, 7844, 1176.6, 9020.6],
+    [null, null, null, null, null, null, null, null, null],
+    ['INV-1003', '2026-07-11', 'الدمام', 'متجر الوفاء', '٢٠', '450', '9,000', '1,350', '10,350'],
+    ['رقم الفاتورة', 'التاريخ', 'الفرع', 'العميل', 'الكمية', 'سعر الوحدة', 'الإجمالي قبل الضريبة', 'الضريبة', 'الصافي'],
+    ['INV-1004', '2026/08/02', 'الرياض', 'مؤسسة الأمل', 5, 3200, 16000, 2400, 18400],
+    ['INV-1005', '2026/08/19', 'مكة', 'شركة البركة', '(3)', 1250, '(3,750)', '(562.5)', '(4,312.5)'],
+    ['INV-1006', '2026/09/07', 'جدة', 'مطاعم السنبلة', 40, 75.25, 3010, 451.5, 3461.5],
+    ['INV-1007', '2026/09/21', 'المدينة', 'شركة الريان', '١٥', '640', '9,600', '1,440', '11,040'],
+  ];
+  const aoa2 = [
+    ['الفرع', 'عدد الفواتير', 'المبيعات', 'نسبة التحقيق'],
+    ['الرياض', 2, 31000, '95%'], ['جدة', 2, 10854, '82.5%'], ['الدمام', 1, 9000, '70%'],
+    ['مكة', 1, -3750, '12%'], ['المدينة', 1, 9600, '88%'],
+  ];
+  load('تقرير_مبيعات_تجريبي.xlsx', [analyze('المبيعات', aoa), analyze('ملخص الفروع', aoa2)]);
+}
+
+/* ================= تصدير Excel ================= */
+function colWidth(m, i) {
+  const c = m.cols[i];
+  let w = Math.min(String(c.name).length, 22);
+  for (const r of m.rows.concat(m.totalRow ? [m.totalRow] : [])) w = Math.max(w, display(r.vals[i], c).length);
+  return Math.max(c.type === 'serial' ? 5 : 8, Math.min(55, Math.ceil(w * 1.15) + 3));
+}
+
+function buildSheet(wb, m, usedNames) {
+  const t = theme(), s = m.sheet, n = m.cols.length, fs = +O.size, font = O.font;
+  let nm = s.name.replace(/[\\\/?*\[\]:]/g, ' ').slice(0, 31) || 'Sheet';
+  while (usedNames.has(nm)) nm = nm.slice(0, 28) + '_' + usedNames.size;
+  usedNames.add(nm);
+  const ws = wb.addWorksheet(nm, {
+    views: [{rightToLeft: m.rtl, showGridLines: false}],
+    pageSetup: {paperSize: 9, orientation: m.orient, fitToPage: true, fitToWidth: 1, fitToHeight: 0, horizontalCentered: true,
+      margins: {left: .4, right: .4, top: .5, bottom: .6, header: .25, footer: .3}},
+  });
+  ws.headerFooter.oddFooter = m.rtl ? '&C&9صفحة &P من &N' : '&C&9Page &P of &N';
+  const hAlign = m.rtl ? 'right' : 'left';
+  const side = (style, color) => ({style, color: {argb: argb(color)}});
+  const fill = color => ({type: 'pattern', pattern: 'solid', fgColor: {argb: argb(color)}});
+  const cellBorder = () => O.borders === 'none' ? {} : O.borders === 'h'
+    ? {top: side('thin', t.bd), bottom: side('thin', t.bd)}
+    : {top: side('thin', t.bd), bottom: side('thin', t.bd), left: side('thin', t.bd), right: side('thin', t.bd)};
+
+  let r = 1;
+  const band = (text, f, opts = {}) => {
+    if (n > 1) ws.mergeCells(r, 1, r, n);
+    const c = ws.getCell(r, 1);
+    c.value = text; c.font = {name: font, ...f};
+    c.alignment = {horizontal: 'center', vertical: 'middle', wrapText: true, readingOrder: m.rtl ? 'rtl' : 'ltr'};
+    if (opts.fill) for (let j = 1; j <= n; j++) ws.getCell(r, j).fill = fill(opts.fill);
+    if (opts.height) ws.getRow(r).height = opts.height;
+    r++;
+  };
+  if (O.company) band(O.company, {bold: true, size: fs + 3, color: {argb: argb(t.p)}}, {height: 22});
+  if (s.title) band(s.title, {bold: true, size: fs + 7, color: {argb: argb(O.titleStyle === 'bar' ? t.pt : t.p)}},
+    {height: 30, fill: O.titleStyle === 'bar' ? t.p : null});
+  if (s.subtitle) band(s.subtitle, {italic: true, size: fs + 1, color: {argb: 'FF475569'}}, {height: 18});
+  if (O.showDate) band((m.rtl ? 'تاريخ الإعداد: ' : 'Prepared on: ') + today(), {size: fs - 1, color: {argb: 'FF64748B'}});
+  if (r > 1) { ws.getRow(r).height = 8; r++; }
+
+  // رأس الجدول
+  const hr = r;
+  m.cols.forEach((c, j) => {
+    const cell = ws.getCell(r, j + 1);
+    cell.value = c.name;
+    const soft = O.headStyle === 'soft';
+    cell.font = {name: font, bold: true, size: fs, color: {argb: argb(soft ? t.p : t.pt)}};
+    cell.fill = fill(soft ? t.z : t.p);
+    cell.alignment = {horizontal: 'center', vertical: 'middle', wrapText: true, readingOrder: m.rtl ? 'rtl' : 'ltr'};
+    cell.border = soft ? {...cellBorder(), bottom: side('medium', t.p)} : cellBorder();
+  });
+  ws.getRow(r).height = 26; r++;
+
+  // البيانات
+  const first = r;
+  let zi = 0;
+  const writeRow = (row, formulas) => {
+    const striped = !row.total && O.zebra && (zi++ % 2 === 1);
+    row.vals.forEach((v, j) => {
+      const c = m.cols[j], cell = ws.getCell(r, j + 1);
+      if (formulas && formulas[j]) cell.value = {formula: formulas[j], result: v};
+      else if (v && typeof v === 'object' && 'date' in v) { cell.value = v.date; cell.numFmt = 'yyyy/mm/dd'; }
+      else cell.value = v;
+      const isNum = typeof v === 'number';
+      if (isNum && c.type === 'num') cell.numFmt = numFmt(c.dec, false);
+      if (isNum && c.type === 'pct') cell.numFmt = numFmt(c.dec, true);
+      cell.font = {name: font, size: fs, bold: !!row.total, color: row.total ? {argb: argb(t.tt)} : undefined};
+      cell.alignment = {vertical: 'middle', readingOrder: m.rtl ? 'rtl' : 'ltr',
+        horizontal: (isNum || c.type === 'serial' || c.type === 'date') ? 'center' : hAlign};
+      const b = cellBorder();
+      if (row.total) { cell.fill = fill(t.tb); b.top = side('medium', t.ta); b.bottom = side('medium', t.ta); }
+      else if (striped) cell.fill = fill(t.z);
+      cell.border = b;
+    });
+    ws.getRow(r).height = Math.round(fs * 1.75);
+    r++;
+  };
+  m.rows.forEach(row => writeRow(row));
+  const last = r - 1;
+  if (m.totalRow) {
+    const f = m.cols.map((c, j) => c.sum && last >= first ? `SUBTOTAL(9,${ws.getColumn(j + 1).letter}${first}:${ws.getColumn(j + 1).letter}${last})` : null);
+    writeRow(m.totalRow, f);
+  }
+  if (O.footer) { r++; band(O.footer, {size: fs, color: {argb: 'FF475569'}}); }
+
+  m.cols.forEach((c, j) => { ws.getColumn(j + 1).width = colWidth(m, j); });
+  ws.views = [{rightToLeft: m.rtl, showGridLines: false, state: 'frozen', xSplit: 0, ySplit: hr, topLeftCell: 'A' + (hr + 1)}];
+  if (O.filter && last >= first) ws.autoFilter = {from: {row: hr, column: 1}, to: {row: last, column: n}};
+  ws.pageSetup.printTitlesRow = hr + ':' + hr;
+}
+
+const outName = ext => (S.file.replace(/\.[^.]+$/, '') || 'تقرير') + ' - منسق.' + ext;
+function saveBlob(blob, name) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+const chosen = () => S.sheets.filter(s => s.include && s.cols.some(c => c.include));
+
+async function downloadXlsx() {
+  if (typeof ExcelJS === 'undefined') return toast('تعذّر تحميل مكتبة Excel — تأكد من الاتصال بالإنترنت');
+  const list = chosen(); if (!list.length) return toast('اختر ورقة واحدة على الأقل');
+  const b = $('bXlsx'); b.disabled = true;
+  try {
+    const wb = new ExcelJS.Workbook();
+    wb.creator = 'منسق التقارير'; wb.created = new Date();
+    const used = new Set();
+    list.forEach(s => buildSheet(wb, model(s), used));
+    const buf = await wb.xlsx.writeBuffer();
+    saveBlob(new Blob([buf], {type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}), outName('xlsx'));
+    toast('✅ تم تنزيل ملف Excel المنسّق');
+  } catch (err) { console.error(err); toast('خطأ أثناء إنشاء الملف: ' + err.message, 5000); }
+  finally { b.disabled = false; }
+}
+
+/* ================= تصدير PDF (عبر الطباعة — يحافظ على الخط العربي كنص حقيقي) ================= */
+function downloadPdf() {
+  const list = chosen(); if (!list.length) return toast('اختر ورقة واحدة على الأقل');
+  const models = list.map(model);
+  const orient = models.some(m => m.orient === 'landscape') ? 'landscape' : 'portrait';
+  $('pageStyle').textContent = `@page{size:A4 ${orient};margin:10mm}`;
+  $('printArea').innerHTML = models.map(renderHTML).join('');
+  const old = document.title;
+  document.title = outName('pdf').replace(/\.pdf$/, ''); // يصبح الاسم الافتراضي لملف PDF
+  const done = () => { document.title = old; $('printArea').innerHTML = ''; window.removeEventListener('afterprint', done); };
+  window.addEventListener('afterprint', done);
+  setTimeout(() => window.print(), 50);
+}
+
+// زر الرجوع يعود للنظام الذي فُتح المنسق منه (التوريد أو المخزون)
+try { const r = new URL(document.referrer); if (r.origin === location.origin && /\.html$|\/$/.test(r.pathname)) $('backLink').href = r.href; } catch (e) {}
+renderSwatches(); syncInputs();
+</script>
+</body>
+</html>
