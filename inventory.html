@@ -207,7 +207,7 @@ tr:hover td{background:#f8fafc}
     <button class="navbtn" data-page="import">🚚 الموردون</button>
     <button class="navbtn" data-page="employees">👥 الموظفون</button>
     <button class="navbtn" data-page="settings">⚙️ الإعدادات</button>
-    <a class="navlink" href="منسق_التقارير.html">🎨 منسق تقارير Excel</a>
+    <a class="navlink hidden" id="navFormatter" href="منسق_التقارير.html">🎨 منسق تقارير Excel</a>
     <div class="foot">
       <b id="who"></b>
       <div style="margin-bottom:6px"><span class="cloud-status off" id="cloudStatus2">غير مفعّل</span></div>
@@ -235,7 +235,7 @@ tr:hover td{background:#f8fafc}
    ============================================================ */
 const KEY="inv_system_v2";
 /* رقم إصدار التطبيق — يُزاد مع كل تحديث؛ يُقارَن بالنسخة المنشورة لإظهار زر التحديث */
-const APP_VERSION="2026-09-17-01";
+const APP_VERSION="2026-09-30-01";
 let DB,ME;
 /* التحقق من توفّر نسخة أحدث بجلب الملف نفسه (بدون كاش) ومقارنة رقم الإصدار */
 function checkForUpdate(){
@@ -282,11 +282,12 @@ function keepScroll(){const y=window.scrollY||document.documentElement.scrollTop
 /* ---------- الصلاحيات (مقتبَسة من نظام التوريد) ---------- */
 const PERM_KEYS=[["move","تسجيل حركة"],["dashboard","الأرصدة"],["report","تقرير فترة"],["ledger","سجل حركة الصنف"],
   ["items","الأصناف"],["import","الموردون والشحنات"],["employees","الموظفون"],["settings","الإعدادات"],
-  ["canAdd","إضافة"],["canEdit","تعديل"],["canDelete","حذف"],["canExport","تصدير"]];
+  ["canAdd","إضافة"],["canEdit","تعديل"],["canDelete","حذف"],["canExport","تصدير"],
+  ["reportFormatter","منسق تقارير Excel"]];
 function preset(role){
   const p={};PERM_KEYS.forEach(k=>p[k[0]]=false);
   if(role==="admin"){PERM_KEYS.forEach(k=>p[k[0]]=true);}
-  else if(role==="manager"){PERM_KEYS.forEach(k=>p[k[0]]=true);p.employees=false;p.settings=false;}
+  else if(role==="manager"){PERM_KEYS.forEach(k=>p[k[0]]=true);p.employees=false;p.settings=false;p.reportFormatter=false;}
   else if(role==="employee"){["move","dashboard","report","ledger","canAdd"].forEach(k=>p[k]=true);}
   return p;
 }
@@ -298,6 +299,7 @@ function mayAccessCompany(id){if(!ME)return true;const a=ME.companies;return !a|
 function guard(k,msg){if(can(k))return true;toast(msg||"لا تملك صلاحية لهذا الإجراء");return false;}
 function applyNav(){
   document.querySelectorAll(".navbtn").forEach(b=>b.classList.toggle("hidden",!can(b.dataset.page)));
+  const nf=$("#navFormatter");if(nf)nf.classList.toggle("hidden",!can("reportFormatter")); // أداة مستقلة — لا تقرأ ولا تعدّل بيانات المخزون
 }
 
 /* ---------- بيانات المطوّر (توثيق) ---------- */
