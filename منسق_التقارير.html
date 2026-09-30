@@ -23,6 +23,12 @@ button{cursor:pointer}
 .top span{color:#94a3b8;font-size:13px}
 .top .sp{flex:1}
 .top a{color:#5eead4;text-decoration:none;font-size:13px}
+.top .who{color:#e2e8f0;font-size:13px;background:#1e293b;border-radius:999px;padding:4px 12px}
+.top .who:empty{display:none}
+.locked{background:var(--card);border-radius:16px;box-shadow:var(--shadow);padding:48px 20px;text-align:center;max-width:560px;margin:40px auto}
+.locked .ic{font-size:44px;margin-bottom:10px}
+.locked h2{font-size:18px;margin-bottom:8px}
+.locked p{color:var(--muted);line-height:1.8;margin-bottom:18px}
 
 .wrap{padding:18px;max-width:1500px;margin:0 auto}
 .drop{background:var(--card);border:2px dashed #94a3b8;border-radius:16px;padding:48px 20px;text-align:center;
@@ -217,10 +223,20 @@ button{cursor:pointer}
   <h1>🎨 منسق تقارير Excel</h1>
   <span>ارفع تقريرك كما هو ← اختر الألوان والنمط ← نزّله Excel منسقاً أو PDF</span>
   <div class="sp"></div>
+  <span class="who" id="who"></span>
   <a href="inventory.html" id="backLink">↩ رجوع للنظام</a>
 </div>
 
 <div class="wrap">
+  <!-- يظهر عند فتح الرابط مباشرة دون الدخول من النظام -->
+  <section id="locked" class="locked" hidden>
+    <div class="ic">🔒</div>
+    <h2>افتح المنسق من نظام المخزون</h2>
+    <p>المنسق مرتبط بحسابك: قوالبك وإعداداتك خاصة بك ولا يراها غيرك.<br>
+      سجّل الدخول إلى نظام المخزون ثم اضغط زر «🎨 منسق تقارير Excel» من القائمة الجانبية.</p>
+    <a class="btn pri" href="inventory.html" style="text-decoration:none">↩ الذهاب إلى نظام المخزون</a>
+  </section>
+
   <!-- الخطوة 1: رفع الملف -->
   <section id="drop" class="drop">
     <div class="ic">📊</div>
@@ -259,6 +275,7 @@ button{cursor:pointer}
 
       <div class="card" data-g="tpl">
         <h3>💾 القوالب المحفوظة</h3>
+        <div class="hint" id="tplOwner" style="margin:-4px 0 8px"></div>
         <div class="tpl-def" id="tplDef"></div>
         <div class="row"><select id="tplSel" style="flex:1;border:1px solid var(--line);border-radius:8px;padding:7px 9px;background:#fff"></select></div>
         <div class="tpl-btns">
@@ -447,11 +464,30 @@ const store = {
   get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (e) { return false; } },
 };
+/* هوية المستخدم: يسلّمها نظام المخزون عبر مفتاح لمرة واحدة صالح دقيقتين عند الضغط على زر المنسق،
+   ثم تُحفظ في جلسة هذا التبويب فقط (تبقى مع إعادة التحميل وتزول بإغلاقه). بدونها لا يعمل المنسق. */
+const USER = (() => {
+  try {
+    const h = JSON.parse(localStorage.getItem('rf-handoff') || 'null');
+    localStorage.removeItem('rf-handoff');
+    if (h && h.key && Date.now() - h.t < 120000) { sessionStorage.setItem('rf-user', JSON.stringify(h)); return h; }
+  } catch (e) {}
+  try { const u = JSON.parse(sessionStorage.getItem('rf-user') || 'null'); return u && u.key ? u : null; } catch (e) { return null; }
+})();
+// كل مفاتيح القوالب والإعدادات مربوطة بالمستخدم — لا يرى أحد قوالب غيره حتى على نفس الجهاز
+const UK = USER ? ':' + USER.key : ':none';
+const K_TPL = 'rf-templates' + UK, K_DEF = 'rf-default' + UK, K_OPTS = 'rf-opts' + UK;
+// قوالب ما قبل الفصل (بلا مستخدم) تُنقل للمدير فقط لأنه من أنشأها غالباً، ثم تُحذف النسخة المشتركة
+if (USER && USER.role === 'admin' && localStorage.getItem('rf-templates') != null && localStorage.getItem(K_TPL) == null) {
+  store.set(K_TPL, store.get('rf-templates', {})); store.set(K_DEF, store.get('rf-default', ''));
+  try { localStorage.removeItem('rf-templates'); localStorage.removeItem('rf-default'); } catch (e) {}
+}
+try { localStorage.removeItem('rf-opts'); } catch (e) {} // آخر إعدادات مشتركة قديمة — لم تعد تُستخدم
 // القوالب: {اسم: إعدادات}، والافتراضي يُطبَّق عند كل فتح؛ وبدونه تُستعاد آخر إعدادات مستخدمة
-let TPL = store.get('rf-templates', {}) || {};
-let DEF_TPL = store.get('rf-default', '') || '';
-let O = Object.assign({}, DEFAULTS, DEF_TPL && TPL[DEF_TPL] ? TPL[DEF_TPL] : store.get('rf-opts', {}));
-function saveOpts() { store.set('rf-opts', O); }
+let TPL = USER ? store.get(K_TPL, {}) || {} : {};
+let DEF_TPL = USER ? store.get(K_DEF, '') || '' : '';
+let O = Object.assign({}, DEFAULTS, DEF_TPL && TPL[DEF_TPL] ? TPL[DEF_TPL] : USER ? store.get(K_OPTS, {}) : {});
+function saveOpts() { if (USER) store.set(K_OPTS, O); }
 
 const S = {file:'', sheets:[], active:0};
 
@@ -733,7 +769,7 @@ function renderTpl(sel) {
   $('tplDef').innerHTML = info; $('tplInfo').innerHTML = info; $('tplInfo').style.display = info ? 'inline-block' : 'none';
 }
 function persistTpl() {
-  if (!store.set('rf-templates', TPL) || !store.set('rf-default', DEF_TPL)) toast('تعذّر الحفظ — المتصفح يمنع التخزين (وضع التصفح الخاص؟)', 5000);
+  if (!USER || !store.set(K_TPL, TPL) || !store.set(K_DEF, DEF_TPL)) toast('تعذّر الحفظ — المتصفح يمنع التخزين (وضع التصفح الخاص؟)', 5000);
 }
 function applyOpts(o) { O = Object.assign({}, DEFAULTS, o); saveOpts(); renderSwatches(); syncInputs(); renderPreview(); }
 $('tplSel').addEventListener('change', e => {
@@ -923,6 +959,7 @@ const drop = $('drop');
 document.addEventListener('drop', e => { const f = e.dataTransfer.files[0]; if (f) readFile(f); });
 
 async function readFile(f) {
+  if (!USER) return;
   if (typeof XLSX === 'undefined') return toast('تعذّر تحميل مكتبة Excel — تأكد من الاتصال بالإنترنت');
   try {
     let wb;
@@ -953,6 +990,7 @@ function load(fileName, sheets) {
 }
 
 function loadSample() {
+  if (!USER) return;
   const aoa = [
     ['شركة النور للتجارة'], ['تقرير مبيعات الفروع - الربع الثالث'], [],
     ['رقم الفاتورة', 'التاريخ', 'الفرع', 'العميل', 'الكمية', 'سعر الوحدة', 'الإجمالي قبل الضريبة', 'الضريبة', 'الصافي', null],
@@ -1129,6 +1167,10 @@ function downloadPdf() {
 
 // زر الرجوع يعود للنظام الذي فُتح المنسق منه (التوريد أو المخزون)
 try { const r = new URL(document.referrer); if (r.origin === location.origin && /\.html$|\/$/.test(r.pathname)) $('backLink').href = r.href; } catch (e) {}
+if (USER) {
+  $('who').textContent = '👤 ' + (USER.name || '');
+  $('tplOwner').textContent = '🔒 قوالب «' + (USER.name || '') + '» — خاصة بك ولا تظهر لأي مستخدم آخر.';
+} else { $('drop').hidden = true; $('locked').hidden = false; }
 renderSwatches(); syncInputs(); renderTpl(DEF_TPL && TPL[DEF_TPL] ? DEF_TPL : '');
 </script>
 </body>
