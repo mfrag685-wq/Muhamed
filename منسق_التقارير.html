@@ -76,6 +76,22 @@ button{cursor:pointer}
   border-radius:7px;background:#fff;font-family:Georgia,'Times New Roman',serif;font-size:15px;user-select:none}
 .tg input:checked+span{background:var(--brand);border-color:var(--brand);color:#fff}
 .sep{border:0;border-top:1px solid var(--line);margin:10px 0}
+.designs-wrap{background:var(--card);border-radius:14px;box-shadow:var(--shadow);padding:12px 12px 8px;margin-bottom:12px}
+.designs-wrap .dh{font-size:14px;font-weight:700;margin-bottom:8px}
+.designs-wrap .dh small{color:var(--muted);font-weight:400;font-size:12px;margin-inline-start:6px}
+.designs{display:flex;gap:10px;overflow-x:auto;padding:2px 2px 8px;scroll-snap-type:x proximity}
+.dz{flex:0 0 128px;border:2px solid var(--line);border-radius:11px;background:#fff;padding:7px;cursor:pointer;scroll-snap-align:start;transition:.12s}
+.dz:hover{border-color:#94a3b8;transform:translateY(-1px)}
+.dz.on{border-color:var(--brand);box-shadow:0 0 0 2px #99f6e4}
+.dz .dn{font-size:12px;font-weight:700;margin-top:6px;color:#0f172a}
+.dz .dd{font-size:10.5px;color:var(--muted);line-height:1.4}
+.mini{height:74px;display:flex;flex-direction:column;gap:0;border-radius:4px;overflow:hidden;background:#fff}
+.mini .mt{height:9px;margin:0 14px 4px;border-radius:2px}
+.mini .mh{height:9px}
+.mini .mr{height:8px;display:flex;align-items:center;gap:5px;padding:0 5px}
+.mini .mr i{display:block;height:3px;border-radius:2px;background:#cbd5e1;flex:1}
+.mini .mr i:first-child{flex:1.6}
+.mini .mh i{background:rgba(255,255,255,.75)}
 
 .sheets{display:flex;flex-direction:column;gap:6px}
 .sheets .s{display:flex;align-items:center;gap:8px;padding:7px 9px;border:1px solid var(--line);border-radius:9px;cursor:pointer;font-size:13px}
@@ -123,6 +139,7 @@ button{cursor:pointer}
 .rep .ti{font-size:var(--tsz,1.6em);text-align:center;color:var(--p);padding:6px 8px;margin:4px 0;
   font-weight:var(--t-w);font-style:var(--t-s);text-decoration:var(--t-d)}
 .rep .ti.barred{background:var(--p);color:var(--pt);border-radius:4px}
+.rep .ti.lined{color:var(--p);border-bottom:3px solid var(--ta);padding-bottom:6px;margin-bottom:8px}
 .rep .su{text-align:center;color:#475569;margin-bottom:2px;font-weight:var(--u-w);font-style:var(--u-s);text-decoration:var(--u-d)}
 .rep .dt{text-align:center;color:#64748b;font-size:.85em;margin-bottom:10px}
 .rep table{border-collapse:collapse;width:100%;margin-top:6px}
@@ -130,6 +147,7 @@ button{cursor:pointer}
 .rep th{background:var(--p);color:var(--pt);padding:var(--pad);text-align:var(--ha,center);border:var(--bw) var(--bs) var(--bd);
   font-weight:var(--h-w);font-style:var(--h-s);text-decoration:var(--h-d)}
 .rep.hd-soft th{background:var(--z);color:var(--p);border-bottom:2px solid var(--p)}
+.rep.hd-line th{background:transparent;color:var(--p);border-top-color:transparent;border-left-color:transparent;border-right-color:transparent;border-bottom:2px solid var(--p)}
 .rep td{padding:var(--pad);border:var(--bw) var(--bs) var(--bd);white-space:nowrap;
   font-weight:var(--d-w);font-style:var(--d-s);text-decoration:var(--d-d)}
 .rep.b-h td,.rep.b-h th{border-left:0;border-right:0}
@@ -140,6 +158,8 @@ button{cursor:pointer}
 .rep td.neg{color:#dc2626}
 .rep tr.t td{background:var(--tb);color:var(--tt);border-top:2px solid var(--ta);
   font-weight:var(--s-w);font-style:var(--s-s);text-decoration:var(--s-d)}
+.rep.tt-solid tr.t td{background:var(--ta);color:var(--tso);border-top-color:var(--ta)}
+.rep.tt-line tr.t td{background:transparent;color:#111827;border-top:1px solid var(--p);border-bottom:3px double var(--p)}
 .rep.da-right tbody td{text-align:right}.rep.da-center tbody td{text-align:center}.rep.da-left tbody td{text-align:left}
 .rep .ft{margin-top:10px;color:#475569;font-size:.9em}
 
@@ -255,9 +275,13 @@ button{cursor:pointer}
       <div class="card">
         <h3>🧩 النمط</h3>
         <div class="row"><label>شكل العنوان</label><select id="o_titleStyle" data-o="titleStyle">
-          <option value="bar">شريط ملوّن</option><option value="plain">نص ملوّن فقط</option></select></div>
+          <option value="bar">شريط ملوّن</option><option value="line">نص بخط سفلي ملوّن</option><option value="plain">نص ملوّن فقط</option></select></div>
         <div class="row"><label>رأس الجدول</label><select id="o_headStyle" data-o="headStyle">
-          <option value="filled">ممتلئ باللون</option><option value="soft">فاتح بخط سفلي</option></select></div>
+          <option value="filled">ممتلئ باللون</option><option value="soft">فاتح بخط سفلي</option><option value="line">بسيط (خط سفلي فقط)</option></select></div>
+        <div class="row"><label>صف الإجمالي</label><select id="o_totalStyle" data-o="totalStyle">
+          <option value="band">شريط فاتح</option><option value="solid">ممتلئ بلون الإجمالي</option><option value="line">خط مزدوج (محاسبي)</option></select></div>
+        <div class="row"><label>درجة التظليل</label><select id="o_zebraTone" data-o="zebraTone">
+          <option value="light">خفيفة</option><option value="medium">متوسطة</option></select></div>
         <div class="row"><label>شكل الشبكة</label><select id="o_borders" data-o="borders">
           <option value="all">شبكة كاملة</option><option value="h">أفقية فقط</option><option value="none">بدون حدود</option></select></div>
         <div class="row"><label>الحدود</label><select id="o_borderStyle" data-o="borderStyle">
@@ -309,6 +333,10 @@ button{cursor:pointer}
         <button class="btn xl" id="bXlsx" onclick="downloadXlsx()">⬇ تنزيل Excel</button>
         <button class="btn pdf" onclick="downloadPdf()">⬇ تنزيل PDF</button>
       </div>
+      <div class="designs-wrap">
+        <div class="dh">✨ تصاميم جاهزة<small>ضغطة واحدة تطبّق التصميم كاملاً: الألوان والخطوط والحدود والترويسة والإجمالي</small></div>
+        <div class="designs" id="designs"></div>
+      </div>
       <div class="stats" id="stats"></div>
       <div class="hidbar" id="hidbar"></div>
       <div class="paper"><div id="preview"></div></div>
@@ -326,28 +354,45 @@ const $ = id => document.getElementById(id);
 
 /* ================= الإعدادات والثيمات ================= */
 const PRESETS = [
-  ['كحلي وذهبي', '#1e3a8a', '#d97706'],
-  ['فيروزي',      '#0f766e', '#0369a1'],
-  ['أخضر',        '#166534', '#ca8a04'],
-  ['عنابي',       '#7f1d1d', '#b45309'],
-  ['بنفسجي',      '#5b21b6', '#db2777'],
-  ['رمادي رسمي',  '#334155', '#0f766e'],
-  ['برتقالي',     '#c2410c', '#1e3a8a'],
-  ['أسود وذهبي',  '#111827', '#b8860b'],
-  ['Excel كلاسيكي','#4472c4', '#ed7d31'],
-  ['وردي',        '#9d174d', '#6d28d9'],
-  ['سماوي',       '#0369a1', '#f59e0b'],
-  ['زيتوني',      '#3f6212', '#a16207'],
-  ['بني',         '#78350f', '#0f766e'],
-  ['نيلي',        '#312e81', '#059669'],
-  ['أحمر',        '#b91c1c', '#1f2937'],
-  ['ذهبي',        '#a16207', '#1e3a8a'],
+  // كلاسيكي ورسمي
+  ['كحلي وذهبي', '#1f3864', '#bf9000'], ['أزرق ملكي', '#1d4ed8', '#f59e0b'], ['Excel', '#4472c4', '#ed7d31'], ['أخضر رسمي', '#006c35', '#b8860b'],
+  ['عنابي', '#7f1d1d', '#b45309'], ['فحمي', '#1f2937', '#0d9488'], ['أسود وذهبي', '#111111', '#c9a227'], ['بني جلدي', '#78350f', '#0f766e'],
+  // عصري
+  ['فيروزي', '#0f766e', '#0369a1'], ['نيلي', '#4338ca', '#0891b2'], ['بحري', '#0c4a6e', '#14b8a6'], ['زمردي', '#047857', '#65a30d'],
+  ['بنفسجي', '#6d28d9', '#db2777'], ['توتي', '#be123c', '#f59e0b'], ['برتقالي', '#c2410c', '#1e3a8a'], ['سماوي', '#0284c7', '#f59e0b'],
+  // هادئ
+  ['أزرق رمادي', '#475569', '#0ea5e9'], ['زيتوني', '#3f6212', '#a16207'], ['طوبي', '#9a3412', '#0f766e'], ['ليلكي', '#7e22ce', '#0d9488'],
+  ['أردوازي', '#334155', '#e11d48'], ['أخضر غامق', '#166534', '#ca8a04'], ['وردي', '#9d174d', '#6d28d9'], ['ذهبي', '#a16207', '#1e3a8a'],
 ];
-const DEFAULTS = {primary:'#1e3a8a', accent:'#d97706', company:'', footer:'', showDate:true,
+
+// تصاميم متكاملة — كل تصميم يضبط الألوان والخطوط والحدود وشكل العناوين والإجمالي دفعة واحدة
+const DESIGN_BASE = {titleStyle:'bar', headStyle:'filled', totalStyle:'band', borders:'all', borderStyle:'thin', borderColor:'theme',
+  frame:false, zebra:true, zebraTone:'light', density:'normal', font:'Arial', fontHead:'same', titleSize:'7', headAlign:'center',
+  tB:true, tI:false, tU:false, uB:false, uI:true, uU:false, hB:true, hI:false, hU:false, dB:false, dI:false, dU:false, sB:true, sI:false, sU:false};
+const DESIGNS = [
+  ['تنفيذي', 'لمجالس الإدارة والعروض', {primary:'#1f3864', accent:'#bf9000', borders:'h', fontHead:'Tahoma', titleSize:'10'}],
+  ['قوائم مالية', 'بأسلوب القوائم المحاسبية', {primary:'#111827', accent:'#374151', titleStyle:'line', headStyle:'line', totalStyle:'line',
+    borders:'none', zebra:false, density:'relaxed', font:'Times New Roman', titleSize:'10', uI:false}],
+  ['عصري بسيط', 'مساحات واسعة وخطوط نظيفة', {primary:'#334155', accent:'#0d9488', titleStyle:'plain', headStyle:'soft', totalStyle:'line',
+    borders:'h', density:'relaxed', font:'Segoe UI'}],
+  ['شركات', 'أزرق احترافي بإطار', {primary:'#1d4ed8', accent:'#f59e0b', frame:true}],
+  ['حكومي رسمي', 'أخضر وذهبي للجهات الرسمية', {primary:'#006c35', accent:'#b8860b', frame:true, titleSize:'10', fontHead:'Tahoma', borderStyle:'thin'}],
+  ['فاخر', 'أسود وذهبي', {primary:'#111111', accent:'#c9a227', totalStyle:'solid', borders:'h', zebraTone:'medium', frame:true, titleSize:'10', tI:true}],
+  ['Excel الكلاسيكي', 'الشكل المألوف في Excel', {primary:'#4472c4', accent:'#ed7d31', titleStyle:'plain', font:'Calibri'}],
+  ['موفّر للحبر', 'مثالي للطباعة بالأبيض والأسود', {primary:'#1f2937', accent:'#1f2937', titleStyle:'line', headStyle:'line', totalStyle:'line',
+    borders:'h', borderColor:'gray', zebra:false}],
+  ['هادئ', 'ألوان مريحة للعين', {primary:'#4f46e5', accent:'#0891b2', titleStyle:'plain', headStyle:'soft', borders:'h', density:'relaxed'}],
+  ['تقني', 'داكن ومضغوط للبيانات الكثيفة', {primary:'#0f172a', accent:'#06b6d4', totalStyle:'solid', borders:'h', zebraTone:'medium', density:'compact', font:'Segoe UI'}],
+  ['ترابي دافئ', 'بني وذهبي', {primary:'#7c2d12', accent:'#a16207', titleStyle:'line', headStyle:'soft', borderStyle:'dotted'}],
+  ['حيوي', 'للمبيعات والتسويق', {primary:'#be123c', accent:'#f59e0b', totalStyle:'solid', borders:'h'}],
+  ['بحري', 'أزرق عميق وفيروزي', {primary:'#0c4a6e', accent:'#14b8a6', zebraTone:'medium', frame:true}],
+  ['رسمي مزدوج', 'حدود مزدوجة وإطار', {primary:'#1e293b', accent:'#1e293b', titleStyle:'line', totalStyle:'line', borderStyle:'double', frame:true, zebra:false}],
+].map(([name, desc, o]) => ({name, desc, o: Object.assign({}, DESIGN_BASE, o)}));
+const DEFAULTS = {primary:'#1f3864', accent:'#bf9000', company:'', footer:'', showDate:true,
   titleStyle:'bar', headStyle:'filled', borders:'all', font:'Arial', size:'11', decimals:'auto',
   dir:'auto', orient:'auto', zebra:true, serial:false, autoTotal:true, negRed:true, filter:true,
   fontHead:'same', titleSize:'7', borderStyle:'thin', borderColor:'theme', frame:false, density:'normal',
-  headAlign:'center', dataAlign:'auto', currency:'', dateFmt:'ymd', paper:'A4',
+  headAlign:'center', dataAlign:'auto', currency:'', dateFmt:'ymd', paper:'A4', totalStyle:'band', zebraTone:'light',
   // عريض / مائل / تسطير لكل جزء: t=العنوان u=العنوان الفرعي h=رأس الجدول d=البيانات s=الإجمالي
   tB:true, tI:false, tU:false, uB:false, uI:true, uU:false, hB:true, hI:false, hU:false,
   dB:false, dI:false, dU:false, sB:true, sI:false, sU:false};
@@ -370,12 +415,13 @@ function rgb(h) { h = h.replace('#', ''); return [0, 2, 4].map(i => parseInt(h.s
 function hex(a) { return '#' + a.map(v => Math.round(Math.max(0, Math.min(255, v))).toString(16).padStart(2, '0')).join(''); }
 function mix(a, b, t) { const x = rgb(a), y = rgb(b); return hex(x.map((v, i) => v + (y[i] - v) * t)); }
 function lum(h) { const [r, g, b] = rgb(h).map(v => { v /= 255; return v <= .03928 ? v / 12.92 : Math.pow((v + .055) / 1.055, 2.4); }); return .2126 * r + .7152 * g + .0722 * b; }
-function onColor(h) { return lum(h) > .45 ? '#111827' : '#ffffff'; }
-function theme() {
-  const p = O.primary, a = O.accent;
-  const bd = O.borderColor === 'gray' ? '#94a3b8' : O.borderColor === 'black' ? '#111827' : mix(p, '#ffffff', .68);
-  return {p, pt: onColor(p), z: mix(p, '#ffffff', .91), bd,
-    tb: mix(a, '#ffffff', .8), tt: mix(a, '#000000', .45), ta: a};
+// يختار الأبيض أو الداكن حسب أعلى تباين مع الخلفية (مقروئية مضمونة على أي لون)
+function onColor(h) { const L = lum(h); return 1.25 * 1.05 / (L + .05) >= (L + .05) / (lum('#111827') + .05) ? '#ffffff' : '#111827'; }
+function theme(o = O) {
+  const p = o.primary, a = o.accent;
+  const bd = o.borderColor === 'gray' ? '#94a3b8' : o.borderColor === 'black' ? '#111827' : mix(p, '#ffffff', .68);
+  return {p, pt: onColor(p), z: mix(p, '#ffffff', o.zebraTone === 'medium' ? .84 : .91), bd,
+    tb: mix(a, '#ffffff', .8), tt: mix(a, '#000000', .45), ta: a, tso: onColor(a)};
 }
 const argb = h => 'FF' + h.replace('#', '').toUpperCase();
 
@@ -568,16 +614,16 @@ const dens = () => DENSITY[O.density] || DENSITY.normal;
 /* ================= المعاينة (HTML) ================= */
 function renderHTML(m, preview) {
   const t = theme(), s = m.sheet;
-  const cls = ['rep', O.headStyle === 'soft' ? 'hd-soft' : '', O.borders === 'h' ? 'b-h' : O.borders === 'none' ? 'b-n' : '',
+  const cls = ['rep', O.headStyle !== 'filled' ? 'hd-' + O.headStyle : '', O.totalStyle !== 'band' ? 'tt-' + O.totalStyle : '', O.borders === 'h' ? 'b-h' : O.borders === 'none' ? 'b-n' : '',
     O.zebra ? 'zb' : '', O.frame ? 'fr' : '', O.dataAlign !== 'auto' ? 'da-' + O.dataAlign : ''].join(' ');
   const [bw, bs] = BORDER_CSS[O.borderStyle] || BORDER_CSS.thin;
   const fx = FX_PARTS.map(([k]) => `--${k}-w:${O[k + 'B'] ? 700 : 400};--${k}-s:${O[k + 'I'] ? 'italic' : 'normal'};--${k}-d:${O[k + 'U'] ? 'underline' : 'none'}`).join(';');
-  const style = `--p:${t.p};--pt:${t.pt};--z:${t.z};--bd:${t.bd};--tb:${t.tb};--tt:${t.tt};--ta:${t.ta};--ff:'${O.font}';--fh:'${headFont()}';` +
+  const style = `--p:${t.p};--pt:${t.pt};--z:${t.z};--bd:${t.bd};--tb:${t.tb};--tt:${t.tt};--ta:${t.ta};--tso:${t.tso};--ff:'${O.font}';--fh:'${headFont()}';` +
     `--bw:${bw};--bs:${bs};--pad:${dens().pad};--ha:${O.headAlign};--tsz:${((+O.size + +O.titleSize) / +O.size).toFixed(3)}em;${fx};` +
     `font-size:${O.size * 1.25}px;--pfs:${O.size}pt`;
   let h = `<div class="${cls}" dir="${m.rtl ? 'rtl' : 'ltr'}" style="${style}">`;
   if (O.company) h += `<div class="co">${esc(O.company)}</div>`;
-  if (s.title) h += `<div class="ti ${O.titleStyle === 'bar' ? 'barred' : ''}">${esc(s.title)}</div>`;
+  if (s.title) h += `<div class="ti ${O.titleStyle === 'bar' ? 'barred' : O.titleStyle === 'line' ? 'lined' : ''}">${esc(s.title)}</div>`;
   if (s.subtitle) h += `<div class="su">${esc(s.subtitle)}</div>`;
   if (O.showDate) h += `<div class="dt">${m.rtl ? 'تاريخ الإعداد' : 'Prepared on'}: ${today()}</div>`;
   h += '<table><thead><tr>' + m.cols.map(c => `<th>${esc(c.name)}${preview && c.src >= 0 ? `<button class="hx" data-src="${c.src}" title="إخفاء هذا العمود">✕</button>` : ''}</th>`).join('') + '</tr></thead><tbody>';
@@ -602,6 +648,30 @@ function renderSwatches() {
   $('swatches').innerHTML = PRESETS.map(([n, p, a], i) =>
     `<button class="sw ${O.primary === p && O.accent === a ? 'on' : ''}" title="${n}" data-i="${i}"><i style="background:${p}"></i><b style="background:${a}"></b></button>`).join('');
 }
+function thumbHTML(o) {
+  const t = theme(o), bars = '<i></i><i></i><i></i>';
+  const txt = `background:linear-gradient(${t.p},${t.p}) center/55% 4px no-repeat`;
+  const title = o.titleStyle === 'bar' ? `background:${t.p}` : o.titleStyle === 'line' ? `${txt};border-bottom:2px solid ${t.ta};border-radius:0` : txt;
+  const head = o.headStyle === 'filled' ? `background:${t.p}` : o.headStyle === 'soft' ? `background:${t.z};border-bottom:2px solid ${t.p}` : `border-bottom:2px solid ${t.p}`;
+  const line = o.borders === 'none' ? 'transparent' : t.bd;
+  const rows = [0, 1, 2, 3].map(i => `<div class="mr" style="border-bottom:1px ${o.borderStyle === 'dotted' ? 'dotted' : o.borderStyle === 'dashed' ? 'dashed' : 'solid'} ${line};${o.zebra && i % 2 ? 'background:' + t.z : ''}">${bars}</div>`).join('');
+  const tot = o.totalStyle === 'solid' ? `background:${t.ta}` : o.totalStyle === 'line' ? `border-top:1px solid ${t.p};border-bottom:3px double ${t.p}` : `background:${t.tb};border-top:2px solid ${t.ta}`;
+  return `<div class="mini" style="${o.frame ? 'outline:2px solid ' + t.p + ';outline-offset:-2px;' : ''}"><div class="mt" style="${title}"></div>` +
+    `<div class="mr mh" style="${head}">${o.headStyle === 'filled' ? bars : bars.replace(/<i>/g, `<i style="background:${t.p};opacity:.55">`)}</div>${rows}<div class="mr" style="${tot}"></div></div>`;
+}
+function renderDesigns() {
+  $('designs').innerHTML = DESIGNS.map((d, i) => {
+    const on = Object.keys(d.o).every(k => O[k] === d.o[k]);
+    return `<div class="dz ${on ? 'on' : ''}" data-i="${i}" title="${esc(d.name)} — ${esc(d.desc)}">${thumbHTML(d.o)}<div class="dn">${esc(d.name)}</div><div class="dd">${esc(d.desc)}</div></div>`;
+  }).join('');
+}
+$('designs').addEventListener('click', e => {
+  const z = e.target.closest('.dz'); if (!z) return;
+  const d = DESIGNS[+z.dataset.i];
+  Object.assign(O, d.o); saveOpts(); renderSwatches(); syncInputs(); renderPreview();
+  toast('✨ تم تطبيق تصميم «' + d.name + '» — يمكنك تعديله ثم حفظه كقالب');
+});
+
 function renderFx() {
   $('fxRows').innerHTML = FX_PARTS.map(([k, l]) => `<tr><td>${l}</td>` +
     [['B', '<b>B</b>'], ['I', '<i>I</i>'], ['U', '<u>U</u>']].map(([x, g]) =>
@@ -702,7 +772,7 @@ function setCol(i, patch, msg) {
 }
 function renderPreview() {
   const s = cur(); if (!s) return;
-  renderHidden();
+  renderHidden(); renderDesigns();
   const m = model(s);
   $('preview').innerHTML = renderHTML(m, true);
   const nNum = m.cols.filter(c => c.type === 'num').length;
@@ -857,8 +927,11 @@ function buildSheet(wb, m, usedNames) {
   };
   if (O.company) band(O.company, {bold: true, size: fs + 3, color: {argb: argb(t.p)}}, {height: 22});
   const tsz = fs + +O.titleSize;
-  if (s.title) band(s.title, {...fx('t'), size: tsz, color: {argb: argb(O.titleStyle === 'bar' ? t.pt : t.p)}},
-    {height: Math.round(tsz * 1.7), fill: O.titleStyle === 'bar' ? t.p : null});
+  if (s.title) {
+    band(s.title, {...fx('t'), size: tsz, color: {argb: argb(O.titleStyle === 'bar' ? t.pt : t.p)}},
+      {height: Math.round(tsz * 1.7), fill: O.titleStyle === 'bar' ? t.p : null});
+    if (O.titleStyle === 'line') for (let j = 1; j <= n; j++) ws.getCell(r - 1, j).border = {bottom: side('thick', t.ta)};
+  }
   if (s.subtitle) band(s.subtitle, {...fx('u'), size: fs + 1, color: {argb: 'FF475569'}}, {height: 18});
   if (O.showDate) band((m.rtl ? 'تاريخ الإعداد: ' : 'Prepared on: ') + today(), {size: fs - 1, color: {argb: 'FF64748B'}});
   if (r > 1) { ws.getRow(r).height = 8; r++; }
@@ -868,11 +941,12 @@ function buildSheet(wb, m, usedNames) {
   m.cols.forEach((c, j) => {
     const cell = ws.getCell(r, j + 1);
     cell.value = c.name;
-    const soft = O.headStyle === 'soft';
-    cell.font = {name: hfont, ...fx('h'), size: fs, color: {argb: argb(soft ? t.p : t.pt)}};
-    cell.fill = fill(soft ? t.z : t.p);
+    const hs = O.headStyle;
+    cell.font = {name: hfont, ...fx('h'), size: fs, color: {argb: argb(hs === 'filled' ? t.pt : t.p)}};
+    if (hs !== 'line') cell.fill = fill(hs === 'soft' ? t.z : t.p);
     cell.alignment = {horizontal: O.headAlign, vertical: 'middle', wrapText: true, readingOrder: m.rtl ? 'rtl' : 'ltr'};
-    cell.border = soft ? {...cellBorder(), bottom: side('medium', t.p)} : cellBorder();
+    cell.border = hs === 'soft' ? {...cellBorder(), bottom: side('medium', t.p)}
+      : hs === 'line' ? {bottom: side('medium', t.p)} : cellBorder();
   });
   ws.getRow(r).height = D.hh; r++;
 
@@ -889,11 +963,13 @@ function buildSheet(wb, m, usedNames) {
       const isNum = typeof v === 'number';
       if (isNum && c.type === 'num') cell.numFmt = numFmt(c.dec, false, c.cur);
       if (isNum && c.type === 'pct') cell.numFmt = numFmt(c.dec, true);
-      cell.font = {name: font, size: fs, ...fx(row.total ? 's' : 'd'), color: row.total ? {argb: argb(t.tt)} : undefined};
+      const totColor = O.totalStyle === 'solid' ? t.tso : O.totalStyle === 'line' ? '#111827' : t.tt;
+      cell.font = {name: font, size: fs, ...fx(row.total ? 's' : 'd'), color: row.total ? {argb: argb(totColor)} : undefined};
       cell.alignment = {vertical: 'middle', readingOrder: m.rtl ? 'rtl' : 'ltr',
         horizontal: O.dataAlign !== 'auto' ? O.dataAlign : (isNum || c.type === 'serial' || c.type === 'date') ? 'center' : hAlign};
       const b = cellBorder();
-      if (row.total) { cell.fill = fill(t.tb); b.top = side('medium', t.ta); b.bottom = side('medium', t.ta); }
+      if (row.total && O.totalStyle === 'line') { b.top = side('thin', t.p); b.bottom = side('double', t.p); }
+      else if (row.total) { cell.fill = fill(O.totalStyle === 'solid' ? t.ta : t.tb); b.top = side('medium', t.ta); b.bottom = side('medium', t.ta); }
       else if (striped) cell.fill = fill(t.z);
       cell.border = b;
     });
