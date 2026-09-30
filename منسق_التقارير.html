@@ -94,6 +94,10 @@ button{cursor:pointer}
 .tpl-btns{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
 .tpl-def{font-size:12.5px;color:#0f766e;background:#f0fdfa;border:1px solid #99f6e4;border-radius:8px;padding:6px 9px;margin-bottom:8px}
 .tpl-def:empty{display:none}
+.sync{font-size:12px;border-radius:8px;padding:6px 9px;margin-bottom:8px;line-height:1.6}
+.sync:empty{display:none}
+.sync.ok{background:#ecfeff;color:#0e7490}.sync.off{background:#f1f5f9;color:#475569}
+.sync.wait,.sync.saving{background:#fefce8;color:#854d0e}.sync.err{background:#fef2f2;color:#b91c1c}
 .fx{width:100%;border-collapse:collapse;font-size:13px;margin:2px 0 10px}
 .fx th{font-size:11.5px;color:var(--muted);font-weight:600;padding:3px;text-align:center}
 .fx td{padding:3px;text-align:center}
@@ -276,6 +280,7 @@ button{cursor:pointer}
       <div class="card" data-g="tpl">
         <h3>💾 القوالب المحفوظة</h3>
         <div class="hint" id="tplOwner" style="margin:-4px 0 8px"></div>
+        <div class="sync" id="tplSync"></div>
         <div class="tpl-def" id="tplDef"></div>
         <div class="row"><select id="tplSel" style="flex:1;border:1px solid var(--line);border-radius:8px;padding:7px 9px;background:#fff"></select></div>
         <div class="tpl-btns">
@@ -289,7 +294,7 @@ button{cursor:pointer}
           <button class="btn ghost sm" onclick="$('tplFile').click()">⬆ استيراد</button>
           <input type="file" id="tplFile" accept=".json" hidden>
         </div>
-        <div class="hint">القالب الافتراضي يُطبَّق تلقائياً كل مرة تفتح المنسق. القوالب محفوظة على هذا الجهاز — استخدم «تصدير/استيراد» لنقلها لجهاز آخر.</div>
+        <div class="hint">القالب الافتراضي يُطبَّق تلقائياً كل مرة تفتح المنسق — وعند تفعيل المزامنة يتبعك على أي جهاز تدخل منه بحسابك.</div>
       </div>
 
       <div class="card" data-g="design">
@@ -487,7 +492,7 @@ try { localStorage.removeItem('rf-opts'); } catch (e) {} // آخر إعدادا�
 let TPL = USER ? store.get(K_TPL, {}) || {} : {};
 let DEF_TPL = USER ? store.get(K_DEF, '') || '' : '';
 let O = Object.assign({}, DEFAULTS, DEF_TPL && TPL[DEF_TPL] ? TPL[DEF_TPL] : USER ? store.get(K_OPTS, {}) : {});
-function saveOpts() { if (USER) store.set(K_OPTS, O); }
+function saveOpts() { if (USER) { store.set(K_OPTS, O); cloudWrite(); } }
 
 const S = {file:'', sheets:[], active:0};
 
@@ -769,6 +774,8 @@ function renderTpl(sel) {
   $('tplDef').innerHTML = info; $('tplInfo').innerHTML = info; $('tplInfo').style.display = info ? 'inline-block' : 'none';
 }
 function persistTpl() {
+  if (CLOUD.state === 'wait') CLOUD.dirty = true;
+  cloudWrite(true);
   if (!USER || !store.set(K_TPL, TPL) || !store.set(K_DEF, DEF_TPL)) toast('تعذّر الحفظ — المتصفح يمنع التخزين (وضع التصفح الخاص؟)', 5000);
 }
 function applyOpts(o) { O = Object.assign({}, DEFAULTS, o); saveOpts(); renderSwatches(); syncInputs(); renderPreview(); }
@@ -1167,11 +1174,71 @@ function downloadPdf() {
 
 // زر الرجوع يعود للنظام الذي فُتح المنسق منه (التوريد أو المخزون)
 try { const r = new URL(document.referrer); if (r.origin === location.origin && /\.html$|\/$/.test(r.pathname)) $('backLink').href = r.href; } catch (e) {}
+/* ================= مزامنة القوالب سحابياً =================
+   المسار workspaces/<مساحة العمل>/formatter/<uid> خاص بالمستخدم وحده (قواعد الأمان) ومنفصل تماماً عن بيانات المخزون.
+   نسخة الجهاز تبقى كذاكرة مؤقتة وتعمل وحدها عند تعذّر الاتصال. */
+const CLOUD = {ref: null, state: 'off', msg: '', timer: null, dirty: false};
+function setCloudState(state, msg) {
+  CLOUD.state = state; CLOUD.msg = msg || '';
+  const el = $('tplSync'); if (!el) return;
+  el.className = 'sync ' + state;
+  el.textContent = {off: '💾 القوالب محفوظة على هذا الجهاز فقط', wait: '⏳ جارٍ جلب قوالبك من السحابة…',
+    ok: '☁️ متزامنة مع حسابك — تظهر لك على أي جهاز تدخل منه', saving: '☁️ جارٍ الحفظ في السحابة…', err: '⚠️ ' + CLOUD.msg}[state] || '';
+}
+const loadScript = src => new Promise((res, rej) => { const el = document.createElement('script'); el.src = src; el.onload = res; el.onerror = () => rej(new Error('network')); document.head.appendChild(el); });
+const cloudPayload = () => JSON.parse(JSON.stringify({templates: Object.keys(TPL).map(n => ({name: n, o: TPL[n]})), default: DEF_TPL || '', opts: O, updatedAt: Date.now()}));
+function cloudWrite(now) {
+  if (!CLOUD.ref || CLOUD.state === 'wait') return;
+  clearTimeout(CLOUD.timer);
+  const go = () => { setCloudState('saving');
+    CLOUD.ref.set(cloudPayload()).then(() => setCloudState('ok')).catch(() => setCloudState('err', 'تعذّر الحفظ في السحابة — التعديل محفوظ على هذا الجهاز')); };
+  if (now) go(); else CLOUD.timer = setTimeout(go, 1200);
+}
+async function cloudStart() {
+  const c = USER && USER.cloud;
+  if (!c || !c.config || !c.wid) return setCloudState('off');
+  setCloudState('wait');
+  try {
+    const V = 'https://www.gstatic.com/firebasejs/10.12.5/';
+    for (const f of ['firebase-app-compat.js', 'firebase-auth-compat.js', 'firebase-database-compat.js']) await loadScript(V + f);
+    try { firebase.initializeApp(c.config); } catch (e) {}
+    // نفس جلسة الدخول المحفوظة من نظام المخزون (نفس النطاق) — بلا تسجيل دخول ثانٍ
+    const user = await new Promise(res => { const off = firebase.auth().onAuthStateChanged(u => { off(); res(u); }); });
+    if (!user || user.uid !== USER.key) return setCloudState('err', 'تعذّر التحقق من حسابك السحابي — القوالب محفوظة على هذا الجهاز فقط');
+    const ref = firebase.database().ref('workspaces/' + c.wid + '/formatter/' + user.uid);
+    const v = (await ref.once('value')).val();
+    CLOUD.ref = ref;
+    if (v && v.updatedAt) {
+      // السحابة هي المرجع؛ وما حُفظ على هذا الجهاز أثناء الاتصال يُضاف إليها
+      const t = {}; (v.templates || []).forEach(x => { if (x && x.name && x.o) t[x.name] = x.o; });
+      TPL = CLOUD.dirty ? Object.assign(t, TPL) : t;
+      if (!CLOUD.dirty) DEF_TPL = v.default && TPL[v.default] ? v.default : '';
+      store.set(K_TPL, TPL); store.set(K_DEF, DEF_TPL);
+      if (!S.sheets.length) {   // لم يُفتح ملف بعد: طبّق افتراضي الحساب (أو آخر إعداداته)
+        const o = DEF_TPL && TPL[DEF_TPL] ? TPL[DEF_TPL] : v.opts;
+        if (o) { O = Object.assign({}, DEFAULTS, o); store.set(K_OPTS, O); renderSwatches(); syncInputs(); }
+      }
+      renderTpl(DEF_TPL && TPL[DEF_TPL] ? DEF_TPL : '');
+      setCloudState('ok');
+      if (CLOUD.dirty) cloudWrite(true);
+    } else {
+      setCloudState('ok');
+      if (Object.keys(TPL).length || DEF_TPL) cloudWrite(true);   // أول مرة: رفع قوالب هذا الجهاز لحساب المستخدم
+    }
+    CLOUD.dirty = false;
+  } catch (e) {
+    const m = String((e && (e.code || e.message)) || e);
+    setCloudState('err', /permission/i.test(m) ? 'المزامنة تحتاج تحديث قواعد قاعدة البيانات (دليل التفعيل — الخطوة 4) — القوالب محفوظة على هذا الجهاز حالياً'
+      : 'تعذّر الاتصال بالسحابة — القوالب محفوظة على هذا الجهاز حالياً');
+  }
+}
+
 if (USER) {
   $('who').textContent = '👤 ' + (USER.name || '');
   $('tplOwner').textContent = '🔒 قوالب «' + (USER.name || '') + '» — خاصة بك ولا تظهر لأي مستخدم آخر.';
 } else { $('drop').hidden = true; $('locked').hidden = false; }
 renderSwatches(); syncInputs(); renderTpl(DEF_TPL && TPL[DEF_TPL] ? DEF_TPL : '');
+if (USER) cloudStart();
 </script>
 </body>
 </html>
