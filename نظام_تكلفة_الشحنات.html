@@ -709,6 +709,7 @@ html[data-theme="dark"] .rt td.hl{background:#2e2814;color:var(--accent)}
   <div class="tab"         onclick="showPage('page-payments')">💵 الدفعات المسددة</div>
   <div class="tab"         onclick="showPage('page-freight')">🚚 كشف حساب الشحن</div>
   <div class="tab"         onclick="showPage('page-supacct')">📒 كشف حساب المورد</div>
+  <div class="tab"         onclick="showPage('page-comm')">🧮 كشف حساب العمولة</div>
   <div class="tab"         onclick="showPage('page-modelrep')">📈 تقرير الموديلات</div>
   <div class="tab"         onclick="showPage('page-compare')">⚖️ المقارنة</div>
 </div>
@@ -1207,6 +1208,72 @@ html[data-theme="dark"] .rt td.hl{background:#2e2814;color:var(--accent)}
   </div>
 </div>
 
+<!-- ══ PAGE 7B: COMMISSION ACCOUNT (كشف حساب العمولة) ══ -->
+<div id="page-comm" class="page">
+  <div class="alert ai" style="margin-bottom:12px">🧮 <strong>كشف حساب العمولة</strong> — تُحتسب العمولة لكل شحنة = <strong>قيمة الشحنة</strong> (إجمالي حاوياتها بسعر الشراء FOB المحفوظ) × <strong>نسبة العمولة</strong>. النسبة قابلة للتعديل لكل شحنة أو كنسبة افتراضية للجميع. العمولة المستحقة رصيد <strong>مدين</strong>، والدفعات رصيد <strong>دائن</strong>، مع <strong>الرصيد المتبقّي</strong> وإمكانية الطباعة.</div>
+
+  <div class="card" style="margin-bottom:12px">
+    <div class="card-body" style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap">
+      <div class="fg"><label>النسبة الافتراضية للعمولة (%)</label><input id="comm-rate" type="number" min="0" step="0.01" placeholder="مثال: 2.5" style="width:150px"></div>
+      <button class="btn btn-accent btn-sm" onclick="saveCommDefaultRate()">💾 تطبيق النسبة على الكل</button>
+      <div style="font-size:.78rem;color:var(--muted);flex:1;min-width:180px">تُطبَّق على كل الشحنات ما لم تُعدّل نسبة شحنة بعينها في الجدول أدناه. الشركة النشطة: <strong id="comm-active-name"></strong></div>
+    </div>
+  </div>
+
+  <div id="comm-sum-cards" class="sum-cards" style="margin-bottom:12px"></div>
+
+  <div class="card" style="margin-bottom:12px">
+    <div class="card-header">📊 جدول العمولة حسب الشحنات</div>
+    <div class="card-body">
+      <div style="overflow-x:auto"><table class="tbl" id="comm-table">
+        <thead><tr>
+          <th>#</th><th>التاريخ</th><th>رقم الشحنة</th><th>قيمة الشحنة (SAR)</th><th>نسبة العمولة %</th><th>قيمة العمولة (SAR)</th>
+        </tr></thead>
+        <tbody id="comm-tbody"></tbody>
+      </table></div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:12px">
+    <div class="card-header" style="background:#1b5e20">💵 تسجيل دفعة عمولة — للشركة النشطة</div>
+    <div class="card-body">
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+        <div class="fg"><label>التاريخ</label><input id="comm-date" type="date" style="width:150px"></div>
+        <div class="fg"><label>المبلغ</label><input id="comm-amount" type="number" min="0" step="0.01" placeholder="0.00" style="width:130px"></div>
+        <div class="fg"><label>العملة</label><select id="comm-cur" class="cur-sel"><option value="SAR">SAR</option><option value="USD">USD</option></select></div>
+        <div class="fg"><label>طريقة الدفع</label><select id="comm-method" onchange="onCommMethodChange()"><option value="transfer">🏦 تحويل بنكي</option><option value="cash">💵 نقدًا</option></select></div>
+        <div class="fg" id="comm-bank-wrap"><label>البنك</label><input id="comm-bank" placeholder="اسم البنك" style="width:150px"></div>
+        <div class="fg"><label>مرجع</label><input id="comm-ref" placeholder="رقم العملية" style="width:120px"></div>
+        <div class="fg" style="flex:1;min-width:160px"><label>ملاحظات</label><input id="comm-notes" placeholder="ملاحظات"></div>
+        <button class="btn btn-accent" onclick="addCommPayment()">➕ إضافة دفعة</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+      <span>📋 كشف الحساب</span>
+      <span style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+        <button class="btn btn-outline btn-sm" id="comm-mode-sum" onclick="setCommMode('summary')">ملخص</button>
+        <button class="btn btn-outline btn-sm" id="comm-mode-det" onclick="setCommMode('detail')">تفصيلي</button>
+        <button class="btn btn-outline btn-sm" onclick="printCommAcct()">🖨️ طباعة</button>
+        <input id="comm-from" type="date" onchange="renderCommAcct()" style="width:135px" title="من تاريخ">
+        <span style="font-size:.8rem;color:var(--muted)">إلى</span>
+        <input id="comm-to" type="date" onchange="renderCommAcct()" style="width:135px" title="إلى تاريخ">
+        <button class="btn btn-outline btn-sm" onclick="clearCommDates()">مسح</button>
+      </span>
+    </div>
+    <div class="card-body">
+      <div style="overflow-x:auto"><table class="tbl" id="comm-led-table">
+        <thead><tr>
+          <th>#</th><th>التاريخ</th><th>البيان</th><th>مدين (عمولة)</th><th>دائن (مسدد)</th><th>الرصيد الجاري</th><th></th>
+        </tr></thead>
+        <tbody id="comm-led-tbody"></tbody>
+      </table></div>
+    </div>
+  </div>
+</div>
+
 <!-- ══ PAGE 8: SUPPLIER ACCOUNT (كشف حساب المورد) ══ -->
 <div id="page-supacct" class="page">
   <div class="alert ai" style="margin-bottom:12px">📒 <strong>كشف حساب المورد</strong> — رصيد <strong>مدين</strong> = قيمة الشراء (FOB) لشحنات هذا المورد (نفس إجمالي «سجل الشحنات»)، ورصيد <strong>دائن</strong> = دفعاته المسجَّلة، مع <strong>الرصيد المتبقّي</strong>. يمكن أيضاً استيراد <strong>فواتير مشتريات</strong> (تزيد المدين) و<strong>مجموعة دفعات</strong> تظهر هنا وفي كشف المقارنة. أجور الشحن تبقى في «كشف حساب الشحن» منفصلةً.</div>
@@ -1697,6 +1764,8 @@ function deleteProfile(id) {
     localStorage.removeItem('scs_modelb_'+id);
     localStorage.removeItem('scs_cmppay_'+id);
     localStorage.removeItem('scs_supinv_'+id);
+    localStorage.removeItem('scs_commcfg_'+id);
+    localStorage.removeItem('scs_commpay_'+id);
     profilesSave(profiles.filter(x=>x.id!==id));
     // If was active, clear active
     if (getActiveProfileId()===id) localStorage.removeItem(ACTIVE_KEY);
@@ -3135,7 +3204,7 @@ function preparePricingPrint(){ setTimeout(()=>window.print(),100); }
 function showPage(id){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.getElementById(id).classList.add('active');
-  const pages=['page-shipment','page-costs','page-results','page-pricing','page-archive','page-payments','page-freight','page-supacct','page-modelrep','page-compare'];
+  const pages=['page-shipment','page-costs','page-results','page-pricing','page-archive','page-payments','page-freight','page-supacct','page-comm','page-modelrep','page-compare'];
   document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',pages[i]===id));
   if(id==='page-costs'){ buildInvCostPanels(); buildConCostPanels(); renderShipCosts(); }
   if(id==='page-archive'){ renderArchive(); }
@@ -3143,6 +3212,7 @@ function showPage(id){
   if(id==='page-payments'){ renderPayments(); }
   if(id==='page-freight'){ onFrtMethodChange(); renderFreight(); }
   if(id==='page-supacct'){ onSaMethodChange(); renderSupAcct(); }
+  if(id==='page-comm'){ onCommMethodChange(); renderCommAcct(); }
   if(id==='page-modelrep'){ renderModelReport(); }
   if(id==='page-compare'){ renderCompare(); renderCmpBEditor(); }
 }
@@ -3560,14 +3630,14 @@ function mergeProfileData(fromId,toId){
     _lsSet(t, JSON.stringify(ord.map(function(kk){return map[kk];})));
   }
   // مصفوفات مالية: اتحاد بالمعرّف
-  ['scs_pay_','scs_freightpay_','scs_suppliers_','scs_supplierpay_','scs_cmppay_','scs_supinv_'].forEach(function(pfx){
+  ['scs_pay_','scs_freightpay_','scs_suppliers_','scs_supplierpay_','scs_cmppay_','scs_supinv_','scs_commpay_'].forEach(function(pfx){
     var ff=pfx+fromId, tt=pfx+toId; if(gS(ff)==null) return;
     var fa2=_safeArr(gS(ff)), ta2=_safeArr(gS(tt)), seen={}, out=[];
     ta2.concat(fa2).forEach(function(x){ var kk=(x&&x.id)?String(x.id):JSON.stringify(x); if(!seen[kk]){seen[kk]=1;out.push(x);} });
     _lsSet(tt, JSON.stringify(out));
   });
   // كائنات (نموذج ب / أسماء المقارنة): تعبئة المفاتيح الناقصة فقط
-  ['scs_modelb_','scs_cmpcfg_'].forEach(function(pfx){
+  ['scs_modelb_','scs_cmpcfg_','scs_commcfg_'].forEach(function(pfx){
     var ff=pfx+fromId, tt=pfx+toId; if(gS(ff)==null) return;
     var fo=_safeObj(gS(ff)), to=_safeObj(gS(tt)); Object.keys(fo).forEach(function(kk){ if(!(kk in to)) to[kk]=fo[kk]; }); _lsSet(tt, JSON.stringify(to));
   });
@@ -3601,7 +3671,7 @@ function reconcileProfiles(){
 }
 function cloudReloadUI(){
   try{ applyPermsUI(); cfgLoad(); applyTheme(); updateProfileBadge(); renderQuickSwitch();
-    var a=document.querySelector('.page.active'); if(a&&a.id==='page-archive') renderArchive(); if(a&&a.id==='page-payments') renderPayments(); if(a&&a.id==='page-freight') renderFreight(); if(a&&a.id==='page-supacct') renderSupAcct(); if(a&&a.id==='page-modelrep') renderModelReport(); if(a&&a.id==='page-compare') renderCompare();
+    var a=document.querySelector('.page.active'); if(a&&a.id==='page-archive') renderArchive(); if(a&&a.id==='page-payments') renderPayments(); if(a&&a.id==='page-freight') renderFreight(); if(a&&a.id==='page-supacct') renderSupAcct(); if(a&&a.id==='page-comm') renderCommAcct(); if(a&&a.id==='page-modelrep') renderModelReport(); if(a&&a.id==='page-compare') renderCompare();
   }catch(e){}
 }
 
@@ -3843,7 +3913,9 @@ function buildFullBackup(){
       mb: JSON.parse(localStorage.getItem('scs_modelb_'+p.id)||'{}'),
       cmp: JSON.parse(localStorage.getItem('scs_cmpcfg_'+p.id)||'{}'),
       cmppay: JSON.parse(localStorage.getItem('scs_cmppay_'+p.id)||'[]'),
-      supinv: JSON.parse(localStorage.getItem('scs_supinv_'+p.id)||'[]')
+      supinv: JSON.parse(localStorage.getItem('scs_supinv_'+p.id)||'[]'),
+      commcfg: JSON.parse(localStorage.getItem('scs_commcfg_'+p.id)||'{}'),
+      commpay: JSON.parse(localStorage.getItem('scs_commpay_'+p.id)||'[]')
     });
   });
   return out;
@@ -3886,6 +3958,8 @@ function importFullBackup(){
             if(entry.cmp) localStorage.setItem('scs_cmpcfg_'+p.id, JSON.stringify(entry.cmp||{}));
             if(entry.cmppay) localStorage.setItem('scs_cmppay_'+p.id, JSON.stringify(entry.cmppay||[]));
             if(entry.supinv) localStorage.setItem('scs_supinv_'+p.id, JSON.stringify(entry.supinv||[]));
+            if(entry.commcfg) localStorage.setItem('scs_commcfg_'+p.id, JSON.stringify(entry.commcfg||{}));
+            if(entry.commpay) localStorage.setItem('scs_commpay_'+p.id, JSON.stringify(entry.commpay||[]));
           });
           profilesSave(profiles);
           renderQuickSwitch(); renderArchive();
@@ -3957,6 +4031,8 @@ function restoreAutoBackup(){
       if(entry.cmp) localStorage.setItem('scs_cmpcfg_'+p.id, JSON.stringify(entry.cmp||{}));
       if(entry.cmppay) localStorage.setItem('scs_cmppay_'+p.id, JSON.stringify(entry.cmppay||[]));
       if(entry.supinv) localStorage.setItem('scs_supinv_'+p.id, JSON.stringify(entry.supinv||[]));
+      if(entry.commcfg) localStorage.setItem('scs_commcfg_'+p.id, JSON.stringify(entry.commcfg||{}));
+      if(entry.commpay) localStorage.setItem('scs_commpay_'+p.id, JSON.stringify(entry.commpay||[]));
     });
     profilesSave(profiles);
     renderQuickSwitch(); renderArchive();
@@ -4214,7 +4290,7 @@ function applyPermsUI(){
   const nm=document.getElementById('current-user-name'); if(nm) nm.textContent = u?(u.name||u.username)+' · '+(ROLE_NAMES[u.role]||'')+(isReadonly()?' · 👁 قراءة فقط':''):'';
   document.body.classList.toggle('ro', isReadonly());
   // إظهار/إخفاء التبويبات حسب الصلاحية (كل تقرير/شاشة على حدة)
-  const tabPerm={'page-shipment':'shipment','page-costs':'costs','page-results':'results','page-pricing':'pricing','page-archive':'archive','page-payments':'payments','page-freight':'payments','page-supacct':'payments','page-modelrep':'results','page-compare':'results'};
+  const tabPerm={'page-shipment':'shipment','page-costs':'costs','page-results':'results','page-pricing':'pricing','page-archive':'archive','page-payments':'payments','page-freight':'payments','page-supacct':'payments','page-comm':'payments','page-modelrep':'results','page-compare':'results'};
   document.querySelectorAll('.tabs .tab').forEach(t=>{
     const oc=t.getAttribute('onclick')||''; const m=oc.match(/'(page-[a-z]+)'/);
     if(m){ t.style.display = can(tabPerm[m[1]]||'shipment') ? '' : 'none'; }
@@ -4832,6 +4908,126 @@ function addFreightPayment(){
 function deleteFreightPayment(id){
   if(isReadonly()){ toast('👁 وضع القراءة فقط',true); return; }
   var list=frtLoad().filter(function(p){return p.id!==id;}); frtSave(list); renderFreight(); logAction('حذف دفعة شحن',''); toast('🗑️ تم حذف الدفعة');
+}
+
+// ═══════════════════════════════════════════
+// 🧮 كشف حساب العمولة — عمولة لكل شحنة (قيمة الشحنة × النسبة) مدين، والدفعات دائن
+// ═══════════════════════════════════════════
+var _commMode='detail';
+function commCfgKey(pid){ return 'scs_commcfg_'+(pid||getActiveProfileId()||'default'); }
+function commCfgLoad(pid){ try{ var o=JSON.parse(localStorage.getItem(commCfgKey(pid))||'{}'); if(!o||typeof o!=='object') o={}; if(!o.byShip||typeof o.byShip!=='object') o.byShip={}; return o; }catch(e){ return {rate:0, byShip:{}}; } }
+function commCfgSave(o,pid){ try{ localStorage.setItem(commCfgKey(pid),JSON.stringify(o)); return true; }catch(e){ toast('⚠️ فشل حفظ إعداد العمولة',true); return false; } }
+function commDefaultRate(){ var r=parseFloat(commCfgLoad().rate); return isNaN(r)?0:r; }
+function commRateFor(num){ var c=commCfgLoad(), k=String(num); if(c.byShip && c.byShip[k]!=null && c.byShip[k]!=='' && !isNaN(parseFloat(c.byShip[k]))) return parseFloat(c.byShip[k]); return commDefaultRate(); }
+function commPayKey(pid){ return 'scs_commpay_'+(pid||getActiveProfileId()||'default'); }
+function commPayLoad(pid){ try{ var a=JSON.parse(localStorage.getItem(commPayKey(pid))||'[]'); return Array.isArray(a)?a:[]; }catch(e){ return []; } }
+function commPaySave(a,pid){ try{ localStorage.setItem(commPayKey(pid),JSON.stringify(a)); return true; }catch(e){ toast('⚠️ فشل حفظ دفعات العمولة: التخزين ممتلئ',true); return false; } }
+function commPayToSar(p){ var a=parseFloat(p&&p.amount)||0; return (p&&p.cur==='SAR')?a:a*(parseFloat(p&&p.rate)||S.fxUsdSar||3.756); }
+function onCommMethodChange(){ var m=document.getElementById('comm-method').value; var w=document.getElementById('comm-bank-wrap'); if(w) w.style.display=(m==='transfer')?'':'none'; }
+function setCommMode(m){ _commMode=(m==='summary')?'summary':'detail'; renderCommAcct(); }
+function clearCommDates(){ var f=document.getElementById('comm-from'), t=document.getElementById('comm-to'); if(f)f.value=''; if(t)t.value=''; renderCommAcct(); }
+function saveCommDefaultRate(){ if(isReadonly()){ toast('👁 وضع القراءة فقط',true); return; } var r=parseFloat((document.getElementById('comm-rate')||{}).value); if(isNaN(r)||r<0){ toast('⚠️ أدخل نسبة صحيحة',true); return; } var c=commCfgLoad(); c.rate=r; commCfgSave(c); renderCommAcct(); logAction('تعيين نسبة عمولة افتراضية', r+'%'); toast('✅ تم تطبيق النسبة '+r+'% على الكل'); }
+function setCommRate(num,val){ if(isReadonly()){ renderCommAcct(); return; } var c=commCfgLoad(); var v=parseFloat(val); if(val===''||isNaN(v)){ delete c.byShip[String(num)]; } else { c.byShip[String(num)]=v; } commCfgSave(c); renderCommAcct(); logAction('تعديل نسبة عمولة شحنة', num+' → '+(val===''?'افتراضي':val+'%')); }
+// صفوف العمولة لكل شحنة ضمن الفترة (قيمة الشحنة = إجمالي حاوياتها FOB)
+function commShipRows(from,to){
+  return dbLoad().filter(function(s){ return shipFobSar(s)>0; })
+    .map(function(s){ var val=shipFobSar(s), r=commRateFor(s.shipmentNo); return {date:s.shipmentDate||'', num:s.shipmentNo||'—', nc:((s.containers)||[]).length, value:val, rate:r, comm:val*r/100}; })
+    .filter(function(r){ if(from && (r.date===''||r.date<from)) return false; if(to && r.date!=='' && r.date>to) return false; return true; })
+    .sort(function(a,b){ return (a.date<b.date)?-1:((a.date>b.date)?1:0); });
+}
+function commLedger(from,to){
+  var ships=dbLoad().filter(function(s){ return shipFobSar(s)>0; })
+    .map(function(s){ var val=shipFobSar(s), r=commRateFor(s.shipmentNo), nc=((s.containers)||[]).length; return {date:s.shipmentDate||'', kind:'ship', label:'عمولة شحنة '+(s.shipmentNo||'—')+(nc?' ('+nc+' حاوية)':'')+' — '+fmtD(val)+'×'+fmtN(r)+'%', dr:val*r/100, cr:0}; });
+  var pays=commPayLoad().map(function(p){ var m=(p.method==='transfer')?('تحويل'+(p.bank?' — '+p.bank:'')):'نقدًا'; return {date:p.date||'', kind:'pay', id:p.id, label:'دفعة عمولة ('+m+')'+(p.ref?' #'+p.ref:'')+(p.notes?' — '+p.notes:''), dr:0, cr:commPayToSar(p)}; });
+  var all=ships.concat(pays).sort(function(a,b){ return (a.date<b.date)?-1:((a.date>b.date)?1:0); });
+  var carried=0, kept=[];
+  all.forEach(function(e){ var before=from&&(e.date===''||e.date<from); if(before){ carried+=(e.dr-e.cr); return; } if(to&&e.date!==''&&e.date>to) return; kept.push(e); });
+  var out=[];
+  if(from){ out.push({date:from, kind:'carry', label:'رصيد مُرحّل (ما قبل '+from+')', dr:(carried>0?carried:0), cr:(carried<0?-carried:0), bal:carried}); }
+  var run=carried; kept.forEach(function(e){ run+=e.dr-e.cr; out.push(Object.assign({},e,{bal:run})); });
+  return out;
+}
+function renderCommAcct(){
+  var pid=getActiveProfileId();
+  var pname=(profilesLoad().find(function(p){return p.id===pid;})||{}).name||'—';
+  var nm=document.getElementById('comm-active-name'); if(nm) nm.textContent=pname;
+  var rEl=document.getElementById('comm-rate'); if(rEl && document.activeElement!==rEl){ var dr0=commDefaultRate(); rEl.value=dr0?dr0:''; }
+  var dEl=document.getElementById('comm-date'); if(dEl && !dEl.value) dEl.value=new Date().toISOString().slice(0,10);
+  var bs=document.getElementById('comm-mode-sum'), bd=document.getElementById('comm-mode-det');
+  if(bs) bs.classList.toggle('btn-accent', _commMode==='summary'); if(bd) bd.classList.toggle('btn-accent', _commMode==='detail');
+  var from=(document.getElementById('comm-from')||{}).value||'', to=(document.getElementById('comm-to')||{}).value||'';
+  // جدول العمولة
+  var crows=commShipRows(from,to);
+  var tb=document.getElementById('comm-tbody');
+  if(tb){
+    if(!crows.length){ tb.innerHTML='<tr><td colspan="6" style="padding:20px;color:var(--muted)">لا توجد شحنات بقيمة — احفظ شحنات أو عدّل الفلترة</td></tr>'; }
+    else {
+      var tComm=0, tVal=0;
+      tb.innerHTML=crows.map(function(r,i){ tComm+=r.comm; tVal+=r.value; var sn=String(r.num).replace(/\\/g,'').replace(/'/g,'');
+        return '<tr><td>'+(i+1)+'</td><td>'+escH(r.date||'—')+'</td><td>'+escH(String(r.num))+(r.nc?' <span style="color:var(--muted);font-size:.72rem">('+r.nc+' حاوية)</span>':'')+'</td>'+
+          '<td class="num">'+fmtD(r.value)+'</td>'+
+          '<td class="num"><input type="number" min="0" step="0.01" value="'+(r.rate||0)+'" onchange="setCommRate(\''+sn+'\',this.value)" style="width:82px;text-align:center"></td>'+
+          '<td class="num" style="font-weight:700;color:var(--primary)">'+fmtD(r.comm)+'</td></tr>';
+      }).join('')+
+        '<tr style="background:#e3f2fd;font-weight:800"><td colspan="3">الإجمالي</td><td class="num">'+fmtD(tVal)+'</td><td class="num">—</td><td class="num" style="color:var(--primary)">'+fmtD(tComm)+'</td></tr>';
+    }
+  }
+  // كشف الحساب (مدين/دائن)
+  var rows=commLedger(from,to);
+  var totDr=rows.reduce(function(s,r){return s+r.dr;},0), totCr=rows.reduce(function(s,r){return s+r.cr;},0), bal=totDr-totCr;
+  var sc=document.getElementById('comm-sum-cards');
+  if(sc) sc.innerHTML=
+    '<div class="sum-card"><div class="lbl">إجمالي العمولة — مدين (SAR)</div><div class="val">'+fmtD(totDr)+'</div><div class="sub">'+rows.filter(function(r){return r.kind==='ship';}).length+' شحنة</div></div>'+
+    '<div class="sum-card"><div class="lbl">إجمالي المسدد — دائن (SAR)</div><div class="val" style="color:var(--success)">'+fmtD(totCr)+'</div><div class="sub">'+rows.filter(function(r){return r.kind==='pay';}).length+' دفعة</div></div>'+
+    '<div class="sum-card"><div class="lbl">الرصيد المتبقّي (SAR)</div><div class="val" style="color:'+(bal>0?'var(--danger)':'var(--success)')+'">'+fmtD(bal)+'</div><div class="sub">'+(bal>0?'مستحق':(bal<0?'مدفوع بالزيادة':'مسدَّد بالكامل'))+'</div></div>';
+  var lt=document.getElementById('comm-led-tbody'); if(!lt) return;
+  if(!rows.length){ lt.innerHTML='<tr><td colspan="7" style="padding:20px;color:var(--muted)">لا توجد حركات</td></tr>'; return; }
+  if(_commMode==='summary'){
+    lt.innerHTML='<tr><td>1</td><td>—</td><td>إجمالي العمولة (مدين)</td><td class="num">'+fmtD(totDr)+'</td><td class="num">—</td><td class="num">'+fmtD(totDr)+'</td><td></td></tr>'+
+      '<tr><td>2</td><td>—</td><td>إجمالي الدفعات (دائن)</td><td class="num">—</td><td class="num" style="color:var(--success)">'+fmtD(totCr)+'</td><td class="num">'+fmtD(bal)+'</td><td></td></tr>';
+    return;
+  }
+  lt.innerHTML=rows.map(function(r,i){ var isCarry=r.kind==='carry';
+    return '<tr'+(isCarry?' style="background:#fff8e6"':'')+'><td>'+(i+1)+'</td><td>'+escH(r.date||'—')+'</td><td>'+(isCarry?'<em>':'')+escH(r.label||'')+(isCarry?'</em>':'')+'</td>'+
+      '<td class="num">'+(r.dr?fmtD(r.dr):'—')+'</td><td class="num" style="color:var(--success)">'+(r.cr?fmtD(r.cr):'—')+'</td>'+
+      '<td class="num" style="font-weight:700;color:'+(r.bal>0?'var(--danger)':'var(--success)')+'">'+fmtD(r.bal)+'</td>'+
+      '<td>'+(r.kind==='pay'?'<button class="del-btn" onclick="deleteCommPayment(\''+r.id+'\')">✕</button>':'')+'</td></tr>';
+  }).join('')+
+    '<tr style="background:#e3f2fd;font-weight:800"><td colspan="3">الإجمالي</td><td class="num">'+fmtD(totDr)+'</td><td class="num" style="color:var(--success)">'+fmtD(totCr)+'</td><td class="num" style="color:'+(bal>0?'var(--danger)':'var(--success)')+'">'+fmtD(bal)+'</td><td></td></tr>';
+}
+function addCommPayment(){
+  if(isReadonly()){ toast('👁 وضع القراءة فقط',true); return; }
+  if(!can('payments')){ toast('لا تملك صلاحية الدفعات',true); return; }
+  var amount=parseFloat(document.getElementById('comm-amount').value)||0;
+  if(amount<=0){ toast('⚠️ أدخل مبلغاً صحيحاً',true); return; }
+  var p={ id:'cm_'+Date.now(), date:document.getElementById('comm-date').value||new Date().toISOString().slice(0,10),
+    amount:amount, cur:document.getElementById('comm-cur').value, rate:(S.fxUsdSar||3.756),
+    method:document.getElementById('comm-method').value, bank:document.getElementById('comm-bank').value.trim(),
+    ref:document.getElementById('comm-ref').value.trim(), notes:document.getElementById('comm-notes').value.trim() };
+  var list=commPayLoad(); list.push(p); commPaySave(list);
+  ['comm-amount','comm-ref','comm-notes','comm-bank'].forEach(function(id){ var e=document.getElementById(id); if(e)e.value=''; });
+  renderCommAcct(); logAction('إضافة دفعة عمولة', p.amount+' '+p.cur); toast('✅ تمت إضافة دفعة العمولة');
+}
+function deleteCommPayment(id){
+  if(isReadonly()){ toast('👁 وضع القراءة فقط',true); return; }
+  commPaySave(commPayLoad().filter(function(p){return p.id!==id;})); renderCommAcct(); logAction('حذف دفعة عمولة',''); toast('🗑️ تم حذف الدفعة');
+}
+function printCommAcct(){
+  var from=(document.getElementById('comm-from')||{}).value||'', to=(document.getElementById('comm-to')||{}).value||'';
+  var per=(from||to)?('الفترة: '+(from||'البداية')+' إلى '+(to||'الآن')):'كل الفترات';
+  var crows=commShipRows(from,to), tVal=0, tC=0;
+  var t1='<h3>جدول العمولة حسب الشحنات — '+escH(per)+'</h3>'+
+    '<table><thead><tr><th>التاريخ</th><th>رقم الشحنة</th><th>قيمة الشحنة</th><th>نسبة %</th><th>قيمة العمولة</th></tr></thead><tbody>'+
+    (crows.map(function(r){ tVal+=r.value; tC+=r.comm; return '<tr><td>'+escH(r.date||'—')+'</td><td>'+escH(String(r.num))+'</td><td class=num>'+fmtD(r.value)+'</td><td class=num>'+fmtN(r.rate)+'%</td><td class=num>'+fmtD(r.comm)+'</td></tr>'; }).join('')||'<tr><td colspan=5>لا شحنات</td></tr>')+
+    '</tbody><tr class=tot><td colspan=2>الإجمالي</td><td class=num>'+fmtD(tVal)+'</td><td></td><td class=num>'+fmtD(tC)+'</td></tr></table>';
+  var led=commLedger(from,to);
+  var totDr=led.reduce(function(s,r){return s+r.dr;},0), totCr=led.reduce(function(s,r){return s+r.cr;},0), bal=totDr-totCr;
+  var t2='<h3>كشف الحساب</h3><table><thead><tr><th>التاريخ</th><th>البيان</th><th>مدين</th><th>دائن</th><th>الرصيد</th></tr></thead><tbody>'+
+    led.map(function(r){ return '<tr><td>'+escH(r.date||'—')+'</td><td style="text-align:right">'+escH(r.label||'')+'</td><td class=num>'+(r.dr?fmtD(r.dr):'')+'</td><td class=num>'+(r.cr?fmtD(r.cr):'')+'</td><td class=num>'+fmtD(r.bal)+'</td></tr>'; }).join('')+
+    '<tr class=tot><td colspan=2>الإجمالي</td><td class=num>'+fmtD(totDr)+'</td><td class=num>'+fmtD(totCr)+'</td><td class=num>'+fmtD(bal)+'</td></tr>'+
+    '</tbody></table>'+
+    '<p style="font-weight:700">الرصيد المتبقّي: '+fmtD(bal)+' ر.س — '+(bal>0?'مستحق':(bal<0?'مدفوع بالزيادة':'مسدَّد بالكامل'))+'</p>';
+  cmpPrintWindow('كشف حساب العمولة', t1+t2);
 }
 
 // ═══════════════════════════════════════════
@@ -5999,7 +6195,7 @@ function exportPaymentsExcel(){
 // ═══════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════
-var APP_VERSION='v2026-09-29.10';   // رقم إصدار ظاهر للتحقق من تحميل أحدث نسخة (لا cache قديم)
+var APP_VERSION='v2026-09-30.11';   // رقم إصدار ظاهر للتحقق من تحميل أحدث نسخة (لا cache قديم)
 function initApp() {
   try{ var av=document.getElementById('app-ver'); if(av) av.textContent=APP_VERSION; }catch(e){}
   try{ reconcileProfiles(); }catch(e){}   // توحيد أي بروفايلات مكرّرة محلياً قبل العرض
