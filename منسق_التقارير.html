@@ -55,13 +55,27 @@ button{cursor:pointer}
 .chk{display:flex;align-items:center;gap:8px;margin-bottom:7px;font-size:13px;cursor:pointer}
 .chk input{width:16px;height:16px;accent-color:var(--brand)}
 
-.swatches{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:10px}
-.sw{height:40px;border-radius:9px;border:2px solid transparent;overflow:hidden;display:flex;flex-direction:column;padding:0;background:none}
+.swatches{display:grid;grid-template-columns:repeat(8,1fr);gap:6px;margin-bottom:10px}
+.sw{height:34px;border-radius:9px;border:2px solid transparent;overflow:hidden;display:flex;flex-direction:column;padding:0;background:none}
 .sw i{flex:3}.sw b{flex:1}
 .sw.on{border-color:#0f172a;box-shadow:0 0 0 2px #fff inset}
 .colors{display:flex;gap:10px}
 .colors label{flex:1;display:flex;align-items:center;gap:6px;font-size:13px;border:1px solid var(--line);border-radius:8px;padding:5px 8px}
 .colors input[type=color]{width:34px;height:26px;border:0;background:none;padding:0;cursor:pointer}
+.btn.sm{padding:6px 10px;font-size:12.5px}
+.tpl-btns{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.tpl-def{font-size:12.5px;color:#0f766e;background:#f0fdfa;border:1px solid #99f6e4;border-radius:8px;padding:6px 9px;margin-bottom:8px}
+.tpl-def:empty{display:none}
+.fx{width:100%;border-collapse:collapse;font-size:13px;margin:2px 0 10px}
+.fx th{font-size:11.5px;color:var(--muted);font-weight:600;padding:3px;text-align:center}
+.fx td{padding:3px;text-align:center}
+.fx td:first-child{text-align:start;color:#334155}
+.tg{display:inline-block;cursor:pointer}
+.tg input{display:none}
+.tg span{display:inline-flex;width:32px;height:28px;align-items:center;justify-content:center;border:1px solid var(--line);
+  border-radius:7px;background:#fff;font-family:Georgia,'Times New Roman',serif;font-size:15px;user-select:none}
+.tg input:checked+span{background:var(--brand);border-color:var(--brand);color:#fff}
+.sep{border:0;border-top:1px solid var(--line);margin:10px 0}
 
 .sheets{display:flex;flex-direction:column;gap:6px}
 .sheets .s{display:flex;align-items:center;gap:8px;padding:7px 9px;border:1px solid var(--line);border-radius:9px;cursor:pointer;font-size:13px}
@@ -88,23 +102,30 @@ button{cursor:pointer}
 
 /* ——— الجدول المنسّق (معاينة + PDF) ——— */
 .rep{--p:#1e3a8a;--pt:#fff;--z:#eef2ff;--bd:#c7d2fe;--tb:#fde68a;--tt:#78350f;--ta:#f59e0b;
-  font-family:var(--ff,Arial),Tahoma,sans-serif}
+  font-family:var(--ff,Arial),Tahoma,sans-serif;--bw:1px;--bs:solid;--pad:5px 8px}
+.rep .co,.rep .ti,.rep .su,.rep th{font-family:var(--fh,var(--ff,Arial)),Tahoma,sans-serif}
 .rep .co{font-weight:700;font-size:1.25em;color:var(--p);text-align:center}
-.rep .ti{font-weight:800;font-size:1.6em;text-align:center;color:var(--p);padding:6px 8px;margin:4px 0}
+.rep .ti{font-size:var(--tsz,1.6em);text-align:center;color:var(--p);padding:6px 8px;margin:4px 0;
+  font-weight:var(--t-w);font-style:var(--t-s);text-decoration:var(--t-d)}
 .rep .ti.barred{background:var(--p);color:var(--pt);border-radius:4px}
-.rep .su{text-align:center;color:#475569;font-style:italic;margin-bottom:2px}
+.rep .su{text-align:center;color:#475569;margin-bottom:2px;font-weight:var(--u-w);font-style:var(--u-s);text-decoration:var(--u-d)}
 .rep .dt{text-align:center;color:#64748b;font-size:.85em;margin-bottom:10px}
 .rep table{border-collapse:collapse;width:100%;margin-top:6px}
-.rep th{background:var(--p);color:var(--pt);font-weight:700;padding:7px 8px;text-align:center;border:1px solid var(--bd)}
+.rep.fr table{outline:2px solid var(--p);outline-offset:-1px}
+.rep th{background:var(--p);color:var(--pt);padding:var(--pad);text-align:var(--ha,center);border:var(--bw) var(--bs) var(--bd);
+  font-weight:var(--h-w);font-style:var(--h-s);text-decoration:var(--h-d)}
 .rep.hd-soft th{background:var(--z);color:var(--p);border-bottom:2px solid var(--p)}
-.rep td{padding:5px 8px;border:1px solid var(--bd);white-space:nowrap}
+.rep td{padding:var(--pad);border:var(--bw) var(--bs) var(--bd);white-space:nowrap;
+  font-weight:var(--d-w);font-style:var(--d-s);text-decoration:var(--d-d)}
 .rep.b-h td,.rep.b-h th{border-left:0;border-right:0}
 .rep.b-n td{border-color:transparent}
 .rep.zb tbody tr.d:nth-child(even) td{background:var(--z)}
 .rep td.n{text-align:center;font-variant-numeric:tabular-nums;direction:ltr}
 .rep td.c{text-align:center}
 .rep td.neg{color:#dc2626}
-.rep tr.t td{background:var(--tb);color:var(--tt);font-weight:700;border-top:2px solid var(--ta)}
+.rep tr.t td{background:var(--tb);color:var(--tt);border-top:2px solid var(--ta);
+  font-weight:var(--s-w);font-style:var(--s-s);text-decoration:var(--s-d)}
+.rep.da-right tbody td{text-align:right}.rep.da-center tbody td{text-align:center}.rep.da-left tbody td{text-align:left}
 .rep .ft{margin-top:10px;color:#475569;font-size:.9em}
 
 .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#0f172a;color:#fff;padding:11px 18px;border-radius:10px;
@@ -139,6 +160,7 @@ button{cursor:pointer}
   <section id="drop" class="drop">
     <div class="ic">📊</div>
     <h2>اسحب ملف التقرير هنا أو اضغط للاختيار</h2>
+    <div class="tpl-def" id="tplInfo" style="display:inline-block;margin-bottom:12px"></div>
     <p>يقبل ملفات ‎.xlsx‎ و ‎.xls‎ و ‎.csv‎ — منسقة أو غير منسقة.<br>
       يُكتشف تلقائياً: صف العناوين، عنوان التقرير، الأعمدة الرقمية والتواريخ، وصفوف الإجمالي.</p>
     <input type="file" id="file" accept=".xlsx,.xlsm,.xls,.csv" hidden>
@@ -162,6 +184,24 @@ button{cursor:pointer}
       </div>
 
       <div class="card">
+        <h3>💾 القوالب المحفوظة</h3>
+        <div class="tpl-def" id="tplDef"></div>
+        <div class="row"><select id="tplSel" style="flex:1;border:1px solid var(--line);border-radius:8px;padding:7px 9px;background:#fff"></select></div>
+        <div class="tpl-btns">
+          <button class="btn pri sm" onclick="tplSave()">💾 حفظ الشكل الحالي</button>
+          <button class="btn sm" onclick="tplDefault()">⭐ اجعله الافتراضي</button>
+          <button class="btn sm" onclick="tplDelete()">🗑 حذف</button>
+        </div>
+        <div class="tpl-btns">
+          <button class="btn ghost sm" onclick="tplReset()">↺ الإعدادات الأصلية</button>
+          <button class="btn ghost sm" onclick="tplExport()">⬇ تصدير</button>
+          <button class="btn ghost sm" onclick="$('tplFile').click()">⬆ استيراد</button>
+          <input type="file" id="tplFile" accept=".json" hidden>
+        </div>
+        <div class="hint">القالب الافتراضي يُطبَّق تلقائياً كل مرة تفتح المنسق. القوالب محفوظة على هذا الجهاز — استخدم «تصدير/استيراد» لنقلها لجهاز آخر.</div>
+      </div>
+
+      <div class="card">
         <h3>🎨 الألوان</h3>
         <div class="swatches" id="swatches"></div>
         <div class="colors">
@@ -180,18 +220,49 @@ button{cursor:pointer}
       </div>
 
       <div class="card">
+        <h3>🔤 الخط وشكل الكتابة</h3>
+        <div class="row"><label>خط البيانات</label><select id="o_font" data-o="font">
+          <option>Arial</option><option>Tahoma</option><option>Calibri</option><option>Segoe UI</option><option>Cambria</option>
+          <option>Sakkal Majalla</option><option>Traditional Arabic</option><option>Simplified Arabic</option><option>Arabic Typesetting</option>
+          <option>Times New Roman</option><option>Verdana</option></select></div>
+        <div class="row"><label>خط العناوين</label><select id="o_fontHead" data-o="fontHead">
+          <option value="same">نفس خط البيانات</option>
+          <option>Arial</option><option>Tahoma</option><option>Calibri</option><option>Segoe UI</option><option>Cambria</option>
+          <option>Sakkal Majalla</option><option>Traditional Arabic</option><option>Simplified Arabic</option><option>Arabic Typesetting</option>
+          <option>Times New Roman</option><option>Verdana</option></select></div>
+        <div class="row"><label>حجم الخط</label><select id="o_size" data-o="size">
+          <option value="9">9</option><option value="10">10</option><option value="11">11</option><option value="12">12</option><option value="13">13</option><option value="14">14</option><option value="16">16</option></select></div>
+        <div class="row"><label>حجم العنوان</label><select id="o_titleSize" data-o="titleSize">
+          <option value="4">صغير</option><option value="7">متوسط</option><option value="10">كبير</option><option value="14">كبير جداً</option></select></div>
+        <table class="fx"><thead><tr><th></th><th>عريض</th><th>مائل</th><th>تسطير</th></tr></thead><tbody id="fxRows"></tbody></table>
+      </div>
+
+      <div class="card">
         <h3>🧩 النمط</h3>
         <div class="row"><label>شكل العنوان</label><select id="o_titleStyle" data-o="titleStyle">
           <option value="bar">شريط ملوّن</option><option value="plain">نص ملوّن فقط</option></select></div>
         <div class="row"><label>رأس الجدول</label><select id="o_headStyle" data-o="headStyle">
           <option value="filled">ممتلئ باللون</option><option value="soft">فاتح بخط سفلي</option></select></div>
-        <div class="row"><label>الحدود</label><select id="o_borders" data-o="borders">
+        <div class="row"><label>شكل الشبكة</label><select id="o_borders" data-o="borders">
           <option value="all">شبكة كاملة</option><option value="h">أفقية فقط</option><option value="none">بدون حدود</option></select></div>
-        <div class="row"><label>الخط</label><select id="o_font" data-o="font">
-          <option>Arial</option><option>Tahoma</option><option>Calibri</option><option>Segoe UI</option>
-          <option>Sakkal Majalla</option><option>Traditional Arabic</option><option>Times New Roman</option></select></div>
-        <div class="row"><label>حجم الخط</label><select id="o_size" data-o="size">
-          <option value="9">9</option><option value="10">10</option><option value="11">11</option><option value="12">12</option><option value="14">14</option></select></div>
+        <div class="row"><label>الحدود</label><select id="o_borderStyle" data-o="borderStyle">
+          <option value="thin">خط رفيع</option><option value="medium">خط سميك</option><option value="dashed">متقطع</option>
+          <option value="dotted">منقّط</option><option value="double">مزدوج</option></select></div>
+        <div class="row"><label>لون الحدود</label><select id="o_borderColor" data-o="borderColor">
+          <option value="theme">من لون التقرير</option><option value="gray">رمادي</option><option value="black">أسود</option></select></div>
+        <div class="row"><label>تباعد الصفوف</label><select id="o_density" data-o="density">
+          <option value="compact">مضغوط</option><option value="normal">عادي</option><option value="relaxed">واسع</option></select></div>
+        <div class="row"><label>محاذاة الرأس</label><select id="o_headAlign" data-o="headAlign">
+          <option value="center">وسط</option><option value="right">يمين</option><option value="left">يسار</option></select></div>
+        <div class="row"><label>محاذاة البيانات</label><select id="o_dataAlign" data-o="dataAlign">
+          <option value="auto">تلقائي (النص بجانب والأرقام بالوسط)</option><option value="right">يمين</option><option value="center">وسط</option><option value="left">يسار</option></select></div>
+        <div class="row"><label>رمز العملة</label><select id="o_currency" data-o="currency">
+          <option value="">بدون</option><option>ر.س</option><option>ج.م</option><option>د.إ</option><option>د.ك</option>
+          <option>ر.ق</option><option>ر.ع</option><option>د.ب</option><option>د.أ</option><option>$</option><option>€</option></select></div>
+        <div class="row"><label>شكل التاريخ</label><select id="o_dateFmt" data-o="dateFmt">
+          <option value="ymd">2026/09/30</option><option value="dmy">30/09/2026</option><option value="iso">2026-09-30</option></select></div>
+        <div class="row"><label>حجم الورق</label><select id="o_paper" data-o="paper">
+          <option value="A4">A4</option><option value="A3">A3</option><option value="Letter">Letter</option></select></div>
         <div class="row"><label>المنازل العشرية</label><select id="o_decimals" data-o="decimals">
           <option value="auto">تلقائي</option><option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option></select></div>
         <div class="row"><label>الاتجاه</label><select id="o_dir" data-o="dir">
@@ -199,6 +270,7 @@ button{cursor:pointer}
         <div class="row"><label>اتجاه الصفحة</label><select id="o_orient" data-o="orient">
           <option value="auto">تلقائي</option><option value="portrait">طولي</option><option value="landscape">عرضي</option></select></div>
         <label class="chk"><input type="checkbox" id="o_zebra" data-o="zebra"> تظليل الصفوف بالتناوب</label>
+        <label class="chk"><input type="checkbox" id="o_frame" data-o="frame"> إطار خارجي سميك حول الجدول</label>
         <label class="chk"><input type="checkbox" id="o_serial" data-o="serial"> إضافة عمود مسلسل (م)</label>
         <label class="chk"><input type="checkbox" id="o_autoTotal" data-o="autoTotal"> إضافة صف إجمالي تلقائي</label>
         <label class="chk"><input type="checkbox" id="o_negRed" data-o="negRed"> الأرقام السالبة بالأحمر</label>
@@ -207,9 +279,9 @@ button{cursor:pointer}
 
       <div class="card">
         <h3>📐 الأعمدة <small>للورقة الحالية</small></h3>
-        <table class="cols"><thead><tr><th></th><th>العمود</th><th>النوع</th><th title="يُجمع في صف الإجمالي">Σ</th></tr></thead>
+        <table class="cols"><thead><tr><th></th><th>العمود</th><th>النوع</th><th title="يُجمع في صف الإجمالي">Σ</th><th title="يظهر بجانبه رمز العملة">💲</th></tr></thead>
           <tbody id="cols"></tbody></table>
-        <div class="hint">ألغِ تحديد عمود لإخفائه، وغيّر نوعه إن أخطأ الاكتشاف التلقائي.</div>
+        <div class="hint">ألغِ تحديد عمود لإخفائه، وغيّر نوعه إن أخطأ الاكتشاف التلقائي. Σ = يُجمع في الإجمالي، 💲 = يظهر معه رمز العملة.</div>
       </div>
     </aside>
 
@@ -246,13 +318,32 @@ const PRESETS = [
   ['أسود وذهبي',  '#111827', '#b8860b'],
   ['Excel كلاسيكي','#4472c4', '#ed7d31'],
   ['وردي',        '#9d174d', '#6d28d9'],
+  ['سماوي',       '#0369a1', '#f59e0b'],
+  ['زيتوني',      '#3f6212', '#a16207'],
+  ['بني',         '#78350f', '#0f766e'],
+  ['نيلي',        '#312e81', '#059669'],
+  ['أحمر',        '#b91c1c', '#1f2937'],
+  ['ذهبي',        '#a16207', '#1e3a8a'],
 ];
 const DEFAULTS = {primary:'#1e3a8a', accent:'#d97706', company:'', footer:'', showDate:true,
   titleStyle:'bar', headStyle:'filled', borders:'all', font:'Arial', size:'11', decimals:'auto',
-  dir:'auto', orient:'auto', zebra:true, serial:false, autoTotal:true, negRed:true, filter:true};
-let O = Object.assign({}, DEFAULTS);
-try { Object.assign(O, JSON.parse(localStorage.getItem('rf-opts') || '{}')); } catch (e) {}
-function saveOpts() { try { localStorage.setItem('rf-opts', JSON.stringify(O)); } catch (e) {} }
+  dir:'auto', orient:'auto', zebra:true, serial:false, autoTotal:true, negRed:true, filter:true,
+  fontHead:'same', titleSize:'7', borderStyle:'thin', borderColor:'theme', frame:false, density:'normal',
+  headAlign:'center', dataAlign:'auto', currency:'', dateFmt:'ymd', paper:'A4',
+  // عريض / مائل / تسطير لكل جزء: t=العنوان u=العنوان الفرعي h=رأس الجدول d=البيانات s=الإجمالي
+  tB:true, tI:false, tU:false, uB:false, uI:true, uU:false, hB:true, hI:false, hU:false,
+  dB:false, dI:false, dU:false, sB:true, sI:false, sU:false};
+const FX_PARTS = [['t', 'العنوان'], ['u', 'العنوان الفرعي'], ['h', 'رأس الجدول'], ['d', 'البيانات'], ['s', 'صف الإجمالي']];
+
+const store = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (e) { return false; } },
+};
+// القوالب: {اسم: إعدادات}، والافتراضي يُطبَّق عند كل فتح؛ وبدونه تُستعاد آخر إعدادات مستخدمة
+let TPL = store.get('rf-templates', {}) || {};
+let DEF_TPL = store.get('rf-default', '') || '';
+let O = Object.assign({}, DEFAULTS, DEF_TPL && TPL[DEF_TPL] ? TPL[DEF_TPL] : store.get('rf-opts', {}));
+function saveOpts() { store.set('rf-opts', O); }
 
 const S = {file:'', sheets:[], active:0};
 
@@ -264,7 +355,8 @@ function lum(h) { const [r, g, b] = rgb(h).map(v => { v /= 255; return v <= .039
 function onColor(h) { return lum(h) > .45 ? '#111827' : '#ffffff'; }
 function theme() {
   const p = O.primary, a = O.accent;
-  return {p, pt: onColor(p), z: mix(p, '#ffffff', .91), bd: mix(p, '#ffffff', .68),
+  const bd = O.borderColor === 'gray' ? '#94a3b8' : O.borderColor === 'black' ? '#111827' : mix(p, '#ffffff', .68);
+  return {p, pt: onColor(p), z: mix(p, '#ffffff', .91), bd,
     tb: mix(a, '#ffffff', .8), tt: mix(a, '#000000', .45), ta: a};
 }
 const argb = h => 'FF' + h.replace('#', '').toUpperCase();
@@ -313,14 +405,19 @@ function parseDate(v) {
   }
   return null;
 }
+const DATE_FMT = {ymd: 'yyyy/mm/dd', dmy: 'dd/mm/yyyy', iso: 'yyyy-mm-dd'};
 function fmtDate(s) {
   const d = new Date(EPOCH + Math.round(s * 864e5));
-  return d.getUTCFullYear() + '/' + String(d.getUTCMonth() + 1).padStart(2, '0') + '/' + String(d.getUTCDate()).padStart(2, '0');
+  const y = d.getUTCFullYear(), m = String(d.getUTCMonth() + 1).padStart(2, '0'), dd = String(d.getUTCDate()).padStart(2, '0');
+  return O.dateFmt === 'dmy' ? dd + '/' + m + '/' + y : O.dateFmt === 'iso' ? y + '-' + m + '-' + dd : y + '/' + m + '/' + dd;
 }
 
 const TOTAL_RE = /^(ال)?(إ|ا)جمال(ي|ى)|^(ال)?مجموع|^total|^grand\s*total|^sum$|^subtotal/i;
 const NO_SUM_RE = /(^م$|^#$|رقم|كود|الكود|هاتف|جوال|موبايل|سنة|العام|مسلسل|تسلسل|الرمز|^code|^id$|^no\.?$|phone|mobile|year|serial|zip|نسبة|%|سعر|price|rate)/i;
 const AR_RE = /[؀-ۿ]/;
+// أعمدة كميات/أعداد لا يُضاف لها رمز العملة افتراضياً
+const QTY_RE = /(كمي|عدد|وزن|كجم|كيلو|قطع|كرتون|وحدات|qty|quantity|count|weight|kg|pcs|units)/i;
+const curDefault = c => c.type === 'num' && c.sum && !QTY_RE.test(c.name);
 
 function cleanCell(v) {
   if (v === undefined) return null;
@@ -368,7 +465,9 @@ function analyze(name, aoa) {
     if (vals.length && dates >= n * .6) type = 'date';
     else if (vals.length && pcts >= n * .6) type = 'pct';
     else if (vals.length && nums >= n * .7) type = 'num';
-    return {name: nm, type, include: true, sum: type === 'num' && !NO_SUM_RE.test(nm)};
+    const col = {name: nm, type, include: true, sum: type === 'num' && !NO_SUM_RE.test(nm)};
+    col.cur = curDefault(col);
+    return col;
   });
 
   const hasFinalTotal = body.length && body[body.length - 1].total;
@@ -394,8 +493,10 @@ function decimalsFor(sheet, ci) {
   const frac = sheet.body.some(r => { const v = valueOf(r.cells[ci], col); return typeof v === 'number' && Math.abs(v * k - Math.round(v * k)) > 1e-9; });
   return frac ? (col.type === 'pct' ? 1 : 2) : 0;
 }
-function numFmt(dec, pct) {
-  const base = (pct ? '0' : '#,##0') + (dec ? '.' + '0'.repeat(dec) : '') + (pct ? '%' : '');
+const CUR_PREFIX = ['$', '€'];
+function numFmt(dec, pct, cur) {
+  let base = (pct ? '0' : '#,##0') + (dec ? '.' + '0'.repeat(dec) : '') + (pct ? '%' : '');
+  if (cur && O.currency && !pct) base = CUR_PREFIX.includes(O.currency) ? `"${O.currency}"${base}` : `${base} "${O.currency}"`;
   return O.negRed ? base + ';[Red]-' + base : base;
 }
 const round = n => Math.round(n * 1e8) / 1e8;
@@ -429,19 +530,33 @@ function display(v, c) {
   if (typeof v === 'number') {
     if (c.type === 'serial') return String(v);
     if (c.type === 'pct') return (v * 100).toLocaleString('en-US', {minimumFractionDigits: c.dec, maximumFractionDigits: c.dec}) + '%';
-    if (c.type === 'num') return v.toLocaleString('en-US', {minimumFractionDigits: c.dec, maximumFractionDigits: c.dec});
+    if (c.type === 'num') {
+      const t = Math.abs(v).toLocaleString('en-US', {minimumFractionDigits: c.dec, maximumFractionDigits: c.dec}), sg = v < 0 ? '-' : '';
+      if (!c.cur || !O.currency) return sg + t;
+      return CUR_PREFIX.includes(O.currency) ? sg + O.currency + t : sg + t + ' ' + O.currency;
+    }
     return String(v);
   }
   return String(v);
 }
 const esc = s => String(s).replace(/[&<>"]/g, ch => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[ch]));
-const today = () => { const d = new Date(); return d.getFullYear() + '/' + String(d.getMonth() + 1).padStart(2, '0') + '/' + String(d.getDate()).padStart(2, '0'); };
+const today = () => { const d = new Date(); return fmtDate(serialOf(d.getFullYear(), d.getMonth() + 1, d.getDate())); };
+const BORDER_CSS = {thin: ['1px', 'solid'], medium: ['2px', 'solid'], dashed: ['1px', 'dashed'], dotted: ['1px', 'dotted'], double: ['3px', 'double']};
+const DENSITY = {compact: {pad: '3px 6px', h: 1.45, hh: 22}, normal: {pad: '5px 8px', h: 1.75, hh: 26}, relaxed: {pad: '8px 10px', h: 2.25, hh: 32}};
+const PAPER = {A4: 9, A3: 8, Letter: 1};
+const headFont = () => O.fontHead === 'same' ? O.font : O.fontHead;
+const dens = () => DENSITY[O.density] || DENSITY.normal;
 
 /* ================= المعاينة (HTML) ================= */
 function renderHTML(m) {
   const t = theme(), s = m.sheet;
-  const cls = ['rep', O.headStyle === 'soft' ? 'hd-soft' : '', O.borders === 'h' ? 'b-h' : O.borders === 'none' ? 'b-n' : '', O.zebra ? 'zb' : ''].join(' ');
-  const style = `--p:${t.p};--pt:${t.pt};--z:${t.z};--bd:${t.bd};--tb:${t.tb};--tt:${t.tt};--ta:${t.ta};--ff:'${O.font}';font-size:${O.size * 1.25}px;--pfs:${O.size}pt`;
+  const cls = ['rep', O.headStyle === 'soft' ? 'hd-soft' : '', O.borders === 'h' ? 'b-h' : O.borders === 'none' ? 'b-n' : '',
+    O.zebra ? 'zb' : '', O.frame ? 'fr' : '', O.dataAlign !== 'auto' ? 'da-' + O.dataAlign : ''].join(' ');
+  const [bw, bs] = BORDER_CSS[O.borderStyle] || BORDER_CSS.thin;
+  const fx = FX_PARTS.map(([k]) => `--${k}-w:${O[k + 'B'] ? 700 : 400};--${k}-s:${O[k + 'I'] ? 'italic' : 'normal'};--${k}-d:${O[k + 'U'] ? 'underline' : 'none'}`).join(';');
+  const style = `--p:${t.p};--pt:${t.pt};--z:${t.z};--bd:${t.bd};--tb:${t.tb};--tt:${t.tt};--ta:${t.ta};--ff:'${O.font}';--fh:'${headFont()}';` +
+    `--bw:${bw};--bs:${bs};--pad:${dens().pad};--ha:${O.headAlign};--tsz:${((+O.size + +O.titleSize) / +O.size).toFixed(3)}em;${fx};` +
+    `font-size:${O.size * 1.25}px;--pfs:${O.size}pt`;
   let h = `<div class="${cls}" dir="${m.rtl ? 'rtl' : 'ltr'}" style="${style}">`;
   if (O.company) h += `<div class="co">${esc(O.company)}</div>`;
   if (s.title) h += `<div class="ti ${O.titleStyle === 'bar' ? 'barred' : ''}">${esc(s.title)}</div>`;
@@ -469,6 +584,70 @@ function renderSwatches() {
   $('swatches').innerHTML = PRESETS.map(([n, p, a], i) =>
     `<button class="sw ${O.primary === p && O.accent === a ? 'on' : ''}" title="${n}" data-i="${i}"><i style="background:${p}"></i><b style="background:${a}"></b></button>`).join('');
 }
+function renderFx() {
+  $('fxRows').innerHTML = FX_PARTS.map(([k, l]) => `<tr><td>${l}</td>` +
+    [['B', '<b>B</b>'], ['I', '<i>I</i>'], ['U', '<u>U</u>']].map(([x, g]) =>
+      `<td><label class="tg"><input type="checkbox" data-o="${k + x}"><span>${g}</span></label></td>`).join('') + '</tr>').join('');
+}
+renderFx();
+
+function renderTpl(sel) {
+  const names = Object.keys(TPL).sort((a, b) => a.localeCompare(b, 'ar'));
+  const cur = sel !== undefined ? sel : $('tplSel').value;
+  $('tplSel').innerHTML = `<option value="">— اختر قالباً محفوظاً —</option>` +
+    names.map(n => `<option value="${esc(n)}" ${n === cur ? 'selected' : ''}>${n === DEF_TPL ? '⭐ ' : ''}${esc(n)}</option>`).join('');
+  const info = DEF_TPL && TPL[DEF_TPL] ? `⭐ القالب الافتراضي: <b>${esc(DEF_TPL)}</b>` : '';
+  $('tplDef').innerHTML = info; $('tplInfo').innerHTML = info; $('tplInfo').style.display = info ? 'inline-block' : 'none';
+}
+function persistTpl() {
+  if (!store.set('rf-templates', TPL) || !store.set('rf-default', DEF_TPL)) toast('تعذّر الحفظ — المتصفح يمنع التخزين (وضع التصفح الخاص؟)', 5000);
+}
+function applyOpts(o) { O = Object.assign({}, DEFAULTS, o); saveOpts(); renderSwatches(); syncInputs(); renderPreview(); }
+$('tplSel').addEventListener('change', e => {
+  const n = e.target.value; if (!n || !TPL[n]) return;
+  applyOpts(TPL[n]); toast('تم تطبيق القالب «' + n + '»');
+});
+function tplSave() {
+  const n = (prompt('اسم القالب (مثال: تقارير المبيعات الشهرية):', $('tplSel').value || '') || '').trim();
+  if (!n) return;
+  if (TPL[n] && !confirm('يوجد قالب بنفس الاسم — استبداله بالشكل الحالي؟')) return;
+  TPL[n] = Object.assign({}, O);
+  if (DEF_TPL !== n && confirm('جعل «' + n + '» هو القالب الافتراضي الذي يُطبَّق تلقائياً كل مرة؟')) DEF_TPL = n;
+  persistTpl(); renderTpl(n); toast('✅ تم حفظ القالب «' + n + '»');
+}
+function tplDefault() {
+  const n = $('tplSel').value;
+  if (!n) return toast('اختر قالباً من القائمة أولاً، أو احفظ الشكل الحالي كقالب');
+  if (DEF_TPL === n) { DEF_TPL = ''; toast('أُلغي تعيين «' + n + '» كافتراضي'); }
+  else { DEF_TPL = n; toast('⭐ «' + n + '» أصبح القالب الافتراضي'); }
+  persistTpl(); renderTpl(n);
+}
+function tplDelete() {
+  const n = $('tplSel').value; if (!n) return toast('اختر قالباً من القائمة أولاً');
+  if (!confirm('حذف القالب «' + n + '»؟')) return;
+  delete TPL[n]; if (DEF_TPL === n) DEF_TPL = '';
+  persistTpl(); renderTpl(''); toast('تم حذف القالب');
+}
+function tplReset() {
+  if (!confirm('إرجاع كل الإعدادات إلى الأصلية؟ (لن تُحذف القوالب المحفوظة)')) return;
+  applyOpts({}); renderTpl(''); toast('تمت استعادة الإعدادات الأصلية');
+}
+function tplExport() {
+  if (!Object.keys(TPL).length) return toast('لا توجد قوالب محفوظة لتصديرها');
+  saveBlob(new Blob([JSON.stringify({app: 'report-formatter', templates: TPL, default: DEF_TPL}, null, 2)], {type: 'application/json'}), 'قوالب منسق التقارير.json');
+}
+$('tplFile').addEventListener('change', async e => {
+  const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+  try {
+    const d = JSON.parse(await f.text());
+    if (!d || typeof d.templates !== 'object') throw new Error('ليس ملف قوالب');
+    const names = Object.keys(d.templates).filter(n => d.templates[n] && typeof d.templates[n] === 'object');
+    names.forEach(n => { TPL[n] = d.templates[n]; });
+    if (d.default && TPL[d.default] && (!DEF_TPL || confirm('تعيين «' + d.default + '» كقالب افتراضي؟'))) DEF_TPL = d.default;
+    persistTpl(); renderTpl(); toast(`تم استيراد ${names.length} قالب`);
+  } catch (err) { toast('ملف غير صالح: ' + err.message, 4000); }
+});
+
 function syncInputs() {
   document.querySelectorAll('[data-o]').forEach(el => { if (el.type === 'checkbox') el.checked = !!O[el.dataset.o]; else el.value = O[el.dataset.o]; });
   const s = cur();
@@ -487,7 +666,8 @@ function renderCols() {
     <td><input type="checkbox" data-k="include" ${c.include ? 'checked' : ''}></td>
     <td title="${esc(c.name)}">${esc(c.name)}</td>
     <td><select data-k="type">${TYPES.map(([v, l]) => `<option value="${v}" ${c.type === v ? 'selected' : ''}>${l}</option>`).join('')}</select></td>
-    <td><input type="checkbox" data-k="sum" ${c.sum ? 'checked' : ''} ${c.type === 'num' ? '' : 'disabled'}></td></tr>`).join('');
+    <td><input type="checkbox" data-k="sum" ${c.sum ? 'checked' : ''} ${c.type === 'num' ? '' : 'disabled'}></td>
+    <td><input type="checkbox" data-k="cur" ${c.cur ? 'checked' : ''} ${c.type === 'num' ? '' : 'disabled'}></td></tr>`).join('');
 }
 function renderPreview() {
   const s = cur(); if (!s) return;
@@ -522,7 +702,7 @@ $('cols').addEventListener('change', e => {
   const tr = e.target.closest('tr'); if (!tr) return;
   const c = cur().cols[+tr.dataset.i], k = e.target.dataset.k;
   c[k] = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
-  if (k === 'type') { c.sum = c.type === 'num' && !NO_SUM_RE.test(c.name); renderCols(); }
+  if (k === 'type') { c.sum = c.type === 'num' && !NO_SUM_RE.test(c.name); c.cur = curDefault(c); renderCols(); }
   renderPreview();
 });
 
@@ -594,37 +774,40 @@ function colWidth(m, i) {
 }
 
 function buildSheet(wb, m, usedNames) {
-  const t = theme(), s = m.sheet, n = m.cols.length, fs = +O.size, font = O.font;
+  const t = theme(), s = m.sheet, n = m.cols.length, fs = +O.size, font = O.font, hfont = headFont(), D = dens();
+  const fx = k => ({bold: !!O[k + 'B'], italic: !!O[k + 'I'], underline: O[k + 'U'] ? true : undefined});
   let nm = s.name.replace(/[\\\/?*\[\]:]/g, ' ').slice(0, 31) || 'Sheet';
   while (usedNames.has(nm)) nm = nm.slice(0, 28) + '_' + usedNames.size;
   usedNames.add(nm);
   const ws = wb.addWorksheet(nm, {
     views: [{rightToLeft: m.rtl, showGridLines: false}],
-    pageSetup: {paperSize: 9, orientation: m.orient, fitToPage: true, fitToWidth: 1, fitToHeight: 0, horizontalCentered: true,
+    pageSetup: {paperSize: PAPER[O.paper] || 9, orientation: m.orient, fitToPage: true, fitToWidth: 1, fitToHeight: 0, horizontalCentered: true,
       margins: {left: .4, right: .4, top: .5, bottom: .6, header: .25, footer: .3}},
   });
   ws.headerFooter.oddFooter = m.rtl ? '&C&9صفحة &P من &N' : '&C&9Page &P of &N';
   const hAlign = m.rtl ? 'right' : 'left';
   const side = (style, color) => ({style, color: {argb: argb(color)}});
   const fill = color => ({type: 'pattern', pattern: 'solid', fgColor: {argb: argb(color)}});
+  const bst = BORDER_CSS[O.borderStyle] ? O.borderStyle : 'thin';
   const cellBorder = () => O.borders === 'none' ? {} : O.borders === 'h'
-    ? {top: side('thin', t.bd), bottom: side('thin', t.bd)}
-    : {top: side('thin', t.bd), bottom: side('thin', t.bd), left: side('thin', t.bd), right: side('thin', t.bd)};
+    ? {top: side(bst, t.bd), bottom: side(bst, t.bd)}
+    : {top: side(bst, t.bd), bottom: side(bst, t.bd), left: side(bst, t.bd), right: side(bst, t.bd)};
 
   let r = 1;
   const band = (text, f, opts = {}) => {
     if (n > 1) ws.mergeCells(r, 1, r, n);
     const c = ws.getCell(r, 1);
-    c.value = text; c.font = {name: font, ...f};
+    c.value = text; c.font = {name: hfont, ...f};
     c.alignment = {horizontal: 'center', vertical: 'middle', wrapText: true, readingOrder: m.rtl ? 'rtl' : 'ltr'};
     if (opts.fill) for (let j = 1; j <= n; j++) ws.getCell(r, j).fill = fill(opts.fill);
     if (opts.height) ws.getRow(r).height = opts.height;
     r++;
   };
   if (O.company) band(O.company, {bold: true, size: fs + 3, color: {argb: argb(t.p)}}, {height: 22});
-  if (s.title) band(s.title, {bold: true, size: fs + 7, color: {argb: argb(O.titleStyle === 'bar' ? t.pt : t.p)}},
-    {height: 30, fill: O.titleStyle === 'bar' ? t.p : null});
-  if (s.subtitle) band(s.subtitle, {italic: true, size: fs + 1, color: {argb: 'FF475569'}}, {height: 18});
+  const tsz = fs + +O.titleSize;
+  if (s.title) band(s.title, {...fx('t'), size: tsz, color: {argb: argb(O.titleStyle === 'bar' ? t.pt : t.p)}},
+    {height: Math.round(tsz * 1.7), fill: O.titleStyle === 'bar' ? t.p : null});
+  if (s.subtitle) band(s.subtitle, {...fx('u'), size: fs + 1, color: {argb: 'FF475569'}}, {height: 18});
   if (O.showDate) band((m.rtl ? 'تاريخ الإعداد: ' : 'Prepared on: ') + today(), {size: fs - 1, color: {argb: 'FF64748B'}});
   if (r > 1) { ws.getRow(r).height = 8; r++; }
 
@@ -634,12 +817,12 @@ function buildSheet(wb, m, usedNames) {
     const cell = ws.getCell(r, j + 1);
     cell.value = c.name;
     const soft = O.headStyle === 'soft';
-    cell.font = {name: font, bold: true, size: fs, color: {argb: argb(soft ? t.p : t.pt)}};
+    cell.font = {name: hfont, ...fx('h'), size: fs, color: {argb: argb(soft ? t.p : t.pt)}};
     cell.fill = fill(soft ? t.z : t.p);
-    cell.alignment = {horizontal: 'center', vertical: 'middle', wrapText: true, readingOrder: m.rtl ? 'rtl' : 'ltr'};
+    cell.alignment = {horizontal: O.headAlign, vertical: 'middle', wrapText: true, readingOrder: m.rtl ? 'rtl' : 'ltr'};
     cell.border = soft ? {...cellBorder(), bottom: side('medium', t.p)} : cellBorder();
   });
-  ws.getRow(r).height = 26; r++;
+  ws.getRow(r).height = D.hh; r++;
 
   // البيانات
   const first = r;
@@ -649,20 +832,20 @@ function buildSheet(wb, m, usedNames) {
     row.vals.forEach((v, j) => {
       const c = m.cols[j], cell = ws.getCell(r, j + 1);
       if (formulas && formulas[j]) cell.value = {formula: formulas[j], result: v};
-      else if (v && typeof v === 'object' && 'date' in v) { cell.value = v.date; cell.numFmt = 'yyyy/mm/dd'; }
+      else if (v && typeof v === 'object' && 'date' in v) { cell.value = v.date; cell.numFmt = DATE_FMT[O.dateFmt] || DATE_FMT.ymd; }
       else cell.value = v;
       const isNum = typeof v === 'number';
-      if (isNum && c.type === 'num') cell.numFmt = numFmt(c.dec, false);
+      if (isNum && c.type === 'num') cell.numFmt = numFmt(c.dec, false, c.cur);
       if (isNum && c.type === 'pct') cell.numFmt = numFmt(c.dec, true);
-      cell.font = {name: font, size: fs, bold: !!row.total, color: row.total ? {argb: argb(t.tt)} : undefined};
+      cell.font = {name: font, size: fs, ...fx(row.total ? 's' : 'd'), color: row.total ? {argb: argb(t.tt)} : undefined};
       cell.alignment = {vertical: 'middle', readingOrder: m.rtl ? 'rtl' : 'ltr',
-        horizontal: (isNum || c.type === 'serial' || c.type === 'date') ? 'center' : hAlign};
+        horizontal: O.dataAlign !== 'auto' ? O.dataAlign : (isNum || c.type === 'serial' || c.type === 'date') ? 'center' : hAlign};
       const b = cellBorder();
       if (row.total) { cell.fill = fill(t.tb); b.top = side('medium', t.ta); b.bottom = side('medium', t.ta); }
       else if (striped) cell.fill = fill(t.z);
       cell.border = b;
     });
-    ws.getRow(r).height = Math.round(fs * 1.75);
+    ws.getRow(r).height = Math.round(fs * D.h);
     r++;
   };
   m.rows.forEach(row => writeRow(row));
@@ -670,6 +853,17 @@ function buildSheet(wb, m, usedNames) {
   if (m.totalRow) {
     const f = m.cols.map((c, j) => c.sum && last >= first ? `SUBTOTAL(9,${ws.getColumn(j + 1).letter}${first}:${ws.getColumn(j + 1).letter}${last})` : null);
     writeRow(m.totalRow, f);
+  }
+  // إطار خارجي سميك حول الجدول (الرأس + البيانات + الإجمالي)
+  if (O.frame) {
+    const lr = r - 1, edge = side('medium', t.p);
+    for (let i = hr; i <= lr; i++) for (let j = 1; j <= n; j++) {
+      if (i !== hr && i !== lr && j !== 1 && j !== n) continue;
+      const cell = ws.getCell(i, j), b = Object.assign({}, cell.border);
+      if (i === hr) b.top = edge; if (i === lr) b.bottom = edge;
+      if (j === 1) b.left = edge; if (j === n) b.right = edge;
+      cell.border = b;
+    }
   }
   if (O.footer) { r++; band(O.footer, {size: fs, color: {argb: 'FF475569'}}); }
 
@@ -709,7 +903,7 @@ function downloadPdf() {
   const list = chosen(); if (!list.length) return toast('اختر ورقة واحدة على الأقل');
   const models = list.map(model);
   const orient = models.some(m => m.orient === 'landscape') ? 'landscape' : 'portrait';
-  $('pageStyle').textContent = `@page{size:A4 ${orient};margin:10mm}`;
+  $('pageStyle').textContent = `@page{size:${O.paper === 'Letter' ? 'letter' : O.paper} ${orient};margin:10mm}`;
   $('printArea').innerHTML = models.map(renderHTML).join('');
   const old = document.title;
   document.title = outName('pdf').replace(/\.pdf$/, ''); // يصبح الاسم الافتراضي لملف PDF
@@ -720,7 +914,7 @@ function downloadPdf() {
 
 // زر الرجوع يعود للنظام الذي فُتح المنسق منه (التوريد أو المخزون)
 try { const r = new URL(document.referrer); if (r.origin === location.origin && /\.html$|\/$/.test(r.pathname)) $('backLink').href = r.href; } catch (e) {}
-renderSwatches(); syncInputs();
+renderSwatches(); syncInputs(); renderTpl(DEF_TPL && TPL[DEF_TPL] ? DEF_TPL : '');
 </script>
 </body>
 </html>
