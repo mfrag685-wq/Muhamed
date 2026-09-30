@@ -4937,7 +4937,7 @@ function commShipRows(from,to){
 }
 function commLedger(from,to){
   var ships=dbLoad().filter(function(s){ return shipFobSar(s)>0; })
-    .map(function(s){ var val=shipFobSar(s), r=commRateFor(s.shipmentNo), nc=((s.containers)||[]).length; return {date:s.shipmentDate||'', kind:'ship', label:'عمولة شحنة '+(s.shipmentNo||'—')+(nc?' ('+nc+' حاوية)':'')+' — '+fmtD(val)+'×'+fmtN(r)+'%', dr:val*r/100, cr:0}; });
+    .map(function(s){ var val=shipFobSar(s), r=commRateFor(s.shipmentNo), nc=((s.containers)||[]).length, comm=val*r/100, fx=(S.fxUsdSar||3.756), cU=fx>0?comm/fx:0; return {date:s.shipmentDate||'', kind:'ship', label:'عمولة شحنة '+(s.shipmentNo||'—')+(nc?' ('+nc+' حاوية)':'')+' — '+fmtD(val)+'×'+fmtN(r)+'% = '+fmtD(comm)+' ر.س (≈ '+fmtD(cU)+' $)', dr:comm, cr:0}; });
   var pays=commPayLoad().map(function(p){ var m=(p.method==='transfer')?('تحويل'+(p.bank?' — '+p.bank:'')):'نقدًا'; return {date:p.date||'', kind:'pay', id:p.id, label:'دفعة عمولة ('+m+')'+(p.ref?' #'+p.ref:'')+(p.notes?' — '+p.notes:''), dr:0, cr:commPayToSar(p)}; });
   var all=ships.concat(pays).sort(function(a,b){ return (a.date<b.date)?-1:((a.date>b.date)?1:0); });
   var carried=0, kept=[];
@@ -6195,7 +6195,7 @@ function exportPaymentsExcel(){
 // ═══════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════
-var APP_VERSION='v2026-09-30.11';   // رقم إصدار ظاهر للتحقق من تحميل أحدث نسخة (لا cache قديم)
+var APP_VERSION='v2026-09-30.12';   // رقم إصدار ظاهر للتحقق من تحميل أحدث نسخة (لا cache قديم)
 function initApp() {
   try{ var av=document.getElementById('app-ver'); if(av) av.textContent=APP_VERSION; }catch(e){}
   try{ reconcileProfiles(); }catch(e){}   // توحيد أي بروفايلات مكرّرة محلياً قبل العرض
