@@ -433,6 +433,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
     <button class="btn-ghost" onclick="document.getElementById('importFile').click()">استعادة</button>
     <input type="file" id="importFile" accept=".json" class="hidden" onchange="importBackup(event)">
     <button class="btn-ghost" onclick="showTab('settings');document.getElementById('logoFile').scrollIntoView({block:'center'})">الشعار</button>
+    <a class="btn-ghost hidden" id="platformBtn" href="platform.html" style="text-decoration:none;display:inline-flex;align-items:center" title="منصة الأعمال المتكاملة — أداة مستقلة لا تقرأ ولا تعدّل بيانات التوريد">📊 منصة الأعمال</a>
     <button class="btn-ghost" onclick="window.print()">طباعة</button>
     <button class="btn-ghost" onclick="doLogout()">خروج</button>
   </div>
@@ -1812,12 +1813,13 @@ var PERM_KEYS=[
  ['master','البيانات الأساسية'],['users','المستخدمون'],['settings','الإعدادات'],
  ['accSuppliers','اطّلاع: أرصدة الموردين فقط'],['accClients','اطّلاع: أرصدة العملاء فقط'],
  ['seeall','رؤية كل إدخالات المستخدمين (تجاوز العزل)'],
- ['canAdd','إضافة سجلات'],['canEdit','تعديل السجلات'],['canDelete','حذف السجلات'],['canExport','التصدير والطباعة']
+ ['canAdd','إضافة سجلات'],['canEdit','تعديل السجلات'],['canDelete','حذف السجلات'],['canExport','التصدير والطباعة'],
+ ['platform','زر «منصة الأعمال المتكاملة» (أداة مستقلة)']
 ];
 function preset(role){
   var p={}; PERM_KEYS.forEach(function(k){p[k[0]]=false;});
   if(role==='admin'){ PERM_KEYS.forEach(function(k){p[k[0]]=true;}); }
-  else if(role==='manager'){ PERM_KEYS.forEach(function(k){p[k[0]]=true;}); p.users=false; p.seeall=false; }   /* «رؤية الكل» تُمنح يدوياً فقط */
+  else if(role==='manager'){ PERM_KEYS.forEach(function(k){p[k[0]]=true;}); p.users=false; p.seeall=false; p.platform=false; }   /* «رؤية الكل» و«منصة الأعمال» تُمنحان يدوياً فقط */
   else if(role==='accountant'){ ['dash','purchases','sales','returns','stock','itemdiag','expenses','accounts','reports','income','master','canAdd','canEdit','canExport'].forEach(function(k){p[k]=true;}); }
   else if(role==='entry'){ ['dash','purchases','sales','returns','stock','reports','canAdd'].forEach(function(k){p[k]=true;}); }
   else if(role==='viewer'){ ['dash','stock','reports','income','canExport'].forEach(function(k){p[k]=true;}); }
@@ -2120,6 +2122,8 @@ function applyPerms(){
   document.querySelectorAll('#master .doc-box').forEach(function(e){ e.classList.toggle('hidden',!can('canAdd')); });
   /* إخفاء كل الأرصدة المالية (أعمدة، بطاقات، تقارير) لمن لا يملك صلاحية اطّلاع عليها */
   var appEl=document.getElementById('app'); if(appEl){ appEl.classList.toggle('no-balances',!canSeeBalances()); appEl.classList.toggle('no-profit',!canSeeProfit()); }
+  /* زر منصة الأعمال: لمدير النظام دائماً، ولغيره فقط بصلاحية «platform» الأساسية (لا تتأثر بصلاحيات الأقسام) */
+  var pb=document.getElementById('platformBtn'); if(pb) pb.classList.toggle('hidden',!(ME&&(ME.role==='admin'||(ME.perms&&ME.perms.platform))));
   fillReportTypes();
 }
 /* أنواع التقارير — العلامة b تكشف أرصدة الجهات، والعلامة p تكشف الأرباح؛ تُخفى حسب الصلاحية */
@@ -5898,7 +5902,7 @@ function renderDeptPermGrids(user){
   var all=Object.keys(db.departments||{fruits:1}), dp=(user&&user.deptPerms)||{};
   box.innerHTML=all.map(function(dk){
     var has=!!dp[dk], p=dp[dk]||{};
-    var grid=PERM_KEYS.map(function(k){
+    var grid=PERM_KEYS.filter(function(k){ return k[0]!=='platform'; }).map(function(k){   /* المنصة ليست خاصة بقسم */
       return '<label class="perm"><input type="checkbox" data-dp="'+dk+'" data-perm="'+k[0]+'" '+(p[k[0]]?'checked':'')
         +' onchange="document.getElementById(\'u_role\').value=\'custom\'"> '+k[1]+'</label>';
     }).join('');
