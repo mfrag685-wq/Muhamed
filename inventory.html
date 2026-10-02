@@ -208,6 +208,7 @@ tr:hover td{background:#f8fafc}
     <button class="navbtn" data-page="employees">👥 الموظفون</button>
     <button class="navbtn" data-page="settings">⚙️ الإعدادات</button>
     <a class="navlink hidden" id="navFormatter" href="منسق_التقارير.html" onclick="handoffFormatter()" onauxclick="handoffFormatter()">🎨 منسق تقارير Excel</a>
+    <a class="navlink hidden" id="navSticker" href="صانع_الاستيكرز.html" onclick="handoffSticker()" onauxclick="handoffSticker()">😎 صانع الاستيكرز</a>
     <div class="foot">
       <b id="who"></b>
       <div style="margin-bottom:6px"><span class="cloud-status off" id="cloudStatus2">غير مفعّل</span></div>
@@ -235,7 +236,7 @@ tr:hover td{background:#f8fafc}
    ============================================================ */
 const KEY="inv_system_v2";
 /* رقم إصدار التطبيق — يُزاد مع كل تحديث؛ يُقارَن بالنسخة المنشورة لإظهار زر التحديث */
-const APP_VERSION="2026-09-30-03";
+const APP_VERSION="2026-10-02-01";
 let DB,ME;
 /* التحقق من توفّر نسخة أحدث بجلب الملف نفسه (بدون كاش) ومقارنة رقم الإصدار */
 function checkForUpdate(){
@@ -283,11 +284,11 @@ function keepScroll(){const y=window.scrollY||document.documentElement.scrollTop
 const PERM_KEYS=[["move","تسجيل حركة"],["dashboard","الأرصدة"],["report","تقرير فترة"],["ledger","سجل حركة الصنف"],
   ["items","الأصناف"],["import","الموردون والشحنات"],["employees","الموظفون"],["settings","الإعدادات"],
   ["canAdd","إضافة"],["canEdit","تعديل"],["canDelete","حذف"],["canExport","تصدير"],
-  ["reportFormatter","منسق تقارير Excel"]];
+  ["reportFormatter","منسق تقارير Excel"],["stickerMaker","صانع الاستيكرز"]];
 function preset(role){
   const p={};PERM_KEYS.forEach(k=>p[k[0]]=false);
   if(role==="admin"){PERM_KEYS.forEach(k=>p[k[0]]=true);}
-  else if(role==="manager"){PERM_KEYS.forEach(k=>p[k[0]]=true);p.employees=false;p.settings=false;p.reportFormatter=false;}
+  else if(role==="manager"){PERM_KEYS.forEach(k=>p[k[0]]=true);p.employees=false;p.settings=false;p.reportFormatter=false;p.stickerMaker=false;}
   else if(role==="employee"){["move","dashboard","report","ledger","canAdd"].forEach(k=>p[k]=true);}
   return p;
 }
@@ -302,9 +303,13 @@ function guard(k,msg){if(can(k))return true;toast(msg||"لا تملك صلاحي
 function handoffFormatter(){try{if(!ME||!can("reportFormatter"))return;
   const cloud=(cloudAccounts()&&cloudReady&&ME.fbUid)?{config:CLOUD_CONFIG,wid:cloudWid()}:null;
   localStorage.setItem("rf-handoff",JSON.stringify({key:ME.fbUid||("id"+ME.id),name:ME.name||ME.username,role:ME.role,t:Date.now(),cloud:cloud}));}catch(e){}}
+/* تسليم هوية المستخدم لصانع الاستيكرز (مفتاح لمرة واحدة صالح دقيقتين) — يمنع فتحه لمن لا يملك الصلاحية؛ لا يمس بيانات المخزون */
+function handoffSticker(){try{if(!ME||!can("stickerMaker"))return;
+  localStorage.setItem("st-handoff",JSON.stringify({key:ME.fbUid||("id"+ME.id),name:ME.name||ME.username,role:ME.role,t:Date.now()}));}catch(e){}}
 function applyNav(){
   document.querySelectorAll(".navbtn").forEach(b=>b.classList.toggle("hidden",!can(b.dataset.page)));
   const nf=$("#navFormatter");if(nf)nf.classList.toggle("hidden",!can("reportFormatter")); // أداة مستقلة — لا تقرأ ولا تعدّل بيانات المخزون
+  const ns=$("#navSticker");if(ns)ns.classList.toggle("hidden",!can("stickerMaker"));      // أداة مستقلة — لا تقرأ ولا تعدّل بيانات المخزون
 }
 
 /* ---------- بيانات المطوّر (توثيق) ---------- */
