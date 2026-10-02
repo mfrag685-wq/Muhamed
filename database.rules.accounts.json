@@ -14,6 +14,12 @@
             ".write": "auth != null && ( ( auth.uid === $uid && newData.exists() && newData.child('username').exists() ) || root.child('workspaces').child($wid).child('members').child(auth.uid).child('role').val() === 'admin' )"
           }
         },
+        "formatter": {
+          "$uid": {
+            ".read": "auth != null && auth.uid === $uid && root.child('workspaces').child($wid).child('members').child(auth.uid).exists()",
+            ".write": "auth != null && auth.uid === $uid && root.child('workspaces').child($wid).child('members').child(auth.uid).exists()"
+          }
+        },
         "root": {
           ".read": "auth != null && root.child('workspaces').child($wid).child('members').child(auth.uid).exists()",
           ".write": "auth != null && root.child('workspaces').child($wid).child('members').child(auth.uid).exists()"
