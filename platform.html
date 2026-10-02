@@ -273,6 +273,25 @@ tfoot td{font-weight:800;background:var(--surface-2)}
 .app:hover .ai{transform:translateY(-2px);border-color:var(--leaf)}
 .app .an{font-size:12px;font-weight:700;text-align:center;line-height:1.35;color:var(--ink-2)}
 .app-x .ai{background:linear-gradient(150deg,#fdf3de,#fff);border-color:#efd9a8}
+/* بطاقات الحالات */
+.cases{display:grid;gap:10px}
+@media(min-width:900px){.cases{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.case{background:#fff;border:1px solid var(--line-soft);border-radius:14px;padding:12px;cursor:pointer;transition:.15s}
+.case:hover{border-color:var(--leaf);box-shadow:var(--shadow)}
+.case-h{display:flex;gap:10px;align-items:flex-start;margin-bottom:8px}
+.case-h b{font-size:14.5px;line-height:1.5}
+.case-n{width:26px;height:26px;border-radius:50%;background:var(--ink);color:#fff;font-size:12.5px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.case-go{color:var(--citrus);font-weight:800;font-size:20px;line-height:1}
+.mje{background:var(--surface-2);border-radius:10px;padding:8px 10px;font-size:12.5px}
+.mje div{display:flex;justify-content:space-between;gap:8px;padding:2px 0}
+.mje .d span{color:var(--leaf-dark);font-weight:700}
+.mje .c span{color:var(--sky);font-weight:700;padding-right:14px}
+.mje .more{color:var(--ink-3);font-size:11.5px;display:block;border-top:1px dashed var(--line);margin-top:4px;padding-top:4px}
+details.cat{border-bottom:1px solid var(--line-soft);padding:8px 0}
+details.cat summary{cursor:pointer;list-style:none;display:flex;gap:8px;align-items:center;min-height:36px}
+details.cat summary::-webkit-details-marker{display:none}
+details.cat summary::before{content:'◂';color:var(--ink-3);transition:.15s}
+details.cat[open] summary::before{transform:rotate(-90deg)}
 /* إشعار */
 #toast{position:fixed;bottom:calc(var(--nav-h) + var(--safe-b) + 14px);left:50%;transform:translateX(-50%) translateY(20px);
   background:var(--ink);color:#fff;padding:10px 18px;border-radius:22px;font-size:13.5px;font-weight:700;opacity:0;pointer-events:none;transition:.2s;z-index:400;max-width:92vw;text-align:center}
@@ -682,7 +701,7 @@ var TREATS=[
             {t:'السنة الأولى: استهلاك أصل حق الاستخدام',lines:[{d:'5221',v:dep},{c:'1511',v:dep}]}]; },
   au:{as:['الاكتمال','التقييم','العرض'],rk:['عقود إيجار غير مسجلة (سكن عمال، أراضي مواقع)','معدل خصم غير مناسب'],pr:['حصر العقود من المصروفات والعقود القانونية','إعادة احتساب القيمة الحالية وجدول الإطفاء','فحص خيارات التمديد'],isa:['ISA 540','ISA 500']},
   ds:'أصول حق الاستخدام حسب الفئة، تحليل استحقاق الالتزامات، ومصروف العقود قصيرة الأجل.'},
- {id:'prepaid',n:'مصروف مدفوع مقدماً (تأمين، اشتراك سنوي)',cat:'أصول',q:'مدفوع مقدما تامين طبي تامين سيارات اشتراك سنوي مقدم prepaid insurance',std:['IAS 1'],
+ {id:'prepaid',n:'مصروف مدفوع مقدماً (تأمين، اشتراك سنوي)',cat:'أصول',q:'مدفوع مقدما مصروف مقدم اشتراك سنوي مقدم prepaid',std:['IAS 1'],
   tr:'يُثبت أصلاً متداولاً ويُحمّل مصروفاً على الفترات المستفيدة وفق أساس الاستحقاق.',
   inp:[VAT_INP,PAY_INP,{k:'m',l:'عدد أشهر التغطية',d:12}],
   je:function(o){ var v=vatIn(o,o.amt), mo=o.m>0?r2(o.amt/o.m):0;
@@ -804,7 +823,7 @@ var TREAT_BY_ID={}; TREATS.forEach(function(t){ TREAT_BY_ID[t.id]=t; });
 /* ==========================================================================
    النواة: أدوات عامة + قاعدة البيانات + الصلاحيات + الدخول + المزامنة السحابية
    ========================================================================== */
-var APP_BUILD='2026-10-02-p3';
+var APP_BUILD='2026-10-03-p4';
 var LS_DB='mfp_db_v1', LS_SES='mfp_session_v1';
 
 function $(id){ return document.getElementById(id); }
@@ -2134,7 +2153,7 @@ analyze=function(q){
   var hd=headTok(qt), allGen=qt.every(function(w){ return GENERIC_W[w]; });
   var t=TREATS.map(function(x){ var s=scoreK(qt,x._k), st=scoreK._strong, hm=scoreK([hd],x._k)>=2||(GENERIC_W[hd]&&scoreK([hd],x._k)>=1); return {x:x,s:s+(hm?0.5:0),st:st,hm:hm}; }).filter(function(r){ return (r.st>0&&r.s>=2)||(allGen&&r.s>=qt.length+0.5); }).sort(function(a,b){ return b.s-a.s; });
   var s=STDS.map(function(x){ var sc=scoreK(qt,x._k)+(norm(x.id)===norm(q)?10:0); return {x:x,s:sc,st:scoreK._strong}; }).filter(function(r){ return (r.st>0&&r.s>=3)||r.s>=10; }).sort(function(a,b){ return b.s-a.s; });
-  return {t:t.slice(0,6),s:s.slice(0,6)};
+  return {t:t.slice(0,40),s:s.slice(0,6)};
 };
 TREATS.forEach(function(t){ t._k=toks(t.q+' '+t.n); });
 STDS.forEach(function(s){ s._k=toks((s.k||'')+' '+s.n+' '+s.id); });
@@ -2706,6 +2725,185 @@ seedDemo=function(){
   var pv=mk('payment',{no:nextNo('payment','PV'),kind:'ap',party:sup.id,sinv:s.id,date:today(),amount:5000,method:'bank',memo:'دفعة للمورد',status:'draft'}); approveDoc('payment',pv.id,true);
   log('add','الإعدادات','إضافة بيانات تجريبية عامة'); save(); render(); toast('أُضيفت بيانات تجريبية');
 };
+
+/* ==========================================================================
+   الدليل v4 — «الحالات»: كلمة عامة (رواتب، تأمينات…) تعرض كل الحالات المرتبطة بترتيب سير العمل
+   مع معاينة قيد كل حالة، وكلمة محددة تفتح الحالة مباشرة مع «الخطوة التالية»
+   ========================================================================== */
+COA['1111']='سلف الموظفين'; COA['2112']='رواتب مستحقة الدفع';
+
+var TREATS3=[
+ /* ===== دورة الرواتب ===== */
+ {id:'pay_accrual',n:'استحقاق رواتب الشهر (قيد المسير)',cat:'رواتب',fam:'pay',ord:1,nx:['pay_transfer','gosi_accrual'],
+  q:'قيد رواتب استحقاق رواتب رواتب مستحقه مسير رواتب كشف رواتب اثبات الرواتب تحميل الرواتب نهايه الشهر اجور مستحقه بدل سكن بدل نقل استقطاع payroll accrual',
+  std:['IAS 19'],
+  tr:'في نهاية كل شهر يُثبت إجمالي الرواتب والبدلات مصروفاً مقابل التزام «رواتب مستحقة الدفع» بصافي ما سيُحوَّل للموظفين، وتُثبت الاستقطاعات في حساباتها: حصة الموظف في التأمينات الاجتماعية (التزام للمؤسسة) واسترداد السلف (تخفيض ذمة الموظف). فصل الاستحقاق عن التحويل يجعل الرواتب غير المدفوعة في نهاية الفترة تظهر التزاماً صحيحاً.',
+  ms:'الإجمالي = الراتب الأساسي + البدلات الثابتة + الإضافي، بعد خصم أيام الغياب غير المدفوعة.',
+  inp:[{k:'gosiE',l:'حصة الموظفين المستقطعة للتأمينات',d:0},{k:'adv',l:'استرداد سلف من الرواتب',d:0},CENTER_INP,PJ_INP],amtL:'إجمالي الرواتب والبدلات',
+  je:function(o){ var net=r2(o.amt-o.gosiE-o.adv); return [{t:'استحقاق رواتب الشهر',lines:[{d:expAcc(o,'5201'),v:o.amt},{c:'2112',v:net},{c:'2190',v:o.gosiE},{c:'1111',v:o.adv}]}]; },
+  au:{as:['الحدوث','الدقة','القطع','التصنيف'],rk:['موظفون وهميون','رواتب لا تطابق العقود','استحقاق غير مكتمل في نهاية السنة'],
+      pr:['مطابقة المسير مع ملف حماية الأجور (مدد) وكشف التأمينات','فحص عينة عقود وبدلات','إجراءات تحليلية: متوسط تكلفة الموظف شهرياً','التحقق من اعتماد المسير من صاحب الصلاحية'],isa:['ISA 500','ISA 520','ISA 240']}},
+ {id:'pay_transfer',n:'تحويل الرواتب للموظفين (بعد قيد الاستحقاق)',cat:'رواتب',fam:'pay',ord:2,nx:['gosi_pay'],
+  q:'تحويل رواتب صرف رواتب سداد رواتب دفع رواتب حماية الاجور مدد ملف رواتب بنك رواتب تحويل الرواتب salary transfer wps',
+  std:['IAS 19'],
+  tr:'عند تحويل صافي الرواتب عبر نظام حماية الأجور يُقفل حساب «رواتب مستحقة الدفع» مقابل البنك. لا يُحمّل مصروف هنا لأنه أُثبت في قيد الاستحقاق. الرواتب غير المستلمة تبقى التزاماً لا تُرد للإيراد.',
+  amtL:'صافي الرواتب المحوّلة',
+  je:function(o){ return [{t:'تحويل صافي الرواتب',lines:[{d:'2112',v:o.amt},{c:'1102',v:o.amt}]}]; },
+  au:{as:['الحدوث','الدقة'],rk:['تحويل لحسابات غير الموظفين','ازدواج الصرف'],pr:['مطابقة ملف حماية الأجور مع كشف البنك والمسير المعتمد','فحص الآيبانات المتكررة أو المتطابقة مع الإدارة'],isa:['ISA 240','ISA 505']}},
+ {id:'adv_emp',n:'سلفة لموظف (تُسترد من الراتب)',cat:'رواتب',fam:'pay',ord:5,nx:['pay_accrual'],
+  q:'سلفه موظف سلف الموظفين قرض موظف سلفه راتب مقدم راتب سلفه على الراتب employee advance loan',
+  std:['IFRS 9','IAS 19'],
+  tr:'السلفة ذمة مدينة على الموظف (أصل مالي) لا مصروف، وتُسترد بالخصم من الرواتب في قيد الاستحقاق. السلف بلا عائد وطويلة الأجل الجوهرية تُخصم لقيمتها الحالية والفرق منفعة موظفين.',
+  inp:[PAY_INP],amtL:'مبلغ السلفة',
+  je:function(o){ return [{t:'صرف السلفة',lines:[{d:'1111',v:o.amt},{c:payAcc(o),v:o.amt}]}]; },
+  au:{as:['الوجود','التقييم'],rk:['سلف لموظفين منتهية خدماتهم'],pr:['مطابقة أرصدة السلف مع الموارد البشرية والاستقطاع الشهري','فحص سلف الموظفين المغادرين'],isa:['ISA 500']}},
+ {id:'leave_pay',n:'صرف راتب الإجازة أو بدل التذاكر من المخصص',cat:'رواتب',fam:'pay',ord:7,
+  q:'صرف راتب اجازه بدل تذاكر صرف تذاكر صرف اجازه راتب الاجازه تذكره سفر موظف',std:['IAS 19'],
+  tr:'تُصرف من مخصص الإجازات والتذاكر المكوّن مسبقاً؛ إن زاد المصروف عن المخصص يُحمّل الفرق مصروفاً.',
+  inp:[{k:'prov',l:'المغطى من المخصص',d:0}],amtL:'المبلغ المصروف',
+  je:function(o){ var p=Math.min(o.prov||o.amt,o.amt); return [{t:'صرف الإجازة/التذاكر',lines:[{d:'2111',v:p},o.amt-p>0?{d:'5264',v:o.amt-p}:null,{c:'1102',v:o.amt}]}]; },
+  au:{as:['الحدوث','الدقة'],rk:['صرف دون رصيد إجازات'],pr:['مطابقة مع سجل الإجازات'],isa:['ISA 500']}},
+ {id:'eos_pay',n:'صرف مكافأة نهاية الخدمة (مخالصة موظف)',cat:'رواتب',fam:'pay',ord:10,
+  q:'صرف مكافاه نهايه الخدمه سداد نهايه خدمه تصفيه مستحقات موظف مخالصه نهائيه استقاله انهاء عقد',std:['IAS 19'],
+  tr:'يُخصم المدفوع من مخصص مكافأة نهاية الخدمة؛ إن زاد عن الرصيد المكوّن للموظف يُحمّل الفرق مصروفاً (ويُعد مؤشراً على نقص التقدير). المخالصة النهائية تشمل عادة راتب آخر شهر ورصيد الإجازات ويُخصم منها رصيد السلف.',
+  inp:[{k:'prov',l:'رصيد المخصص للموظف',d:0}],amtL:'مبلغ المكافأة المدفوعة',
+  je:function(o){ var p=Math.min(o.prov||o.amt,o.amt); return [{t:'صرف مكافأة نهاية الخدمة',lines:[{d:'2210',v:p},o.amt-p>0?{d:'5203',v:o.amt-p}:null,{c:'1102',v:o.amt}]}]; },
+  au:{as:['الحدوث','الدقة'],rk:['احتساب مخالف لنظام العمل'],pr:['إعادة احتساب المكافأة وفق المادتين 84 و85 من نظام العمل','فحص المخالصة الموقعة'],isa:['ISA 500','ISA 250']}},
+ {id:'housing_adv',n:'بدل سكن مدفوع مقدماً (سنوي أو نصف سنوي)',cat:'رواتب',fam:'pay',ord:11,
+  q:'بدل سكن مقدم بدل سكن سنوي صرف بدل السكن مقدما سكن الموظفين مقدم',std:['IAS 19'],
+  tr:'البدل المدفوع عن أشهر قادمة أصل مدفوع مقدماً بقدر ما يمكن استرداده من الموظف عند تركه العمل، ويُحمّل مصروف رواتب شهرياً.',
+  inp:[{k:'m',l:'عدد الأشهر المغطاة',d:12}],amtL:'المبلغ المدفوع',
+  je:function(o){ var mo=o.m>0?r2(o.amt/o.m):o.amt; return [{t:'صرف البدل مقدماً',lines:[{d:'1220',v:o.amt},{c:'1102',v:o.amt}]},{t:'التحميل الشهري',lines:[{d:'5201',v:mo},{c:'1220',v:mo}]}]; },
+  au:{as:['القطع','التقييم'],rk:['تحميل البدل كاملاً في شهر واحد'],pr:['إعادة احتساب الجزء غير المستنفد'],isa:['ISA 520']}},
+
+ /* ===== التأمينات الاجتماعية ===== */
+ {id:'gosi_accrual',n:'استحقاق حصة المنشأة في التأمينات الاجتماعية (تحميل الفاتورة)',cat:'تأمينات',fam:'ins',ord:1,nx:['gosi_pay'],
+  q:'تامينات اجتماعيه التامينات الاجتماعيه حصه المنشاه اشتراكات التامينات gosi استحقاق التامينات تحميل فاتوره التامينات قيد التامينات فاتوره التامينات رواتب',
+  std:['IAS 19'],
+  tr:'حصة المنشأة في التأمينات الاجتماعية خطة اشتراكات محددة (IAS 19.51): تُحمّل مصروفاً شهرياً مقابل التزام للمؤسسة العامة للتأمينات الاجتماعية. للموظف السعودي تشمل حصة المنشأة فرع المعاشات وساند والأخطار المهنية، ولغير السعودي الأخطار المهنية فقط. النسب الافتراضية هنا للتوضيح — تُراجع النسب السارية في نظام التأمينات الاجتماعية حسب تاريخ التحاق الموظف (النظام الجديد يرفع نسبة المعاشات تدريجياً للمشتركين الجدد).',
+  inp:[{k:'rS',l:'نسبة حصة المنشأة للسعوديين %',d:11.75},{k:'ns',l:'أجور الاشتراك لغير السعوديين',d:0},{k:'rN',l:'نسبة الأخطار المهنية لغير السعوديين %',d:2},CENTER_INP,PJ_INP],amtL:'أجور الاشتراك للموظفين السعوديين',
+  je:function(o){ var v=r2(o.amt*o.rS/100+o.ns*o.rN/100); return [{t:'استحقاق حصة المنشأة',lines:[{d:expAcc(o,'5202'),v:v},{c:'2190',v:v}]}]; },
+  au:{as:['الاكتمال','الدقة'],rk:['أجور اشتراك أقل من الأجر الفعلي','موظفون غير مسجلين'],pr:['مطابقة فاتورة التأمينات مع المسير وعدد الموظفين','فحص الأجور المسجلة في المؤسسة مقابل العقود'],isa:['ISA 250','ISA 500']}},
+ {id:'gosi_pay',n:'سداد فاتورة التأمينات الاجتماعية الشهرية',cat:'تأمينات',fam:'ins',ord:2,
+  q:'سداد فاتوره التامينات دفع التامينات الاجتماعيه سداد اشتراكات gosi سداد التامينات تسديد التامينات',
+  std:['IAS 19'],
+  tr:'الفاتورة الشهرية تشمل حصة المنشأة (المستحقة بقيد سابق) وحصة الموظفين المستقطعة من رواتبهم؛ يُسدَّد إجماليها ويُقفل حساب «مستحقات التأمينات الاجتماعية». السداد قبل الموعد النظامي يجنّب غرامات التأخير.',
+  inp:[{k:'emp',l:'منها حصة الموظفين المستقطعة',d:0}],amtL:'إجمالي الفاتورة المسددة',
+  je:function(o){ return [{t:'سداد فاتورة التأمينات',lines:[{d:'2190',v:o.amt},{c:'1102',v:o.amt}]}]; },
+  au:{as:['الاكتمال','الدقة'],rk:['رصيد مستحقات تأمينات متراكم دون سداد'],pr:['مطابقة رصيد الحساب مع كشف المؤسسة','فحص شهادة التأمينات السارية'],isa:['ISA 505','ISA 250']}},
+ {id:'gosi_fine',n:'غرامة تأخير سداد التأمينات الاجتماعية',cat:'تأمينات',fam:'ins',ord:3,
+  q:'غرامه التامينات غرامه تاخير التامينات غرامه gosi مخالفه تامينات',std:['IAS 1','IAS 37'],
+  tr:'غرامة التأخير مصروف في الفترة (غرامات وجزاءات) ولا تُضاف لتكلفة الرواتب، ويُفصح عن المخالفات الجوهرية.',
+  je:function(o){ return [{t:'إثبات الغرامة',lines:[{d:'5262',v:o.amt},{c:'2190',v:o.amt}]}]; },
+  au:{as:['الاكتمال'],rk:['التزامات نظامية غير مسجلة'],pr:['فحص كشف المؤسسة للغرامات'],isa:['ISA 250']}},
+ /* ===== التأمين الطبي والتجاري ===== */
+ {id:'medins',n:'شراء وثيقة تأمين طبي للموظفين (سنوية)',cat:'تأمينات',fam:'ins',ord:4,nx:['medins_amort','medins_add','medins_refund'],
+  q:'تامين طبي وثيقه تامين طبي بوليصه تامين صحي تامين الموظفين شركه التامين قسط تامين طبي فاتوره تامين طبي medical insurance',
+  std:['IAS 19','IAS 1','VAT-KSA'],
+  tr:'القسط السنوي أصل «مصروف مدفوع مقدماً» يُطفأ شهرياً على مدة الوثيقة؛ التأمين الصحي منفعة موظفين (IAS 19). إن سُدّد على أقساط تُثبت ذمة دائنة لشركة التأمين بالكامل عند بدء التغطية.',
+  vt:'أقساط التأمين تخضع لـ 15%؛ ويُراجع حق الخصم وفق المادة 50 من اللائحة التنفيذية (يُقبل عادة للتأمين الصحي الإلزامي نظاماً للموظفين).',
+  inp:[VAT_INP,{k:'pay',l:'طريقة السداد',type:'sel',opts:[['bank','بنك'],['ap','آجل لشركة التأمين']],d:'bank'},{k:'m',l:'مدة الوثيقة بالأشهر',d:12}],amtL:'القسط السنوي (قبل الضريبة)',
+  je:function(o){ var v=vatIn(o,o.amt), mo=o.m>0?r2(o.amt/o.m):o.amt; return [{t:'إثبات الوثيقة',lines:[{d:'1220',v:o.amt},v?{d:'1230',v:v}:null,{c:payAcc(o),v:o.amt+v}]},{t:'الإطفاء الشهري',lines:[{d:'5212',v:mo},{c:'1220',v:mo}]}]; },
+  au:{as:['القطع','التقييم','الحدوث'],rk:['تحميل القسط كاملاً في شهر واحد','تغطية موظفين غير موجودين'],pr:['إعادة احتساب الجزء غير المستنفد','مطابقة قائمة المؤمّن عليهم مع الموارد البشرية'],isa:['ISA 520','ISA 500']}},
+ {id:'medins_amort',n:'إطفاء التأمين (الطبي/المركبات) الشهري',cat:'تأمينات',fam:'ins',ord:5,
+  q:'اطفاء التامين تحميل التامين الشهري قسط تامين شهري اطفاء تامين طبي',std:['IAS 1'],
+  tr:'يُحمّل الجزء المستنفد من القسط المدفوع مقدماً مصروفاً كل شهر؛ تأمين عمال المشروع وآلياته يُحمّل على تكلفة المشروع.',
+  inp:[CENTER_INP,PJ_INP],amtL:'القسط الشهري',
+  je:function(o){ return [{t:'الإطفاء الشهري',lines:[{d:expAcc(o,'5212'),v:o.amt},{c:'1220',v:o.amt}]}]; },
+  au:{as:['القطع'],rk:['عدم انتظام الإطفاء'],pr:['إعادة احتساب الرصيد المتبقي'],isa:['ISA 520']}},
+ {id:'medins_add',n:'ملحق وثيقة تأمين (إضافة موظفين أو ترقية فئة)',cat:'تأمينات',fam:'ins',ord:6,
+  q:'ملحق وثيقه اضافه موظف للتامين ترقيه فئه التامين فاتوره ملحق تامين اضافه تابعين',std:['IAS 1','VAT-KSA'],
+  tr:'القسط الإضافي يُضاف للمدفوع مقدماً ويُطفأ على المدة المتبقية من الوثيقة، ويُثبت دائناً لشركة التأمين حتى سداده.',
+  inp:[VAT_INP],amtL:'القسط الإضافي (قبل الضريبة)',
+  je:function(o){ var v=vatIn(o,o.amt); return [{t:'إثبات الملحق',lines:[{d:'1220',v:o.amt},v?{d:'1230',v:v}:null,{c:'2101',v:o.amt+v}]}]; },
+  au:{as:['الدقة'],rk:['أقساط لموظفين غادروا'],pr:['مطابقة الملحق مع قرارات التعيين'],isa:['ISA 500']}},
+ {id:'medins_refund',n:'استرداد قسط تأمين (حذف موظف من الوثيقة)',cat:'تأمينات',fam:'ins',ord:7,
+  q:'استرداد قسط تامين حذف موظف من التامين اشعار دائن شركه التامين استرجاع تامين',std:['IAS 1','VAT-KSA'],
+  tr:'المسترد يُخفّض رصيد المدفوع مقدماً (للفترة غير المستنفدة) وتُعكس ضريبة المدخلات المقابلة بموجب الإشعار الدائن.',
+  inp:[VAT_INP],amtL:'المبلغ المسترد (قبل الضريبة)',
+  je:function(o){ var v=vatIn(o,o.amt); return [{t:'إثبات الاسترداد',lines:[{d:'2101',v:o.amt+v},{c:'1220',v:o.amt},v?{c:'1230',v:v}:null]}]; },
+  au:{as:['الاكتمال'],rk:['استردادات غير مطالب بها'],pr:['فحص الإشعارات الدائنة مقابل المغادرين'],isa:['ISA 500']}},
+ {id:'vehins',n:'تأمين المركبات والممتلكات (شامل / ضد الغير / حريق)',cat:'تأمينات',fam:'ins',ord:8,nx:['medins_amort','insclaim'],
+  q:'تامين سيارات تامين مركبات تامين شامل تامين ضد الغير تامين ممتلكات تامين حريق تامين مخزون تامين معدات vehicle property insurance',
+  std:['IAS 1','IAS 16','VAT-KSA'],
+  tr:'القسط مدفوع مقدماً يُطفأ على مدة التغطية. تأمين الأصل أثناء نقله وتركيبه قبل جاهزيته قد يُرسمل ضمن تكلفته (IAS 16)، وبعد ذلك مصروف تشغيلي.',vt:'15% قابلة للخصم بفاتورة ضريبية للمركبات والممتلكات المستخدمة في النشاط.',
+  inp:[VAT_INP,PAY_INP,{k:'m',l:'مدة التغطية بالأشهر',d:12}],amtL:'القسط (قبل الضريبة)',
+  je:function(o){ var v=vatIn(o,o.amt), mo=o.m>0?r2(o.amt/o.m):o.amt; return [{t:'إثبات الوثيقة',lines:[{d:'1220',v:o.amt},v?{d:'1230',v:v}:null,{c:payAcc(o),v:o.amt+v}]},{t:'الإطفاء الشهري',lines:[{d:'5212',v:mo},{c:'1220',v:mo}]}]; },
+  au:{as:['القطع','التقييم'],rk:['أصول جوهرية غير مؤمّن عليها'],pr:['مطابقة الوثائق مع سجل الأصول','إعادة احتساب الجزء غير المستنفد'],isa:['ISA 520','ISA 315']}}
+];
+TREATS3.forEach(function(t){ TREATS.push(t); TREAT_BY_ID[t.id]=t; t._k=toks(t.q+' '+t.n); });
+/* ربط البنود السابقة بالعائلات وترتيب سير العمل */
+[['salary','pay',12],['leave','pay',6],['bonus','pay',8],['eosb','pay',9],['insclaim','ins',9],['deposit','ins',10],['prepaid','ins',11]].forEach(function(x){ var t=TREAT_BY_ID[x[0]]; if(t){ t.fam=x[1]; t.ord=x[2]; } });
+TREAT_BY_ID.salary.n='رواتب — قيد مختصر (استحقاق وسداد في قيد واحد)';
+TREAT_BY_ID.eosb.n='تكوين مخصص مكافأة نهاية الخدمة';
+TREAT_BY_ID.leave.nx=['leave_pay']; TREAT_BY_ID.eosb.nx=['eos_pay'];
+/* كلمة العائلة تُضاف لكل حالاتها: «رواتب» تُظهر دورة الرواتب كاملة و«تأمينات» كل التأمينات */
+function famKw(){ TREATS.forEach(function(t){ var w=t.fam==='pay'?'رواتب':t.fam==='ins'?'تامين':null; if(w&&t._k.indexOf(stem(w))<0) t._k=t._k.concat(toks(w)); }); }
+/* كلمات إضافية للبنود القديمة كي تظهر ضمن عائلتها */
+TREAT_BY_ID.salary._k=toks(TREAT_BY_ID.salary.q+' '+TREAT_BY_ID.salary.n+' قيد رواتب');
+TREAT_BY_ID.prepaid._k=toks(TREAT_BY_ID.prepaid.q+' '+TREAT_BY_ID.prepaid.n+' تامين');
+famKw();
+
+/* ===== معاينة مختصرة لقيد أي حالة ===== */
+function caseDefaults(t,amt){ var o={amt:amt,pj:''}; (t.inp||[]).forEach(function(i){ o[i.k]=i.d; }); return o; }
+function miniJE(t,amt){ var r=[]; try{ r=t.je?t.je(caseDefaults(t,amt)):[]; }catch(e){ r=[]; } if(r.length&&!r[0].lines) r=[{t:'',lines:r}];
+  var e=r[0]; if(!e) return ''; var ls=e.lines.filter(function(l){ return l&&r2(l.v)>0; });
+  return '<div class="mje">'+ls.map(function(l){ return '<div class="'+(l.d?'d':'c')+'"><span>'+(l.d?'من ح/ ':'إلى ح/ ')+esc(accName(l.d||l.c))+'</span><b class="num">'+fmt(l.v,0)+'</b></div>'; }).join('')
+    +(r.length>1?'<div class="more">+ '+(r.length-1)+' قيد لاحق ('+esc(r.slice(1).map(function(x){ return x.t; }).join('، '))+')</div>':'')+'</div>'; }
+function caseCard(t,amt,i){
+  return '<div class="case" role="button" tabindex="0" onclick="pickTreat(\''+t.id+'\')" onkeydown="if(event.key===\'Enter\')pickTreat(\''+t.id+'\')">'
+    +'<div class="case-h">'+(i!=null?'<span class="case-n num">'+(i+1)+'</span>':'')+'<div style="flex:1;min-width:0"><b>'+esc(t.n)+'</b><div class="mini">'+esc(t.cat)+' — '+t.std.join(' • ')+'</div></div><span class="case-go">‹</span></div>'
+    +miniJE(t,amt)+'</div>'; }
+
+/* ===== منطق البحث بالحالات ===== */
+analyze=(function(an){ return function(q){ var r=an(q); return r; }; })(analyze);
+function guideSearch(q){
+  var qt=toks(q), r=analyze(q);
+  /* مكافأة تطابق العبارة كاملة (مثل «استحقاق رواتب») ثم إعادة الترتيب */
+  var ph=qt.filter(function(w){ return w!=='قيد'; }).join(' ');
+  r.t.forEach(function(x){ if(ph.indexOf(' ')>0&&toks(x.x.q+' '+x.x.n).join(' ').indexOf(ph)>=0) x.s+=2; });
+  r.t.sort(function(a,b){ return b.s-a.s; });
+  var all=r.t, ng=qt.filter(function(w){ return !GENERIC_W[w]; }).length;
+  var hmN=all.filter(function(x){ return x.hm; }).length, broad=ng<=2&&hmN>=3;
+  return {r:r,all:all,broad:broad}; }
+runGuide=function(){
+  G.q=$('gq').value.trim(); G.sel=null; G.broad=false; if(!G.q){ $('gRes').innerHTML=guideResults(); return; }
+  var s=guideSearch(G.q), all=s.all, top=all[0], uniq=top&&(all.length===1||top.s>all[1].s);
+  if(s.broad){ G.broad=true; if(top&&uniq&&top.s>=all[1].s+1) pickTreat(top.x.id,true); }
+  else if(top&&top.hm&&uniq) pickTreat(top.x.id,true);
+  else if(top&&uniq&&top.s>=6) pickTreat(top.x.id,true);
+  else if(!top||!top.hm){ GENERIC.n='معالجة عامة ذكية: «'+G.q+'»'; pickTreat('generic',true); G.o.nature=guessNature(G.q); }
+  $('gRes').innerHTML=guideResults(); log('view','دليل المعايير','بحث: '+G.q);
+};
+guideResults=function(){
+  if(!G.q&&!G.sel) return browseTreats();
+  var s=guideSearch(G.q), amt=extractAmt(G.q)||10000, h='';
+  if(G.sel) h+=treatView(G.sel)+nextSteps(G.sel);
+  var others=s.all.map(function(x){ return x.x; }).filter(function(t){ return !G.sel||t.id!==G.sel.id; });
+  if(s.broad){ /* ترتيب سير العمل داخل العائلة ثم الأقرب */
+    var fam={}; s.all.forEach(function(x){ if(x.x.fam) fam[x.x.fam]=(fam[x.x.fam]||0)+1; });
+    var mainFam=Object.keys(fam).sort(function(a,b){ return fam[b]-fam[a]; })[0];
+    var sc={}; s.all.forEach(function(x){ sc[x.x.id]=Math.floor(x.s); });
+    others.sort(function(a,b){ var fa=a.fam===mainFam?0:1, fb=b.fam===mainFam?0:1; return (sc[b.id]-sc[a.id])||fa-fb||(a.fam===b.fam?(a.ord||99)-(b.ord||99):0); }); }
+  if(others.length) h+='<div class="panel"><h3>'+(s.broad?'📂 جميع الحالات المتعلقة بـ «'+esc(G.q)+'»':(G.sel?'حالات أخرى متعلقة':'اختر الحالة الأقرب لمعاملتك'))+' <span class="pill pill-info num">'+others.length+'</span></h3>'
+    +(s.broad?'<div class="mini" style="margin-bottom:10px">مرتبة حسب تسلسل العمل. كل بطاقة تعرض القيد بمبلغ توضيحي '+fmt(amt,0)+' — اضغط لفتح المعالجة الكاملة وإدخال أرقامك.</div>':'')
+    +'<div class="cases">'+others.map(function(t,i){ return caseCard(t,amt,s.broad?i:null); }).join('')+'</div></div>';
+  if(s.r.s.length) h+='<div class="panel"><h3>📖 معايير ذات صلة</h3><div class="std-badges">'+s.r.s.map(function(x){ return stdBadge(x.x.id,true); }).join('')+'</div></div>';
+  if(!G.sel&&!others.length) h+=browseTreats();
+  return h; };
+function nextSteps(t){ var nx=(t.nx||[]).map(function(id){ return TREAT_BY_ID[id]; }).filter(Boolean); if(!nx.length) return '';
+  return '<div class="panel" style="border-right:4px solid var(--sky);padding:12px"><h3>➡️ الخطوة التالية في سير العمل</h3><div class="cases">'+nx.map(function(x){ return caseCard(x,extractAmt(G.q)||10000); }).join('')+'</div></div>'; }
+/* عند فتح حالة من البطاقات نصعد لأعلى النتائج */
+var _pickTreat=pickTreat;
+pickTreat=function(id,silent){ _pickTreat(id,silent); if(!silent){ var e=$('gRes'); if(e) window.scrollTo({top:e.getBoundingClientRect().top+window.scrollY-70,behavior:'smooth'}); } };
+/* تصفح البنود حسب الفئة بترتيب سير العمل */
+browseTreats=function(){
+  var cats={}, order=['رواتب','تأمينات','مصروفات','إيرادات','أصول','مخزون','التزامات','زكاة وضرائب','عملات','حقوق ملكية','إفصاح','مقاولات'];
+  TREATS.forEach(function(t){ if(t.id==='generic') return; if(t.cat==='مقاولات'&&!hasProj()&&t.id!=='lgmargin') { (cats['مقاولات']=cats['مقاولات']||[]).push(t); return; } (cats[t.cat]=cats[t.cat]||[]).push(t); });
+  var keys=Object.keys(cats).sort(function(a,b){ var ia=order.indexOf(a), ib=order.indexOf(b); return (ia<0?99:ia)-(ib<0?99:ib); });
+  return '<div class="panel"><h3>🗂️ تصفّح كل الحالات حسب الفئة</h3>'+keys.map(function(c){ var L=cats[c].sort(function(a,b){ return (a.ord||99)-(b.ord||99); });
+    return '<details class="cat"'+(c==='رواتب'?' open':'')+'><summary><b>'+c+'</b> <span class="pill pill-mute num">'+L.length+'</span></summary><div class="match-list" style="margin-top:8px">'
+      +L.map(function(t){ return '<button onclick="pickTreat(\''+t.id+'\')"><b>'+esc(t.n)+'</b><span>'+t.std.join(' • ')+'</span></button>'; }).join('')+'</div></details>'; }).join('')+'</div>'; };
 
 /* ===== التشغيل ===== */
 boot();
