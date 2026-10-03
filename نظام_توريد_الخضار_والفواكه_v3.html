@@ -1771,7 +1771,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-09-28-g';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-10-03-a';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -2105,8 +2105,16 @@ function canSeeBalances(){ return can('accounts')||can('accSuppliers')||can('acc
 /* هل يُسمح له برؤية الأرباح والتكاليف والهوامش؟ (مرتبط بصلاحية قائمة الدخل) */
 function canSeeProfit(){ return can('income'); }
 var staleBuild=false;
+var _staleRemindTs=0;
+/* تذكير غير معطِّل بتوفّر تحديث — لا يمنع الحفظ أبداً (حتى لا تُفقد بيانات المستخدم) */
+function staleRemind(){
+  try{ renderStaleUsers(); }catch(e){}
+  if(Date.now()-_staleRemindTs<180000) return;   /* مرة كل 3 دقائق على الأكثر */
+  _staleRemindTs=Date.now();
+  toast('يتوفّر تحديث للنظام — يُفضّل تحديث الصفحة (الحفظ يعمل بشكل طبيعي).');
+}
 function guard(k,msg){
-  if(staleBuild){ showStaleOverlay(); toast('حدّث النظام أولاً — الإدخال موقوف حتى تحديث هذا الجهاز'); return false; }
+  if(staleBuild) staleRemind();   /* تذكير فقط — الإدخال والحفظ مسموح دائماً */
   if(can(k)) return true; toast(msg||'لا تملك صلاحية لهذا الإجراء'); return false; }
 function applyPerms(){
   document.querySelectorAll('.tab-btn').forEach(function(b){
@@ -8703,19 +8711,11 @@ function setCloudErrTip(msg){ var el=document.getElementById('cloudStatus'); if(
    إذا كانت السحابة كُتبت بإصدار أحدث ⇒ هذا الجهاز قديم فليُحدَّث؛ وإذا بإصدار أقدم ⇒ جهاز آخر قديم. */
 function cloudCheckBuild(val){
   var el=document.getElementById('buildWarn');
+  if(el) el.style.display='none';
+  hideStaleOverlay();                         /* لا شاشة حظر إطلاقاً من حقل السحابة (يتناوب المستخدمون كتابته) */
   var rb=val&&val.build;
-  if(!rb||rb===APP_BUILD){ staleBuild=false; if(el) el.style.display='none'; hideStaleOverlay(); return; }
-  if(String(rb)>String(APP_BUILD)){
-    /* هذا الجهاز قديم: أوقِف الإدخال وأظهر شاشة تحديث إلزامية */
-    staleBuild=true; cloudLatestBuild=rb;
-    if(el) el.style.display='none';   /* نكتفي بالشاشة الكاملة */
-    showStaleOverlay();
-  } else {
-    /* جهاز آخر قديم: يظهر للمدير عبر الشارة المدمجة في الهيدر (لا شريط كبير) */
-    staleBuild=false; hideStaleOverlay();
-    if(el){ el.style.display='none'; }
-    try{ renderStaleUsers(); }catch(e){}
-  }
+  if(rb&&String(rb)>String(APP_BUILD)) cloudLatestBuild=rb;   /* معلومة فقط — لا يُعطِّل الإدخال */
+  try{ renderStaleUsers(); }catch(e){}
 }
 var cloudLatestBuild='';
 function showStaleOverlay(){
@@ -8773,7 +8773,7 @@ function checkServerBuild(){
     fetch('build.txt?_='+Date.now(),{cache:'no-store'})
       .then(function(r){ return r.ok?r.text():null; })
       .then(function(t){ if(!t) return; t=String(t).trim().split(/\s+/)[0];
-        if(t&&t>String(APP_BUILD)){ staleBuild=true; cloudLatestBuild=t; showStaleOverlay(); } })
+        if(t&&t>String(APP_BUILD)){ staleBuild=true; cloudLatestBuild=t; try{ renderStaleUsers(); }catch(e){} staleRemind(); } })
       .catch(function(){});
   }catch(e){}
 }
@@ -8781,12 +8781,9 @@ function checkServerBuild(){
    أحدث من هذا الجهاز ⇒ هذا الجهاز قديم فليُحدَّث. أدقّ من حقل الإصدار المشترك الذي
    يتناوب المستخدمون على كتابته (فقد لا يكتشف الجوالُ قِدَمَه لأنه يكتب إصداره هو). */
 function checkStaleFromPresence(){
-  if(!ME||typeof _cloudDevices!=='object') return;
-  var maxB=String(APP_BUILD);
-  Object.keys(_cloudDevices||{}).forEach(function(id){
-    var d=_cloudDevices[id]; if(d&&d.build&&String(d.build)>maxB) maxB=String(d.build);
-  });
-  if(maxB>String(APP_BUILD)){ staleBuild=true; cloudLatestBuild=maxB; showStaleOverlay(); }
+  /* لا يُعطّل الإدخال ولا يُظهر شاشة حظر — بصمات الأجهزة قد تكون من تطبيقات تشارك نفس السحابة.
+     يكتفي بتحديث شارة «أجهزة بحاجة لتحديث» للمدير (مقارنةً بإصدار هذا الجهاز). */
+  try{ renderStaleUsers(); }catch(e){}
 }
 /* الأجهزة التي تعمل بإصدار أقدم من هذا الجهاز، وظهرت خلال آخر 3 أيام */
 function staleDeviceList(){
