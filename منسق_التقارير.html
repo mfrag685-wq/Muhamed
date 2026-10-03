@@ -109,6 +109,10 @@ button{cursor:pointer}
   border-radius:7px;background:#fff;font-family:Georgia,'Times New Roman',serif;font-size:15px;user-select:none}
 .tg input:checked+span{background:var(--brand);border-color:var(--brand);color:#fff}
 .sep{border:0;border-top:1px solid var(--line);margin:10px 0}
+.orig{border:1px solid #fde68a;background:#fffbeb;border-radius:10px;padding:9px 10px;margin-bottom:10px}
+.origsw{display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;font-size:11px;color:#92400e}
+.origsw span{display:inline-flex;align-items:center;gap:4px}
+.origsw i{width:16px;height:16px;border-radius:4px;border:1px solid rgba(0,0,0,.15);display:inline-block}
 .designs-wrap{background:var(--card);border-radius:14px;box-shadow:var(--shadow);padding:12px 12px 8px;margin-bottom:12px}
 .designs-wrap .dh{font-size:14px;font-weight:700;margin-bottom:8px}
 .designs-wrap .dh small{color:var(--muted);font-weight:400;font-size:12px;margin-inline-start:6px}
@@ -148,11 +152,11 @@ button{cursor:pointer}
 .chip{border:1px dashed #94a3b8;background:#fff;border-radius:999px;padding:4px 11px;font-size:12px;color:#334155;cursor:pointer}
 .chip:hover{border-color:var(--brand);color:var(--brand-d);background:#f0fdfa}
 .rep th{position:relative}
-.rep th .hx{position:absolute;top:2px;inset-inline-end:2px;width:18px;height:18px;border-radius:50%;border:0;background:rgba(0,0,0,.35);
+.rep .hx{position:absolute;top:2px;inset-inline-end:2px;width:18px;height:18px;border-radius:50%;border:0;background:rgba(0,0,0,.35);
   color:#fff;font-size:11px;line-height:18px;padding:0;cursor:pointer;opacity:0;transition:.15s}
-.rep th:hover .hx{opacity:1}
-.rep th .hx:hover{background:#dc2626}
-@media(hover:none){.rep th .hx{opacity:.75}}
+.rep th:hover .hx,.rep tr.t:hover .hx{opacity:1}
+.rep .hx:hover{background:#dc2626}
+@media(hover:none){.rep .hx{opacity:.75}}
 
 .pv{min-width:0;min-height:0;display:flex;flex-direction:column}
 .zoom{display:inline-flex;align-items:center;gap:2px;background:#fff;border:1px solid var(--line);border-radius:9px;padding:2px}
@@ -176,31 +180,34 @@ button{cursor:pointer}
 .rep{--p:#1e3a8a;--pt:#fff;--z:#eef2ff;--bd:#c7d2fe;--tb:#fde68a;--tt:#78350f;--ta:#f59e0b;
   font-family:var(--ff,Arial),Tahoma,sans-serif;--bw:1px;--bs:solid;--pad:5px 8px}
 .rep .co,.rep .ti,.rep .su,.rep th{font-family:var(--fh,var(--ff,Arial)),Tahoma,sans-serif}
-.rep .co{font-weight:700;font-size:1.25em;color:var(--p);text-align:center}
-.rep .ti{font-size:var(--tsz,1.6em);text-align:center;color:var(--p);padding:6px 8px;margin:4px 0;
+.rep .co{font-weight:700;font-size:1.25em;color:var(--pk);text-align:center}
+.rep .ti{font-size:var(--tsz,1.6em);text-align:center;color:var(--pk);padding:6px 8px;margin:4px 0;
   font-weight:var(--t-w);font-style:var(--t-s);text-decoration:var(--t-d)}
-.rep .ti.barred{background:var(--p);color:var(--pt);border-radius:4px}
-.rep .ti.lined{color:var(--p);border-bottom:3px solid var(--ta);padding-bottom:6px;margin-bottom:8px}
+.rep .ti.barred{background:var(--tf);color:var(--tft);border-radius:4px}
+.rep .ti.lined{color:var(--pk);border-bottom:3px solid var(--ta);padding-bottom:6px;margin-bottom:8px}
 .rep .su{text-align:center;color:#475569;margin-bottom:2px;font-weight:var(--u-w);font-style:var(--u-s);text-decoration:var(--u-d)}
 .rep .dt{text-align:center;color:#64748b;font-size:.85em;margin-bottom:10px}
 .rep table{border-collapse:collapse;width:100%;margin-top:6px}
-.rep.fr table{outline:2px solid var(--p);outline-offset:-1px}
+.rep.fr table{outline:2px solid var(--pk);outline-offset:-1px}
 .rep th{background:var(--p);color:var(--pt);padding:var(--pad);text-align:var(--ha,center);border:var(--bw) var(--bs) var(--bd);
   font-weight:var(--h-w);font-style:var(--h-s);text-decoration:var(--h-d)}
-.rep.hd-soft th{background:var(--z);color:var(--p);border-bottom:2px solid var(--p)}
-.rep.hd-line th{background:transparent;color:var(--p);border-top-color:transparent;border-left-color:transparent;border-right-color:transparent;border-bottom:2px solid var(--p)}
+.rep.hd-soft th{background:var(--z);color:var(--pk);border-bottom:2px solid var(--pk)}
+.rep.hd-line th{background:transparent;color:var(--pk);border-top-color:transparent;border-left-color:transparent;border-right-color:transparent;border-bottom:2px solid var(--pk)}
 .rep td{padding:var(--pad);border:var(--bw) var(--bs) var(--bd);white-space:nowrap;
   font-weight:var(--d-w);font-style:var(--d-s);text-decoration:var(--d-d)}
 .rep.b-h td,.rep.b-h th{border-left:0;border-right:0}
 .rep.b-n td{border-color:transparent}
+.rep tbody tr.d td{background:var(--ra,transparent)}
 .rep.zb tbody tr.d:nth-child(even) td{background:var(--z)}
+.rep tr.t td:last-child{position:relative}
+.rep tr.t .hx{top:50%;transform:translateY(-50%)}
 .rep td.n{text-align:center;font-variant-numeric:tabular-nums;direction:ltr}
 .rep td.c{text-align:center}
 .rep td.neg{color:#dc2626}
 .rep tr.t td{background:var(--tb);color:var(--tt);border-top:2px solid var(--ta);
   font-weight:var(--s-w);font-style:var(--s-s);text-decoration:var(--s-d)}
 .rep.tt-solid tr.t td{background:var(--ta);color:var(--tso);border-top-color:var(--ta)}
-.rep.tt-line tr.t td{background:transparent;color:#111827;border-top:1px solid var(--p);border-bottom:3px double var(--p)}
+.rep.tt-line tr.t td{background:transparent;color:#111827;border-top:1px solid var(--pk);border-bottom:3px double var(--pk)}
 .rep.da-right tbody td{text-align:right}.rep.da-center tbody td{text-align:center}.rep.da-left tbody td{text-align:left}
 .rep .ft{margin-top:10px;color:#475569;font-size:.9em}
 
@@ -306,6 +313,10 @@ button{cursor:pointer}
 
       <div class="card" data-g="design">
         <h3>🎨 الألوان</h3>
+        <div class="orig" id="origBox" hidden>
+          <label class="chk" style="margin:0"><input type="checkbox" id="o_useOrig" data-o="useOrig"> <b>استخدام ألوان ملفك الأصلي</b></label>
+          <div class="origsw" id="origSw"></div>
+        </div>
         <div class="swatches" id="swatches"></div>
         <div class="colors">
           <label><input type="color" id="o_primary" data-o="primary"> اللون الرئيسي</label>
@@ -379,9 +390,15 @@ button{cursor:pointer}
         <label class="chk"><input type="checkbox" id="o_zebra" data-o="zebra"> تظليل الصفوف بالتناوب</label>
         <label class="chk"><input type="checkbox" id="o_frame" data-o="frame"> إطار خارجي سميك حول الجدول</label>
         <label class="chk"><input type="checkbox" id="o_serial" data-o="serial"> إضافة عمود مسلسل (م)</label>
-        <label class="chk"><input type="checkbox" id="o_autoTotal" data-o="autoTotal"> إضافة صف إجمالي تلقائي</label>
         <label class="chk"><input type="checkbox" id="o_negRed" data-o="negRed"> الأرقام السالبة بالأحمر</label>
         <label class="chk"><input type="checkbox" id="o_filter" data-o="filter"> أزرار الفلترة في Excel</label>
+      </div>
+
+      <div class="card" data-g="cols">
+        <h3>Σ صف الإجمالي</h3>
+        <label class="chk"><input type="checkbox" id="o_showTotal" data-o="showTotal"> <b>إظهار صف الإجمالي</b></label>
+        <label class="chk"><input type="checkbox" id="o_autoTotal" data-o="autoTotal"> إضافته تلقائياً إن لم يكن موجوداً في الملف</label>
+        <div class="hint">ألغِ «إظهار» لحذف صف الإجمالي من التقرير — سواء كان في ملفك أو مضافاً تلقائياً. أو اضغط ✕ على صف الإجمالي في المعاينة.</div>
       </div>
 
       <div class="card" data-g="cols">
@@ -458,7 +475,7 @@ const DESIGNS = [
 ].map(([name, desc, o]) => ({name, desc, o: Object.assign({}, DESIGN_BASE, o)}));
 const DEFAULTS = {primary:'#1f3864', accent:'#bf9000', company:'', footer:'', showDate:true,
   titleStyle:'bar', headStyle:'filled', borders:'all', font:'Arial', size:'11', decimals:'auto',
-  dir:'auto', orient:'auto', zebra:true, serial:false, autoTotal:true, negRed:true, filter:true,
+  dir:'auto', orient:'auto', zebra:true, serial:false, autoTotal:true, showTotal:true, useOrig:false, negRed:true, filter:true,
   fontHead:'same', titleSize:'7', borderStyle:'thin', borderColor:'theme', frame:false, density:'normal',
   headAlign:'center', dataAlign:'auto', currency:'', dateFmt:'ymd', paper:'A4', totalStyle:'band', zebraTone:'light',
   // عريض / مائل / تسطير لكل جزء: t=العنوان u=العنوان الفرعي h=رأس الجدول d=البيانات s=الإجمالي
@@ -504,11 +521,20 @@ function mix(a, b, t) { const x = rgb(a), y = rgb(b); return hex(x.map((v, i) =>
 function lum(h) { const [r, g, b] = rgb(h).map(v => { v /= 255; return v <= .03928 ? v / 12.92 : Math.pow((v + .055) / 1.055, 2.4); }); return .2126 * r + .7152 * g + .0722 * b; }
 // يختار الأبيض أو الداكن حسب أعلى تباين مع الخلفية (مقروئية مضمونة على أي لون)
 function onColor(h) { const L = lum(h); return 1.25 * 1.05 / (L + .05) >= (L + .05) / (lum('#111827') + .05) ? '#ffffff' : '#111827'; }
-function theme(o = O) {
-  const p = o.primary, a = o.accent;
-  const bd = o.borderColor === 'gray' ? '#94a3b8' : o.borderColor === 'black' ? '#111827' : mix(p, '#ffffff', .68);
-  return {p, pt: onColor(p), z: mix(p, '#ffffff', o.zebraTone === 'medium' ? .84 : .91), bd,
-    tb: mix(a, '#ffffff', .8), tt: mix(a, '#000000', .45), ta: a, tso: onColor(a)};
+// sheet اختياري: عند تفعيل «ألوان الملف الأصلي» تُؤخذ ألوان الرأس والعنوان والصفوف والإجمالي من الملف نفسه
+function theme(o = O, sheet = null) {
+  const org = o.useOrig && sheet && sheet.orig;
+  const p = org && org.head ? org.head : o.primary, a = o.accent;
+  const pk = lum(p) > .4 ? mix(p, '#000000', .62) : p;          // نسخة مقروءة من اللون الرئيسي للنصوص والخطوط
+  const bd = o.borderColor === 'gray' ? '#94a3b8' : o.borderColor === 'black' ? '#111827' : org ? mix(p, '#000000', .3) : mix(p, '#ffffff', .68);
+  const t = {p, pk, pt: onColor(p), z: mix(p, '#ffffff', o.zebraTone === 'medium' ? .84 : .91), ra: '', bd,
+    tb: mix(a, '#ffffff', .8), tt: mix(a, '#000000', .45), ta: a, tso: onColor(a), tf: p, tft: onColor(p), org: !!org};
+  if (org) {
+    t.ra = org.rowA || ''; t.z = org.rowB || '#ffffff';
+    if (org.title) { t.tf = org.title; t.tft = onColor(org.title); }
+    if (org.total) { t.tb = org.total; t.tt = onColor(org.total) === '#ffffff' ? '#ffffff' : '#111827'; t.ta = mix(org.total, '#000000', .35); }
+  }
+  return t;
 }
 const argb = h => 'FF' + h.replace('#', '').toUpperCase();
 
@@ -576,35 +602,64 @@ function cleanCell(v) {
   return v;
 }
 
-function analyze(name, aoa) {
-  let rows = (aoa || []).map(r => Array.from(r || [], cleanCell)).filter(r => r.some(v => !empty(v)));
+// صف «Column1, Column2…» الذي يضيفه Excel للجداول (Table) — ليس بيانات
+const isTableStub = v => { const ne = v.filter(x => !empty(x)); return ne.length >= 2 && ne.every(x => typeof x === 'string' && /^column\s*\d+$/i.test(x)); };
+const asLabel = v => String(v instanceof Date ? fmtDate(parseDate(v)) : v);
+
+// meta (اختياري): merges = الخلايا المدمجة بإحداثيات aoa، fillAt(r,c) = لون تعبئة الخلية في الملف الأصلي
+function analyze(name, aoa, meta = {}) {
+  const merges = meta.merges || [], fillAt = meta.fillAt || (() => null);
+  // كل صف يحتفظ برقمه الأصلي (ri) لربطه بالدمج والألوان
+  let rows = (aoa || []).map((r, ri) => ({ri, v: Array.from(r || [], cleanCell)}))
+    .filter(o => o.v.some(v => !empty(v)) && !isTableStub(o.v));
   if (!rows.length) return null;
-  let w = Math.max(...rows.map(r => r.length));
-  rows = rows.map(r => { const x = r.slice(); while (x.length < w) x.push(null); return x; });
-  // حذف الأعمدة الفارغة تماماً
+  let w = Math.max(...rows.map(o => o.v.length));
+  // حذف الأعمدة الفارغة تماماً (keep = أرقام الأعمدة الأصلية الباقية)
   const keep = [];
-  for (let j = 0; j < w; j++) if (rows.some(r => !empty(r[j]))) keep.push(j);
-  rows = rows.map(r => keep.map(j => r[j]));
+  for (let j = 0; j < w; j++) if (rows.some(o => !empty(o.v[j]))) keep.push(j);
+  rows.forEach(o => { o.v = keep.map(j => o.v[j] === undefined ? null : o.v[j]); });
   w = keep.length;
 
   // اكتشاف صف العناوين: أول صف معظم خلاياه نصوص ويغطي نصف الأعمدة على الأقل
   let h = -1;
   for (let i = 0; i < Math.min(rows.length, 25); i++) {
-    const ne = rows[i].filter(v => !empty(v));
+    const ne = rows[i].v.filter(v => !empty(v));
     const str = ne.filter(v => typeof v === 'string' && parseNum(v) === null);
     if (ne.length >= Math.max(w === 1 ? 1 : 2, Math.ceil(w * .5)) && str.length >= ne.length * .6) { h = i; break; }
   }
   if (h < 0) h = 0;
-  const titles = rows.slice(0, h).map(r => r.filter(v => !empty(v)).join(' - ')).filter(Boolean);
-  const header = rows[h].map((v, j) => empty(v) ? 'عمود ' + (j + 1) : String(v instanceof Date ? fmtDate(parseDate(v)) : v));
-  const hKey = header.join('|');
+  // رأس متعدد المستويات: يمتد للأسفل ما دامت خلايا مدمجة تبدأ داخله وتنزل أكثر (مثل «صافي الشهر» فوق «مدين/دائن»)
+  const hr = rows[h].ri; let hb = hr;
+  for (let grew = true; grew;) { grew = false; for (const m of merges) if (m.r0 >= hr && m.r0 <= hb && m.r1 > hb && m.r1 - hr < 6) { hb = m.r1; grew = true; } }
+  const hRows = rows.filter(o => o.ri >= hr && o.ri <= hb);
+  const mergedVal = (ri, c) => { for (const m of merges) if (m.r0 >= hr && ri >= m.r0 && ri <= m.r1 && c >= m.c0 && c <= m.c1) return cleanCell((aoa[m.r0] || [])[m.c0]); return null; };
+  // مسار كل عمود: عناوينه من الأعلى للأسفل (الخلايا المدمجة تُكرَّر على كل ما تغطيه)، دون تكرار متتالٍ
+  const paths = keep.map((c, j) => {
+    const p = [];
+    for (const o of hRows) { let v = o.v[j]; if (empty(v)) v = mergedVal(o.ri, c); if (!empty(v) && p[p.length - 1] !== asLabel(v)) p.push(asLabel(v)); }
+    return p.length ? p : ['عمود ' + (j + 1)];
+  });
+  const header = paths.map(p => p[p.length - 1]);
+  const titleRows = rows.filter(o => o.ri < hr);
+  const titles = titleRows.map(o => o.v.filter(v => !empty(v)).map(asLabel).join(' - ')).filter(Boolean);
+  const keyOf = v => v.map(x => empty(x) ? '' : String(x)).join('|');
+  const hKeys = new Set(hRows.map(o => keyOf(o.v)));
 
   const body = [];
-  for (const r of rows.slice(h + 1)) {
-    if (r.map((v, j) => empty(v) ? header[j] : String(v)).join('|') === hKey) continue; // عنوان مكرر (تقارير متعددة الصفحات)
-    const firstTexts = r.filter(v => typeof v === 'string').slice(0, 3);
-    body.push({cells: r, total: firstTexts.some(t => TOTAL_RE.test(t))});
+  for (const o of rows.filter(o => o.ri > hb)) {
+    if (hKeys.has(keyOf(o.v))) continue;                     // عنوان مكرر (تقارير متعددة الصفحات)
+    const firstTexts = o.v.filter(v => typeof v === 'string').slice(0, 3);
+    body.push({cells: o.v, ri: o.ri, total: firstTexts.some(t => TOTAL_RE.test(t))});
   }
+
+  // ألوان الملف الأصلي: اللون الغالب للرأس والعنوان والصفوف الفردية والزوجية والإجمالي
+  const modeOf = arr => { const m = {}; let best = null, n = 0; arr.forEach(x => { const k = x || 'none'; m[k] = (m[k] || 0) + 1; if (m[k] > n) { n = m[k]; best = k; } }); return best === 'none' ? null : best; };
+  const fillsOf = list => list.flatMap(o => keep.map(c => fillAt(o.ri, c)));
+  const dataRows = body.filter(b => !b.total).slice(0, 30);
+  const orig = {head: modeOf(fillsOf(hRows)), title: titleRows.length ? modeOf(fillsOf(titleRows).filter(Boolean)) : null,
+    rowA: modeOf(dataRows.filter((b, i) => i % 2 === 0).map(b => modeOf(keep.map(c => fillAt(b.ri, c))))),
+    rowB: modeOf(dataRows.filter((b, i) => i % 2 === 1).map(b => modeOf(keep.map(c => fillAt(b.ri, c))))),
+    total: (b => b ? modeOf(keep.map(c => fillAt(b.ri, c))) : null)(body.slice().reverse().find(b => b.total))};
 
   const cols = header.map((nm, j) => {
     const vals = body.filter(r => !r.total).map(r => r.cells[j]).filter(v => !empty(v));
@@ -616,7 +671,7 @@ function analyze(name, aoa) {
     if (vals.length && dates >= n * .6) type = 'date';
     else if (vals.length && pcts >= n * .6) type = 'pct';
     else if (vals.length && nums >= n * .7) type = 'num';
-    const col = {name: nm, type, include: true, sum: type === 'num' && !NO_SUM_RE.test(nm)};
+    const col = {name: nm, path: paths[j], type, include: true, sum: type === 'num' && !NO_SUM_RE.test(nm)};
     col.cur = curDefault(col);
     return col;
   });
@@ -624,7 +679,8 @@ function analyze(name, aoa) {
   const hasFinalTotal = body.length && body[body.length - 1].total;
   const isAr = AR_RE.test(header.join('') + titles.join(''));
   return {name, titles, title: titles[0] || '', subtitle: titles.slice(1).join(' — '),
-    cols, body, include: true, hasFinalTotal, isAr, cleaned: {dropped: (aoa || []).length - rows.length}};
+    cols, body, include: true, hasFinalTotal, isAr, cleaned: {dropped: (aoa || []).length - rows.length},
+    orig: orig.head || orig.title || orig.rowA || orig.rowB ? orig : null};
 }
 
 /* ================= تحويل القيم حسب نوع العمود ================= */
@@ -657,12 +713,14 @@ function model(sheet) {
   const rtl = O.dir === 'auto' ? sheet.isAr : O.dir === 'rtl';
   const idx = sheet.cols.map((c, i) => i).filter(i => sheet.cols[i].include && !sheet.cols[i].deleted);
   const cols = idx.map(i => ({...sheet.cols[i], src: i, dec: decimalsFor(sheet, i)}));
-  if (O.serial) cols.unshift({name: rtl ? 'م' : '#', type: 'serial', src: -1, dec: 0});
+  // عمود مسلسل — إلا إن كان في الملف عمود ترقيم أصلاً (م / # / مسلسل)
+  if (O.serial && !cols.some(c => /^(م|#|مسلسل|ت|no\.?)$/i.test(String(c.name).trim())))
+    cols.unshift({name: rtl ? 'م' : '#', path: [rtl ? 'م' : '#'], type: 'serial', src: -1, dec: 0});
   let k = 0;
-  const rows = sheet.body.map(r => ({total: r.total,
+  const rows = sheet.body.filter(r => O.showTotal || !r.total).map(r => ({total: r.total,
     vals: cols.map(c => c.src < 0 ? (r.total ? null : ++k) : valueOf(r.cells[c.src], c))}));
   let totalRow = null;
-  if (O.autoTotal && !sheet.hasFinalTotal && cols.some(c => c.sum)) {
+  if (O.showTotal && O.autoTotal && !sheet.hasFinalTotal && cols.some(c => c.sum)) {
     const data = rows.filter(r => !r.total);
     const vals = cols.map((c, j) => c.sum ? round(data.reduce((t, r) => t + (typeof r.vals[j] === 'number' ? r.vals[j] : 0), 0)) : null);
     let li = cols.findIndex(c => c.type === 'text' && !c.sum);
@@ -672,7 +730,27 @@ function model(sheet) {
     totalRow = {total: true, auto: true, vals};
   }
   const orient = O.orient !== 'auto' ? O.orient : (cols.length > 6 ? 'landscape' : 'portrait');
-  return {sheet, rtl, cols, rows, totalRow, orient, dataCount: rows.filter(r => !r.total).length};
+  return {sheet, rtl, cols, rows, totalRow, orient, heads: headLevels(cols), dataCount: rows.filter(r => !r.total).length,
+    hasTotal: sheet.body.some(r => r.total) || !!(O.autoTotal && cols.some(c => c.sum))};
+}
+// صفوف الرأس متعدد المستويات: كل خلية {label, j, span, rowspan, leaf} — العناوين المشتركة تُدمج أفقياً
+// والعمود الذي ينتهي مساره مبكراً يُدمج رأسياً حتى آخر صف في الرأس
+function headLevels(cols) {
+  const path = c => c.path && c.path.length ? c.path : [c.name];
+  const depth = Math.max(1, ...cols.map(c => path(c).length)), levels = [];
+  for (let L = 0; L < depth; L++) {
+    const row = [];
+    for (let j = 0; j < cols.length;) {
+      const p = path(cols[j]);
+      if (L >= p.length) { j++; continue; }
+      if (L === p.length - 1) { row.push({label: p[L], j, span: 1, rowspan: depth - L, leaf: true}); j++; continue; }
+      let k = j + 1;
+      while (k < cols.length && path(cols[k]).length > L + 1 && path(cols[k]).slice(0, L + 1).join('\u0001') === p.slice(0, L + 1).join('\u0001')) k++;
+      row.push({label: p[L], j, span: k - j, rowspan: 1, leaf: false}); j = k;
+    }
+    levels.push(row);
+  }
+  return levels;
 }
 
 function display(v, c) {
@@ -700,12 +778,12 @@ const dens = () => DENSITY[O.density] || DENSITY.normal;
 
 /* ================= المعاينة (HTML) ================= */
 function renderHTML(m, preview) {
-  const t = theme(), s = m.sheet;
+  const t = theme(O, m.sheet), s = m.sheet;
   const cls = ['rep', O.headStyle !== 'filled' ? 'hd-' + O.headStyle : '', O.totalStyle !== 'band' ? 'tt-' + O.totalStyle : '', O.borders === 'h' ? 'b-h' : O.borders === 'none' ? 'b-n' : '',
-    O.zebra ? 'zb' : '', O.frame ? 'fr' : '', O.dataAlign !== 'auto' ? 'da-' + O.dataAlign : ''].join(' ');
+    O.zebra || t.org ? 'zb' : '', O.frame ? 'fr' : '', O.dataAlign !== 'auto' ? 'da-' + O.dataAlign : ''].join(' ');
   const [bw, bs] = BORDER_CSS[O.borderStyle] || BORDER_CSS.thin;
   const fx = FX_PARTS.map(([k]) => `--${k}-w:${O[k + 'B'] ? 700 : 400};--${k}-s:${O[k + 'I'] ? 'italic' : 'normal'};--${k}-d:${O[k + 'U'] ? 'underline' : 'none'}`).join(';');
-  const style = `--p:${t.p};--pt:${t.pt};--z:${t.z};--bd:${t.bd};--tb:${t.tb};--tt:${t.tt};--ta:${t.ta};--tso:${t.tso};--ff:'${O.font}';--fh:'${headFont()}';` +
+  const style = `--p:${t.p};--pk:${t.pk};--pt:${t.pt};--z:${t.z};--ra:${t.ra || 'transparent'};--tf:${t.tf};--tft:${t.tft};--bd:${t.bd};--tb:${t.tb};--tt:${t.tt};--ta:${t.ta};--tso:${t.tso};--ff:'${O.font}';--fh:'${headFont()}';` +
     `--bw:${bw};--bs:${bs};--pad:${dens().pad};--ha:${O.headAlign};--tsz:${((+O.size + +O.titleSize) / +O.size).toFixed(3)}em;${fx};` +
     `font-size:${O.size * 1.25}px;--pfs:${O.size}pt`;
   let h = `<div class="${cls}" dir="${m.rtl ? 'rtl' : 'ltr'}" style="${style}">`;
@@ -713,11 +791,15 @@ function renderHTML(m, preview) {
   if (s.title) h += `<div class="ti ${O.titleStyle === 'bar' ? 'barred' : O.titleStyle === 'line' ? 'lined' : ''}">${esc(s.title)}</div>`;
   if (s.subtitle) h += `<div class="su">${esc(s.subtitle)}</div>`;
   if (O.showDate) h += `<div class="dt">${m.rtl ? 'تاريخ الإعداد' : 'Prepared on'}: ${today()}</div>`;
-  h += '<table><thead><tr>' + m.cols.map(c => `<th>${esc(c.name)}${preview && c.src >= 0 ? `<button class="hx" data-src="${c.src}" title="إخفاء هذا العمود">✕</button>` : ''}</th>`).join('') + '</tr></thead><tbody>';
+  h += '<table><thead>' + m.heads.map(lv => '<tr>' + lv.map(x => {
+    const c = m.cols[x.j], hide = preview && x.leaf && c.src >= 0 ? `<button class="hx" data-src="${c.src}" title="إخفاء هذا العمود">✕</button>` : '';
+    return `<th${x.span > 1 ? ` colspan="${x.span}"` : ''}${x.rowspan > 1 ? ` rowspan="${x.rowspan}"` : ''}>${esc(x.label)}${hide}</th>`;
+  }).join('') + '</tr>').join('') + '</thead><tbody>';
   const row = r => `<tr class="${r.total ? 't' : 'd'}">` + r.vals.map((v, i) => {
     const c = m.cols[i], isN = typeof v === 'number';
     const k = (isN || c.type === 'serial') ? 'n' : (v && typeof v === 'object') ? 'c' : '';
-    return `<td class="${k}${isN && v < 0 && O.negRed && c.type !== 'serial' ? ' neg' : ''}">${esc(display(v, c))}</td>`;
+    const del = preview && r.total && i === r.vals.length - 1 ? '<button class="hx" data-total="1" title="حذف صف الإجمالي">✕</button>' : '';
+    return `<td class="${k}${isN && v < 0 && O.negRed && c.type !== 'serial' ? ' neg' : ''}">${esc(display(v, c))}${del}</td>`;
   }).join('') + '</tr>';
   h += m.rows.map(row).join('');
   if (m.totalRow) h += row(m.totalRow);
@@ -731,30 +813,43 @@ let toastT;
 function toast(msg, ms = 2600) { const el = $('toast'); el.textContent = msg; el.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove('on'), ms); }
 const cur = () => S.sheets[S.active];
 
-function renderSwatches() {
-  $('swatches').innerHTML = PRESETS.map(([n, p, a], i) =>
-    `<button class="sw ${O.primary === p && O.accent === a ? 'on' : ''}" title="${n}" data-i="${i}"><i style="background:${p}"></i><b style="background:${a}"></b></button>`).join('');
+function renderOrigBox() {
+  const s = cur(), o = s && s.orig;
+  $('origBox').hidden = !o;
+  if (!o) return;
+  const names = [['head', 'الرأس'], ['title', 'العنوان'], ['rowA', 'الصفوف'], ['rowB', 'الصفوف البديلة'], ['total', 'الإجمالي']];
+  $('origSw').innerHTML = names.filter(([k]) => o[k]).map(([k, l]) => `<span><i style="background:${o[k]}"></i>${l}</span>`).join('');
 }
-function thumbHTML(o) {
-  const t = theme(o), bars = '<i></i><i></i><i></i>';
+function renderSwatches() {
+  renderOrigBox();
+  $('swatches').innerHTML = PRESETS.map(([n, p, a], i) =>
+    `<button class="sw ${!O.useOrig && O.primary === p && O.accent === a ? 'on' : ''}" title="${n}" data-i="${i}"><i style="background:${p}"></i><b style="background:${a}"></b></button>`).join('');
+}
+function thumbHTML(o, sheet) {
+  o = Object.assign({}, O, o);                       // ما لا يحدده التصميم (مثل لون الإجمالي) يؤخذ من الإعدادات الحالية
+  const t = theme(o, sheet), bars = '<i></i><i></i><i></i>';
   const txt = `background:linear-gradient(${t.p},${t.p}) center/55% 4px no-repeat`;
-  const title = o.titleStyle === 'bar' ? `background:${t.p}` : o.titleStyle === 'line' ? `${txt};border-bottom:2px solid ${t.ta};border-radius:0` : txt;
+  const title = o.titleStyle === 'bar' ? `background:${t.tf}` : o.titleStyle === 'line' ? `${txt};border-bottom:2px solid ${t.ta};border-radius:0` : txt;
   const head = o.headStyle === 'filled' ? `background:${t.p}` : o.headStyle === 'soft' ? `background:${t.z};border-bottom:2px solid ${t.p}` : `border-bottom:2px solid ${t.p}`;
   const line = o.borders === 'none' ? 'transparent' : t.bd;
-  const rows = [0, 1, 2, 3].map(i => `<div class="mr" style="border-bottom:1px ${o.borderStyle === 'dotted' ? 'dotted' : o.borderStyle === 'dashed' ? 'dashed' : 'solid'} ${line};${o.zebra && i % 2 ? 'background:' + t.z : ''}">${bars}</div>`).join('');
+  const rows = [0, 1, 2, 3].map(i => `<div class="mr" style="border-bottom:1px ${o.borderStyle === 'dotted' ? 'dotted' : o.borderStyle === 'dashed' ? 'dashed' : 'solid'} ${line};${(o.zebra || t.org) && i % 2 ? 'background:' + t.z : t.ra && !(i % 2) ? 'background:' + t.ra : ''}">${bars}</div>`).join('');
   const tot = o.totalStyle === 'solid' ? `background:${t.ta}` : o.totalStyle === 'line' ? `border-top:1px solid ${t.p};border-bottom:3px double ${t.p}` : `background:${t.tb};border-top:2px solid ${t.ta}`;
   return `<div class="mini" style="${o.frame ? 'outline:2px solid ' + t.p + ';outline-offset:-2px;' : ''}"><div class="mt" style="${title}"></div>` +
     `<div class="mr mh" style="${head}">${o.headStyle === 'filled' ? bars : bars.replace(/<i>/g, `<i style="background:${t.p};opacity:.55">`)}</div>${rows}<div class="mr" style="${tot}"></div></div>`;
 }
+// «ألوان ملفك»: نفس ألوان الملف الأصلي بشكل قريب منه (عنوان بشريط، رأس ممتلئ، شبكة كاملة)
+const ORIG_DESIGN = Object.assign({}, DESIGN_BASE, {useOrig: true, titleStyle: 'bar', headStyle: 'filled', totalStyle: 'band', borders: 'all', zebra: true});
 function renderDesigns() {
-  $('designs').innerHTML = DESIGNS.map((d, i) => {
+  const s = cur(), list = (s && s.orig ? [{name: 'ألوان ملفك', desc: 'كما هو في ملفك الأصلي', o: ORIG_DESIGN, id: 'orig'}] : [])
+    .concat(DESIGNS.map((d, i) => Object.assign({id: i}, d, {o: Object.assign({useOrig: false}, d.o)})));
+  $('designs').innerHTML = list.map(d => {
     const on = Object.keys(d.o).every(k => O[k] === d.o[k]);
-    return `<div class="dz ${on ? 'on' : ''}" data-i="${i}" title="${esc(d.name)} — ${esc(d.desc)}">${thumbHTML(d.o)}<div class="dn">${esc(d.name)}</div><div class="dd">${esc(d.desc)}</div></div>`;
+    return `<div class="dz ${on ? 'on' : ''}" data-i="${d.id}" title="${esc(d.name)} — ${esc(d.desc)}">${thumbHTML(d.o, s)}<div class="dn">${d.id === 'orig' ? '📄 ' : ''}${esc(d.name)}</div><div class="dd">${esc(d.desc)}</div></div>`;
   }).join('');
 }
 $('designs').addEventListener('click', e => {
   const z = e.target.closest('.dz'); if (!z) return;
-  const d = DESIGNS[+z.dataset.i];
+  const d = z.dataset.i === 'orig' ? {name: 'ألوان ملفك', o: ORIG_DESIGN} : {name: DESIGNS[+z.dataset.i].name, o: Object.assign({useOrig: false}, DESIGNS[+z.dataset.i].o)};
   Object.assign(O, d.o); saveOpts(); renderSwatches(); syncInputs(); renderPreview();
   toast('✨ تم تطبيق تصميم «' + d.name + '» — يمكنك تعديله ثم حفظه كقالب');
 });
@@ -841,7 +936,7 @@ function renderCols() {
   const s = cur();
   $('cols').innerHTML = s.cols.map((c, i) => c.deleted ? '' : `<tr data-i="${i}" class="${c.include ? '' : 'off'}">
     <td><button class="ib" data-act="toggle" title="${c.include ? 'إخفاء العمود' : 'إظهار العمود'}">${c.include ? '👁' : '🚫'}</button></td>
-    <td title="${esc(c.name)}">${esc(c.name)}</td>
+    <td title="${esc((c.path || [c.name]).join(' › '))}">${c.path && c.path.length > 1 ? `<small style="color:var(--muted)">${esc(c.path[c.path.length - 2])} › </small>` : ''}${esc(c.name)}</td>
     <td><select data-k="type">${TYPES.map(([v, l]) => `<option value="${v}" ${c.type === v ? 'selected' : ''}>${l}</option>`).join('')}</select></td>
     <td><input type="checkbox" data-k="sum" ${c.sum ? 'checked' : ''} ${c.type === 'num' ? '' : 'disabled'}></td>
     <td><input type="checkbox" data-k="cur" ${c.cur ? 'checked' : ''} ${c.type === 'num' ? '' : 'disabled'}></td>
@@ -851,8 +946,13 @@ function renderCols() {
 }
 function renderHidden() {
   const s = cur(), hid = s.cols.map((c, i) => [c, i]).filter(([c]) => !c.include && !c.deleted);
-  $('hidbar').innerHTML = hid.length ? 'أعمدة مخفية (اضغط لإظهارها): ' +
-    hid.map(([c, i]) => `<button class="chip" data-i="${i}">👁 ${esc(c.name)}</button>`).join('') : '';
+  const tot = !O.showTotal && (s.body.some(r => r.total) || O.autoTotal) ? `<button class="chip" data-total="1">Σ إظهار صف الإجمالي</button>` : '';
+  $('hidbar').innerHTML = (hid.length ? 'أعمدة مخفية (اضغط لإظهارها): ' +
+    hid.map(([c, i]) => `<button class="chip" data-i="${i}">👁 ${esc(c.name)}</button>`).join('') : '') + tot;
+}
+function setTotal(on) {
+  O.showTotal = on; saveOpts(); syncInputs(); renderPreview();
+  toast(on ? 'تم إظهار صف الإجمالي' : 'تم حذف صف الإجمالي — لإرجاعه اضغط «Σ إظهار صف الإجمالي» أعلى الجدول');
 }
 function setCol(i, patch, msg) {
   Object.assign(cur().cols[i], patch);
@@ -903,7 +1003,8 @@ function renderPreview() {
   $('preview').innerHTML = renderHTML(m, true);
   const nNum = m.cols.filter(c => c.type === 'num').length;
   $('stats').innerHTML = `<b>${m.dataCount}</b> صف بيانات · <b>${m.cols.length}</b> عمود (${nNum} رقمي) · ` +
-    (s.hasFinalTotal ? 'صف إجمالي موجود في الملف' : m.totalRow ? 'صف إجمالي مضاف تلقائياً' : 'بدون صف إجمالي') +
+    (!O.showTotal ? 'صف الإجمالي محذوف' : s.hasFinalTotal ? 'صف إجمالي موجود في الملف' : m.totalRow ? 'صف إجمالي مضاف تلقائياً' : 'بدون صف إجمالي') +
+    (m.heads.length > 1 ? ` · رأس من ${m.heads.length} مستويات` : '') +
     ` · الصفحة ${m.orient === 'landscape' ? 'عرضية' : 'طولية'}`;
   applyZoom();
   // وميض خفيف حول المعاينة ليلاحظ المستخدم أثر كل تغيير (بعد العرض الأول فقط)
@@ -916,11 +1017,12 @@ function renderAll() { renderSwatches(); syncInputs(); renderSheets(); renderCol
 // الأحداث
 $('swatches').addEventListener('click', e => {
   const b = e.target.closest('.sw'); if (!b) return;
-  const [, p, a] = PRESETS[+b.dataset.i]; O.primary = p; O.accent = a; saveOpts(); renderSwatches(); syncInputs(); renderPreview();
+  const [, p, a] = PRESETS[+b.dataset.i]; O.primary = p; O.accent = a; O.useOrig = false; saveOpts(); renderSwatches(); syncInputs(); renderPreview();
 });
 document.querySelectorAll('[data-o]').forEach(el => el.addEventListener(el.type === 'text' || el.type === 'color' ? 'input' : 'change', () => {
-  O[el.dataset.o] = el.type === 'checkbox' ? el.checked : el.value; saveOpts();
-  if (el.type === 'color') renderSwatches();
+  O[el.dataset.o] = el.type === 'checkbox' ? el.checked : el.value;
+  if (el.type === 'color') { O.useOrig = false; renderSwatches(); syncInputs(); }
+  saveOpts();
   renderPreview();
 }));
 document.querySelectorAll('[data-s]').forEach(el => el.addEventListener('input', () => { cur()[el.dataset.s] = el.value; renderPreview(); }));
@@ -945,11 +1047,13 @@ $('colsRestore').addEventListener('click', e => {
 });
 $('preview').addEventListener('click', e => {
   const b = e.target.closest('.hx'); if (!b) return;
+  if (b.dataset.total) return setTotal(false);
   const i = +b.dataset.src;
   setCol(i, {include: false}, 'تم إخفاء «' + cur().cols[i].name + '» — لإظهاره اضغط عليه أعلى الجدول');
 });
 $('hidbar').addEventListener('click', e => {
-  const b = e.target.closest('.chip'); if (b) setCol(+b.dataset.i, {include: true});
+  const b = e.target.closest('.chip'); if (!b) return;
+  if (b.dataset.total) setTotal(true); else setCol(+b.dataset.i, {include: true});
 });
 $('cols').addEventListener('change', e => {
   const tr = e.target.closest('tr'); if (!tr) return;
@@ -977,24 +1081,41 @@ async function readFile(f) {
       if (txt.includes('�')) txt = new TextDecoder('windows-1256').decode(buf); // CSV عربي بترميز ويندوز
       wb = XLSX.read(txt.replace(/^﻿/, ''), {type: 'string', raw: true});
     } else {
-      wb = XLSX.read(await f.arrayBuffer(), {type: 'array', cellDates: true});
+      wb = XLSX.read(await f.arrayBuffer(), {type: 'array', cellDates: true, cellStyles: true});
     }
-    const sheets = wb.SheetNames.map(n => analyze(n, XLSX.utils.sheet_to_json(wb.Sheets[n], {header: 1, raw: true, defval: null, blankrows: false})))
-      .filter(Boolean);
+    const sheets = wb.SheetNames.map(n => readSheet(n, wb.Sheets[n])).filter(Boolean);
     load(f.name, sheets);
   } catch (err) {
     console.error(err); toast('تعذّرت قراءة الملف: ' + err.message, 5000);
   }
+}
+// يقرأ الورقة مع الخلايا المدمجة وألوان التعبئة، بإحداثيات مطابقة لمصفوفة البيانات (aoa)
+function readSheet(name, ws) {
+  if (!ws || !ws['!ref']) return null;
+  const rg = XLSX.utils.decode_range(ws['!ref']);
+  const aoa = XLSX.utils.sheet_to_json(ws, {header: 1, raw: true, defval: null, blankrows: true});
+  const merges = (ws['!merges'] || []).map(m => ({r0: m.s.r - rg.s.r, c0: m.s.c - rg.s.c, r1: m.e.r - rg.s.r, c1: m.e.c - rg.s.c}));
+  const fillAt = (r, c) => {
+    const cell = ws[XLSX.utils.encode_cell({r: r + rg.s.r, c: c + rg.s.c})], st = cell && cell.s;
+    if (!st || !st.patternType || st.patternType === 'none' || !st.fgColor || !st.fgColor.rgb) return null;
+    const h = '#' + String(st.fgColor.rgb).slice(-6).toLowerCase();
+    return h === '#ffffff' ? null : h;
+  };
+  return analyze(name, aoa, {merges, fillAt});
 }
 function load(fileName, sheets) {
   if (!sheets.length) return toast('الملف لا يحتوي على بيانات');
   const base = fileName.replace(/\.[^.]+$/, '').replace(/_/g, ' ');
   sheets.forEach(s => { if (!s.title) s.title = sheets.length > 1 ? s.name : base; });
   S.file = fileName; S.sheets = sheets; S.active = 0;
+  // ملف بألوانه الخاصة ولا يوجد قالب افتراضي: يُحافظ على ألوانه تلقائياً (يمكن تغييرها من التصاميم)
+  const hasOrig = sheets.some(s => s.orig);
+  if (hasOrig && !(DEF_TPL && TPL[DEF_TPL])) O.useOrig = true;
   $('drop').hidden = true; $('work').hidden = false; flashed = false;
   fitTop(); renderAll();
   const cleaned = sheets.reduce((a, s) => a + s.cleaned.dropped, 0);
-  toast(`تم تحليل ${sheets.length} ورقة` + (cleaned ? ` — حُذف ${cleaned} صف فارغ` : ''));
+  toast(`تم تحليل ${sheets.length} ورقة` + (cleaned ? ` — حُذف ${cleaned} صف فارغ` : '') +
+    (hasOrig ? (O.useOrig ? ' — 🎨 بألوان ملفك الأصلي' : ' — 🎨 ألوان ملفك متاحة في التصاميم') : ''), 4000);
 }
 
 function loadSample() {
@@ -1029,7 +1150,7 @@ function colWidth(m, i) {
 }
 
 function buildSheet(wb, m, usedNames) {
-  const t = theme(), s = m.sheet, n = m.cols.length, fs = +O.size, font = O.font, hfont = headFont(), D = dens();
+  const t = theme(O, m.sheet), s = m.sheet, n = m.cols.length, fs = +O.size, font = O.font, hfont = headFont(), D = dens();
   const fx = k => ({bold: !!O[k + 'B'], italic: !!O[k + 'I'], underline: O[k + 'U'] ? true : undefined});
   let nm = s.name.replace(/[\\\/?*\[\]:]/g, ' ').slice(0, 31) || 'Sheet';
   while (usedNames.has(nm)) nm = nm.slice(0, 28) + '_' + usedNames.size;
@@ -1058,36 +1179,40 @@ function buildSheet(wb, m, usedNames) {
     if (opts.height) ws.getRow(r).height = opts.height;
     r++;
   };
-  if (O.company) band(O.company, {bold: true, size: fs + 3, color: {argb: argb(t.p)}}, {height: 22});
+  if (O.company) band(O.company, {bold: true, size: fs + 3, color: {argb: argb(t.pk)}}, {height: 22});
   const tsz = fs + +O.titleSize;
   if (s.title) {
-    band(s.title, {...fx('t'), size: tsz, color: {argb: argb(O.titleStyle === 'bar' ? t.pt : t.p)}},
-      {height: Math.round(tsz * 1.7), fill: O.titleStyle === 'bar' ? t.p : null});
+    band(s.title, {...fx('t'), size: tsz, color: {argb: argb(O.titleStyle === 'bar' ? t.tft : t.pk)}},
+      {height: Math.round(tsz * 1.7), fill: O.titleStyle === 'bar' ? t.tf : null});
     if (O.titleStyle === 'line') for (let j = 1; j <= n; j++) ws.getCell(r - 1, j).border = {bottom: side('thick', t.ta)};
   }
   if (s.subtitle) band(s.subtitle, {...fx('u'), size: fs + 1, color: {argb: 'FF475569'}}, {height: 18});
   if (O.showDate) band((m.rtl ? 'تاريخ الإعداد: ' : 'Prepared on: ') + today(), {size: fs - 1, color: {argb: 'FF64748B'}});
   if (r > 1) { ws.getRow(r).height = 8; r++; }
 
-  // رأس الجدول
-  const hr = r;
-  m.cols.forEach((c, j) => {
-    const cell = ws.getCell(r, j + 1);
-    cell.value = c.name;
-    const hs = O.headStyle;
-    cell.font = {name: hfont, ...fx('h'), size: fs, color: {argb: argb(hs === 'filled' ? t.pt : t.p)}};
+  // رأس الجدول (مستوى واحد أو أكثر مع دمج الخلايا كما في الملف الأصلي)
+  const hr = r, hs = O.headStyle, hl = hr + m.heads.length - 1;
+  const styleHead = cell => {
+    cell.font = {name: hfont, ...fx('h'), size: fs, color: {argb: argb(hs === 'filled' ? t.pt : t.pk)}};
     if (hs !== 'line') cell.fill = fill(hs === 'soft' ? t.z : t.p);
     cell.alignment = {horizontal: O.headAlign, vertical: 'middle', wrapText: true, readingOrder: m.rtl ? 'rtl' : 'ltr'};
-    cell.border = hs === 'soft' ? {...cellBorder(), bottom: side('medium', t.p)}
-      : hs === 'line' ? {bottom: side('medium', t.p)} : cellBorder();
-  });
-  ws.getRow(r).height = D.hh; r++;
+    cell.border = hs === 'soft' ? {...cellBorder(), bottom: side('medium', t.pk)}
+      : hs === 'line' ? {bottom: side('medium', t.pk)} : cellBorder();
+  };
+  m.heads.forEach((lv, L) => lv.forEach(x => {
+    const r0 = hr + L, r1 = r0 + x.rowspan - 1, c0 = x.j + 1, c1 = c0 + x.span - 1;
+    for (let i = r0; i <= r1; i++) for (let j = c0; j <= c1; j++) styleHead(ws.getCell(i, j));
+    ws.getCell(r0, c0).value = x.label;
+    if (r1 > r0 || c1 > c0) ws.mergeCells(r0, c0, r1, c1);
+  }));
+  for (let i = hr; i <= hl; i++) ws.getRow(i).height = D.hh;
+  r = hl + 1;
 
   // البيانات
   const first = r;
   let zi = 0;
   const writeRow = (row, formulas) => {
-    const striped = !row.total && O.zebra && (zi++ % 2 === 1);
+    const rowIdx = row.total ? -1 : zi, striped = !row.total && O.zebra && (zi++ % 2 === 1);
     row.vals.forEach((v, j) => {
       const c = m.cols[j], cell = ws.getCell(r, j + 1);
       if (formulas && formulas[j]) cell.value = {formula: formulas[j], result: v};
@@ -1101,8 +1226,9 @@ function buildSheet(wb, m, usedNames) {
       cell.alignment = {vertical: 'middle', readingOrder: m.rtl ? 'rtl' : 'ltr',
         horizontal: O.dataAlign !== 'auto' ? O.dataAlign : (isNum || c.type === 'serial' || c.type === 'date') ? 'center' : hAlign};
       const b = cellBorder();
-      if (row.total && O.totalStyle === 'line') { b.top = side('thin', t.p); b.bottom = side('double', t.p); }
+      if (row.total && O.totalStyle === 'line') { b.top = side('thin', t.pk); b.bottom = side('double', t.pk); }
       else if (row.total) { cell.fill = fill(O.totalStyle === 'solid' ? t.ta : t.tb); b.top = side('medium', t.ta); b.bottom = side('medium', t.ta); }
+      else if (t.org) { const f = rowIdx % 2 ? t.z : t.ra; if (f && f !== '#ffffff') cell.fill = fill(f); }
       else if (striped) cell.fill = fill(t.z);
       cell.border = b;
     });
@@ -1117,7 +1243,7 @@ function buildSheet(wb, m, usedNames) {
   }
   // إطار خارجي سميك حول الجدول (الرأس + البيانات + الإجمالي)
   if (O.frame) {
-    const lr = r - 1, edge = side('medium', t.p);
+    const lr = r - 1, edge = side('medium', t.pk);
     for (let i = hr; i <= lr; i++) for (let j = 1; j <= n; j++) {
       if (i !== hr && i !== lr && j !== 1 && j !== n) continue;
       const cell = ws.getCell(i, j), b = Object.assign({}, cell.border);
@@ -1129,9 +1255,9 @@ function buildSheet(wb, m, usedNames) {
   if (O.footer) { r++; band(O.footer, {size: fs, color: {argb: 'FF475569'}}); }
 
   m.cols.forEach((c, j) => { ws.getColumn(j + 1).width = colWidth(m, j); });
-  ws.views = [{rightToLeft: m.rtl, showGridLines: false, state: 'frozen', xSplit: 0, ySplit: hr, topLeftCell: 'A' + (hr + 1)}];
-  if (O.filter && last >= first) ws.autoFilter = {from: {row: hr, column: 1}, to: {row: last, column: n}};
-  ws.pageSetup.printTitlesRow = hr + ':' + hr;
+  ws.views = [{rightToLeft: m.rtl, showGridLines: false, state: 'frozen', xSplit: 0, ySplit: hl, topLeftCell: 'A' + (hl + 1)}];
+  if (O.filter && last >= first) ws.autoFilter = {from: {row: hl, column: 1}, to: {row: last, column: n}};
+  ws.pageSetup.printTitlesRow = hr + ':' + hl;
 }
 
 const outName = ext => (S.file.replace(/\.[^.]+$/, '') || 'تقرير') + ' - منسق.' + ext;
