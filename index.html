@@ -893,6 +893,8 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
     </div>
     <div class="note no-print" id="cv_summary" style="margin-top:8px;display:none"></div>
     <div class="form-foot"><button class="btn-main" onclick="saveConversion()">تنفيذ التحويل</button>
+      <button class="btn" onclick="cvCancel()">إلغاء</button>
+      <span class="editing-note" id="cv_editing"></span>
       <span class="mini">التكلفة تنتقل كما هي — إعادة تصنيف للمخزون بلا أثر على الأرباح.</span></div>
   </div>
   <div class="table-scroll"><table>
@@ -1799,7 +1801,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-10-03-b';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-10-03-d';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -1819,7 +1821,8 @@ function lsSet(k,v){
   try{ localStorage.setItem(k,v); }catch(e){ storageOK=false; }
 }
 function lsRemove(k){ try{ localStorage.removeItem(k); }catch(e){} }
-function persist(){ syncActiveDept(); markDeletions(); var s=JSON.stringify(serializeDB()); lsSet(KEY,s); if(typeof cloudPush==='function') cloudPush(s); }
+var _lastLocalStr='';   /* آخر نسخة نصية محفوظة محلياً — لتجنّب إعادة التسلسل الثقيل عند فحص صدى السحابة */
+function persist(){ syncActiveDept(); markDeletions(); var s=JSON.stringify(serializeDB()); _lastLocalStr=s; lsSet(KEY,s); if(typeof cloudPush==='function') cloudPush(s); }
 
 /* ---------- قاعدة البيانات ---------- */
 function hash(s){ var h=5381; s=String(s)+'::mfarag'; for(var i=0;i<s.length;i++) h=((h<<5)+h+s.charCodeAt(i))>>>0; return 'h'+h.toString(36); }
@@ -2107,6 +2110,23 @@ function whName(id){ return nameOf(db.warehouses,id,'مستودع محذوف'); 
 function supName(id){ return nameOf(db.suppliers,id,'مورد محذوف'); }
 function clientName(id){ return nameOf(db.clients,id,'عميل محذوف'); }
 function userName(id){ var u=byId(db.users,id); return u?u.name:'—'; }
+/* عرض المُدخِل الأصلي ثم من عدّل السجل (إن وُجد) — يُدرَج كـ HTML مباشرةً */
+function enteredBy(r){
+  if(!r) return '—';
+  var who=esc(userName(r.uid));
+  if(r.editUid!=null&&r.editUid!==r.uid) who+=' <span class="muted" style="font-size:11px">· عدّلها '+esc(userName(r.editUid))+'</span>';
+  return who;
+}
+/* تعديل سجل قائم: احفظ المُدخِل الأصلي (uid) وسجّل من عدّله (editUid) وبصمة التعديل.
+   ملاحظة: ts (آخر تعديل) يبقى يُحدَّث للمزامنة، أما uid فيظل للمُدخِل الأصلي. */
+function stampEdit(rec, oldRec){
+  if(oldRec){
+    rec.uid=(oldRec.uid!=null?oldRec.uid:(rec.uid!=null?rec.uid:(ME?ME.id:0)));
+    rec.editUid=(ME?ME.id:0); rec.editTs=nowTs();
+    rec.editCount=(+ (oldRec.editCount||0))+1;
+  }
+  return rec;
+}
 function itemUnit(id){ var i=byId(db.items,id); return i?i.unit:''; }
 function generalWhs(){ return db.warehouses.filter(function(w){return !w.clientId;}); }
 function clientWhs(cid){ return db.warehouses.filter(function(w){return w.clientId===cid;}); }
@@ -3081,7 +3101,7 @@ function cancelDoc(k){
 /* ==========================================================================
    الحفظ
    ========================================================================== */
-function commit(msg){ persist(); refreshLedger(); renderAll(); if(msg) toast(msg); }
+function commit(msg){ persist(); renderAfterCommit(); if(msg) toast(msg); }
 
 /* بعد حفظ فاتورة: تفريغ الأصناف والمبالغ فقط، مع إبقاء رأس الفاتورة (المورد/العميل،
    المستودع، التاريخ، الضريبة، الملاحظة) لتسريع إدخال الفاتورة التالية لنفس الجهة */
@@ -3124,7 +3144,7 @@ function savePurchase(){
     note:val('p_note').trim(),paid:fnum('p_paid'),lines:pv.lines,total:pv.net,weight:wt,
     vatRate:pRate,vatMode:pMode,vat:pv.vat,uid:ME.id,ts:nowTs()};
   if(draft.p.editId){
-    var i=db.purchases.findIndex(function(x){return x.id===draft.p.editId;}); db.purchases[i]=rec;
+    var i=db.purchases.findIndex(function(x){return x.id===draft.p.editId;}); stampEdit(rec,db.purchases[i]); db.purchases[i]=rec;
     log('edit','المشتريات','تعديل فاتورة شراء '+(rec.no||'#'+rec.id)+' — '+supName(rec.supplierId)+' بقيمة '+num(pv.net));
   } else {
     db.purchases.push(rec);
@@ -3164,7 +3184,7 @@ function saveSale(){
     note:val('s_note').trim(),recv:fnum('s_recv'),lines:sv.lines,total:sv.net,weight:wt,
     vatRate:sRate,vatMode:sMode,vat:sv.vat,uid:ME.id,ts:nowTs()};
   if(draft.s.editId){
-    var i=db.sales.findIndex(function(x){return x.id===draft.s.editId;}); db.sales[i]=rec;
+    var i=db.sales.findIndex(function(x){return x.id===draft.s.editId;}); stampEdit(rec,db.sales[i]); db.sales[i]=rec;
     log('edit','المبيعات','تعديل فاتورة بيع '+(rec.no||'#'+rec.id)+' — '+clientName(rec.clientId)+' بقيمة '+num(sv.net));
   } else {
     db.sales.push(rec);
@@ -3233,6 +3253,7 @@ function saveReturn(){
     docId:docId,lineIdx:lineIdx,uid:ME.id,ts:nowTs()};
   /* عند التعديل: أزل السجل من مصفوفته القديمة أياً كانت، ثم أضفه لمصفوفة النوع الحالي */
   if(editId.r){
+    var _oldRet=byId(db.preturns,editId.r)||byId(db.sreturns,editId.r); stampEdit(rec,_oldRet);
     db.preturns=db.preturns.filter(function(x){return x.id!==editId.r;});
     db.sreturns=db.sreturns.filter(function(x){return x.id!==editId.r;});
   }
@@ -3379,7 +3400,7 @@ function saveOpeningStock(){
   var rec={id:editId.os||uid(),date:val('os_date')||today(),whId:w,itemId:i,units:u,uw:uw,basis:b,price:pr,total:total,
     reason:'إضافة مخزون بالتكلفة',uid:ME.id,ts:nowTs()};
   var wasAdd=!editId.os;
-  if(editId.os){ var idx=db.openingStock.findIndex(function(x){return x.id===editId.os;}); db.openingStock[idx]=rec;
+  if(editId.os){ var idx=db.openingStock.findIndex(function(x){return x.id===editId.os;}); stampEdit(rec,db.openingStock[idx]); db.openingStock[idx]=rec;
     log('edit','المخزون','تعديل رصيد افتتاحي '+itemName(i)+' في '+whName(w)); cancelDoc('os'); }
   else { db.openingStock.push(rec);
     log('add','المخزون','إضافة مخزون بالتكلفة '+qty(u)+' '+itemName(i)+' في '+whName(w)+' بقيمة '+num(total)); }
@@ -3578,9 +3599,11 @@ function saveGroupExpense(){
       else if(x.dist==='direct'){ lcid=x.distTarget; lex=null; lsp=null; }
       else if(x.dist==='shared_ex'){ lex=x.distTarget; lcid=null; lsp=null; }
     }
-    db.expenses.push({id:uid(),date:date,type:lt,clientId:lcid,exclClientId:lex,supplierId:supplierId,
+    var nrec={id:uid(),date:date,type:lt,clientId:lcid,exclClientId:lex,supplierId:supplierId,
       cat:x.cat,amount:x.amount,desc:(x.desc||x.cat),splits:(lsp?Object.assign({},lsp):null),
-      amortUnit:'none',amortCount:0,grp:grpId,voucher:(voucher||('سند #'+grpId)),uid:owner,ts:nowTs()});
+      amortUnit:'none',amortCount:0,grp:grpId,voucher:(voucher||('سند #'+grpId)),uid:owner,ts:nowTs()};
+    if(editing){ nrec.editUid=ME.id; nrec.editTs=nowTs(); }   /* سند مجمّع مُعدَّل: المُدخِل الأصلي محفوظ (owner) + مَن عدّل */
+    db.expenses.push(nrec);
   });
   log(editing?'edit':'add','المصروفات',(editing?'تعديل ':'')+'سند مصروفات مجمّع'+(voucher?' «'+voucher+'»':'')+' — '+lines.length+' بند بإجمالي '+num(total));
   grpEdit=null; expGrp=[]; cancelDoc('e'); commit((editing?'تم تعديل':'تم حفظ')+' السند المجمّع ('+lines.length+' بند بإجمالي '+num(total)+')');
@@ -3637,7 +3660,7 @@ function saveExpense(){
     exclClientId:exclId, supplierId:(+val('e_supplier')||null),
     cat:val('e_cat'),amount:a,desc:val('e_desc').trim(),splits:splits,
     amortUnit:amortUnit,amortCount:amortCount,uid:ME.id,ts:nowTs()};
-  if(editId.e){ var i=db.expenses.findIndex(function(x){return x.id===editId.e;}); db.expenses[i]=rec; }
+  if(editId.e){ var i=db.expenses.findIndex(function(x){return x.id===editId.e;}); stampEdit(rec,db.expenses[i]); db.expenses[i]=rec; }
   else db.expenses.push(rec);
   log(editId.e?'edit':'add','المصروفات',expTypeLabel(t)+' — '+rec.desc+' بقيمة '+num(a)
     +(rec.supplierId?' (مورد: '+supName(rec.supplierId)+')':'')
@@ -3683,7 +3706,7 @@ function savePayment(){
   var rec={id:editId.pay||uid(),date:val('pay_date'),type:t,partyId:+val('pay_party'),amount:a,
     method:val('pay_method'),note:val('pay_note').trim(),uid:ME.id,ts:nowTs()};
   var who=(t==='supplier'?supName(rec.partyId):clientName(rec.partyId));
-  if(editId.pay){ var i=db.payments.findIndex(function(x){return x.id===editId.pay;}); if(i>=0) db.payments[i]=rec;
+  if(editId.pay){ var i=db.payments.findIndex(function(x){return x.id===editId.pay;}); if(i>=0){ stampEdit(rec,db.payments[i]); db.payments[i]=rec; }
     log('edit','الحسابات','تعديل حركة '+(t==='supplier'?'سداد لمورد ':'تحصيل من عميل ')+who+' بمبلغ '+num(a)); }
   else { db.payments.push(rec);
     log('add','الحسابات',(t==='supplier'?'سداد لمورد ':'تحصيل من عميل ')+who+' بمبلغ '+num(a)); }
@@ -4272,7 +4295,7 @@ function renderDiscounts(){
     var lbl=x.kind==='pct'?(esc(x.note||'')+' <span class="muted">('+num(x.pct)+'%)</span>'):esc(x.note||'');
     h+='<tr><td>'+esc(x.date)+'</td><td class="name">'+esc(clientName(x.clientId))+'</td>'
       +'<td class="neg">'+money(x.amount)+'</td><td class="name">'+lbl+'</td>'
-      +'<td class="name muted">'+esc(userName(x.uid))+'</td>'
+      +'<td class="name muted">'+enteredBy(x)+'</td>'
       +'<td>'+actionBtns('discounts',x.id,'editDiscount('+x.id+')')+'</td></tr>';
   });
   document.getElementById('tbDiscounts').innerHTML=h||'<tr><td colspan="6" class="empty">لا توجد خصومات مسجّلة.</td></tr>';
@@ -4779,7 +4802,7 @@ function pnl(from,to){
 /* ==========================================================================
    العرض
    ========================================================================== */
-function renderAll(){
+function renderCore(){
   refreshLedger(); fillAllSelects();
   var bt=document.getElementById('buildTag'); if(bt) bt.textContent='الإصدار '+APP_VERSION+' · بناء '+APP_BUILD;
   document.getElementById('coTitle').textContent=db.settings.company||'نظام توريد الخضار والفواكه';
@@ -4790,12 +4813,19 @@ function renderAll(){
   document.getElementById('incRange').textContent=txt;
   setVal('f_from2',r.from); setVal('f_to2',r.to); setVal('allocMethod',db.settings.alloc||'sales');
   renderPurchases(); renderSales(); renderReturns(); renderStock(); renderInterTransfers(); renderExpenses();
-  renderAccounts(); renderOpAcc(); renderProdTab(); renderIncome(); renderDash(); renderAdvisor(); renderReport(); renderAudit();
+  renderAccounts(); renderOpAcc(); renderProdTab();
   renderDraft('p'); renderDraft('s');
   document.getElementById('storageNote').innerHTML = storageOK
     ? 'البيانات تُحفظ تلقائياً في متصفح هذا الجهاز بعد كل عملية. نزّل نسخة احتياطية دورياً — مسح بيانات المتصفح يمحو السجلات.'
     : '<b>تنبيه:</b> المتصفح لا يسمح بالحفظ الدائم في هذا الوضع. احفظ الملف على جهازك وافتحه مباشرة، ونزّل نسخة احتياطية قبل الإغلاق.';
 }
+/* الشاشات الثقيلة (قوائم الدخل/الملخص والرسوم/المستشار/التقارير/السجل) — تُؤجَّل عن مسار الحفظ لتسريعه */
+function renderHeavy(){ try{ renderIncome(); renderDash(); renderAdvisor(); renderReport(); renderAudit(); }catch(e){ try{console.warn('renderHeavy',e);}catch(_){}} }
+var _heavyTimer=null;
+function scheduleHeavy(){ if(_heavyTimer) return; _heavyTimer=setTimeout(function(){ _heavyTimer=null; renderHeavy(); }, 60); }
+function renderAll(){ renderCore(); renderHeavy(); }
+/* تحديث بعد الحفظ: الشاشات الأساسية فوراً + الثقيلة بعد لحظة (يُسرّع الحفظ ويجمع الدفعات) */
+function renderAfterCommit(){ renderCore(); scheduleHeavy(); }
 /* ===== المستشار المالي — تحليل وتنبيهات وحلول ===== */
 /* لقطة رصيد المخزون كما كانت في نهاية الفترة (to) — تُبنى من الحركات فتعكس الفترة المختارة.
    فترة مفتوحة/تشمل اليوم ⇒ الرصيد الحالي. أصنافٌ صُفِّرت لا تظهر لها ملاحظات خارج فترتها. */
@@ -5160,7 +5190,7 @@ function renderReturns(){
       +'<td class="name">'+esc(supName(r.supplierId))+'</td><td class="name">'+esc(itemName(r.itemId))+'</td>'
       +'<td>'+qty(r.units)+'</td><td>'+qty(r.units*r.uw)+' كغ</td><td>'+money(r.total)+'</td>'
       +'<td class="name">'+esc(whName(r.whId))+'</td><td class="name">'+esc(r.reason||'')+'</td>'
-      +'<td class="name muted">'+esc(userName(r.uid))+'</td>'
+      +'<td class="name muted">'+enteredBy(r)+'</td>'
       +'<td>'+actionBtns('preturns',r.id,'editReturn(\'p\','+r.id+')')+'</td></tr>'; });
   document.getElementById('tbPReturns').innerHTML=mineOnlyRow(10)+(h?h+'<tr class="total-row"><td colspan="5">الإجمالي</td><td>'+money(T)+'</td><td colspan="4"></td></tr>'
     :'<tr><td colspan="10" class="empty">لا توجد مرتجعات مشتريات.</td></tr>');
@@ -5218,8 +5248,10 @@ function cvSummary(){
     +'</b> إلى «'+esc(itemName(toIt))+'». التكلفة المنقولة ≈ <b>'+money(moved)+'</b>'
     +(F>fb.units+0.0001?' <span class="neg">(أكبر من الرصيد المتاح '+qty(fb.units)+' — سيصبح رصيد المصدر سالباً)</span>':'')+'.';
 }
+var cvEditId=null;
 function saveConversion(){
   if(!guard('canAdd')) return;
+  if(cvEditId&&!guard('canEdit')) return;
   var fromItem=+val('cv_fromItem'), toItem=+val('cv_toItem');
   var fromWh=+val('cv_fromWh'), toWh=+val('cv_toWh')||fromWh;
   var F=fnum('cv_fromUnits'), T=fnum('cv_toUnits');
@@ -5228,15 +5260,43 @@ function saveConversion(){
   if(!fromWh){ toast('اختر مستودع المصدر'); return; }
   if(!(F>0)){ toast('أدخل الكمية المحوّلة'); return; }
   if(!(T>0)){ toast('أدخل الكمية الناتجة أو معامل التحويل'); return; }
-  var fb=cvBal();
-  if(F>fb.units+0.0001&&!confirm('الكمية المحوّلة ('+qty(F)+') أكبر من الرصيد المتاح ('+qty(fb.units)+' '+fb.label+'). المتابعة ستجعل رصيد المصدر سالباً. هل تكمل؟')) return;
   var toKg=itemByKg(toItem), toUw=toKg?1:(itemUW(toItem)||0);
-  db.conversions.push({id:uid(),date:val('cv_date')||today(),fromWh:fromWh,fromItemId:fromItem,fromUnits:F,
-    toWh:toWh,toItemId:toItem,toUnits:T,toUw:toUw,note:val('cv_note').trim(),uid:ME.id,ts:nowTs()});
-  log('add','المخزون','تحويل رصيد: '+qty(F)+' '+(fb.byKg?'كغ':'وحدة')+' من '+itemName(fromItem)+' ← '+qty(T)+' إلى '+itemName(toItem));
-  setVal('cv_fromUnits',''); setVal('cv_toUnits',''); setVal('cv_note','');
+  /* ملاحظة: التحقق من الرصيد المتاح لا يُطبَّق عند التعديل لأن الرصيد المعروض يشمل أثر هذا التحويل نفسه */
+  if(!cvEditId){ var fb=cvBal();
+    if(F>fb.units+0.0001&&!confirm('الكمية المحوّلة ('+qty(F)+') أكبر من الرصيد المتاح ('+qty(fb.units)+' '+fb.label+'). المتابعة ستجعل رصيد المصدر سالباً. هل تكمل؟')) return; }
+  var rec={id:cvEditId||uid(),date:val('cv_date')||today(),fromWh:fromWh,fromItemId:fromItem,fromUnits:F,
+    toWh:toWh,toItemId:toItem,toUnits:T,toUw:toUw,note:val('cv_note').trim(),uid:ME.id,ts:nowTs()};
+  if(cvEditId){ var i=db.conversions.findIndex(function(x){return x.id===cvEditId;});
+    if(i>=0){ stampEdit(rec,db.conversions[i]); db.conversions[i]=rec; }
+    log('edit','المخزون','تعديل تحويل رصيد: '+qty(F)+' من '+itemName(fromItem)+' ← '+qty(T)+' إلى '+itemName(toItem));
+  } else {
+    db.conversions.push(rec);
+    log('add','المخزون','تحويل رصيد: '+qty(F)+' من '+itemName(fromItem)+' ← '+qty(T)+' إلى '+itemName(toItem));
+  }
+  cvCancel();
+  commit(cvEditId?'تم تعديل التحويل':'تم تنفيذ التحويل بين الصنفين');
+}
+function cvCancel(){
+  cvEditId=null;
+  setVal('cv_fromUnits',''); setVal('cv_toUnits',''); setVal('cv_factor',''); setVal('cv_note','');
   var box=document.getElementById('cv_summary'); if(box) box.style.display='none';
-  commit('تم تنفيذ التحويل بين الصنفين');
+  var ed=document.getElementById('cv_editing'); if(ed) ed.textContent='';
+}
+function editConversion(id){
+  if(!guard('canEdit')) return;
+  var r=byId(db.conversions,id); if(!r) return;
+  cvEditId=id;
+  setVal('cv_date',r.date); setVal('cv_fromItem',r.fromItemId); setVal('cv_fromWh',r.fromWh);
+  setVal('cv_toItem',r.toItemId); setVal('cv_toWh',r.toWh);
+  setVal('cv_fromUnits',r.fromUnits); setVal('cv_toUnits',r.toUnits);
+  setVal('cv_factor', (r.fromUnits>0)?Math.round((r.toUnits/r.fromUnits)*10000)/10000:'');
+  setVal('cv_note',r.note||'');
+  var fl=document.getElementById('cv_fromUnitLbl'); if(fl) fl.textContent='('+(itemByKg(r.fromItemId)?'كغ':'وحدة')+')';
+  var tl=document.getElementById('cv_toUnitLbl'); if(tl) tl.textContent='('+(itemByKg(r.toItemId)?'كغ':'وحدة')+')';
+  cvSummary();
+  var ed=document.getElementById('cv_editing'); if(ed) ed.textContent='وضع التعديل — تحويل #'+r.id;
+  showTab('stock');
+  var fb=document.getElementById('convFormBox'); if(fb&&fb.scrollIntoView) try{ fb.scrollIntoView({behavior:'smooth',block:'center'}); }catch(e){}
 }
 function convCost(id){ var c=0; ((L&&L.moves)||[]).forEach(function(m){ if(m.ref==='#'+id&&m.type==='تحويل رصيد صادر') c=m.val; }); return c; }
 function renderConversions(){
@@ -5249,8 +5309,8 @@ function renderConversions(){
       +'<td class="name">'+esc(itemName(r.toItemId))+'</td><td>'+qty(r.toUnits)+' '+(tKg?'كغ':'وحدة')+'</td>'
       +'<td class="name">'+esc(whName(r.fromWh))+(r.toWh!==r.fromWh?(' ← '+esc(whName(r.toWh))):'')+'</td>'
       +'<td>'+money(convCost(r.id))+'</td>'
-      +'<td class="name muted">'+esc(userName(r.uid))+'</td>'
-      +'<td>'+actionBtns('conversions',r.id,'')+'</td></tr>';
+      +'<td class="name muted">'+enteredBy(r)+'</td>'
+      +'<td>'+actionBtns('conversions',r.id,'editConversion('+r.id+')')+'</td></tr>';
   }).join('')||'<tr><td colspan="9" class="empty">لا توجد تحويلات بين الأصناف.</td></tr>';
 }
 function renderStock(){
@@ -5310,7 +5370,7 @@ function renderStock(){
     OT+=+o.total||0;
     oh+='<tr><td>'+esc(o.date)+'</td><td class="name">'+esc(whName(o.whId))+'</td><td class="name">'+esc(itemName(o.itemId))+'</td>'
       +'<td>'+qty(o.units)+'</td><td>'+qty(o.units*o.uw)+' كغ</td><td>'+money(o.total)+'</td>'
-      +'<td class="name muted">'+esc(userName(o.uid))+'</td>'
+      +'<td class="name muted">'+enteredBy(o)+'</td>'
       +'<td>'+actionBtns('openingStock',o.id,'editOpeningStock('+o.id+')')+'</td></tr>'; });
   document.getElementById('tbOpeningStock').innerHTML=oh?oh+'<tr class="total-row"><td colspan="5">إجمالي قيمة الرصيد الافتتاحي</td><td>'+money(OT)+'</td><td colspan="2"></td></tr>'
     :'<tr><td colspan="8" class="empty">لا يوجد رصيد افتتاحي مسجل بعد.</td></tr>';
@@ -5368,7 +5428,7 @@ function renderExpenses(){
       +'<td class="name">'+esc(expTargetLabel(x))+'</td>'
       +'<td class="name">'+esc(x.cat||'')+'</td><td>'+money(x.amount)+(amortInfo(x)?' <span class="pill pill-info">'+esc(amortLabel(x))+'</span>':'')+'</td>'
       +'<td class="name">'+esc(x.desc)+(x.grp?' <span class="pill pill-info" title="بند ضمن سند مجمّع">🧾 '+esc(x.voucher||'سند مجمّع')+'</span>':'')+'</td>'
-      +'<td class="name muted">'+esc(userName(x.uid))+'</td>'
+      +'<td class="name muted">'+enteredBy(x)+'</td>'
       +'<td>'+actionBtns('expenses',x.id,'editExpense('+x.id+')')+'</td></tr>';
   });
   document.getElementById('tbExpenses').innerHTML=mineOnlyRow(8)+(h?h+'<tr class="total-row"><td colspan="4">الإجمالي</td><td>'+money(T)+'</td><td colspan="3"></td></tr>'
@@ -5439,7 +5499,7 @@ function renderAccounts(){
       +(p.type==='supplier'?'سداد لمورد':'تحصيل من عميل')+'</span></td>'
       +'<td class="name">'+esc(p.type==='supplier'?supName(p.partyId):clientName(p.partyId))+'</td>'
       +'<td>'+money(p.amount)+'</td><td>'+esc(p.method||'')+'</td><td class="name">'+esc(p.note||'')+'</td>'
-      +'<td class="name muted">'+esc(userName(p.uid))+'</td><td>'+actionBtns('payments',p.id,'editPayment('+p.id+')')+'</td></tr>'; });
+      +'<td class="name muted">'+enteredBy(p)+'</td><td>'+actionBtns('payments',p.id,'editPayment('+p.id+')')+'</td></tr>'; });
   document.getElementById('tbPayments').innerHTML=hp||'<tr><td colspan="8" class="empty">لا توجد حركات سداد.</td></tr>';
   renderJournals();
   if(ledgerView.type) showLedger(ledgerView.type,ledgerView.id,true);
@@ -9083,15 +9143,25 @@ function cloudApplyRemote(remote){
   var remoteStr=JSON.stringify(remote);
   if(localSnap) remote=mergeCloud(localSnap,remote);
   db=remote; ensureDbShape();
-  var s=JSON.stringify(serializeDB()); lsSet(KEY,s);
+  var s=JSON.stringify(serializeDB()); _lastLocalStr=s; lsSet(KEY,s);
   resetKnownIds();   /* السجلّات القادمة من السحابة ليست حذفاً محلياً */
   refreshLedger();
   if(ME){
     var me=byId(db.users,ME.id); if(me){ ME=me; }
-    updateDeptUI(); applyPerms(); renderAll(); renderMaster(); renderUsers(); renderSettingsForm(); applyLogo();
+    updateDeptUI(); applyPerms(); scheduleFullRender();   /* تحديث مؤجَّل مجمَّع — يمنع تعليق المزامنة عند تتابع التحديثات */
   }
   /* إن أضاف الدمج سجلّات محلية أو شواهد حذف غير موجودة في السحابة → ارفع النسخة المدموجة كي تظهر للجميع */
   if(s!==remoteStr){ cloudLastPushed=''; cloudPush(); } else { cloudLastPushed=s; }
+}
+/* تحديث كامل مؤجَّل ومجمَّع (الشاشات + البيانات الأساسية/المستخدمين) — يُستخدم عند ورود تحديثات السحابة
+   كي لا تتسبّب سلسلة تحديثات متتابعة في إعادة رسم كامل متكرّر يُجمّد الواجهة */
+var _fullRenderTimer=null;
+function scheduleFullRender(){
+  if(_fullRenderTimer) return;
+  _fullRenderTimer=setTimeout(function(){ _fullRenderTimer=null;
+    if(_heavyTimer){ clearTimeout(_heavyTimer); _heavyTimer=null; }   /* renderAll يشمل الثقيلة — ألغِ المؤجَّل المكرّر */
+    try{ renderAll(); renderMaster(); renderUsers(); renderSettingsForm(); applyLogo(); }catch(e){ try{console.warn('fullRender',e);}catch(_){}}
+  }, 120);
 }
 /* الاشتراك في عقدة البيانات وتبنّي ما فيها أو رفع المحلي إن كانت فارغة */
 function cloudAttach(cb){
@@ -9110,7 +9180,7 @@ function cloudAttach(cb){
     cloudRef.on('value',function(s2){
       var val=s2.val(); cloudCheckBuild(val);
       var rs=cloudRemoteStr(val); if(!rs) return;
-      if(rs===cloudLastPushed||rs===JSON.stringify(serializeDB())) return; /* تجاهل صدى كتابتنا نحن */
+      if(rs===cloudLastPushed||rs===_lastLocalStr) return; /* تجاهل صدى كتابتنا نحن (بلا إعادة تسلسل ثقيلة) */
       var rd=cloudRemoteData(val); if(!rd||!Array.isArray(rd.users)) return;
       cloudApplyRemote(rd);
     });
