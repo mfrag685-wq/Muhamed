@@ -871,6 +871,56 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
     <thead><tr><th>التاريخ</th><th class="name">المستودع</th><th class="name">الصنف</th><th>الوحدات</th>
       <th>الوزن</th><th>القيمة</th><th class="name">أدخلها</th><th>إجراء</th></tr></thead>
     <tbody id="tbOpeningStock"></tbody></table></div>
+
+  <div class="sec-title alt">تحويل رصيد بين صنفين (وحدة ↔ وزن) <span class="hint">نقل رصيد صنف إلى صنف آخر بمعامل تحويل — بلا ربح/خسارة</span></div>
+  <div class="note" style="border-right-color:var(--sky)">ينقل كميةً من <b>صنف مصدر</b> إلى <b>صنف هدف</b> بمعامل تحويل. مثال: <b>1500 كيس ← صنف بالوزن بمعامل 1.5 = 2250 كغ</b> (والعكس). تنتقل <b>التكلفة كما هي</b> فلا يتأثر الربح؛ يقلّ رصيد المصدر ويزيد رصيد الهدف. <b>نزّل نسخة احتياطية قبل التحويل.</b></div>
+  <div class="doc-box no-print" id="convFormBox">
+    <div class="grid">
+      <div class="field"><label>التاريخ</label><input type="date" id="cv_date"></div>
+      <div class="field"><label>من صنف (المصدر)</label><select id="cv_fromItem" onchange="cvRefresh()"></select></div>
+      <div class="field"><label>من مستودع</label><select id="cv_fromWh" onchange="cvRefresh()"></select></div>
+      <div class="field"><label>الكمية المحوّلة <span class="hint" id="cv_fromUnitLbl"></span></label>
+        <input type="number" id="cv_fromUnits" step="0.01" min="0" inputmode="decimal" oninput="cvCalc('from')">
+        <span class="mini" id="cv_availHint"></span></div>
+      <div class="field" style="display:flex;align-items:flex-end"><button class="btn btn-sm" onclick="cvFillAll()">كامل الرصيد</button></div>
+      <div class="field"><label>إلى صنف (الهدف)</label><select id="cv_toItem" onchange="cvRefresh()"></select></div>
+      <div class="field"><label>إلى مستودع</label><select id="cv_toWh"></select></div>
+      <div class="field"><label>معامل التحويل <span class="hint">كمية الهدف لكل وحدة مصدر</span></label>
+        <input type="number" id="cv_factor" step="0.0001" min="0" inputmode="decimal" oninput="cvCalc('factor')"></div>
+      <div class="field"><label>الكمية الناتجة <span class="hint" id="cv_toUnitLbl"></span></label>
+        <input type="number" id="cv_toUnits" step="0.01" min="0" inputmode="decimal" oninput="cvCalc('to')"></div>
+      <div class="field"><label>ملاحظة</label><input type="text" id="cv_note" placeholder="اختياري"></div>
+    </div>
+    <div class="note no-print" id="cv_summary" style="margin-top:8px;display:none"></div>
+    <div class="form-foot"><button class="btn-main" onclick="saveConversion()">تنفيذ التحويل</button>
+      <span class="mini">التكلفة تنتقل كما هي — إعادة تصنيف للمخزون بلا أثر على الأرباح.</span></div>
+  </div>
+  <div class="table-scroll"><table>
+    <thead><tr><th>التاريخ</th><th class="name">من صنف</th><th>كمية المصدر</th><th class="name">إلى صنف</th><th>كمية الهدف</th>
+      <th class="name">المستودع</th><th>التكلفة المنقولة</th><th class="name">نفّذها</th><th>إجراء</th></tr></thead>
+    <tbody id="tbConversions"></tbody></table></div>
+
+  <div class="sec-title">الجرد الفعلي — تسوية المخزون تلقائياً <span class="hint">يحسب الفرق ويشطبه عجز جرد أو يضيفه تصحيح رصيد</span></div>
+  <div class="note" style="border-right-color:var(--citrus)"><b>اختر تاريخ الجرد أولاً</b> فيظهر <b>الرصيد الدفتري في ذلك التاريخ بالضبط</b> لكل صنف. أدخِل <b>الكمية الموجودة فعلياً</b>، فيحسب النظام الفرق: <b>النقص</b> = <b>عجز جرد</b> (خسارة)، و<b>الزيادة</b> = <b>تصحيح رصيد</b> (أصل). تُعتمَد الكميات المُدخلة كرصيد ذلك التاريخ، وتُبنى عليها كل الحركات اللاحقة. الحقول معبّأة بالرصيد الدفتري — عدّل ما اختلف فقط. <b>نزّل نسخة احتياطية أولاً.</b></div>
+  <div class="doc-box no-print" style="margin-top:10px">
+    <div class="grid-2">
+      <div class="field"><label>تاريخ الجرد <span class="hint">يُعرض الرصيد كما في نهاية هذا اليوم</span></label><input type="date" id="sc_date" onchange="renderStockCountUI()"></div>
+      <div class="field"><label>المستودع (تصفية العرض)</label><select id="sc_whFilter" onchange="renderStockCountUI()"><option value="">كل المستودعات</option></select></div>
+    </div>
+    <div class="table-scroll" style="max-height:360px;overflow:auto"><table id="sc_table">
+      <thead><tr><th class="name">المستودع</th><th class="name">الصنف</th><th>الرصيد الدفتري في التاريخ</th><th>متوسط التكلفة</th><th>الجرد الفعلي</th></tr></thead>
+      <tbody id="sc_body"></tbody></table></div>
+    <div class="inline-add" style="margin-top:8px">
+      <select id="sc_addWh" style="max-width:180px"></select>
+      <select id="sc_addItem" style="max-width:220px"></select>
+      <button class="btn btn-sm" onclick="scAddRow()">➕ إضافة صنف للجرد (رصيد دفتري صفر)</button>
+    </div>
+    <div class="form-foot"><button class="btn" onclick="computeStockCount()">احتساب الفروقات</button>
+      <button class="btn-del" onclick="applyStockCount()">تطبيق التسوية</button>
+      <span class="mini">النقص = عجز جرد (خسارة) · الزيادة = تصحيح رصيد (أصل).</span></div>
+    <div id="sc_preview" style="margin-top:10px"></div>
+    <div id="sc_log" style="margin-top:10px"></div>
+  </div>
 </section>
 
 <!-- ======================= فحص الأصناف (تشخيص الأرصدة) ======================= -->
@@ -1635,28 +1685,6 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
     <div id="wc_log" style="margin-top:10px"></div>
   </div>
 
-  <div class="sec-title">الجرد الفعلي — تسوية المخزون تلقائياً <span class="hint">يحسب الفرق ويشطبه عجز جرد أو يضيفه تصحيح رصيد</span></div>
-  <div class="note" style="border-right-color:var(--citrus)"><b>اختر تاريخ الجرد أولاً</b> فيظهر <b>الرصيد الدفتري في ذلك التاريخ بالضبط</b> لكل صنف. أدخِل <b>الكمية الموجودة فعلياً</b>، فيحسب النظام الفرق: <b>النقص</b> = <b>عجز جرد</b> (خسارة)، و<b>الزيادة</b> = <b>تصحيح رصيد</b> (أصل). تُعتمَد الكميات المُدخلة كرصيد ذلك التاريخ، وتُبنى عليها كل الحركات اللاحقة. الحقول معبّأة بالرصيد الدفتري — عدّل ما اختلف فقط. <b>نزّل نسخة احتياطية أولاً.</b></div>
-  <div class="doc-box no-print" style="margin-top:10px">
-    <div class="grid-2">
-      <div class="field"><label>تاريخ الجرد <span class="hint">يُعرض الرصيد كما في نهاية هذا اليوم</span></label><input type="date" id="sc_date" onchange="renderStockCountUI()"></div>
-      <div class="field"><label>المستودع (تصفية العرض)</label><select id="sc_whFilter" onchange="renderStockCountUI()"><option value="">كل المستودعات</option></select></div>
-    </div>
-    <div class="table-scroll" style="max-height:360px;overflow:auto"><table id="sc_table">
-      <thead><tr><th class="name">المستودع</th><th class="name">الصنف</th><th>الرصيد الدفتري في التاريخ</th><th>متوسط التكلفة</th><th>الجرد الفعلي</th></tr></thead>
-      <tbody id="sc_body"></tbody></table></div>
-    <div class="inline-add" style="margin-top:8px">
-      <select id="sc_addWh" style="max-width:180px"></select>
-      <select id="sc_addItem" style="max-width:220px"></select>
-      <button class="btn btn-sm" onclick="scAddRow()">➕ إضافة صنف للجرد (رصيد دفتري صفر)</button>
-    </div>
-    <div class="form-foot"><button class="btn" onclick="computeStockCount()">احتساب الفروقات</button>
-      <button class="btn-del" onclick="applyStockCount()">تطبيق التسوية</button>
-      <span class="mini">النقص = عجز جرد (خسارة) · الزيادة = تصحيح رصيد (أصل).</span></div>
-    <div id="sc_preview" style="margin-top:10px"></div>
-    <div id="sc_log" style="margin-top:10px"></div>
-  </div>
-
   <div class="sec-title">بدء فترة جديدة — تصفير المخزون وترحيله كأرصدة افتتاحية <span class="hint">لبدء صفحة نظيفة من تاريخ محدد</span></div>
   <div class="note" style="border-right-color:var(--citrus)">يأخذ <b>رصيد المخزون الحالي</b> لكل صنف ويعيد ترحيله كأرصدة <b>افتتاحية</b> موزّعة على المستودعات بالنِسب التي تحددها، ثم <b>يحذف كل الحركات السابقة</b> (مشتريات/مبيعات/مرتجعات/تحويلات/فاقد/مصروفات/سداد) لتبدأ صفحة نظيفة. <b>العملية لا تُلغى — نزّل نسخة احتياطية أولاً.</b></div>
   <div class="doc-box no-print" style="margin-top:10px">
@@ -1771,7 +1799,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-10-03-a';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-10-03-b';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -1834,7 +1862,7 @@ function emptyDB(){
     units:[{id:1,name:'صندوق',weights:[8,10,12]},{id:2,name:'شوال',weights:[20,25,50]},
            {id:3,name:'كرتون',weights:[12,15,18]},{id:4,name:'كيس',weights:[5,7,10]},
            {id:5,name:'طبق',weights:[1,2]},{id:6,name:'كيلو',weights:[1]}],
-    purchases:[],sales:[],preturns:[],sreturns:[],transfers:[],waste:[],expenses:[],payments:[],discounts:[],journals:[],opAccounts:[],opTxns:[],boms:[],productions:[],overheadPeriods:[],audit:[],openingStock:[]
+    purchases:[],sales:[],preturns:[],sreturns:[],transfers:[],waste:[],expenses:[],payments:[],discounts:[],journals:[],opAccounts:[],opTxns:[],boms:[],productions:[],overheadPeriods:[],audit:[],openingStock:[],conversions:[]
   };
 }
 function demoDB(){
@@ -1886,7 +1914,7 @@ if(!db||!db.settings) db=demoDB();
 /* تطبيع بنية قاعدة البيانات — يُستدعى عند الإقلاع وعند وصول بيانات جديدة من السحابة،
    لضمان وجود كل المصفوفات والحقول المطلوبة مهما كان مصدر البيانات أو قِدَمها */
 /* ===== الأقسام: دفاتر حسابات منفصلة (الفاكهة/الخضار) داخل نفس النظام ===== */
-var DEPT_BOOKS=['suppliers','clients','warehouses','items','purchases','sales','preturns','sreturns','transfers','waste','expenses','payments','discounts','journals','opAccounts','opTxns','boms','productions','overheadPeriods','openingStock','supplierGroups','clientGroups'];
+var DEPT_BOOKS=['suppliers','clients','warehouses','items','purchases','sales','preturns','sreturns','transfers','waste','expenses','payments','discounts','journals','opAccounts','opTxns','boms','productions','overheadPeriods','openingStock','conversions','supplierGroups','clientGroups'];
 var DEFAULT_DEPTS=[['fruits','الفاكهة'],['veg','الخضار']];
 var curDept=null;   /* القسم النشط لهذا الجهاز (مستقل عن بقية الأجهزة) */
 function deptName(key){ return (db.departments&&db.departments[key]&&db.departments[key].name)||key; }
@@ -2430,6 +2458,7 @@ function buildLedger(){
   db.preturns.forEach(function(x){ ev.push({t:5,d:x.date,id:x.id,r:x}); });
   db.waste.forEach(function(x){ ev.push({t:6,d:x.date,id:x.id,r:x}); });
   (db.productions||[]).forEach(function(x){ ev.push({t:3,prod:true,d:x.date,id:x.id,r:x}); });   /* أوامر التغليف — قبل البيع */
+  (db.conversions||[]).forEach(function(x){ ev.push({t:3,conv:true,d:x.date,id:x.id,r:x}); });   /* تحويل رصيد بين صنفين */
   /* التحويلات بين الأقسام: كل تحويل له طرفان — صادر من قسم المصدر ووارد إلى قسم الهدف.
      يُدرَج في دفتر القسم النشط فقط الطرف الذي يخصّه (لأن الدفاتر منفصلة) */
   (db.interTransfers||[]).forEach(function(x){
@@ -2464,6 +2493,24 @@ function buildLedger(){
       srCost[r.id]=c;
       moves.push({date:r.date,whId:r.whId,itemId:r.itemId,type:'مرتجع بيع',ref:'#'+r.id,party:clientName(r.clientId),
         inU:+r.units||0,outU:0,val:c});
+    } else if(e.t===3&&e.conv){
+      /* تحويل رصيد بين صنفين (وحدة↔وزن): يُخرِج كمية الصنف المصدر من مستودعه بتكلفتها،
+         ويُدخِل الكمية الناتجة في الصنف الهدف بنفس التكلفة تماماً — إعادة تصنيف بلا ربح/خسارة.
+         العجز في المصدر يُخصم فعلاً (رصيد سالب) ويُقدَّر بمتوسط الشراء. */
+      var fromUw=itemByKg(r.fromItemId)?1:(itemUW(r.fromItemId)||0);
+      var need=+r.fromUnits||0, g=take(r.fromWh,r.fromItemId,need), movedCost=g.cost;
+      if(g.taken<need-0.0001){
+        var rem=need-g.taken, est=rem*fbCost(r.fromItemId); movedCost+=est;
+        var sC=cell(r.fromWh,r.fromItemId); sC.units-=rem; sC.cost-=est; sC.weight-=rem*fromUw;
+        warn.push({date:r.date,text:'تحويل رصيد '+r.date+': رصيد '+itemName(r.fromItemId)+' في '+whName(r.fromWh)
+          +' لا يكفي لتحويل '+qty(need)+' — سُجِّل العجز وأصبح الرصيد سالباً.'});
+      }
+      var toUnits=+r.toUnits||0, toByKg=itemByKg(r.toItemId);
+      var toUw=toByKg?1:(r.toUw!=null?(+r.toUw||0):(itemUW(r.toItemId)||0));
+      var toWeight=toByKg?toUnits:toUnits*toUw;
+      put(r.toWh,r.toItemId,toUnits,movedCost,toWeight);
+      moves.push({date:r.date,whId:r.fromWh,itemId:r.fromItemId,type:'تحويل رصيد صادر',ref:'#'+r.id,party:itemName(r.toItemId),inU:0,outU:need,val:movedCost});
+      moves.push({date:r.date,whId:r.toWh,itemId:r.toItemId,type:'تحويل رصيد وارد',ref:'#'+r.id,party:itemName(r.fromItemId),inU:toUnits,outU:0,val:movedCost});
     } else if(e.t===3&&e.prod){
       /* أمر تغليف/إنتاج: يستهلك المكوّنات بمتوسط التكلفة، ويُنتج الصنف التام بتكلفة شاملة (خام+تعبئة+عمالة+مصروفات يدوية) */
       var consumed=0;
@@ -2645,6 +2692,8 @@ function fillAllSelects(){
   fillSelect('wh_client',opts(db.clients,'id',nm,'مستودع عام لكل الفروع'));
   /* عند الإدخال الجديد (شراء/بيع) تظهر الأصناف النشطة فقط؛ التحويل والفاقد والمرتجعات وقوائم الاستعراض تظهر الكل مع وسم المتوقف */
   ['t_item','w_item','os_item'].forEach(function(id){ fillSelect(id,opts(db.items,'id',itemLabel)); });
+  ['cv_fromItem','cv_toItem'].forEach(function(id){ if(document.getElementById(id)) fillSelect(id,opts(db.items,'id',itemLabel)); });   /* تحويل بين صنفين */
+  ['cv_fromWh','cv_toWh'].forEach(function(id){ if(document.getElementById(id)) fillSelect(id,opts(db.warehouses,'id',function(w){return w.name+(w.clientId?' — '+clientName(w.clientId):' (عام)');})); });
   fillSelect('st_item',opts(db.items,'id',itemLabel,'كل الأصناف'));
   fillSelect('rp_item',opts(db.items,'id',itemLabel,'كل الأصناف'));
   fillSelect('it_unit',opts(db.units,'name',function(u){return u.name+(u.weights&&u.weights.length?' ('+u.weights.length+' أوزان)':'');}));
@@ -2691,7 +2740,7 @@ function inPartyScope(kind,pid){
   return true;
 }
 function setDefaults(){
-  ['p_date','s_date','r_date','t_date','w_date','e_date','pay_date','os_date','it2_date'].forEach(function(id){ if(!val(id)) setVal(id,today()); });
+  ['p_date','s_date','r_date','t_date','w_date','e_date','pay_date','os_date','it2_date','cv_date'].forEach(function(id){ if(!val(id)) setVal(id,today()); });
   ['p_vatrate','s_vatrate','r_vatrate'].forEach(function(id){ if(!val(id)) setVal(id,vatRate()); });
   /* الملخص والمخزون يفتحان على الشهر الحالي افتراضياً (قابل للتغيير) */
   var cm=curMonth();
@@ -4494,7 +4543,7 @@ function delUnit(id){
 /* ---------- الحذف العام ---------- */
 var ENT={purchases:['المشتريات','فاتورة شراء'],sales:['المبيعات','فاتورة بيع'],preturns:['المرتجعات','مرتجع شراء'],
   sreturns:['المرتجعات','مرتجع بيع'],transfers:['المخزون','تحويل'],waste:['المخزون','فاقد'],
-  expenses:['المصروفات','مصروف'],payments:['الحسابات','حركة سداد'],discounts:['قائمة الدخل','خصم متفق عليه'],journals:['الحسابات','قيد تسوية'],openingStock:['المخزون','رصيد افتتاحي']};
+  expenses:['المصروفات','مصروف'],payments:['الحسابات','حركة سداد'],discounts:['قائمة الدخل','خصم متفق عليه'],journals:['الحسابات','قيد تسوية'],openingStock:['المخزون','رصيد افتتاحي'],conversions:['المخزون','تحويل رصيد بين صنفين']};
 function delRec(type,id){
   if(!guard('canDelete','لا تملك صلاحية الحذف')) return;
   var e=ENT[type]||['',''];
@@ -5128,6 +5177,82 @@ function renderReturns(){
     :'<tr><td colspan="10" class="empty">لا توجد مرتجعات مبيعات.</td></tr>');
 }
 
+/* ===== تحويل رصيد بين صنفين (وحدة ↔ وزن) ===== */
+function cvBal(){
+  if(!L) refreshLedger();
+  var wh=+val('cv_fromWh'), it=+val('cv_fromItem');
+  var s=(wh&&it)?L.stock[wh+'|'+it]:null, byKg=itemByKg(it);
+  return {units:s?s.units:0, cost:s?s.cost:0, byKg:byKg, label:byKg?'كغ':'وحدة'};
+}
+function cvSuggestFactor(){
+  var fe=document.getElementById('cv_factor'); if(!fe||String(fe.value).trim()!=='') return;
+  var fromIt=+val('cv_fromItem'), toIt=+val('cv_toItem'); if(!fromIt||!toIt) return;
+  var fromKg=itemByKg(fromIt), toKg=itemByKg(toIt), f=0;
+  if(!fromKg&&toKg) f=itemUW(fromIt)||0;                 /* وحدة→وزن: كغ لكل وحدة = وزن وحدة المصدر */
+  else if(fromKg&&!toKg){ var uw=itemUW(toIt)||0; f=uw>0?1/uw:0; }  /* وزن→وحدة */
+  else f=1;
+  if(f>0) fe.value=Math.round(f*10000)/10000;
+}
+function cvRefresh(){
+  var fb=cvBal();
+  var fl=document.getElementById('cv_fromUnitLbl'); if(fl) fl.textContent='('+fb.label+')';
+  var toKg=itemByKg(+val('cv_toItem'));
+  var tl=document.getElementById('cv_toUnitLbl'); if(tl) tl.textContent='('+(toKg?'كغ':'وحدة')+')';
+  var hint=document.getElementById('cv_availHint'); if(hint) hint.textContent='الرصيد المتاح: '+qty(fb.units)+' '+fb.label;
+  cvSuggestFactor(); cvCalc('from');
+}
+function cvCalc(src){
+  var F=fnum('cv_fromUnits'), K=fnum('cv_factor'), T=fnum('cv_toUnits');
+  if(src==='to'){ if(F>0&&T>0) setVal('cv_factor', Math.round((T/F)*10000)/10000); }
+  else { if(F>0&&K>0) setVal('cv_toUnits', Math.round((F*K)*100)/100); }
+  cvSummary();
+}
+function cvFillAll(){ var fb=cvBal(); setVal('cv_fromUnits', Math.round(fb.units*100)/100); cvCalc('from'); }
+function cvSummary(){
+  var box=document.getElementById('cv_summary'); if(!box) return;
+  var fromIt=+val('cv_fromItem'), toIt=+val('cv_toItem'), F=fnum('cv_fromUnits'), T=fnum('cv_toUnits');
+  if(!fromIt||!toIt||!(F>0)){ box.style.display='none'; return; }
+  var fb=cvBal(), moved=fb.units>0?fb.cost*(Math.min(F,fb.units)/fb.units):0, toKg=itemByKg(toIt);
+  box.style.display='';
+  box.innerHTML='سيُخصم <b>'+qty(F)+' '+fb.label+'</b> من «'+esc(itemName(fromIt))+'» ويُضاف <b>'+qty(T)+' '+(toKg?'كغ':'وحدة')
+    +'</b> إلى «'+esc(itemName(toIt))+'». التكلفة المنقولة ≈ <b>'+money(moved)+'</b>'
+    +(F>fb.units+0.0001?' <span class="neg">(أكبر من الرصيد المتاح '+qty(fb.units)+' — سيصبح رصيد المصدر سالباً)</span>':'')+'.';
+}
+function saveConversion(){
+  if(!guard('canAdd')) return;
+  var fromItem=+val('cv_fromItem'), toItem=+val('cv_toItem');
+  var fromWh=+val('cv_fromWh'), toWh=+val('cv_toWh')||fromWh;
+  var F=fnum('cv_fromUnits'), T=fnum('cv_toUnits');
+  if(!fromItem||!toItem){ toast('اختر الصنف المصدر والهدف'); return; }
+  if(fromItem===toItem&&fromWh===toWh){ toast('اختر صنفاً أو مستودعاً هدفاً مختلفاً'); return; }
+  if(!fromWh){ toast('اختر مستودع المصدر'); return; }
+  if(!(F>0)){ toast('أدخل الكمية المحوّلة'); return; }
+  if(!(T>0)){ toast('أدخل الكمية الناتجة أو معامل التحويل'); return; }
+  var fb=cvBal();
+  if(F>fb.units+0.0001&&!confirm('الكمية المحوّلة ('+qty(F)+') أكبر من الرصيد المتاح ('+qty(fb.units)+' '+fb.label+'). المتابعة ستجعل رصيد المصدر سالباً. هل تكمل؟')) return;
+  var toKg=itemByKg(toItem), toUw=toKg?1:(itemUW(toItem)||0);
+  db.conversions.push({id:uid(),date:val('cv_date')||today(),fromWh:fromWh,fromItemId:fromItem,fromUnits:F,
+    toWh:toWh,toItemId:toItem,toUnits:T,toUw:toUw,note:val('cv_note').trim(),uid:ME.id,ts:nowTs()});
+  log('add','المخزون','تحويل رصيد: '+qty(F)+' '+(fb.byKg?'كغ':'وحدة')+' من '+itemName(fromItem)+' ← '+qty(T)+' إلى '+itemName(toItem));
+  setVal('cv_fromUnits',''); setVal('cv_toUnits',''); setVal('cv_note','');
+  var box=document.getElementById('cv_summary'); if(box) box.style.display='none';
+  commit('تم تنفيذ التحويل بين الصنفين');
+}
+function convCost(id){ var c=0; ((L&&L.moves)||[]).forEach(function(m){ if(m.ref==='#'+id&&m.type==='تحويل رصيد صادر') c=m.val; }); return c; }
+function renderConversions(){
+  var tb=document.getElementById('tbConversions'); if(!tb) return;
+  var rows=(db.conversions||[]).slice().sort(function(a,b){ return a.date<b.date?1:-1; });
+  tb.innerHTML=rows.map(function(r){
+    var fKg=itemByKg(r.fromItemId), tKg=itemByKg(r.toItemId);
+    return '<tr><td>'+esc(r.date)+'</td>'
+      +'<td class="name">'+esc(itemName(r.fromItemId))+'</td><td>'+qty(r.fromUnits)+' '+(fKg?'كغ':'وحدة')+'</td>'
+      +'<td class="name">'+esc(itemName(r.toItemId))+'</td><td>'+qty(r.toUnits)+' '+(tKg?'كغ':'وحدة')+'</td>'
+      +'<td class="name">'+esc(whName(r.fromWh))+(r.toWh!==r.fromWh?(' ← '+esc(whName(r.toWh))):'')+'</td>'
+      +'<td>'+money(convCost(r.id))+'</td>'
+      +'<td class="name muted">'+esc(userName(r.uid))+'</td>'
+      +'<td>'+actionBtns('conversions',r.id,'')+'</td></tr>';
+  }).join('')||'<tr><td colspan="9" class="empty">لا توجد تحويلات بين الأصناف.</td></tr>';
+}
 function renderStock(){
   var fw=val('st_wh'), fi=val('st_item');
   /* الرصيد كما في نهاية الشهر المختار (افتراضياً الحالي = الرصيد الآني) */
@@ -5189,6 +5314,7 @@ function renderStock(){
       +'<td>'+actionBtns('openingStock',o.id,'editOpeningStock('+o.id+')')+'</td></tr>'; });
   document.getElementById('tbOpeningStock').innerHTML=oh?oh+'<tr class="total-row"><td colspan="5">إجمالي قيمة الرصيد الافتتاحي</td><td>'+money(OT)+'</td><td colspan="2"></td></tr>'
     :'<tr><td colspan="8" class="empty">لا يوجد رصيد افتتاحي مسجل بعد.</td></tr>';
+  renderConversions(); renderStockCountUI(); if(document.getElementById('cv_fromItem')) cvRefresh();   /* تحويل الأصناف + الجرد (نُقلا إلى شاشة المخزون) */
 }
 
 /* سطر مطابقة: يكشف كم بنداً معروضاً مقابل المتاح فعلاً — ليجيب «أين باقي المصروفات؟»
