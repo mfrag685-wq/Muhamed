@@ -1815,7 +1815,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-10-03-e';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-10-03-f';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -6845,12 +6845,18 @@ function computeStockCount(){
   box.innerHTML='<div class="note" style="border-right-color:var(--citrus)"><b>'+d.length+'</b> صنف باختلاف. <b>عجز</b> بقيمة '+money(shortV)+' (خسارة) · <b>زيادة</b> بقيمة '+money(surV)+' (تُضاف للمخزون). صافي الأثر على الربح: '+money(surV-shortV)+'.</div>'
     +'<div class="table-scroll"><table><thead><tr><th class="name">المستودع</th><th class="name">الصنف</th><th>دفتري</th><th>فعلي</th><th>الفرق</th><th>قيمة الفرق</th><th>النوع</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
 }
+function stockCountSig(op){ return (op&&op.when||'')+'|'+(op&&op.count||0)+'|'+Math.round(((op&&op.shortageVal)||0)*100)+'|'+Math.round(((op&&op.surplusVal)||0)*100); }
 function applyStockCount(){
   if(!guard('canEdit','تحتاج صلاحية التعديل للجرد')) return;
   var d=scComputeDiffs();
   if(!d.length){ toast('لا توجد فروقات — اضغط «احتساب الفروقات» أولاً'); return; }
   var date=val('sc_date')||today();
   var shortV=0,surV=0; d.forEach(function(x){ if(x.diff<0) shortV+=x.val; else surV+=x.val; });
+  /* حماية من الازدواج: تسوية مطابقة (نفس التاريخ والعدد والقيم) مطبّقة سابقاً */
+  var sigNew=date+'|'+d.length+'|'+Math.round(_wcR3(shortV)*100)+'|'+Math.round(_wcR3(surV)*100);
+  if((db.settings.stockCountLog||[]).some(function(o){ return stockCountSig(o)===sigNew; })){
+    if(!confirm('⚠ تنبيه ازدواج: توجد تسوية جرد مطابقة تماماً مطبّقة سابقاً بنفس التاريخ والقيم ('+date+').\nتطبيقها مجدداً سيضاعف الأثر على المخزون. هل أنت متأكد؟')) return;
+  }
   if(!confirm('تطبيق تسوية الجرد بتاريخ '+date+':\n\n• عجز (خسارة): '+num(shortV)+'\n• زيادة (تصحيح رصيد): '+num(surV)+'\n• صافي الأثر على الربح: '+num(surV-shortV)+'\n\n⚠ نزّل نسخة احتياطية أولاً. متابعة؟')) return;
   var op={id:uid(),ts:nowTs(),when:date,by:(ME?ME.name:''),shortageVal:_wcR3(shortV),surplusVal:_wcR3(surV),count:d.length,wasteIds:[],openIds:[]};
   d.forEach(function(x){
@@ -6865,14 +6871,47 @@ function applyStockCount(){
   var box=document.getElementById('sc_preview'); if(box) box.innerHTML='<div class="note" style="border-right-color:var(--leaf-dark)">✅ تمت التسوية: عجز '+money(shortV)+' وزيادة '+money(surV)+'. يمكنك التراجع من «سجل الجرد» أدناه.</div>';
   renderStockCountUI();
 }
+function dupStockCountOps(){
+  var lg=db.settings.stockCountLog||[], seen={}, dups=[];
+  lg.forEach(function(op){ var s=stockCountSig(op); if(seen[s]) dups.push(op); else seen[s]=1; });
+  return dups;
+}
+/* إزالة التسويات المكررة بأمان: تُبقي أول نسخة لكل توقيع، وتحذف الحركات الزائدة فقط
+   (المعرّفات غير المشتركة مع النسخة المُبقاة) — فلا تتأثر البيانات الصحيحة */
+function removeDupStockCounts(){
+  if(!guard('canEdit')) return;
+  var lg=db.settings.stockCountLog||[], keep={}, removeOps=[];
+  lg.forEach(function(op){ var s=stockCountSig(op); if(!keep[s]) keep[s]=op; else removeOps.push(op); });
+  if(!removeOps.length){ toast('لا توجد تسويات مكررة'); return; }
+  if(!confirm('سيُزال '+removeOps.length+' سجل جرد مكرّر وتُحذف الحركات الزائدة الناتجة عنه فقط (مع الإبقاء على نسخة واحدة صحيحة). متابعة؟')) return;
+  var wi={}, oi={};
+  removeOps.forEach(function(op){
+    var kept=keep[stockCountSig(op)], ks={};
+    (kept.wasteIds||[]).forEach(function(x){ ks['w'+x]=1; }); (kept.openIds||[]).forEach(function(x){ ks['o'+x]=1; });
+    (op.wasteIds||[]).forEach(function(x){ if(!ks['w'+x]) wi[String(x)]=1; });
+    (op.openIds||[]).forEach(function(x){ if(!ks['o'+x]) oi[String(x)]=1; });
+  });
+  var wB=db.waste.length, oB=db.openingStock.length;
+  db.waste=db.waste.filter(function(w){ return !wi[String(w.id)]; });
+  db.openingStock=db.openingStock.filter(function(o){ return !oi[String(o.id)]; });
+  var removedRecs=(wB-db.waste.length)+(oB-db.openingStock.length);
+  var rm={}; removeOps.forEach(function(op){ rm[String(op.id)]=1; });
+  db.settings.stockCountLog=lg.filter(function(op){ return !rm[String(op.id)]; });
+  log('data','المخزون','إزالة '+removeOps.length+' تسوية جرد مكررة — حُذف '+removedRecs+' حركة زائدة');
+  refreshLedger(); commit('تمت إزالة التسويات المكررة ('+removedRecs+' حركة زائدة)');
+  renderStockCountUI();
+}
 function renderStockCountLog(){
   var box=document.getElementById('sc_log'); if(!box) return;
   var lg=db.settings.stockCountLog||[];
   if(!lg.length){ box.innerHTML=''; return; }
+  var dups=dupStockCountOps();
+  var warn=dups.length?('<div class="note" style="border-right-color:var(--tomato);background:#fef2f2;margin-bottom:8px">⚠ <b>تنبيه: يوجد '+dups.length+' تسوية جرد مكررة</b> (نفس التاريخ والقيم) — قد تكون ضاعفت أثر المخزون. '
+    +'<button class="btn-sm btn-del" onclick="removeDupStockCounts()">إزالة التكرار بأمان</button></div>'):'';
   var rows=lg.map(function(op){
     return '<tr><td>'+esc(op.when||'—')+'</td><td>'+(op.count||0)+' صنف</td><td class="neg">'+money(op.shortageVal||0)+'</td><td class="pos">'+money(op.surplusVal||0)+'</td><td class="name muted">'+esc(op.by||'')+'</td><td><button class="btn-sm" onclick="restoreStockCount(\''+op.id+'\')">تراجع</button></td></tr>';
   }).join('');
-  box.innerHTML='<div class="sec-title" style="margin-top:6px">سجل الجرد <span class="hint">للتراجع عن التسوية</span></div>'
+  box.innerHTML='<div class="sec-title" style="margin-top:6px">سجل الجرد <span class="hint">للتراجع عن التسوية</span></div>'+warn
     +'<div class="table-scroll"><table><thead><tr><th>التاريخ</th><th>الأصناف</th><th>عجز</th><th>زيادة</th><th class="name">نفّذها</th><th>إجراء</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
 }
 function restoreStockCount(opId){
