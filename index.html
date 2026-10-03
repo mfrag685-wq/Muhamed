@@ -923,6 +923,18 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
     <div id="sc_preview" style="margin-top:10px"></div>
     <div id="sc_log" style="margin-top:10px"></div>
   </div>
+
+  <div class="sec-title">حركة قيمة المخزون خلال فترة <span class="hint">يفسّر سبب تغيّر قيمة المخزون بالتفصيل</span></div>
+  <div class="note" style="border-right-color:var(--leaf-dark)">يوضّح كيف تغيّرت قيمة المخزون من بداية الفترة إلى نهايتها: <b>قيمة أول المدة + المشتريات + الإضافات/زيادة الجرد + مرتجع البيع (بالتكلفة) + قيمة مضافة بالإنتاج − تكلفة المبيعات − مرتجع الشراء − الفاقد/عجز الجرد = قيمة آخر المدة</b>. أي فرق غير مفسَّر يظهر صراحةً.</div>
+  <div class="doc-box no-print">
+    <div class="grid-2">
+      <div class="field"><label>من تاريخ</label><input type="date" id="iv_from"></div>
+      <div class="field"><label>إلى تاريخ</label><input type="date" id="iv_to"></div>
+    </div>
+    <div class="form-foot"><button class="btn-main" onclick="renderInvValueMovement()">احتساب حركة القيمة</button>
+      <button class="btn" onclick="ivThisMonth()">الشهر الحالي</button></div>
+    <div id="iv_box" style="margin-top:10px"></div>
+  </div>
 </section>
 
 <!-- ======================= فحص الأصناف (تشخيص الأرصدة) ======================= -->
@@ -1301,6 +1313,8 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
   </div>
   <div class="filters no-print">
     <div class="field"><label>اختر الشهر</label><input type="month" id="f_month" onchange="pickIncomeMonth()"></div>
+    <div class="field"><label>من شهر</label><input type="month" id="f_fromMonth" onchange="pickIncomeMonthRange()"></div>
+    <div class="field"><label>إلى شهر</label><input type="month" id="f_toMonth" onchange="pickIncomeMonthRange()"></div>
     <div class="field"><label>مستوى التفصيل</label><select id="incLevel" onchange="setIncomeLevel()">
       <option value="1">المستوى 1 — ملخّص</option>
       <option value="2">المستوى 2 — حسب الفئة</option>
@@ -1801,7 +1815,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-10-03-d';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-10-03-e';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -5313,6 +5327,50 @@ function renderConversions(){
       +'<td>'+actionBtns('conversions',r.id,'editConversion('+r.id+')')+'</td></tr>';
   }).join('')||'<tr><td colspan="9" class="empty">لا توجد تحويلات بين الأصناف.</td></tr>';
 }
+/* ===== حركة قيمة المخزون خلال فترة — أداة تدقيق تفسّر تغيّر القيمة وتكشف أي فرق ===== */
+function ivAddDays(dstr,n){ var dt=parseDate(dstr)||new Date(); dt=new Date(dt.getTime()+n*86400000); return new Date(dt.getTime()-dt.getTimezoneOffset()*60000).toISOString().slice(0,10); }
+function ivSumStockVal(snap){ var t=0; Object.keys(snap||{}).forEach(function(k){ t+=(+snap[k].cost||0); }); return t; }
+function ivThisMonth(){ var t=today(); setVal('iv_from',t.slice(0,8)+'01'); setVal('iv_to',t); renderInvValueMovement(); }
+function renderInvValueMovement(){
+  var box=document.getElementById('iv_box'); if(!box) return;
+  if(!L) refreshLedger();
+  if(!val('iv_from')&&!val('iv_to')){ var t=today(); setVal('iv_from',t.slice(0,8)+'01'); setVal('iv_to',t); }
+  var from=val('iv_from')||'', to=val('iv_to')||today();
+  var inP=function(d){ return (!from||d>=from)&&(d<=to); };
+  var opening=from?ivSumStockVal(stockAsOf(ivAddDays(from,-1))):0;
+  var closing=ivSumStockVal(stockAsOf(to));
+  var purch=0,addv=0,cogs=0,pret=0,sret=0,wst=0,prodAdd=0,convN=0;
+  db.purchases.forEach(function(p){ if(inP(p.date)) purch+=(+p.total||0); });
+  db.openingStock.forEach(function(o){ if(inP(o.date)) addv+=(+o.total||0); });
+  db.sales.forEach(function(s){ if(inP(s.date)) cogs+=(L.cogsDoc[s.id]||0); });
+  (db.preturns||[]).forEach(function(r){ if(inP(r.date)) pret+=(L.prCost[r.id]||0); });
+  (db.sreturns||[]).forEach(function(r){ if(inP(r.date)) sret+=(L.srCost[r.id]||0); });
+  (db.waste||[]).forEach(function(w){ if(inP(w.date)) wst+=(L.wasteCost[w.id]||0); });
+  (db.productions||[]).forEach(function(p){ if(inP(p.date)){ var pc=L.prodCost[p.id]; if(pc) prodAdd+=((+pc.labor||0)+(+pc.fixed||0)+(+pc.manual||0)); } });
+  (db.conversions||[]).forEach(function(c){ if(inP(c.date)) convN++; });
+  var expected=opening+purch+addv+sret+prodAdd-cogs-pret-wst;
+  var residual=closing-expected;
+  function row(lbl,v,cls,sub){ return '<tr><td class="name">'+esc(lbl)+(sub?' <span class="muted" style="font-size:11px">'+esc(sub)+'</span>':'')+'</td><td class="num '+(cls||'')+'">'+money(v)+'</td></tr>'; }
+  var h='<div class="note" style="border-right-color:var(--leaf-dark)"><b>الفترة: '+(from?esc(from):'البداية')+' ← '+esc(to)+'</b></div>'
+    +'<div class="table-scroll"><table><tbody>'
+    +row('قيمة المخزون أول المدة',opening)
+    +row('+ المشتريات (بالتكلفة)',purch,'pos')
+    +row('+ إضافات/رصيد افتتاحي/زيادة جرد',addv,'pos')
+    +row('+ مرتجع بيع عاد للمخزون (بالتكلفة)',sret,'pos')
+    +(prodAdd?row('+ قيمة مضافة بالإنتاج (عمالة/تحميل/يدوي)',prodAdd,'pos'):'')
+    +row('− تكلفة البضاعة المباعة',-cogs,'neg')
+    +row('− مرتجع شراء (خرج من المخزون)',-pret,'neg')
+    +row('− الفاقد/عجز الجرد',-wst,'neg')
+    +'<tr class="total-row"><td class="name">= قيمة المخزون المتوقّعة آخر المدة</td><td class="num">'+money(expected)+'</td></tr>'
+    +'<tr class="total-row"><td class="name">قيمة المخزون الفعلية آخر المدة (من الأرصدة)</td><td class="num">'+money(closing)+'</td></tr>'
+    +'</tbody></table></div>'
+    +'<div class="note" style="border-right-color:'+(Math.abs(residual)<1?'var(--leaf)':'var(--tomato)')+';margin-top:8px">'
+    +(Math.abs(residual)<1
+        ? '✅ القيمة متطابقة تماماً — كل التغيّر مُفسَّر بالحركات أعلاه. صافي التغيّر: <b>'+money(closing-opening)+'</b>.'
+        : '⚠ فرق غير مفسَّر: <b>'+money(residual)+'</b> — قد يعود إلى تحويلات بين الأقسام أو حالات خاصة؛ راجع حركات الفترة.')
+    +(convN?' <span class="muted">(يوجد '+convN+' تحويل بين الأصناف — محايد القيمة.)</span>':'')+'</div>';
+  box.innerHTML=h;
+}
 function renderStock(){
   var fw=val('st_wh'), fi=val('st_item');
   /* الرصيد كما في نهاية الشهر المختار (افتراضياً الحالي = الرصيد الآني) */
@@ -5596,9 +5654,21 @@ function pickIncomeMonth(){
   var m=val('f_month'); if(!m) return;
   var r=monthRangeOf(m+'-01');
   setVal('f_from',r.from); setVal('f_to',r.to); setVal('f_from2',r.from); setVal('f_to2',r.to);
+  setVal('f_fromMonth',''); setVal('f_toMonth','');   /* امسح نطاق الشهور لتجنّب التعارض */
   renderAll();
 }
-function clrMonth(){ var e=document.getElementById('f_month'); if(e) e.value=''; }
+/* اختيار نطاق شهور: من شهر إلى شهر (يشمل عدة شهور) */
+function pickIncomeMonthRange(){
+  var a=val('f_fromMonth'), b=val('f_toMonth');
+  if(!a&&!b) return;
+  if(!a) a=b; if(!b) b=a;
+  if(a>b){ var t=a; a=b; b=t; setVal('f_fromMonth',a); setVal('f_toMonth',b); }
+  var r1=monthRangeOf(a+'-01'), r2=monthRangeOf(b+'-01');
+  setVal('f_from',r1.from); setVal('f_to',r2.to); setVal('f_from2',r1.from); setVal('f_to2',r2.to);
+  var fm=document.getElementById('f_month'); if(fm) fm.value='';   /* امسح منتقي الشهر المفرد */
+  renderAll();
+}
+function clrMonth(){ ['f_month','f_fromMonth','f_toMonth'].forEach(function(id){ var e=document.getElementById(id); if(e) e.value=''; }); }
 /* منتقي الشهر في الملخص — يملأ الفترة من أول الشهر لآخره */
 function pickDashMonth(){
   var m=val('f_month_dash'); if(!m) return;
