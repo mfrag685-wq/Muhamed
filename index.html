@@ -871,6 +871,11 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
     <thead><tr><th>التاريخ</th><th class="name">المستودع</th><th class="name">الصنف</th><th>الوحدات</th>
       <th>الوزن</th><th>القيمة</th><th class="name">أدخلها</th><th>إجراء</th></tr></thead>
     <tbody id="tbOpeningStock"></tbody></table></div>
+  <div class="sec-title" id="stockAdjTitle" style="display:none">تسويات زيادة الجرد — تصحيح أرصدة سالبة (ليست مخزوناً مُضافاً) <span class="hint">ترفع الأصناف التي كانت بالسالب إلى رصيدها الصحيح؛ صافيها لا يزيد قيمة المخزون</span></div>
+  <div class="table-scroll" id="stockAdjWrap" style="display:none"><table>
+    <thead><tr><th>التاريخ</th><th class="name">المستودع</th><th class="name">الصنف</th><th>الوحدات</th>
+      <th>الوزن</th><th>القيمة</th><th class="name">أدخلها</th><th>إجراء</th></tr></thead>
+    <tbody id="tbStockAdj"></tbody></table></div>
 
   <div class="sec-title alt">تحويل رصيد بين صنفين (وحدة ↔ وزن) <span class="hint">نقل رصيد صنف إلى صنف آخر بمعامل تحويل — بلا ربح/خسارة</span></div>
   <div class="note" style="border-right-color:var(--sky)">ينقل كميةً من <b>صنف مصدر</b> إلى <b>صنف هدف</b> بمعامل تحويل. مثال: <b>1500 كيس ← صنف بالوزن بمعامل 1.5 = 2250 كغ</b> (والعكس). تنتقل <b>التكلفة كما هي</b> فلا يتأثر الربح؛ يقلّ رصيد المصدر ويزيد رصيد الهدف. <b>نزّل نسخة احتياطية قبل التحويل.</b></div>
@@ -1815,7 +1820,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-10-03-f';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-10-03-g';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -5423,15 +5428,21 @@ function renderStock(){
   document.getElementById('tbWaste').innerHTML=wh?wh+'<tr class="total-row"><td colspan="4">إجمالي تكلفة الفاقد</td><td>'+money(WT)+'</td><td colspan="2"></td></tr>'
     :'<tr><td colspan="7" class="empty">لا يوجد فاقد مسجل.</td></tr>';
 
-  var oh='',OT=0;
+  var oh='',OT=0, ah='',AT=0;
+  var isAdj=function(o){ return /جرد/.test(o.reason||''); };   /* تسوية جرد (تصحيح رصيد) — تُفصل عن الرصيد الافتتاحي اليدوي */
   db.openingStock.slice().sort(function(a,b){return a.date<b.date?1:-1;}).forEach(function(o){
-    OT+=+o.total||0;
-    oh+='<tr><td>'+esc(o.date)+'</td><td class="name">'+esc(whName(o.whId))+'</td><td class="name">'+esc(itemName(o.itemId))+'</td>'
+    var rowH='<tr><td>'+esc(o.date)+'</td><td class="name">'+esc(whName(o.whId))+'</td><td class="name">'+esc(itemName(o.itemId))+'</td>'
       +'<td>'+qty(o.units)+'</td><td>'+qty(o.units*o.uw)+' كغ</td><td>'+money(o.total)+'</td>'
       +'<td class="name muted">'+enteredBy(o)+'</td>'
-      +'<td>'+actionBtns('openingStock',o.id,'editOpeningStock('+o.id+')')+'</td></tr>'; });
+      +'<td>'+actionBtns('openingStock',o.id,'editOpeningStock('+o.id+')')+'</td></tr>';
+    if(isAdj(o)){ AT+=+o.total||0; ah+=rowH; } else { OT+=+o.total||0; oh+=rowH; }
+  });
   document.getElementById('tbOpeningStock').innerHTML=oh?oh+'<tr class="total-row"><td colspan="5">إجمالي قيمة الرصيد الافتتاحي</td><td>'+money(OT)+'</td><td colspan="2"></td></tr>'
     :'<tr><td colspan="8" class="empty">لا يوجد رصيد افتتاحي مسجل بعد.</td></tr>';
+  var adjT=document.getElementById('stockAdjTitle'), adjW=document.getElementById('stockAdjWrap'), adjB=document.getElementById('tbStockAdj');
+  if(adjB){ adjB.innerHTML=ah+(ah?'<tr class="total-row"><td colspan="5">إجمالي تسويات الجرد</td><td>'+money(AT)+'</td><td colspan="2"></td></tr>':''); }
+  if(adjT) adjT.style.display=ah?'':'none';
+  if(adjW) adjW.style.display=ah?'':'none';
   renderConversions(); renderStockCountUI(); if(document.getElementById('cv_fromItem')) cvRefresh();   /* تحويل الأصناف + الجرد (نُقلا إلى شاشة المخزون) */
 }
 
