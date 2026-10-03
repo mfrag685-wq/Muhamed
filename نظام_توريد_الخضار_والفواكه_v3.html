@@ -1799,7 +1799,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-10-03-b';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-10-03-c';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -1819,7 +1819,8 @@ function lsSet(k,v){
   try{ localStorage.setItem(k,v); }catch(e){ storageOK=false; }
 }
 function lsRemove(k){ try{ localStorage.removeItem(k); }catch(e){} }
-function persist(){ syncActiveDept(); markDeletions(); var s=JSON.stringify(serializeDB()); lsSet(KEY,s); if(typeof cloudPush==='function') cloudPush(s); }
+var _lastLocalStr='';   /* آخر نسخة نصية محفوظة محلياً — لتجنّب إعادة التسلسل الثقيل عند فحص صدى السحابة */
+function persist(){ syncActiveDept(); markDeletions(); var s=JSON.stringify(serializeDB()); _lastLocalStr=s; lsSet(KEY,s); if(typeof cloudPush==='function') cloudPush(s); }
 
 /* ---------- قاعدة البيانات ---------- */
 function hash(s){ var h=5381; s=String(s)+'::mfarag'; for(var i=0;i<s.length;i++) h=((h<<5)+h+s.charCodeAt(i))>>>0; return 'h'+h.toString(36); }
@@ -3081,7 +3082,7 @@ function cancelDoc(k){
 /* ==========================================================================
    الحفظ
    ========================================================================== */
-function commit(msg){ persist(); refreshLedger(); renderAll(); if(msg) toast(msg); }
+function commit(msg){ persist(); renderAfterCommit(); if(msg) toast(msg); }
 
 /* بعد حفظ فاتورة: تفريغ الأصناف والمبالغ فقط، مع إبقاء رأس الفاتورة (المورد/العميل،
    المستودع، التاريخ، الضريبة، الملاحظة) لتسريع إدخال الفاتورة التالية لنفس الجهة */
@@ -4779,7 +4780,7 @@ function pnl(from,to){
 /* ==========================================================================
    العرض
    ========================================================================== */
-function renderAll(){
+function renderCore(){
   refreshLedger(); fillAllSelects();
   var bt=document.getElementById('buildTag'); if(bt) bt.textContent='الإصدار '+APP_VERSION+' · بناء '+APP_BUILD;
   document.getElementById('coTitle').textContent=db.settings.company||'نظام توريد الخضار والفواكه';
@@ -4790,12 +4791,19 @@ function renderAll(){
   document.getElementById('incRange').textContent=txt;
   setVal('f_from2',r.from); setVal('f_to2',r.to); setVal('allocMethod',db.settings.alloc||'sales');
   renderPurchases(); renderSales(); renderReturns(); renderStock(); renderInterTransfers(); renderExpenses();
-  renderAccounts(); renderOpAcc(); renderProdTab(); renderIncome(); renderDash(); renderAdvisor(); renderReport(); renderAudit();
+  renderAccounts(); renderOpAcc(); renderProdTab();
   renderDraft('p'); renderDraft('s');
   document.getElementById('storageNote').innerHTML = storageOK
     ? 'البيانات تُحفظ تلقائياً في متصفح هذا الجهاز بعد كل عملية. نزّل نسخة احتياطية دورياً — مسح بيانات المتصفح يمحو السجلات.'
     : '<b>تنبيه:</b> المتصفح لا يسمح بالحفظ الدائم في هذا الوضع. احفظ الملف على جهازك وافتحه مباشرة، ونزّل نسخة احتياطية قبل الإغلاق.';
 }
+/* الشاشات الثقيلة (قوائم الدخل/الملخص والرسوم/المستشار/التقارير/السجل) — تُؤجَّل عن مسار الحفظ لتسريعه */
+function renderHeavy(){ try{ renderIncome(); renderDash(); renderAdvisor(); renderReport(); renderAudit(); }catch(e){ try{console.warn('renderHeavy',e);}catch(_){}} }
+var _heavyTimer=null;
+function scheduleHeavy(){ if(_heavyTimer) return; _heavyTimer=setTimeout(function(){ _heavyTimer=null; renderHeavy(); }, 60); }
+function renderAll(){ renderCore(); renderHeavy(); }
+/* تحديث بعد الحفظ: الشاشات الأساسية فوراً + الثقيلة بعد لحظة (يُسرّع الحفظ ويجمع الدفعات) */
+function renderAfterCommit(){ renderCore(); scheduleHeavy(); }
 /* ===== المستشار المالي — تحليل وتنبيهات وحلول ===== */
 /* لقطة رصيد المخزون كما كانت في نهاية الفترة (to) — تُبنى من الحركات فتعكس الفترة المختارة.
    فترة مفتوحة/تشمل اليوم ⇒ الرصيد الحالي. أصنافٌ صُفِّرت لا تظهر لها ملاحظات خارج فترتها. */
@@ -9083,15 +9091,25 @@ function cloudApplyRemote(remote){
   var remoteStr=JSON.stringify(remote);
   if(localSnap) remote=mergeCloud(localSnap,remote);
   db=remote; ensureDbShape();
-  var s=JSON.stringify(serializeDB()); lsSet(KEY,s);
+  var s=JSON.stringify(serializeDB()); _lastLocalStr=s; lsSet(KEY,s);
   resetKnownIds();   /* السجلّات القادمة من السحابة ليست حذفاً محلياً */
   refreshLedger();
   if(ME){
     var me=byId(db.users,ME.id); if(me){ ME=me; }
-    updateDeptUI(); applyPerms(); renderAll(); renderMaster(); renderUsers(); renderSettingsForm(); applyLogo();
+    updateDeptUI(); applyPerms(); scheduleFullRender();   /* تحديث مؤجَّل مجمَّع — يمنع تعليق المزامنة عند تتابع التحديثات */
   }
   /* إن أضاف الدمج سجلّات محلية أو شواهد حذف غير موجودة في السحابة → ارفع النسخة المدموجة كي تظهر للجميع */
   if(s!==remoteStr){ cloudLastPushed=''; cloudPush(); } else { cloudLastPushed=s; }
+}
+/* تحديث كامل مؤجَّل ومجمَّع (الشاشات + البيانات الأساسية/المستخدمين) — يُستخدم عند ورود تحديثات السحابة
+   كي لا تتسبّب سلسلة تحديثات متتابعة في إعادة رسم كامل متكرّر يُجمّد الواجهة */
+var _fullRenderTimer=null;
+function scheduleFullRender(){
+  if(_fullRenderTimer) return;
+  _fullRenderTimer=setTimeout(function(){ _fullRenderTimer=null;
+    if(_heavyTimer){ clearTimeout(_heavyTimer); _heavyTimer=null; }   /* renderAll يشمل الثقيلة — ألغِ المؤجَّل المكرّر */
+    try{ renderAll(); renderMaster(); renderUsers(); renderSettingsForm(); applyLogo(); }catch(e){ try{console.warn('fullRender',e);}catch(_){}}
+  }, 120);
 }
 /* الاشتراك في عقدة البيانات وتبنّي ما فيها أو رفع المحلي إن كانت فارغة */
 function cloudAttach(cb){
@@ -9110,7 +9128,7 @@ function cloudAttach(cb){
     cloudRef.on('value',function(s2){
       var val=s2.val(); cloudCheckBuild(val);
       var rs=cloudRemoteStr(val); if(!rs) return;
-      if(rs===cloudLastPushed||rs===JSON.stringify(serializeDB())) return; /* تجاهل صدى كتابتنا نحن */
+      if(rs===cloudLastPushed||rs===_lastLocalStr) return; /* تجاهل صدى كتابتنا نحن (بلا إعادة تسلسل ثقيلة) */
       var rd=cloudRemoteData(val); if(!rd||!Array.isArray(rd.users)) return;
       cloudApplyRemote(rd);
     });
