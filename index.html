@@ -1604,6 +1604,18 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
   </div>
   <div class="form-foot"><button class="btn-main" onclick="saveSettings()">حفظ الإعدادات</button></div>
 
+  <div class="sec-title">إغلاق الشهور (قفل الفترات) <span class="hint">يمنع أي تعديل على فترة مقفلة إلا بكلمة مرور المدير</span></div>
+  <div class="note" style="border-right-color:var(--citrus)">حدِّد تاريخاً، فتُقفَل كل الفترات حتى هذا التاريخ ضمناً (مشتريات/مبيعات/مصروفات/مرتجعات/مخزون/سداد…). أي إضافة أو تعديل أو حذف لسجلٍّ تاريخه داخل الفترة المقفلة سيتطلّب <b>كلمة مرور القفل</b>. القفل وتغيير كلمته لمدير النظام فقط.</div>
+  <div class="doc-box no-print" id="periodLockBox">
+    <div class="grid">
+      <div class="field"><label>مقفل حتى تاريخ (ضمناً)</label><input type="date" id="pl_until"></div>
+      <div class="field"><label>كلمة مرور القفل <span class="hint">اتركها فارغة للإبقاء على الحالية</span></label><input type="password" id="pl_pass" autocomplete="new-password" placeholder="••••••"></div>
+    </div>
+    <div class="form-foot"><button class="btn-main" onclick="savePeriodLock()">حفظ قفل الفترة</button>
+      <button class="btn btn-del" onclick="clearPeriodLock()">إلغاء القفل</button>
+      <span class="mini" id="pl_status"></span></div>
+  </div>
+
   <div class="sec-title">شعار المنشأة</div>
   <div class="note">يظهر الشعار في الترويسة وشاشة الدخول ورؤوس التقارير المطبوعة لكل المستخدمين فور الحفظ. يُفضَّل صورة مربعة (PNG أو JPG) — يُصغَّر تلقائياً لتقليل حجم البيانات.</div>
   <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
@@ -1820,7 +1832,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-10-04-a';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-10-04-b';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -3157,6 +3169,8 @@ function savePurchase(){
   if(!draft.p.lines.length){ toast('أضف صنفاً واحداً على الأقل'); return; }
   if(!val('p_supplier')){ toast('اختر المورد'); return; }
   if(draft.p.editId&&!guard('canEdit')) return;
+  if(!periodGuard(val('p_date'))) return;
+  if(draft.p.editId){ var _opp=byId(db.purchases,draft.p.editId); if(_opp&&!periodGuard(_opp.date)) return; }
   var wt=0; draft.p.lines.forEach(function(l){ wt+=l.units*l.uw; });
   var pRate=(val('p_vatrate')===''?vatRate():fnum('p_vatrate')), pMode=val('p_vatmode')||'add', pv=applyVat(draft.p.lines,pRate,pMode);
   var rec={id:draft.p.editId||uid(),no:val('p_no').trim(),date:val('p_date'),supplierId:+val('p_supplier'),
@@ -3197,6 +3211,8 @@ function saveSale(){
   if(!draft.s.lines.length){ toast('أضف صنفاً واحداً على الأقل'); return; }
   if(!val('s_client')){ toast('اختر العميل'); return; }
   if(draft.s.editId&&!guard('canEdit')) return;
+  if(!periodGuard(val('s_date'))) return;
+  if(draft.s.editId){ var _ops=byId(db.sales,draft.s.editId); if(_ops&&!periodGuard(_ops.date)) return; }
   var wt=0; draft.s.lines.forEach(function(l){ wt+=l.units*l.uw; });
   var sRate=(val('s_vatrate')===''?vatRate():fnum('s_vatrate')), sMode=val('s_vatmode')||'add', sv=applyVat(draft.s.lines,sRate,sMode);
   var rec={id:draft.s.editId||uid(),no:val('s_no').trim(),date:val('s_date'),clientId:+val('s_client'),
@@ -3246,6 +3262,8 @@ function onReturnType(silent){
 }
 function saveReturn(){
   if(!guard('canAdd')) return;
+  if(!periodGuard(val('r_date'))) return;
+  if(editId.r){ var _or=byId(db.preturns,editId.r)||byId(db.sreturns,editId.r); if(_or&&!periodGuard(_or.date)) return; }
   var t=val('r_type'), units=fnum('r_units'), uw=fnum('r_uw'), price=fnum('r_price'), b=val('r_basis');
   var itemId=+val('r_item'), whId=+val('r_wh');
   if(!val('r_party')){ toast('اختر الجهة'); return; }
@@ -3318,6 +3336,7 @@ function onTransferItem(){ applyKgFields('t',+val('t_item')); showXferAvail(); }
 function onWasteItem(){ applyKgFields('w',+val('w_item')); showWasteAvail(); }
 function saveTransfer(){
   if(!guard('canAdd')) return;
+  if(!periodGuard(val('t_date'))) return;
   var f=+val('t_from'), t=+val('t_to'), i=+val('t_item'), byKg=itemByKg(i);
   if(!i||!f||!t){ toast('أكمل بيانات التحويل'); return; }
   if(f===t){ toast('اختر مستودعين مختلفين'); return; }
@@ -3395,6 +3414,7 @@ function renderInterTransfers(){
 }
 function saveWaste(){
   if(!guard('canAdd')) return;
+  if(!periodGuard(val('w_date'))) return;
   var w=+val('w_wh'), i=+val('w_item'), byKg=itemByKg(i);
   if(byKg&&fnum('w_uw')<=0){ toast('أدخل وزن الصندوق (كغ)'); return; }
   var u=xferKg('w');
@@ -3406,6 +3426,8 @@ function saveWaste(){
 }
 function saveOpeningStock(){
   if(!guard('canAdd')) return;
+  if(!periodGuard(val('os_date')||today())) return;
+  if(editId.os){ var _oos=byId(db.openingStock,editId.os); if(_oos&&!periodGuard(_oos.date)) return; }
   var w=+val('os_wh'), i=+val('os_item'), u=fnum('os_units'), uw=fnum('os_uw'), b=val('os_basis'), pr=fnum('os_price');
   if(!w||!i){ toast('اختر المستودع والصنف'); return; }
   if(u<=0){ toast('أدخل عدد الوحدات'); return; }
@@ -3593,6 +3615,8 @@ function saveGroupExpense(){
   var t=val('e_type');
   if(t==='amounts'){ toast('السند المجمّع لا يدعم التوزيع اليدوي بمبالغ لكل فرع — اختر «مشترك» أو «مباشر» أو «نسب مئوية»'); return; }
   var date=val('e_date'); if(!date){ toast('أدخل التاريخ'); return; }
+  if(!periodGuard(date)) return;
+  if(editing){ var _oge=(db.expenses||[]).filter(function(x){return x.grp===grpEdit.grp;})[0]; if(_oge&&!periodGuard(_oge.date)) return; }
   var lines=expGrp.map(function(x){ return {cat:(x.cat||'').trim(),desc:(x.desc||'').trim(),amount:(+x.amount||0),dist:x.dist||'',distTarget:+x.distTarget||0}; }).filter(function(x){ return x.amount>0; });
   if(!lines.length){ toast('أضف بنداً واحداً على الأقل بمبلغ'); return; }
   if(lines.some(function(x){ return !x.cat; })){ toast('اختر تصنيف كل بند'); return; }
@@ -3659,6 +3683,8 @@ function editGroupVoucher(grp){
 function saveExpense(){
   if(!guard('canAdd')) return;
   var _g=document.getElementById('e_grouped'); if(_g&&_g.checked) return saveGroupExpense();   /* السند المجمّع (إضافة أو تعديل) */
+  if(!periodGuard(val('e_date'))) return;
+  if(editId.e){ var _oe=byId(db.expenses,editId.e); if(_oe&&!periodGuard(_oe.date)) return; }
   var t=val('e_type'), a=fnum('e_amount');
   if(a<=0){ toast('أدخل قيمة المصروف'); return; }
   if(!val('e_desc').trim()){ toast('أدخل بيان المصروف'); return; }
@@ -3718,6 +3744,8 @@ function onPayType(silent){
 function savePayment(){
   if(!guard('canAdd')) return;
   if(editId.pay&&!guard('canEdit')) return;
+  if(!periodGuard(val('pay_date'))) return;
+  if(editId.pay){ var _opay=byId(db.payments,editId.pay); if(_opay&&!periodGuard(_opay.date)) return; }
   var a=fnum('pay_amount');
   if(!val('pay_party')){ toast('اختر الجهة'); return; }
   if(a<=0){ toast('أدخل المبلغ'); return; }
@@ -4605,6 +4633,7 @@ function delRec(type,id){
   if(!guard('canDelete','لا تملك صلاحية الحذف')) return;
   var e=ENT[type]||['',''];
   var r=byId(db[type],id), d=e[1];
+  if(r&&r.date&&!periodGuard(r.date,'هذا السجل في فترة مقفلة — أدخل كلمة مرور القفل للحذف:')) return;
   var confirmMsg;
   if(type==='payments'&&r){
     var who=(r.type==='supplier'?supName(r.partyId):clientName(r.partyId));
@@ -5286,6 +5315,8 @@ var cvEditId=null;
 function saveConversion(){
   if(!guard('canAdd')) return;
   if(cvEditId&&!guard('canEdit')) return;
+  if(!periodGuard(val('cv_date'))) return;
+  if(cvEditId){ var _ocv=byId(db.conversions,cvEditId); if(_ocv&&!periodGuard(_ocv.date)) return; }
   var fromItem=+val('cv_fromItem'), toItem=+val('cv_toItem');
   var fromWh=+val('cv_fromWh'), toWh=+val('cv_toWh')||fromWh;
   var F=fnum('cv_fromUnits'), T=fnum('cv_toUnits');
@@ -6379,6 +6410,50 @@ function renderSettingsForm(){
   renderDeptImages(); renderMergeItemsUI(); renderStockResetUI();
   try{ renderStaleUsers(); }catch(e){}
   try{ renderWipeStatus(); }catch(e){}
+  try{ renderPeriodLock(); }catch(e){}
+}
+/* ===== قفل الفترات (إغلاق الشهور) ===== */
+var _periodUnlocked=false;
+function periodLockUntil(){ var p=db.settings&&db.settings.periodLock; return (p&&p.until)||''; }
+function periodLocked(date){ var u=periodLockUntil(); return !!(u&&date&&String(date)<=String(u)); }
+/* بوابة الفترة: تسمح إن لم تكن مقفلة، أو بعد إدخال كلمة مرور القفل الصحيحة (لهذه الجلسة) */
+function periodGuard(date,msg){
+  if(!periodLocked(date)) return true;
+  if(_periodUnlocked) return true;
+  var pl=db.settings.periodLock;
+  if(!pl||!pl.pass) return true;   /* لا كلمة مرور ⇒ لا منع فعلي */
+  var p=prompt('🔒 الفترة مقفلة حتى '+pl.until+'.\n'+(msg||'للتعديل أدخل كلمة مرور القفل:'));
+  if(p==null) return false;
+  if(hash(p)===pl.pass){ _periodUnlocked=true; toast('فُتح القفل لهذه الجلسة'); return true; }
+  toast('كلمة مرور القفل غير صحيحة — العملية ممنوعة'); return false;
+}
+function renderPeriodLock(){
+  var s=document.getElementById('pl_status'); setVal('pl_until',periodLockUntil());
+  var pl=db.settings&&db.settings.periodLock;
+  var box=document.getElementById('periodLockBox'); if(box) box.classList.toggle('hidden',!isAdmin());
+  if(!s) return;
+  if(periodLockUntil()) s.innerHTML='🔒 مقفل حتى <b>'+esc(periodLockUntil())+'</b>'+(pl&&pl.pass?' — محميّ بكلمة مرور':' — <span class="neg">بلا كلمة مرور (غير مفعّل)</span>')+(_periodUnlocked?' · <span class="pos">مفتوح لهذه الجلسة</span>':'');
+  else s.innerHTML='لا يوجد قفل مفعّل.';
+}
+function savePeriodLock(){
+  if(!isAdmin()){ alert('قفل الفترات لمدير النظام فقط.'); return; }
+  var until=val('pl_until'), pass=val('pl_pass');
+  if(!db.settings.periodLock) db.settings.periodLock={until:'',pass:''};
+  if(pass) db.settings.periodLock.pass=hash(pass);
+  if(until&&!db.settings.periodLock.pass){ toast('حدّد كلمة مرور للقفل أولاً'); return; }
+  db.settings.periodLock.until=until||'';
+  _periodUnlocked=false; setVal('pl_pass','');
+  log('data','الإعدادات','قفل الفترات حتى '+(until||'—'));
+  commit('تم حفظ قفل الفترة'); renderSettingsForm();
+}
+function clearPeriodLock(){
+  if(!isAdmin()){ alert('قفل الفترات لمدير النظام فقط.'); return; }
+  var pl=db.settings.periodLock;
+  if(!pl||!pl.until){ toast('لا يوجد قفل مفعّل'); return; }
+  if(pl.pass){ var p=prompt('أدخل كلمة مرور القفل لإلغائه:'); if(p==null) return; if(hash(p)!==pl.pass){ toast('كلمة المرور غير صحيحة'); return; } }
+  db.settings.periodLock.until=''; _periodUnlocked=true;
+  log('data','الإعدادات','إلغاء قفل الفترات');
+  commit('تم إلغاء قفل الفترة'); renderSettingsForm();
 }
 function saveSettings(){
   if(!guard('settings')) return;
@@ -6877,6 +6952,7 @@ function applyStockCount(){
   var d=scComputeDiffs();
   if(!d.length){ toast('لا توجد فروقات — اضغط «احتساب الفروقات» أولاً'); return; }
   var date=val('sc_date')||today();
+  if(!periodGuard(date,'الجرد يقع في فترة مقفلة — أدخل كلمة مرور القفل للمتابعة:')) return;
   var shortV=0,surV=0; d.forEach(function(x){ if(x.diff<0) shortV+=x.val; else surV+=x.val; });
   /* حماية من الازدواج: تسوية مطابقة (نفس التاريخ والعدد والقيم) مطبّقة سابقاً */
   var sigNew=date+'|'+d.length+'|'+Math.round(_wcR3(shortV)*100)+'|'+Math.round(_wcR3(surV)*100);
@@ -6945,6 +7021,7 @@ function restoreStockCount(opId){
   var S=String(opId);   /* المعرّف يأتي نصّاً من onclick بينما op.id رقم — نوحّد المقارنة */
   var lg=db.settings.stockCountLog||[], op=lg.filter(function(o){return String(o.id)===S;})[0];
   if(!op){ toast('التسوية غير موجودة'); return; }
+  if(!periodGuard(op.when,'تسوية الجرد تقع في فترة مقفلة — أدخل كلمة مرور القفل:')) return;
   if(!confirm('التراجع عن تسوية الجرد بتاريخ '+op.when+'؟ ستُحذف حركات العجز/الزيادة الناتجة عنها.')) return;
   var wi={}; (op.wasteIds||[]).forEach(function(x){ wi[String(x)]=1; });
   var oi={}; (op.openIds||[]).forEach(function(x){ oi[String(x)]=1; });
