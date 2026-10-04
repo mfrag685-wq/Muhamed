@@ -292,6 +292,23 @@ details.cat summary{cursor:pointer;list-style:none;display:flex;gap:8px;align-it
 details.cat summary::-webkit-details-marker{display:none}
 details.cat summary::before{content:'◂';color:var(--ink-3);transition:.15s}
 details.cat[open] summary::before{transform:rotate(-90deg)}
+/* موقع الحساب */
+a.acc{color:inherit;text-decoration:underline dotted;text-underline-offset:4px;cursor:pointer}
+a.acc:hover{color:var(--leaf-dark)}
+.doc-print a.acc{text-decoration:none}
+.crumb{display:flex;flex-wrap:wrap;align-items:center;gap:4px;background:var(--surface-2);border-radius:12px;padding:10px 12px;font-size:13.5px;font-weight:700;color:var(--ink-2)}
+.crumb i{color:var(--ink-3);font-style:normal}
+.crumb .last{background:var(--ink);color:#fff;border-radius:8px;padding:2px 8px}
+.effect{margin-top:10px;border-radius:12px;padding:10px 12px;font-size:14px}
+.effect.up{background:var(--leaf-soft);color:var(--leaf-dark)}.effect.down{background:var(--sky-soft);color:var(--sky)}
+.ainf{background:#fff;border:1px solid var(--line-soft);border-radius:10px;padding:8px 10px;font-size:13.5px;font-weight:700}
+.coa-l2{font-weight:800;color:var(--ink);margin:12px 4px 4px;font-size:14px}
+.coa-l3{font-size:12.5px;color:var(--ink-3);font-weight:800;margin:8px 10px 4px}
+.coa-acc{display:flex;align-items:center;gap:8px;width:100%;background:#fff;border:1px solid var(--line-soft);border-radius:10px;padding:8px 10px;margin-bottom:5px;text-align:right}
+.coa-acc:hover{border-color:var(--leaf)}
+.coa-c{color:var(--ink-3);font-size:12.5px;min-width:38px}.coa-n{flex:1;font-weight:700;font-size:13.5px}
+.coa-b{min-width:80px;text-align:left;font-weight:800;font-size:13px}.coa-b.neg{color:var(--tomato)}
+.jwarn{margin-top:8px;background:var(--citrus-soft);color:#7a4f0a;border-radius:12px;padding:10px 12px;font-size:13px;line-height:1.8}
 /* إشعار */
 #toast{position:fixed;bottom:calc(var(--nav-h) + var(--safe-b) + 14px);left:50%;transform:translateX(-50%) translateY(20px);
   background:var(--ink);color:#fff;padding:10px 18px;border-radius:22px;font-size:13.5px;font-weight:700;opacity:0;pointer-events:none;transition:.2s;z-index:400;max-width:92vw;text-align:center}
@@ -823,7 +840,7 @@ var TREAT_BY_ID={}; TREATS.forEach(function(t){ TREAT_BY_ID[t.id]=t; });
 /* ==========================================================================
    النواة: أدوات عامة + قاعدة البيانات + الصلاحيات + الدخول + المزامنة السحابية
    ========================================================================== */
-var APP_BUILD='2026-10-03-p4';
+var APP_BUILD='2026-10-04-p5';
 var LS_DB='mfp_db_v1', LS_SES='mfp_session_v1';
 
 function $(id){ return document.getElementById(id); }
@@ -1228,7 +1245,7 @@ function jeTable(lines,title){
   var td=0,tc=0; lines.forEach(function(l){ td+=l.dr; tc+=l.cr; });
   return '<div class="je">'+(title?'<div style="padding:8px 12px;font-weight:800;font-size:13px;background:var(--surface-2);border-bottom:1px solid var(--line-soft)">'+esc(title)+'</div>':'')
     +'<table><thead><tr><th>الحساب</th><th class="r">مدين</th><th class="r">دائن</th></tr></thead><tbody>'
-    +lines.map(function(l){ return '<tr><td class="'+(l.cr?'ind':'')+'">'+(l.cr?'إلى ح/ ':'من ح/ ')+esc(accName(l.a))+' <span class="mini num">'+l.a+'</span></td><td class="r dr">'+(l.dr?money(l.dr):'')+'</td><td class="r cr">'+(l.cr?money(l.cr):'')+'</td></tr>'; }).join('')
+    +lines.map(function(l){ return '<tr><td class="'+(l.cr?'ind':'')+'">'+(l.cr?'إلى ح/ ':'من ح/ ')+accLink(l.a,l.cr?'cr':'dr')+' <span class="mini num">'+l.a+'</span></td><td class="r dr">'+(l.dr?money(l.dr):'')+'</td><td class="r cr">'+(l.cr?money(l.cr):'')+'</td></tr>'; }).join('')
     +'</tbody><tfoot><tr><td>الإجمالي '+(Math.abs(td-tc)<0.01?'<span class="pill pill-ok">متوازن ✓</span>':'<span class="pill pill-bad">غير متوازن</span>')+'</td><td class="r">'+money(td)+'</td><td class="r">'+money(tc)+'</td></tr></tfoot></table></div>';
 }
 function refreshJE(){ var e=$('jeBox'); if(e&&G.sel) e.innerHTML=buildJE(G.sel).map(function(x){ return jeTable(x.lines,x.t); }).join(''); }
@@ -2216,7 +2233,7 @@ var AUD_CYCLES=[
    ['الحصول على خطاب إفادة الإدارة','—','ISA 580'],['مراجعة الإفصاحات وقائمة التحقق من العرض','العرض','ISA 700'],['مراجعة رقابة الجودة على الارتباط','—','ISQM 1']]}
 ];
 var RISK_AREAS=['الإيرادات والاعتراف بها','الذمم المدينة والمخصصات','المخزون وتقييمه','عقود المقاولات ونسبة الإنجاز','الأصول الثابتة','المشتريات والموردون','الرواتب ونهاية الخدمة','النقد والبنوك','الزكاة والضرائب','الأطراف ذات العلاقة','تجاوز الإدارة للرقابة'];
-var AT={tab:'mat'};
+var AT={tab:'health'};
 function engYear(){ return AT.year||String(new Date().getFullYear()); }
 function curEng(create){ var y=engYear(), e=live('eng').filter(function(x){ return x.year===y; })[0];
   if(!e&&create){ e={id:uid(),c:Date.now(),u:Date.now(),year:y,client:DB.company.name,mat:{},prog:{},risk:{},rep:{},by:ME.name}; DB.eng.push(e); } return e; }
@@ -2240,12 +2257,12 @@ function fsFigures(){
   return {rev:rev,cogs:cogs,gp:rev-cogs,exp:exp,np:rev-exp,pbz:rev-exp+zak,curA:curA,inv:inv,cash:cashA,ar:ar,ap:ap,curL:curL,totL:totL,totA:totA,eq:eq,fin:fin,purch:purch}; }
 
 VIEWS.auditor=function(){
-  var tabs=[['mat','⚖️ الأهمية النسبية'],['ana','📊 الإجراءات التحليلية'],['prog','✅ برامج المراجعة'],['risk','🎯 مصفوفة المخاطر'],['rep','📝 مسودة التقرير']];
+  var tabs=[['health','🩺 سلامة الدفاتر'],['mat','⚖️ الأهمية النسبية'],['ana','📊 الإجراءات التحليلية'],['prog','✅ برامج المراجعة'],['risk','🎯 مصفوفة المخاطر'],['rep','📝 مسودة التقرير']];
   var years={}; years[engYear()]=1; live('eng').forEach(function(e){ years[e.year]=1; }); postedJE().forEach(function(j){ years[String(j.date).slice(0,4)]=1; });
   var h='<div class="page-head"><div><h2>🧑‍⚖️ أدوات المراجع</h2><p>ارتباط مراجعة للسنة المالية — وفق المعايير الدولية للمراجعة المعتمدة في المملكة</p></div>'
    +'<div><label>السنة المالية</label><select onchange="AT.year=this.value;render()">'+Object.keys(years).sort().reverse().map(function(y){ return '<option'+(y===engYear()?' selected':'')+'>'+y+'</option>'; }).join('')+'</select></div></div>'
    +'<div class="seg">'+tabs.map(function(t){ return '<button class="'+(AT.tab===t[0]?'active':'')+'" onclick="AT.tab=\''+t[0]+'\';render()">'+t[1]+'</button>'; }).join('')+'</div>';
-  return h+({mat:matView,ana:anaView,prog:progView,risk:riskView,rep:repView}[AT.tab])();
+  return h+({health:healthView,mat:matView,ana:anaView,prog:progView,risk:riskView,rep:repView}[AT.tab])();
 };
 
 /* ===== ISA 320 ===== */
@@ -2848,7 +2865,7 @@ famKw();
 function caseDefaults(t,amt){ var o={amt:amt,pj:''}; (t.inp||[]).forEach(function(i){ o[i.k]=i.d; }); return o; }
 function miniJE(t,amt){ var r=[]; try{ r=t.je?t.je(caseDefaults(t,amt)):[]; }catch(e){ r=[]; } if(r.length&&!r[0].lines) r=[{t:'',lines:r}];
   var e=r[0]; if(!e) return ''; var ls=e.lines.filter(function(l){ return l&&r2(l.v)>0; });
-  return '<div class="mje">'+ls.map(function(l){ return '<div class="'+(l.d?'d':'c')+'"><span>'+(l.d?'من ح/ ':'إلى ح/ ')+esc(accName(l.d||l.c))+'</span><b class="num">'+fmt(l.v,0)+'</b></div>'; }).join('')
+  return '<div class="mje">'+ls.map(function(l){ return '<div class="'+(l.d?'d':'c')+'"><span>'+(l.d?'من ح/ ':'إلى ح/ ')+accLink(l.d||l.c,l.d?'dr':'cr')+'</span><b class="num">'+fmt(l.v,0)+'</b></div>'; }).join('')
     +(r.length>1?'<div class="more">+ '+(r.length-1)+' قيد لاحق ('+esc(r.slice(1).map(function(x){ return x.t; }).join('، '))+')</div>':'')+'</div>'; }
 function caseCard(t,amt,i){
   return '<div class="case" role="button" tabindex="0" onclick="pickTreat(\''+t.id+'\')" onkeydown="if(event.key===\'Enter\')pickTreat(\''+t.id+'\')">'
@@ -2904,6 +2921,151 @@ browseTreats=function(){
   return '<div class="panel"><h3>🗂️ تصفّح كل الحالات حسب الفئة</h3>'+keys.map(function(c){ var L=cats[c].sort(function(a,b){ return (a.ord||99)-(b.ord||99); });
     return '<details class="cat"'+(c==='رواتب'?' open':'')+'><summary><b>'+c+'</b> <span class="pill pill-mute num">'+L.length+'</span></summary><div class="match-list" style="margin-top:8px">'
       +L.map(function(t){ return '<button onclick="pickTreat(\''+t.id+'\')"><b>'+esc(t.n)+'</b><span>'+t.std.join(' • ')+'</span></button>'; }).join('')+'</div></details>'; }).join('')+'</div>'; };
+
+/* ==========================================================================
+   v5 — موقع الحساب في الدليل المحاسبي (اضغط أي طرف في أي قيد) + شجرة دليل الحسابات
+   + تنبيهات المراجع على القيد اليدوي + فحص سلامة الدفاتر
+   ========================================================================== */
+/* [الحسابات، المسار، القائمة (fp مركز مالي / pl ربح أو خسارة)، متداول c / غير متداول n، المرجع، ملاحظة العرض] */
+var CG=[
+ [['1101','1102'],['الأصول','الأصول المتداولة','النقد وما في حكمه'],'fp','c','IAS 7','النقد في الصندوق والحسابات الجارية والودائع قصيرة الأجل (3 أشهر فأقل) غير المقيّدة. أول بند في الأصول المتداولة.'],
+ [['1251'],['الأصول','الأصول المتداولة','النقد المقيّد'],'fp','c','IAS 7','نقد محجوز (مثل غطاء خطابات الضمان) لا يُدرج ضمن النقد وما في حكمه، ويُفصح عن القيد عليه.'],
+ [['1201','1202','1203','1205'],['الأصول','الأصول المتداولة','الذمم المدينة التجارية وأصول العقود'],'fp','c','IFRS 9 / IFRS 15','تُعرض بالصافي بعد مخصص الخسائر الائتمانية المتوقعة؛ أصول العقود منفصلة عن الذمم غير المشروطة.'],
+ [['1110','1111','1240','1250','1270'],['الأصول','الأصول المتداولة','المدينون الآخرون والسلف'],'fp','c','IFRS 9 / IAS 24','المستحق من الأطراف ذات العلاقة يُفصح عنه منفصلاً (IAS 24). التأمينات المستردة طويلة الأجل تُصنّف غير متداولة.'],
+ [['1210','1220','1230','1260'],['الأصول','الأصول المتداولة','المدفوعات المقدمة والأرصدة المدينة الأخرى'],'fp','c','IAS 1','ضريبة المدخلات تُقاص مع المخرجات عند وجود حق نظامي بالمقاصة.'],
+ [['1301','1302'],['الأصول','الأصول المتداولة','المخزون'],'fp','c','IAS 2','بالتكلفة أو صافي القيمة القابلة للتحقق أيهما أقل.'],
+ [['1350'],['الأصول','الأصول المتداولة','أصول محتفظ بها للبيع'],'fp','c','IFRS 5','تُعرض في بند مستقل ولا تُهلك.'],
+ [['1401'],['الأصول','الأصول غير المتداولة','الاستثمارات المالية'],'fp','n','IFRS 9','المحتفظ بها للمتاجرة تُصنّف متداولة.'],
+ [['1501','1502','1503','1540'],['الأصول','الأصول غير المتداولة','الممتلكات والآلات والمعدات'],'fp','n','IAS 16','تُعرض بالصافي (التكلفة − مجمع الإهلاك)، والأعمال تحت التنفيذ لا تُهلك حتى الجاهزية.'],
+ [['1510','1511'],['الأصول','الأصول غير المتداولة','أصول حق الاستخدام'],'fp','n','IFRS 16','تُعرض منفصلة أو ضمن الممتلكات مع الإفصاح.'],
+ [['1520'],['الأصول','الأصول غير المتداولة','العقارات الاستثمارية'],'fp','n','IAS 40',''],
+ [['1530','1531'],['الأصول','الأصول غير المتداولة','الأصول غير الملموسة'],'fp','n','IAS 38',''],
+ [['1600'],['الأصول','الأصول غير المتداولة','أصول ضريبية مؤجلة'],'fp','n','IAS 12','لا تُصنّف متداولة أبداً (IAS 1.56).'],
+ [['2101','2102','2110','2111','2112','2190'],['الالتزامات','الالتزامات المتداولة','الذمم الدائنة والمستحقات'],'fp','c','IAS 1 / IAS 19',''],
+ [['2120','2121'],['الالتزامات','الالتزامات المتداولة','التزامات العقود والإيرادات المؤجلة'],'fp','c','IFRS 15',''],
+ [['2130','2131','2140','2141'],['الالتزامات','الالتزامات المتداولة','الزكاة والضرائب المستحقة'],'fp','c','IAS 12 / الزكاة',''],
+ [['2170','2180'],['الالتزامات','الالتزامات المتداولة','القروض والتزامات الإيجار'],'fp','c','IFRS 9 / IFRS 16','يُفصل الجزء المستحق خلال 12 شهراً (متداول) عن الباقي (غير متداول).'],
+ [['2150','2160'],['الالتزامات','الالتزامات المتداولة','المخصصات والتوزيعات المستحقة'],'fp','c','IAS 37',''],
+ [['2201'],['الالتزامات','الالتزامات غير المتداولة','القروض طويلة الأجل'],'fp','n','IFRS 9',''],
+ [['2210'],['الالتزامات','الالتزامات غير المتداولة','التزامات منافع الموظفين'],'fp','n','IAS 19','مكافأة نهاية الخدمة — خطة منافع محددة.'],
+ [['2220'],['الالتزامات','الالتزامات غير المتداولة','منح حكومية مؤجلة'],'fp','n','IAS 20',''],
+ [['2230'],['الالتزامات','الالتزامات غير المتداولة','التزامات ضريبية مؤجلة'],'fp','n','IAS 12',''],
+ [['3101'],['حقوق الملكية','رأس المال'],'fp','','IAS 1',''],
+ [['3102','3103'],['حقوق الملكية','حسابات الشركاء'],'fp','','IAS 32','في الشركات ذات الشخصية الاعتبارية قد يُصنّف جاري الشريك التزاماً أو ذمة مدينة حسب جوهره.'],
+ [['3201'],['حقوق الملكية','الأرباح المبقاة'],'fp','','IAS 1','يُقفل فيها صافي ربح أو خسارة السنة.'],
+ [['3301','3302'],['حقوق الملكية','الاحتياطيات (الدخل الشامل الآخر المتراكم)'],'fp','','IAS 1 / IAS 19','تتحرك عبر قائمة الدخل الشامل الآخر، ولا يُعاد تصنيف إعادة قياس المنافع إلى الربح أو الخسارة.'],
+ [['4101','4102','4207','4103'],['قائمة الربح أو الخسارة','الإيرادات'],'pl','','IFRS 15','المردودات والمسموحات تُخصم من الإيراد.'],
+ [['4201','4202','4203','4204','4205','4206','4208','4210','4211','4212'],['قائمة الربح أو الخسارة','إيرادات أخرى ومكاسب'],'pl','','IAS 1',''],
+ [['4209'],['قائمة الربح أو الخسارة','إيرادات التمويل'],'pl','','IFRS 9 / IFRS 18',''],
+ [['5101','5102','5103','5104'],['قائمة الربح أو الخسارة','تكلفة الإيرادات'],'pl','','IAS 2 / IFRS 15','الإيرادات − تكلفة الإيرادات = مجمل الربح.'],
+ [['5201','5202','5203','5264'],['قائمة الربح أو الخسارة','المصروفات التشغيلية','منافع الموظفين'],'pl','','IAS 19',''],
+ [['5216','5228','5229'],['قائمة الربح أو الخسارة','المصروفات التشغيلية','مصروفات البيع والتسويق'],'pl','','IAS 1',''],
+ [['5210','5211','5212','5213','5214','5215','5217','5218','5219','5223','5224','5225','5226','5227','5267','5268','5269'],['قائمة الربح أو الخسارة','المصروفات التشغيلية','مصروفات إدارية وعمومية'],'pl','','IAS 1',''],
+ [['5220','5221','5222'],['قائمة الربح أو الخسارة','المصروفات التشغيلية','الإهلاك والاستهلاك والإطفاء'],'pl','','IAS 16 / IFRS 16 / IAS 38',''],
+ [['5230','5231','5232','5265','5266'],['قائمة الربح أو الخسارة','المصروفات التشغيلية','خسائر الهبوط والائتمان والمخزون'],'pl','','IFRS 9 / IAS 36 / IAS 2','خسائر الهبوط الائتماني تُعرض في بند مستقل (IAS 1.82).'],
+ [['5241','5242','5250','5251','5262','5263'],['قائمة الربح أو الخسارة','مصروفات وخسائر أخرى'],'pl','','IAS 1 / IAS 37',''],
+ [['5240'],['قائمة الربح أو الخسارة','تكاليف التمويل'],'pl','','IFRS 9 / IAS 23','بند إلزامي مستقل في قائمة الربح أو الخسارة.'],
+ [['5260','5261'],['قائمة الربح أو الخسارة','الزكاة وضريبة الدخل'],'pl','','IAS 12 / الزكاة','تُعرض بعد «الربح قبل الزكاة وضريبة الدخل».']
+];
+var CONTRA={'1205':'مخصص يُخصم من الذمم المدينة','1502':'يُخصم من تكلفة الممتلكات','1511':'يُخصم من أصول حق الاستخدام','1531':'يُخصم من الأصول غير الملموسة','4103':'يُخصم من الإيرادات','3103':'يُخصم من حقوق الملكية'};
+var CG_BY={}; CG.forEach(function(g){ g[0].forEach(function(c){ CG_BY[c]=g; }); });
+function accGroup(c){ c=String(c); if(CG_BY[c]) return CG_BY[c]; var t=accType(c);
+  return [[c],t==='asset'?['الأصول','أصول أخرى']:t==='liab'?['الالتزامات','التزامات أخرى']:t==='equity'?['حقوق الملكية','أخرى']:t==='rev'?['قائمة الربح أو الخسارة','إيرادات أخرى']:['قائمة الربح أو الخسارة','مصروفات أخرى'],t==='rev'||t==='exp'?'pl':'fp','','IAS 1','']; }
+function accNature(c){ var t=accType(c), n=(t==='asset'||t==='exp')?'dr':'cr'; if(CONTRA[c]) n=n==='dr'?'cr':'dr'; return n; }
+function accBalOf(c){ var b=0; postedJE().forEach(function(j){ j.lines.forEach(function(l){ if(String(l.a)===String(c)) b+=(+l.dr||0)-(+l.cr||0); }); }); return r2(b); }
+function accLink(c,side){ return '<a class="acc" href="javascript:void 0" onclick="event.stopPropagation();accInfo(\''+c+'\''+(side?',\''+side+'\'':'')+')">'+esc(accName(c))+'</a>'; }
+
+function accInfo(c,side){
+  c=String(c); var g=accGroup(c), nat=accNature(c), t=accType(c), path=g[1][g[1].length-1]===accName(c)?g[1].slice():g[1].concat([accName(c)]);
+  var stName=g[2]==='pl'?'قائمة الربح أو الخسارة':'قائمة المركز المالي', cls=g[3]==='c'?'متداول':g[3]==='n'?'غير متداول':'';
+  var natTxt=nat==='dr'?'مدين — يزيد بالمدين ويقل بالدائن':'دائن — يزيد بالدائن ويقل بالمدين';
+  var h='<div class="crumb">'+path.map(function(p,i){ return '<span'+(i===path.length-1?' class="last"':'')+'>'+esc(p)+'</span>'; }).join('<i>›</i>')+'</div>';
+  if(side){ var up=(side==='dr')===(nat==='dr');
+    h+='<div class="effect '+(up?'up':'down')+'"><b>'+(up?'⬆ زيادة':'⬇ نقص')+'</b> في رصيد «'+esc(accName(c))+'» — لأنه '+(side==='dr'?'مدين':'دائن')+' في هذا القيد وطبيعته '+(nat==='dr'?'مدينة':'دائنة')+'.</div>'; }
+  var bal=accBalOf(c), shown=nat==='dr'?bal:-bal;
+  h+='<div class="grid g2" style="gap:8px;margin:12px 0">'
+    +[['رقم الحساب','<span class="num">'+c+'</span>'],['القائمة المالية',stName],['التصنيف',(cls||(t==='equity'?'حقوق ملكية':(t==='rev'?'إيراد':'مصروف')))],
+      ['الطبيعة',natTxt],['المعيار المرجعي','<span class="pill pill-info">'+esc(g[4])+'</span>'],['الرصيد الحالي (مرحّل)',money(Math.abs(shown))+' <span class="mini">'+(Math.abs(bal)<0.005?'':(shown>=0?(nat==='dr'?'مدين':'دائن'):'⚠ عكس طبيعته'))+'</span>']]
+      .map(function(x){ return '<div class="ainf"><span class="mini">'+x[0]+'</span><div>'+x[1]+'</div></div>'; }).join('')+'</div>';
+  if(CONTRA[c]) h+='<div class="disclaimer" style="margin-bottom:8px">↔️ <b>حساب مقابل (Contra):</b> '+esc(CONTRA[c])+'، لذلك طبيعته عكس مجموعته.</div>';
+  if(g[5]) h+='<div class="disclaimer" style="margin-bottom:8px">📌 <b>العرض والإفصاح:</b> '+esc(g[5])+'</div>';
+  if(g[2]==='pl') h+='<div class="disclaimer" style="margin-bottom:8px">🔄 حساب مؤقت: يُقفل رصيده في نهاية السنة المالية في «الأرباح المبقاة».</div>';
+  var sib=g[0].filter(function(x){ return x!==c&&COA[x]; });
+  if(sib.length) h+='<div style="font-weight:800;margin:12px 0 6px">حسابات أخرى في «'+esc(g[1][g[1].length-1])+'»</div><div class="tags">'+sib.map(function(x){ return '<button class="tag" style="cursor:pointer" onclick="closeModal();accInfo(\''+x+'\')"><span class="num">'+x+'</span> '+esc(COA[x])+'</button>'; }).join('')+'</div>';
+  var f=can('journal')&&can('reports')?'<button class="btn-main" onclick="closeModal();RP.id=\'ledger\';RP.acc=\''+c+'\';go(\'reports\')">📗 دفتر الأستاذ لهذا الحساب</button>':'';
+  f+='<button class="btn" onclick="closeModal();COAF.open=\''+g[1][0]+'\';go(\'coa\')">🌳 موقعه في شجرة الحسابات</button>';
+  modal('📍 '+esc(accName(c)),h,f);
+}
+/* ===== شجرة دليل الحسابات ===== */
+var COAF={q:'',open:'الأصول'};
+VIEWS.coa=function(){
+  var tops=[], tree={}; CG.forEach(function(g){ var p=g[1], t=p[0]; if(!tree[t]){ tree[t]=[]; tops.push(t); } tree[t].push(g); });
+  var q=norm(COAF.q), bal={}; postedJE().forEach(function(j){ j.lines.forEach(function(l){ bal[l.a]=(bal[l.a]||0)+(+l.dr||0)-(+l.cr||0); }); });
+  var h='<div class="page-head"><div><h2>🌳 دليل الحسابات</h2><p>الهيكل وفق متطلبات العرض في IAS 1 — اضغط أي حساب لمعرفة موقعه وطبيعته ورصيده</p></div>'
+    +(can('reports','p')?'<button class="btn" onclick="printCOA()">🖨️ طباعة الدليل بالأرصدة</button>':'')+'</div>'
+    +'<div class="toolbar"><input type="search" placeholder="ابحث برقم الحساب أو اسمه…" value="'+esc(COAF.q)+'" oninput="COAF.q=this.value;clearTimeout(window._ct);window._ct=setTimeout(function(){render();var i=document.querySelector(\'#view .toolbar input\');i.focus();i.setSelectionRange(i.value.length,i.value.length);},250)"></div>';
+  tops.forEach(function(t,ti){ var sub={}, subs=[];
+    tree[t].forEach(function(g){ var k=g[1][1]; if(!sub[k]){ sub[k]=[]; subs.push(k); } sub[k].push(g); });
+    var body='', hit=false;
+    subs.forEach(function(s){ var rows='';
+      sub[s].forEach(function(g){ var leaf=g[1][2]||null, accs=g[0].filter(function(c){ return COA[c]&&(!q||norm(c+' '+COA[c]).indexOf(q)>=0); }); if(!accs.length) return; hit=true;
+        rows+=(leaf?'<div class="coa-l3">'+esc(leaf)+' <span class="pill pill-info">'+esc(g[4])+'</span></div>':'')
+          +accs.map(function(c){ var b=bal[c]||0, n=accNature(c), v=n==='dr'?b:-b;
+            return '<button class="coa-acc" onclick="accInfo(\''+c+'\')"><span class="num coa-c">'+c+'</span><span class="coa-n">'+esc(COA[c])+(CONTRA[c]?' <span class="pill pill-mute">مقابل</span>':'')+'</span><span class="pill '+(n==='dr'?'pill-ok':'pill-info')+'">'+(n==='dr'?'مدين':'دائن')+'</span><span class="num coa-b'+(v<-0.005?' neg':'')+'">'+(Math.abs(b)>0.005?fmt(v):'—')+'</span></button>'; }).join(''); });
+      if(rows) body+='<div class="coa-l2">'+esc(s)+'</div>'+rows; });
+    if(!hit) return;
+    h+='<details class="cat coa"'+(q||COAF.open===t?' open':'')+'><summary><b>'+(ti+1)+' — '+esc(t)+'</b></summary>'+body+'</details>'; });
+  return h;
+};
+function printCOA(){ var bal={}; postedJE().forEach(function(j){ j.lines.forEach(function(l){ bal[l.a]=(bal[l.a]||0)+(+l.dr||0)-(+l.cr||0); }); });
+  var rows=''; CG.forEach(function(g){ g[0].forEach(function(c){ if(!COA[c]) return; var n=accNature(c), b=bal[c]||0; rows+='<tr><td class="num">'+c+'</td><td>'+esc(COA[c])+'</td><td>'+esc(g[1].join(' › '))+'</td><td>'+(n==='dr'?'مدين':'دائن')+'</td><td class="num">'+(Math.abs(b)>0.005?fmt(n==='dr'?b:-b):'')+'</td></tr>'; }); });
+  printHTML('دليل الحسابات',null,today(),[],'<table><thead><tr><th>الرقم</th><th>الحساب</th><th>الموقع</th><th>الطبيعة</th><th>الرصيد</th></tr></thead><tbody>'+rows+'</tbody></table>'); }
+NAV.splice(NAV.map(function(n){ return n.id; }).indexOf('journal')+1,0,{id:'coa',ic:'🌳',n:'دليل الحسابات',mod:'journal',g:'المحاسبة والمراجعة'});
+
+/* ===== تنبيهات المراجع على القيد اليدوي (قبل الحفظ) ===== */
+var CONTROL={'1201':'العملاء','2101':'الموردون','1202':'محتجزات العملاء','2102':'محتجزات مقاولي الباطن','1240':'الأطراف ذات العلاقة','1111':'سلف الموظفين'};
+var _totJE=totJE;
+totJE=function(){ _totJE(); var w=[], d=0;
+  JEF.lines.forEach(function(l){ if(!l.a) return; var a=String(l.a), t=accType(a), v=(+l.dr||0)+(+l.cr||0); d+=+l.dr||0;
+    if(CONTROL[a]&&!l.p) w.push('«'+accName(a)+'» حساب رقابي — حدّد الطرف ليظهر في كشف حسابه ويطابق الحساب الإجمالي.');
+    if(t==='rev'&&a!=='4103'&&(+l.dr||0)>0) w.push('قيد مدين على حساب إيراد «'+accName(a)+'» — يجب أن يكون تصحيحاً أو تخفيضاً موثّقاً.');
+    if(t==='exp'&&(+l.cr||0)>0) w.push('قيد دائن على حساب مصروف «'+accName(a)+'» — تحقّق أنه عكس أو تصحيح موثّق.');
+    if((a==='1101'||a==='1102')&&(+l.cr||0)>0&&accBalOf(a)-(+l.cr||0)<-0.005) w.push('سيصبح رصيد «'+accName(a)+'» سالباً بعد هذا القيد — النقد لا يكون دائناً (سحب على المكشوف يُصنّف التزاماً).');
+    if(CONTRA[a]&&(+l.dr||0)>0&&accNature(a)==='cr') w.push('تخفيض «'+accName(a)+'» (حساب مقابل) — تأكد من اعتماد التخفيض.'); });
+  if(d>=10000&&d%1000===0) w.push('مبلغ مدوّر ('+fmt(d,0)+') في قيد يدوي — مؤشر خطر يتطلب مستنداً داعماً (ISA 240).');
+  var dt=$('je_date'); if(dt&&dt.value){ var day=new Date(dt.value).getDay(); if(day===5||day===6) w.push('تاريخ القيد يوم عطلة (جمعة/سبت) — تأكد من صحته.'); if(dt.value>today()) w.push('تاريخ القيد في المستقبل.'); }
+  if(w.length) $('jeTot').insertAdjacentHTML('beforeend','<div class="jwarn"><b>🔍 ملاحظات المراجع على القيد</b>'+w.filter(function(x,i){ return w.indexOf(x)===i; }).map(function(x){ return '<div>• '+esc(x)+'</div>'; }).join('')+'</div>'); };
+
+/* ===== فحص سلامة الدفاتر ===== */
+function healthChecks(){ var R=[], je=postedJE(), all=live('journal');
+  var tb=REPORTS[0].run().foot, tbOk=tb[4]===tb[5]; R.push([tbOk,'توازن ميزان المراجعة',tbOk?'مجموع الأرصدة المدينة = الدائنة':'الفرق: '+tb[4]+' / '+tb[5],'reports']);
+  var bs=REPORTS[2].run().foot[2], bsOk=/✓/.test(bs); R.push([bsOk,'معادلة الميزانية (الأصول = الالتزامات + حقوق الملكية)',bsOk?'متوازنة':'غير متوازنة — '+bs,'reports']);
+  var unb=all.filter(function(j){ var d=0,c=0; j.lines.forEach(function(l){ d+=+l.dr||0; c+=+l.cr||0; }); return Math.abs(d-c)>0.005; });
+  R.push([!unb.length,'قيود غير متوازنة',unb.length?unb.map(function(j){ return j.no; }).join('، '):'لا يوجد','journal']);
+  var old=all.filter(function(j){ return j.status==='draft'&&(Date.now()-(j.c||0))>7*864e5; });
+  R.push([!old.length,'قيود مسودة أقدم من 7 أيام لم تُرحّل',old.length?old.length+' قيد — رحّلها أو احذفها':'لا يوجد','journal']);
+  var noP=[]; je.forEach(function(j){ j.lines.forEach(function(l){ if((l.a==='1201'||l.a==='2101')&&!l.p&&noP.indexOf(j.no)<0) noP.push(j.no); }); });
+  R.push([!noP.length,'حسابات العملاء/الموردين دون تحديد الطرف',noP.length?'القيود: '+noP.slice(0,8).join('، ')+(noP.length>8?'…':'')+' — كشوف الحساب لن تطابق الإجمالي':'كل الأطراف محددة','journal']);
+  var cash=accBal('1101'), bank=accBal('1102');
+  R.push([cash>=-0.005&&bank>=-0.005,'أرصدة النقد والبنوك ليست سالبة',cash<-0.005||bank<-0.005?'الصندوق '+fmt(cash)+' / البنك '+fmt(bank)+' — راجع ترتيب القيود أو تسجيل المقبوضات':'سليمة','reports']);
+  var neg=live('item').filter(function(i){ return stockOf(i.id).qty<-1e-9; });
+  R.push([!neg.length,'أصناف بكمية مخزون سالبة',neg.length?neg.map(function(i){ return i.name; }).join('، '):'لا يوجد','item']);
+  var rev=[]; live('party').forEach(function(p){ var b=partyBal(p.id); if(p.kind==='customer'&&b<-0.005) rev.push(p.name+' (عميل دائن)'); if(p.kind!=='customer'&&b>0.005) rev.push(p.name+' (مورد مدين)'); });
+  R.push([!rev.length,'أرصدة أطراف عكس طبيعتها',rev.length?rev.slice(0,6).join('، ')+' — قد تكون دفعات مقدمة أو أخطاء تسجيل':'لا يوجد','party']);
+  var seen={}, dup=[]; live('sinv').forEach(function(s){ if(!s.ref) return; var k=s.supplier+'|'+norm(s.ref); if(seen[k]) dup.push(s.no+' = '+seen[k]); else seen[k]=s.no; });
+  R.push([!dup.length,'فواتير موردين مكررة (نفس المورد ونفس رقم الفاتورة)',dup.length?dup.join('، ')+' — خطر ازدواج السداد':'لا يوجد','sinv']);
+  var miss=[]; Object.keys(DT).forEach(function(t){ if(!DT[t].je) return; live(t).forEach(function(x){ if(isLive(x)&&!all.some(function(j){ return j.srcId===x.id; })){ var jj=DT[t].je(x); if(jj.lines.some(function(l){ return r2(l.dr||0)>0||r2(l.cr||0)>0; })) miss.push(x.no); } }); });
+  R.push([!miss.length,'مستندات معتمدة بلا قيد محاسبي',miss.length?miss.slice(0,8).join('، '):'كل المستندات المعتمدة مرحّلة','journal']);
+  var vin=accBal('1230'), vout=-accBal('2130'); R.push([!(vin>0&&vout>0&&vin>vout*3),'نسبة ضريبة المدخلات إلى المخرجات',vin>vout*3&&vout>0?'المدخلات أعلى من 3 أضعاف المخرجات — تحقّق من صحة الخصم قبل الإقرار':'ضمن المعتاد','reports']);
+  return R; }
+function healthView(){ var R=healthChecks(), ok=R.filter(function(r){ return r[0]; }).length;
+  return '<div class="panel"><h3>🩺 فحص سلامة الدفاتر <span class="pill '+(ok===R.length?'pill-ok':'pill-warn')+' num">'+ok+' / '+R.length+'</span></h3><div class="mini" style="margin-bottom:10px">فحوص آلية يجريها المراجع قبل الإقفال وإعداد القوائم — اضغط أي فحص للانتقال إلى الشاشة المعنية.</div>'
+    +'<div class="match-list">'+R.map(function(r){ return '<button onclick="go(\''+r[3]+'\')" style="border-right:4px solid '+(r[0]?'var(--leaf)':'var(--tomato)')+'"><b>'+(r[0]?'✅ ':'❌ ')+esc(r[1])+'</b><span>'+esc(r[2])+'</span></button>'; }).join('')+'</div></div>'; }
+
+/* ===== لمسات أخيرة ===== */
+/* اسم المنشأة الافتراضي القديم يصبح محايداً (لا يمس أي اسم أدخله المستخدم) */
+var _paintUser=paintUser;
+paintUser=function(){ if(DB&&DB.company&&DB.company.name==='منشأتي للمقاولات والتجارة'){ DB.company.name='منشأتي'; DB.company.u=Date.now(); save(); } _paintUser(); };
 
 /* ===== التشغيل ===== */
 boot();
