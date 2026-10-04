@@ -1820,7 +1820,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-10-03-g';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-10-04-a';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -4456,7 +4456,12 @@ function saveItem(){
   var rec={name:n,unit:val('it_unit'),uw:isSrv?0:(fnum('it_uw')||1),min:fnum('it_min'),active:Number(val('it_active')),byKg:isKg?1:0,service:isSrv?1:0,whId:(+val('it_wh')||null)};
   var uRec=db.units.filter(function(x){return x.name===rec.unit;})[0];   /* الوزن الجديد يُضاف لقائمة أوزان الوحدة */
   if(uRec&&rec.uw>0&&uRec.weights.indexOf(rec.uw)<0){ uRec.weights.push(rec.uw); uRec.weights.sort(function(a,b){return a-b;}); }
-  if(editId.it){ var it=byId(db.items,editId.it); it.name=rec.name; it.unit=rec.unit; it.uw=rec.uw; it.min=rec.min; it.active=rec.active; it.byKg=rec.byKg; it.service=rec.service; it.whId=rec.whId;
+  if(editId.it){ var it=byId(db.items,editId.it);
+    var trackChanged=((!!it.byKg)!==(!!rec.byKg))||((!!it.service)!==(!!rec.service));
+    if(trackChanged&&itemHasMoves(editId.it)){
+      if(!confirm('⚠ هذا الصنف له حركات مسجّلة (شراء/بيع/رصيد…).\nتغيير طريقة تتبّعه (وحدة ↔ وزن) سيُفسِّر الحركات القديمة بشكل خاطئ — لأن «الكمية» تعني عدداً أو كيلو حسب الطريقة — فتختلّ الأرصدة والتكاليف السابقة.\n\nالأصحّ محاسبياً:\n• أنشئ صنفاً جديداً بطريقة التتبّع الصحيحة،\n• ثم انقل رصيده عبر «تحويل رصيد بين صنفين (وحدة↔وزن)» في شاشة المخزون.\n\nهل تريد المتابعة بتغيير التتبّع رغم ذلك؟')) return;
+    }
+    it.name=rec.name; it.unit=rec.unit; it.uw=rec.uw; it.min=rec.min; it.active=rec.active; it.byKg=rec.byKg; it.service=rec.service; it.whId=rec.whId;
     log('edit','البيانات الأساسية','تعديل الصنف '+n+' — '+(rec.active?'نشط':'موقوف')+(rec.byKg?' — تتبّع بالكيلو':'')+(rec.service?' — خدمي بلا وزن':'')+(rec.whId?' — مستودع '+whName(rec.whId):'')); }
   else { rec.id=uid(); db.items.push(rec); log('add','البيانات الأساسية','إضافة صنف: '+n+' — وحدة '+rec.unit+' بوزن '+rec.uw+' كغ'); }
   cancelDoc('it'); commit('تم حفظ الصنف'); renderMaster();
@@ -4472,6 +4477,16 @@ function onItemTrackChange(){
   if(srv) setVal('it_uw','');
 }
 function itemService(id){ var it=byId(db.items,id); return !!(it&&it.service); }
+/* هل للصنف أي حركة مسجّلة؟ (لتحذير تغيير طريقة التتبّع) */
+function itemHasMoves(id){
+  var lineHit=function(arr){ return (arr||[]).some(function(d){ return (d.lines||[]).some(function(l){ return l.itemId===id; }); }); };
+  var flatHit=function(arr){ return (arr||[]).some(function(r){ return r.itemId===id; }); };
+  if(lineHit(db.purchases)||lineHit(db.sales)) return true;
+  if(flatHit(db.openingStock)||flatHit(db.waste)||flatHit(db.transfers)||flatHit(db.preturns)||flatHit(db.sreturns)) return true;
+  if((db.conversions||[]).some(function(c){ return c.fromItemId===id||c.toItemId===id; })) return true;
+  if((db.productions||[]).some(function(p){ return p.finishedItemId===id||(p.lines||[]).some(function(l){return l.itemId===id;}); })) return true;
+  return false;
+}
 function editItem(id){ if(!guard('canEdit'))return; var i=byId(db.items,id); if(!i)return;
   editId.it=id; setVal('it_name',i.name); setVal('it_unit',i.unit); refreshUW('it');
   setVal('it_uw',i.uw); setVal('it_min',i.min||0);
