@@ -236,7 +236,7 @@ tr:hover td{background:#f8fafc}
    ============================================================ */
 const KEY="inv_system_v2";
 /* رقم إصدار التطبيق — يُزاد مع كل تحديث؛ يُقارَن بالنسخة المنشورة لإظهار زر التحديث */
-const APP_VERSION="2026-10-05-02";
+const APP_VERSION="2026-10-05-03";
 let DB,ME;
 /* التحقق من توفّر نسخة أحدث بجلب الملف نفسه (بدون كاش) ومقارنة رقم الإصدار */
 function checkForUpdate(){
@@ -1583,7 +1583,7 @@ function renderFees(){
     </div>
     <div class="card"><div class="card-title" style="display:flex;justify-content:space-between;align-items:center">
       <span>سجل رسوم التركيب والتوصيل</span>
-      <button class="btn ghost sm no-print" onclick="exportCSV('كشف-رسوم-التركيب-والتوصيل.csv',window.__feeCSV.head,window.__feeCSV.rows)">⬇ Excel</button></div>
+      <button class="btn ghost sm no-print" onclick="exportXLSX('كشف-رسوم-التركيب-والتوصيل.csv',window.__feeCSV.head,window.__feeCSV.rows)">⬇ Excel</button></div>
     <div class="table-wrap"><table><thead><tr><th>التاريخ</th><th>رقم الفاتورة</th><th>العنوان</th><th>الموظف</th><th>عدد الأصناف</th><th>الرسوم ﷼</th><th class="no-print"></th></tr></thead>
       <tbody>${rows.map(e=>`<tr><td>${esc(e.date||"")}</td><td>${esc(e.invoice||"—")}</td><td>${esc(e.address||"—")}</td><td>${esc(e.by||"")}</td><td>${e.items}</td>
         <td style="font-weight:700;color:var(--green)">${money(e.amount)}</td>
@@ -1635,7 +1635,7 @@ function renderCommissions(){
     </div>
     <div class="card"><div class="card-title" style="display:flex;justify-content:space-between;align-items:center">
       <span>من ${esc(from||"البداية")} إلى ${esc(to||"الآن")}</span>
-      <button class="btn ghost sm no-print" onclick="exportCSV('كشف-العمولات.csv',window.__commCSV.head,window.__commCSV.rows)">⬇ Excel</button></div>
+      <button class="btn ghost sm no-print" onclick="exportXLSX('كشف-العمولات.csv',window.__commCSV.head,window.__commCSV.rows)">⬇ Excel</button></div>
     <div class="table-wrap"><table><thead><tr><th>التاريخ</th><th>رقم السند/الفاتورة</th><th>النوع</th>
       <th style="color:var(--green)">مستحقة ﷼</th><th style="color:var(--amber)">مصروف ﷼</th><th>الرصيد ﷼</th><th>بيان</th><th class="no-print"></th></tr></thead>
       <tbody>${rows}</tbody></table></div></div>`;
@@ -1737,18 +1737,33 @@ function pDashboard(){
   </div>
   <div class="card">
     <div class="card-title" style="display:flex;justify-content:space-between;align-items:center"><span>جرد الأرصدة الحالية</span>
-      <button class="btn ghost sm" onclick="exportCSV('الارصدة.csv',['الموديل','الوصف','الفئة','الوحدة','الرصيد','حد الطلب','المورد','رقم الفسح'],citems().map(i=>{const s=itemSource(i.id);return [itemModel(i),i.name||'',i.category||'',i.unit||'',i.qty,i.reorder||'',s.sup,s.customs];}))">⬇ Excel</button></div>
+      <button class="btn green sm" onclick="exportBalances()">⬇ تصدير Excel</button></div>
     <div class="row"><div class="field"><input id="dashSearch" placeholder="🔍 بحث بالكود أو الاسم أو الموديل..." value="${esc(q)}" oninput="renderBalances()"></div>
-      <div class="field" style="max-width:220px"><select id="dashStatus" onchange="renderBalances()">
+      <div class="field" style="max-width:200px"><select id="dashCat" onchange="renderBalances()"><option value="">كل الفئات</option>${CATS.map(c=>`<option>${esc(c)}</option>`).join("")}</select></div>
+      <div class="field" style="max-width:200px"><select id="dashStatus" onchange="renderBalances()">
         <option value="all">كل الحالات</option><option value="ok">متوفر</option><option value="low">تحت حد الطلب</option><option value="zero">نفد (صفر)</option><option value="neg">بالسالب</option></select></div></div>
+    <div id="dashCatTotal"></div>
     <div class="table-wrap"><table><thead><tr><th>الموديل</th><th>الوصف</th><th>الفئة</th>
       <th>الوحدة</th><th>الرصيد الحالي</th><th>حد الطلب</th><th>الحالة</th><th>المورد</th><th>رقم الفسح</th></tr></thead>
       <tbody id="balTbl"></tbody></table></div></div>`;
   renderBalances();
 }
+function balancesRows(){
+  const q=($("#dashSearch")?.value||"").toLowerCase();const sf=$("#dashStatus")?.value||"all";const cat=$("#dashCat")?.value||"";
+  return citems().filter(i=>(i.code+i.name+(i.model||"")+(i.category||"")).toLowerCase().includes(q)&&(sf==="all"||itemStatus(i)===sf)&&(!cat||i.category===cat));
+}
+function exportBalances(){
+  const rows=balancesRows().map(i=>{const s=itemSource(i.id);return [itemModel(i),i.name||"",i.category||"",i.unit||"",stockOf(i.id),i.reorder||0,s.sup,s.customs];});
+  const total=balancesRows().reduce((a,i)=>a+stockOf(i.id),0);
+  rows.push(["الإجمالي","","","",total,"","",""]);
+  exportXLSX("أرصدة-المخزون.xlsx",["الموديل","الوصف","الفئة","الوحدة","الرصيد","حد الطلب","المورد","رقم الفسح"],rows,"الأرصدة");
+}
 function renderBalances(){
-  const q=($("#dashSearch")?.value||"").toLowerCase();const sf=$("#dashStatus")?.value||"all";
-  const rows=citems().filter(i=>(i.code+i.name+(i.model||"")+(i.category||"")).toLowerCase().includes(q)&&(sf==="all"||itemStatus(i)===sf));
+  const cat=$("#dashCat")?.value||"";
+  const rows=balancesRows();
+  const box=$("#dashCatTotal");
+  if(box){const tot=rows.reduce((a,i)=>a+stockOf(i.id),0);
+    box.innerHTML=`<div class="stat" style="margin-bottom:12px;background:var(--card2,rgba(0,0,0,.03))"><div class="lbl">إجمالي المتاح ${cat?`لفئة «${esc(cat)}»`:"(بالفلتر الحالي)"}</div><div class="val" style="color:var(--green)">${tot} <span style="font-size:12px;color:var(--muted)">(${rows.length} صنف)</span></div></div>`;}
   $("#balTbl").innerHTML=rows.map(i=>{
     const st=itemStatus(i),low=st==="low"||st==="neg";const state=[STATUS_AR[st],STATUS_COLOR[st]];
     return `<tr><td style="font-family:monospace;font-weight:700">${i.image?`<img src="${i.image}" onclick="viewImg(this.src)" style="width:34px;height:34px;object-fit:cover;border-radius:7px;vertical-align:middle;margin-left:6px;cursor:zoom-in">`:""}${esc(itemModel(i))}</td><td>${esc(i.name&&i.name!==itemModel(i)?i.name:"")}</td>
@@ -1767,6 +1782,7 @@ function pStock(){
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       ${(ME.role==="admin"||ME.role==="supervisor")?`<button class="btn green no-print" onclick="applyStock()">✅ تطبيق الفروقات كتسويات</button>`:""}
       <button class="btn blue no-print" onclick="auditStock()">🔍 تدقيق الدفتر</button>
+      <button class="btn green no-print" onclick="exportStock()">⬇ تصدير Excel</button>
       <button class="btn ghost no-print" onclick="clearStockCounts()">🧹 تفريغ الجرد</button>
       <button class="btn ghost no-print" onclick="window.print()">🖨️ طباعة</button></div></div>
   <div class="card no-print"><div class="row">
@@ -1821,12 +1837,24 @@ function stockSummary(){
   let counted=0,book=0,act=0,diffPos=0,diffNeg=0,mismatch=0;
   citems().forEach(i=>{const v=stockCounts[i.id];if(v===undefined||v==="")return;
     const bk=stockOf(i.id);counted++;book+=bk;const a=toNum(v);act+=a;const d=a-bk;if(d>0)diffPos+=d;else if(d<0)diffNeg+=d;if(d!==0)mismatch++;});
-  box.innerHTML=`<div class="grid-4" style="margin-bottom:14px">
+  // إجمالي المتاح (الرصيد الدفتري) للفئة المحددة في الفلتر الحالي
+  const cat=$("#stCat")?.value||"";const fl=stockFiltered();
+  const catTotal=fl.reduce((a,i)=>a+stockOf(i.id),0);
+  box.innerHTML=`<div class="stat" style="margin-bottom:12px;background:var(--card2,rgba(0,0,0,.03))"><div class="lbl">إجمالي المتاح ${cat?`لفئة «${esc(cat)}»`:"(كل الفئات)"}</div><div class="val" style="color:var(--green)">${catTotal} <span style="font-size:12px;color:var(--muted)">(${fl.length} صنف)</span></div></div>
+  <div class="grid-4" style="margin-bottom:14px">
     <div class="stat"><div class="lbl">أصناف تم جردها</div><div class="val">${counted}</div></div>
     <div class="stat"><div class="lbl">إجمالي الفعلي</div><div class="val">${act}</div></div>
     <div class="stat"><div class="lbl">زيادة (+)</div><div class="val sm" style="color:var(--green)">${diffPos}</div></div>
     <div class="stat"><div class="lbl">عجز (−)</div><div class="val sm" style="color:var(--red)">${diffNeg}</div></div>
   </div>${mismatch?`<p style="font-size:13px;color:#854d0e;background:#fef9c3;border-radius:8px;padding:8px 12px;margin-bottom:12px">⚠️ يوجد <b>${mismatch}</b> صنف فيه فرق بين الدفتري والفعلي.</p>`:""}`;
+}
+function exportStock(){
+  const cat=$("#stCat")?.value||"";
+  const rows=stockFiltered().map(i=>{const bk=stockOf(i.id);const v=stockCounts[i.id];const has=(v!==undefined&&v!=="");const a=has?toNum(v):"";const d=has?(a-bk):"";
+    return [itemModel(i),i.name||"",i.category||"",bk,has?a:"",has?d:""];});
+  const tot=stockFiltered().reduce((a,i)=>a+stockOf(i.id),0);
+  rows.push(["الإجمالي","","",tot,"",""]);
+  exportXLSX("جرد-المخزون"+(cat?"-"+cat:"")+".xlsx",["الموديل","الوصف","الفئة","الرصيد الدفتري","العدد الفعلي","الفرق"],rows,"جرد المخزون");
 }
 function clearStockCounts(){if(!confirm("تفريغ كل الأعداد المُدخلة في الجرد؟"))return;stockCounts={};renderStock();}
 /* تدقيق الدفتر: كشف عدم تطابق الرصيد المخزَّن مع المحسوب من الحركات، الأرصدة السالبة، والحركات اليتيمة */
@@ -1927,7 +1955,7 @@ function renderReport(){
     </div>
     <div class="card"><div class="card-title" style="display:flex;justify-content:space-between;align-items:center">
       <span>من ${esc(from||"البداية")} إلى ${esc(to||"الآن")}</span>
-      <button class="btn ghost sm no-print" onclick="exportCSV('تقرير-وارد-منصرف.csv',['الموديل','الوصف','الفئة','رصيد أول المدة','الوارد','المنصرف','الصافي','رصيد آخر المدة','قيمة الوارد','قيمة المنصرف','الربح'],window.__reportRows||[])">⬇ Excel</button></div>
+      <button class="btn ghost sm no-print" onclick="exportXLSX('تقرير-وارد-منصرف.csv',['الموديل','الوصف','الفئة','رصيد أول المدة','الوارد','المنصرف','الصافي','رصيد آخر المدة','قيمة الوارد','قيمة المنصرف','الربح'],window.__reportRows||[])">⬇ Excel</button></div>
     <div class="table-wrap"><table><thead><tr><th>الموديل</th><th>الوصف</th><th>الفئة</th><th>رصيد أول المدة</th>
       <th style="color:var(--green)">الوارد</th><th style="color:var(--amber)">المنصرف</th><th>الصافي</th><th>رصيد آخر المدة</th>
       <th style="color:var(--green)">قيمة الوارد ﷼</th><th style="color:var(--amber)">قيمة المنصرف ﷼</th><th>ربح تقريبي ﷼</th></tr></thead>
@@ -1977,7 +2005,7 @@ function renderReportDetail(){
     </div>
     <div class="card"><div class="card-title" style="display:flex;justify-content:space-between;align-items:center">
       <span>تفصيلي — من ${esc(from||"البداية")} إلى ${esc(to||"الآن")}</span>
-      <button class="btn ghost sm no-print" onclick="exportCSV('تقرير-تفصيلي.csv',['التاريخ','الموديل','النوع','وارد','منصرف','السعر','القيمة','فسح/فاتورة','المورد','الموظف'],window.__reportRows||[])">⬇ Excel</button></div>
+      <button class="btn ghost sm no-print" onclick="exportXLSX('تقرير-تفصيلي.csv',['التاريخ','الموديل','النوع','وارد','منصرف','السعر','القيمة','فسح/فاتورة','المورد','الموظف'],window.__reportRows||[])">⬇ Excel</button></div>
     <div class="table-wrap"><table><thead><tr><th>التاريخ</th><th>الموديل</th><th>النوع</th>
       <th style="color:var(--green)">وارد</th><th style="color:var(--amber)">منصرف</th><th>السعر</th><th>القيمة</th><th>فسح/فاتورة</th><th>المورد</th><th>الموظف</th>${actCol?"<th></th>":""}</tr></thead>
       <tbody>${body||`<tr><td colspan="${actCol?11:10}" class="empty">لا حركات في هذه المدة.</td></tr>`}</tbody></table></div></div>`;
@@ -2041,7 +2069,7 @@ function exportLedger(id){
   const from=$("#lFrom").value,to=$("#lTo").value,ty=$("#lType").value;
   const rows=uniqMovements().filter(m=>m.itemId===id&&(!from||m.date>=from)&&(!to||m.date<=to)&&(!ty||m.type===ty)).sort((a,b)=>mvCmpAsc(b,a));
   const BAL=balAfterMap();
-  exportCSV("حركة-"+it.code+".csv",["التاريخ","النوع","الكمية","الرصيد بعدها","الموديل","رقم الفسح","الفاتورة","المورد","الموظف","ملاحظة"],
+  exportXLSX("حركة-"+it.code+".csv",["التاريخ","النوع","الكمية","الرصيد بعدها","الموديل","رقم الفسح","الفاتورة","المورد","الموظف","ملاحظة"],
     rows.map(m=>{const sup=DB.suppliers.find(x=>x.id===m.supplierId);
       return [m.date||fmt(m.at),typeAr(m.type),(isIn(m.type)?"+":"-")+m.qty,BAL[m.id]??m.balAfter??"",m.model||it.model||"",m.customs||"",m.invoice||"",sup?sup.name:"",m.userName,m.note||""];}));
 }
@@ -2105,7 +2133,7 @@ function pItems(){
   const cats=CATS.slice();
   const chip=(k,lbl,c)=>`<button class="btn ${itemFilter===k?"":"ghost"} sm" style="${itemFilter===k&&c?`background:${c}`:""}" onclick="setItemFilter('${k}')">${lbl} <b>${cnt[k]}</b></button>`;
   $("#view").innerHTML=`<div class="pagehead"><h1>🏷️ الأصناف (الموديلات)</h1><div style="display:flex;gap:8px;flex-wrap:wrap">
-    <button class="btn ghost" onclick="exportCSV('الموديلات.csv',['الموديل','الوصف','الفئة','الوحدة','الرصيد','حد الطلب','الحالة','المورد','رقم الفسح'],filteredItems().map(i=>{const s=itemSource(i.id);return [itemModel(i),i.name||'',i.category||'',i.unit||'',i.qty,i.reorder||'',STATUS_AR[itemStatus(i)],s.sup,s.customs];}))">⬇ Excel</button>
+    <button class="btn ghost" onclick="exportXLSX('الموديلات.csv',['الموديل','الوصف','الفئة','الوحدة','الرصيد','حد الطلب','الحالة','المورد','رقم الفسح'],filteredItems().map(i=>{const s=itemSource(i.id);return [itemModel(i),i.name||'',i.category||'',i.unit||'',i.qty,i.reorder||'',STATUS_AR[itemStatus(i)],s.sup,s.customs];}))">⬇ Excel</button>
     ${can("canAdd")?`<button class="btn amber" onclick="importModels()">📥 استيراد موديلات</button>`:""}
     ${(ME.role==="admin"||ME.role==="supervisor")?`<button class="btn ghost" onclick="undoImport()">↩ تراجع عن استيراد</button>`:""}
     ${can("canAdd")?`<button class="btn" onclick="itemForm(0)">+ إضافة موديل</button>`:""}</div></div>
@@ -2401,7 +2429,7 @@ function suppliersSummary(){
     rows:rows.map(r=>[r.s.name,r.s.phone||"",r.sup,r.opn,r.paid,r.bal])};
   $("#view").innerHTML=`<div class="pagehead"><h1>📊 كشف حساب مجمّع للموردين</h1>
     <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn ghost no-print" onclick="pImport()">↩ رجوع</button>
-      <button class="btn ghost no-print" onclick="exportCSV('كشف-مجمّع-الموردين.csv',window.__csumCSV.head,window.__csumCSV.rows)">⬇ Excel</button>
+      <button class="btn ghost no-print" onclick="exportXLSX('كشف-مجمّع-الموردين.csv',window.__csumCSV.head,window.__csumCSV.rows)">⬇ Excel</button>
       <button class="btn ghost no-print" onclick="window.print()">🖨️ طباعة</button></div></div>
   <div class="grid-4" style="margin-bottom:16px">
     <div class="stat"><div class="lbl">عدد الموردين</div><div class="val">${rows.length}</div></div>
@@ -2545,7 +2573,7 @@ function renderSupStatement(id){
     window.__ssCSV={head:["التاريخ","البيان","مدين (توريد)","دائن (دفعة)"],rows:entries.map(e=>[e.date,e.desc,e.debit,e.credit])};
     $("#ssOut").innerHTML=stats+`<div class="card"><div class="card-title" style="display:flex;justify-content:space-between;align-items:center">
       <span>الكشف المالي (دفتر الأستاذ)</span>
-      <button class="btn ghost sm no-print" onclick="exportCSV('كشف-مورد-مالي.csv',window.__ssCSV.head,window.__ssCSV.rows)">⬇ Excel</button></div>
+      <button class="btn ghost sm no-print" onclick="exportXLSX('كشف-مورد-مالي.csv',window.__ssCSV.head,window.__ssCSV.rows)">⬇ Excel</button></div>
       <div class="table-wrap"><table><thead><tr><th>التاريخ</th><th>البيان</th><th>مدين (توريد)</th><th>دائن (دفعة)</th><th>الرصيد</th></tr></thead>
         <tbody>${body||`<tr><td colspan="5" class="empty">لا حركات.</td></tr>`}
         ${entries.length?`<tr style="background:#f1f5f9;font-weight:700"><td colspan="4">الرصيد المستحق</td><td>${money(run)}</td></tr>`:""}</tbody></table></div></div>`;
@@ -2577,7 +2605,7 @@ function renderSupStatement(id){
   window.__ssCSV={head:csvHead,rows:csvRows};
   $("#ssOut").innerHTML=stats+`<div class="card"><div class="card-title" style="display:flex;justify-content:space-between;align-items:center">
     <span>${mode==="summary"?"إجمالي لكل صنف":"الحركة التفصيلية"}</span>
-    <button class="btn ghost sm no-print" onclick="exportCSV('كشف-مورد.csv',window.__ssCSV.head,window.__ssCSV.rows)">⬇ Excel</button></div>${table}</div>`;
+    <button class="btn ghost sm no-print" onclick="exportXLSX('كشف-مورد.csv',window.__ssCSV.head,window.__ssCSV.rows)">⬇ Excel</button></div>${table}</div>`;
 }
 function addSupplier(){
   const name=$("#sName").value.trim();if(!name)return;
@@ -2687,7 +2715,7 @@ function deleteFilteredActivity(){
   toast(`تم حذف ${sel.length} سجلاً`);
 }
 function exportActivity(){
-  exportCSV("نشاط-الموظفين.csv",["الوقت","الموظف","العملية","التفاصيل"],filteredActivity().map(a=>[fmt(a.at),a.userName,a.action,a.detail||""]));
+  exportXLSX("نشاط-الموظفين.csv",["الوقت","الموظف","العملية","التفاصيل"],filteredActivity().map(a=>[fmt(a.at),a.userName,a.action,a.detail||""]));
 }
 function clearActivity(){
   if(ME.role!=="admin")return;
@@ -2891,6 +2919,71 @@ function rejectJoin(ruid){
 }
 
 /* ---------- تصدير CSV (يفتح في Excel) ---------- */
+/* ===== تصدير Excel حقيقي (.xlsx) بدون مكتبات خارجية — حزمة ZIP من ملفات XML ===== */
+function _crc32(bytes){
+  let c,crc=0xFFFFFFFF;
+  if(!_crc32.t){_crc32.t=[];for(let n=0;n<256;n++){c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;_crc32.t[n]=c>>>0;}}
+  const t=_crc32.t;for(let i=0;i<bytes.length;i++)crc=t[(crc^bytes[i])&0xFF]^(crc>>>8);
+  return (crc^0xFFFFFFFF)>>>0;
+}
+function _u8(str){return new TextEncoder().encode(str);}
+function _zipStore(files){
+  const chunks=[],central=[];let offset=0,centralSize=0;
+  const put=a=>{chunks.push(a);offset+=a.length;};
+  files.forEach(f=>{
+    const name=_u8(f.name),data=f.data,crc=_crc32(data),lo=offset;
+    const h=new DataView(new ArrayBuffer(30));
+    h.setUint32(0,0x04034b50,true);h.setUint16(4,20,true);h.setUint16(6,0x0800,true);
+    h.setUint16(8,0,true);h.setUint16(10,0,true);h.setUint16(12,0x21,true);
+    h.setUint32(14,crc,true);h.setUint32(18,data.length,true);h.setUint32(22,data.length,true);
+    h.setUint16(26,name.length,true);h.setUint16(28,0,true);
+    put(new Uint8Array(h.buffer));put(name);put(data);
+    const c=new DataView(new ArrayBuffer(46));
+    c.setUint32(0,0x02014b50,true);c.setUint16(4,20,true);c.setUint16(6,20,true);c.setUint16(8,0x0800,true);
+    c.setUint16(10,0,true);c.setUint16(12,0,true);c.setUint16(14,0x21,true);
+    c.setUint32(16,crc,true);c.setUint32(20,data.length,true);c.setUint32(24,data.length,true);
+    c.setUint16(28,name.length,true);c.setUint16(30,0,true);c.setUint16(32,0,true);
+    c.setUint16(34,0,true);c.setUint16(36,0,true);c.setUint32(38,0,true);c.setUint32(42,lo,true);
+    central.push(new Uint8Array(c.buffer));central.push(name);
+  });
+  const cs=offset;central.forEach(a=>{put(a);centralSize+=a.length;});
+  const e=new DataView(new ArrayBuffer(22));
+  e.setUint32(0,0x06054b50,true);e.setUint16(4,0,true);e.setUint16(6,0,true);
+  e.setUint16(8,files.length,true);e.setUint16(10,files.length,true);
+  e.setUint32(12,centralSize,true);e.setUint32(16,cs,true);e.setUint16(20,0,true);
+  put(new Uint8Array(e.buffer));
+  let total=0;chunks.forEach(c=>total+=c.length);
+  const out=new Uint8Array(total);let p=0;chunks.forEach(c=>{out.set(c,p);p+=c.length;});
+  return out;
+}
+function exportXLSX(filename,headers,rows,sheetName){
+  if(!guard("canExport"))return;
+  if(!/\.xlsx$/i.test(filename))filename=filename.replace(/\.csv$/i,"")+".xlsx";
+  sheetName=(sheetName||"ورقة1").replace(/[\\\/\?\*\[\]:]/g," ").slice(0,31);
+  const esc=s=>String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  const col=i=>{let s="";i++;while(i>0){let r=(i-1)%26;s=String.fromCharCode(65+r)+s;i=Math.floor((i-1)/26);}return s;};
+  const all=[headers].concat(rows);let body="";
+  all.forEach((r,ri)=>{let cells="";(r||[]).forEach((v,ci)=>{const ref=col(ci)+(ri+1);
+    if(typeof v==="number"&&isFinite(v))cells+=`<c r="${ref}"><v>${v}</v></c>`;
+    else cells+=`<c r="${ref}" t="inlineStr"><is><t xml:space="preserve">${esc(v)}</t></is></c>`;});
+    body+=`<row r="${ri+1}">${cells}</row>`;});
+  const sheet=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView rightToLeft="1" workbookViewId="0"/></sheetViews><sheetData>${body}</sheetData></worksheet>`;
+  const ct=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>`;
+  const rels=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`;
+  const wb=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="${esc(sheetName)}" sheetId="1" r:id="rId1"/></sheets></workbook>`;
+  const wbr=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/></Relationships>`;
+  const bytes=_zipStore([
+    {name:"[Content_Types].xml",data:_u8(ct)},
+    {name:"_rels/.rels",data:_u8(rels)},
+    {name:"xl/workbook.xml",data:_u8(wb)},
+    {name:"xl/_rels/workbook.xml.rels",data:_u8(wbr)},
+    {name:"xl/worksheets/sheet1.xml",data:_u8(sheet)},
+  ]);
+  const blob=new Blob([bytes],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=filename;a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+  toast("تم تصدير ملف Excel");
+}
 function exportCSV(filename,headers,rows){
   if(!guard("canExport"))return;
   const esc2=v=>{v=String(v==null?"":v);return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;};
