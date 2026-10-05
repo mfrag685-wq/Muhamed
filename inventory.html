@@ -236,7 +236,7 @@ tr:hover td{background:#f8fafc}
    ============================================================ */
 const KEY="inv_system_v2";
 /* رقم إصدار التطبيق — يُزاد مع كل تحديث؛ يُقارَن بالنسخة المنشورة لإظهار زر التحديث */
-const APP_VERSION="2026-10-05-01";
+const APP_VERSION="2026-10-05-02";
 let DB,ME;
 /* التحقق من توفّر نسخة أحدث بجلب الملف نفسه (بدون كاش) ومقارنة رقم الإصدار */
 function checkForUpdate(){
@@ -339,6 +339,16 @@ function mvCmpAsc(a,b){
   if((ta||0)!==(tb||0))return (ta||0)-(tb||0);
   return ((a&&a.id)||0)-((b&&b.id)||0);
 }
+/* ===== الفئات: فئتان قياسيتان فقط لتوحيد الإدخال ومنع التكرار الإملائي ===== */
+const CATS=["غرف نوم","مراتب"];
+/* توحيد أي تهجئة/مسافات زائدة إلى الفئة القياسية (غرف نوم / مراتب) */
+function normCat(c){
+  let s=(c==null?"":String(c)).replace(/[ً-ْـ]/g,"").replace(/\s+/g," ").trim();
+  if(!s)return "";
+  if(/مرات|مرتب/.test(s))return "مراتب";                 // مراتب وكل مشتقاتها
+  if(/نوم|نون/.test(s)||/^(غرف|عرف|غرفة|عرفة)\b/.test(s))return "غرف نوم"; // غرف نوم/عرف نوم/غرف نون...
+  return s;                                               // فئة أخرى غير معروفة تبقى كما هي
+}
 /* صافي حركة الصنف = مجموع (وارد/تسوية موجبة − منصرف) */
 function stockOf(itemId){
   let n=0;const arr=uniqMovements();
@@ -392,7 +402,7 @@ function ensureShape(){
   }
   DB.companies.forEach(c=>{if(!c.icon)c.icon="🏢";});
   const firstCo=DB.companies[0].id;
-  DB.items.forEach(i=>{if(i.companyId===undefined)i.companyId=firstCo;});
+  DB.items.forEach(i=>{if(i.companyId===undefined)i.companyId=firstCo;if(i.category)i.category=normCat(i.category);});
   DB.movements.forEach(m=>{if(m.companyId===undefined)m.companyId=firstCo;});
   DB.suppliers.forEach(s=>{if(s.companyId===undefined)s.companyId=firstCo;});
   DB.payments.forEach(p=>{if(p.companyId===undefined)p.companyId=firstCo;if(!p.kind)p.kind="payment";});
@@ -997,7 +1007,7 @@ function pMove(){
     <div class="formgrid">
       <div class="cell c3"><label>المجموعة</label>
         <select id="mGroup" onchange="acItems($('#mCode').value)"><option value="">كل المجموعات</option>
-        ${[...new Set(["غرف نوم","مراتب",...citems().map(i=>i.category).filter(Boolean)])].map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join("")}</select></div>
+        ${CATS.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join("")}</select></div>
       <div class="cell c4 ac-wrap"><label>الصنف / الموديل</label>
         <input id="mCode" placeholder="ابحث بالموديل أو الاسم..." autocomplete="off" oninput="acItems(this.value)" onfocus="acItems(this.value)">
         <div class="ac-list" id="mAc"></div></div>
@@ -1752,7 +1762,7 @@ function renderBalances(){
 /* ============ جرد المخزون ============ */
 let stockCounts={};
 function pStock(){
-  const cats=[...new Set(citems().map(i=>i.category).filter(Boolean))];
+  const cats=CATS;
   $("#view").innerHTML=`<div class="pagehead"><h1>🧮 جرد المخزون</h1>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       ${(ME.role==="admin"||ME.role==="supervisor")?`<button class="btn green no-print" onclick="applyStock()">✅ تطبيق الفروقات كتسويات</button>`:""}
@@ -1872,7 +1882,7 @@ function pReport(){
       <div class="cell c3"><label>من تاريخ</label><input id="rFrom" type="date" value="${monthStart()}"></div>
       <div class="cell c3"><label>إلى تاريخ</label><input id="rTo" type="date" value="${today()}"></div>
       <div class="cell c3"><label>الفئة</label><select id="rCat"><option value="">كل الفئات</option>
-        ${[...new Set(citems().map(i=>i.category).filter(Boolean))].map(c=>`<option>${esc(c)}</option>`).join("")}</select></div>
+        ${CATS.map(c=>`<option>${esc(c)}</option>`).join("")}</select></div>
       <div class="cell c6"><label>بحث (الصنف/الموديل أو رقم الفسح أو رقم الفاتورة)</label>
         <input id="rSearch" placeholder="🔍 اكتب موديلاً أو رقم فسح أو رقم فاتورة..." oninput="renderReport()"></div>
       <div class="cell c3" style="display:flex;align-items:flex-end"><button class="btn block" onclick="renderReport()">عرض التقرير</button></div>
@@ -2092,7 +2102,7 @@ const STATUS_COLOR={ok:"var(--green)",low:"var(--red)",zero:"var(--amber)",neg:"
 let itemFilter="all";
 function pItems(){
   const CI=citems();const cnt={all:CI.length,ok:0,low:0,zero:0,neg:0};CI.forEach(i=>cnt[itemStatus(i)]++);
-  const cats=[...new Set(CI.map(i=>i.category).filter(Boolean))];
+  const cats=CATS.slice();
   const chip=(k,lbl,c)=>`<button class="btn ${itemFilter===k?"":"ghost"} sm" style="${itemFilter===k&&c?`background:${c}`:""}" onclick="setItemFilter('${k}')">${lbl} <b>${cnt[k]}</b></button>`;
   $("#view").innerHTML=`<div class="pagehead"><h1>🏷️ الأصناف (الموديلات)</h1><div style="display:flex;gap:8px;flex-wrap:wrap">
     <button class="btn ghost" onclick="exportCSV('الموديلات.csv',['الموديل','الوصف','الفئة','الوحدة','الرصيد','حد الطلب','الحالة','المورد','رقم الفسح'],filteredItems().map(i=>{const s=itemSource(i.id);return [itemModel(i),i.name||'',i.category||'',i.unit||'',i.qty,i.reorder||'',STATUS_AR[itemStatus(i)],s.sup,s.customs];}))">⬇ Excel</button>
@@ -2145,8 +2155,7 @@ function itemForm(id){
     <div class="row"><div class="field"><label>الموديل / الكود *</label><input id="f_code" value="${esc(itemModel(it)||"")}"></div>
       <div class="field"><label>وصف إضافي (اختياري)</label><input id="f_name" value="${esc(it.name&&it.name!==itemModel(it)?it.name:"")}"></div></div>
     <div class="row"><div class="field"><label>المجموعة / الفئة</label>
-      <input id="f_cat" list="catList" value="${esc(it.category||"")}" placeholder="غرف نوم / مراتب ...">
-      <datalist id="catList">${[...new Set(["غرف نوم","مراتب",...citems().map(i=>i.category).filter(Boolean)])].map(c=>`<option value="${esc(c)}">`).join("")}</datalist></div>
+      <select id="f_cat">${CATS.map(c=>`<option value="${esc(c)}" ${normCat(it.category)===c?"selected":""}>${esc(c)}</option>`).join("")}</select></div>
       <div class="field"><label>الوحدة</label><input id="f_unit" value="${esc(it.unit||"قطعة")}"></div></div>
     <div class="row"><div class="field"><label>حد إعادة الطلب</label><input id="f_reorder" type="number" inputmode="numeric" value="${it.reorder||0}"></div>
       <div class="field"><label>سعر البيع (اختياري)</label><input id="f_price" type="number" inputmode="decimal" step="0.01" value="${it.price||0}"></div></div>
@@ -2180,7 +2189,7 @@ function saveItem(id){
   const g=x=>$("#"+x)?$("#"+x).value:"";const code=g("f_code").trim(),name=g("f_name").trim();
   if(!code){$("#f_msg").textContent="الموديل / الكود مطلوب.";return;}
   if(citems().some(i=>(itemModel(i).toLowerCase()===code.toLowerCase())&&i.id!==id)){$("#f_msg").textContent="هذا الموديل مسجّل مسبقاً.";return;}
-  const data={code,model:code,name:name||code,category:g("f_cat"),unit:g("f_unit")||"قطعة",
+  const data={code,model:code,name:name||code,category:normCat(g("f_cat")),unit:g("f_unit")||"قطعة",
     price:parseFloat(g("f_price"))||0,reorder:parseFloat(g("f_reorder"))||0,image:_itemImg||""};
   if(id){const it=DB.items.find(i=>i.id===id);Object.assign(it,data);
     const nq=parseFloat(g("f_qty"));
@@ -2267,7 +2276,7 @@ function doImportModels(){
     let qty=zero?0:toNum(parts[1]);
     const cost=toNum(parts[2]);
     const supName=parts[3]||"";
-    const cat=parts[4]||"";
+    const cat=normCat(parts[4]||"");
     const sup=supName?findOrCreateSupplier(supName):null;
     const exist=citems().find(i=>itemModel(i).toLowerCase()===code.toLowerCase());
     if(exist){
