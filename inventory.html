@@ -236,7 +236,7 @@ tr:hover td{background:#f8fafc}
    ============================================================ */
 const KEY="inv_system_v2";
 /* رقم إصدار التطبيق — يُزاد مع كل تحديث؛ يُقارَن بالنسخة المنشورة لإظهار زر التحديث */
-const APP_VERSION="2026-10-05-03";
+const APP_VERSION="2026-10-05-04";
 let DB,ME;
 /* التحقق من توفّر نسخة أحدث بجلب الملف نفسه (بدون كاش) ومقارنة رقم الإصدار */
 function checkForUpdate(){
@@ -1723,17 +1723,28 @@ function cancelInvoice(gid){
 function pDashboard(){
   recalcQty(); // مزامنة الأرصدة المخزّنة مع الدفتر الفريد قبل العرض
   const q=($("#dashSearch")?.value||"");const CI=citems();
-  const totalItems=CI.length;
-  const totalStock=CI.reduce((s,i)=>s+i.qty,0);
-  const low=CI.filter(i=>i.reorder>0&&i.qty<=i.reorder);
-  const zero=CI.filter(i=>i.qty<=0);
+  const bal=i=>stockOf(i.id);                               // الرصيد الحي من الدفتر
+  const totalItems=CI.length;                               // عدد الأصناف المدرجة
+  const totalAvail=CI.reduce((s,i)=>s+Math.max(bal(i),0),0);// إجمالي المتاح (لا يُخصم منه السالب)
+  const low=CI.filter(i=>itemStatus(i)==="low");            // تحت حد الطلب (وما زال متاحاً)
+  const zero=CI.filter(i=>bal(i)===0);                      // نفد تماماً = صفر بالضبط
+  const neg=CI.filter(i=>bal(i)<0);                         // بالسالب (منفصلة)
+  // المتاح حسب الفئة (كم غرفة؟ كم مرتبة؟)
+  const byCat={};CATS.forEach(c=>byCat[c]=0);
+  CI.forEach(i=>{const c=normCat(i.category)||"غير مصنّف";if(byCat[c]==null)byCat[c]=0;byCat[c]+=Math.max(bal(i),0);});
+  const catIcon={"غرف نوم":"🛏️","مراتب":"🛌"};
+  const catCards=Object.keys(byCat).map(c=>`<div class="stat"><div class="lbl">${catIcon[c]||"📦"} المتاح — ${esc(c)}</div><div class="val" style="color:var(--green)">${byCat[c]}</div></div>`).join("");
   $("#view").innerHTML=`
   <div class="pagehead"><h1>📊 أرصدة الأصناف</h1><span class="pill">${fmt(new Date())}</span></div>
-  <div class="grid-4" style="margin-bottom:16px">
+  <div class="grid-4" style="margin-bottom:12px">
     <div class="stat"><div class="lbl">عدد الأصناف</div><div class="val">${totalItems}</div></div>
-    <div class="stat"><div class="lbl">إجمالي الأرصدة</div><div class="val">${totalStock}</div></div>
-    <div class="stat"><div class="lbl">أصناف تحت حد الطلب</div><div class="val" style="color:var(--red)">${low.length}</div></div>
-    <div class="stat"><div class="lbl">أصناف نفدت (صفر)</div><div class="val" style="color:var(--amber)">${zero.length}</div></div>
+    <div class="stat"><div class="lbl">إجمالي المتاح</div><div class="val" style="color:var(--green)">${totalAvail}</div></div>
+    <div class="stat"><div class="lbl">تحت حد الطلب</div><div class="val" style="color:var(--amber)">${low.length}</div></div>
+    <div class="stat"><div class="lbl">نفدت (صفر)</div><div class="val" style="color:var(--muted)">${zero.length}</div></div>
+  </div>
+  <div class="grid-4" style="margin-bottom:16px">
+    ${catCards}
+    <div class="stat"><div class="lbl">أصناف بالسالب</div><div class="val" style="color:var(--red)">${neg.length}</div></div>
   </div>
   <div class="card">
     <div class="card-title" style="display:flex;justify-content:space-between;align-items:center"><span>جرد الأرصدة الحالية</span>
