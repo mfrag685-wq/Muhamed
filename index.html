@@ -771,6 +771,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
   <div class="print-head"><span class="print-logo"></span><h3>تقرير المخزون</h3><p>إعداد محمد فرج</p></div>
   <div class="panel-title">أرصدة المخزون <span class="hint">التقييم بمتوسط التكلفة المرجح لكل مستودع</span></div>
   <div id="stockWarn"></div>
+  <div id="stockOpening" class="note no-print" style="display:none;margin-bottom:10px;border-right-color:var(--sky)"></div>
   <div class="filters no-print">
     <div class="field"><label>الرصيد كما في نهاية شهر <span class="hint">افتراضياً الشهر الحالي</span></label><input type="month" id="st_month" onchange="renderStock()"></div>
     <div class="field"><label>المستودع</label><select id="st_wh" onchange="renderStock()"></select></div>
@@ -1836,7 +1837,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-10-06-a';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-10-06-b';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -5432,6 +5433,20 @@ function renderStock(){
   var mo=val('st_month'), cur=curMonth();
   var asOf=(mo&&mo<cur)?monthRangeOf(mo+'-01').to:null;
   var ST=asOf?stockAsOf(asOf):L.stock;
+  /* رصيد افتتاحي مُرحّل (عرض فقط، بلا قيد): قيمة المخزون كما في نهاية اليوم السابق لأول الشهر المختار */
+  (function(){
+    var moSel=mo||cur, openDate=ivAddDays(moSel+'-01',-1), openSnap=stockAsOf(openDate), openVal=0;
+    Object.keys(openSnap).forEach(function(k){ var s=openSnap[k];
+      if(Math.abs(s.units)<0.001&&Math.abs(s.cost)<0.01) return;
+      if(fw&&s.whId!==+fw) return;
+      if(fi&&s.itemId!==+fi) return;
+      openVal+=(+s.cost||0);
+    });
+    var so=document.getElementById('stockOpening');
+    if(so){ so.style.display='';
+      so.innerHTML='📥 <b>رصيد افتتاحي مُرحّل</b> لأول شهر '+esc(moSel)+' = <b>'+money(openVal)+'</b> '
+        +'<span class="muted">(قيمة المخزون كما في نهاية '+esc(openDate)+' — مُرحّل تلقائياً من الشهر السابق حسب المعايير المحاسبية؛ عرض فقط بلا قيد حتى لا يتضاعف المخزون)</span>'; }
+  })();
   var wtOf=function(s){ if(!asOf) return s.weight; return itemByKg(s.itemId)?s.units:s.units*(itemUW(s.itemId)||0); };
   var keys=Object.keys(ST).filter(function(k){
     var s=ST[k];
