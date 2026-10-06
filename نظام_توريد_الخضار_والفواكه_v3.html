@@ -1836,7 +1836,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-10-05-a';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-10-06-a';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -5027,16 +5027,16 @@ function renderAdvisor(){
 var stockWarnExpanded=false;
 function stockWarnHtml(){
   if(!L||!L.warn||!L.warn.length) return '';
-  /* اعرض فقط التنبيهات التي تخص الفترة المختارة (تاريخ الحركة داخل النطاق) */
-  var r=rg(), W=L.warn.filter(function(w){ return inRange((w&&w.date)||'', r.from, r.to); });
+  /* اعرض تنبيهات الشهر الحالي فقط — تتجدّد تلقائياً مع بداية كل شهر */
+  var mr=monthRangeOf(curMonth()+'-01');
+  var W=L.warn.filter(function(w){ return inRange((w&&w.date)||'', mr.from, mr.to); });
   if(!W.length) return '';
-  var scoped=!!(r.from||r.to);
   var list=stockWarnExpanded?W:W.slice(0,6);
   var txt=function(w){ return esc((w&&w.text)||String(w)); };
   var more='';
   if(W.length>6) more='<br><a href="#" onclick="toggleStockWarn(event)" style="color:var(--leaf-dark);font-weight:800;cursor:pointer;text-decoration:none">'
     +(stockWarnExpanded?'▲ عرض أقل':'▼ عرض الكل ('+W.length+' تنبيه)')+'</a>';
-  return '<div class="alert"><b>تنبيهات المخزون ('+W.length+')'+(scoped?' — ضمن الفترة المحددة':'')+'</b><br>'+list.map(txt).join('<br>')+more+'</div>';
+  return '<div class="alert"><b>تنبيهات المخزون ('+W.length+') — الشهر الحالي ('+esc(curMonth())+')</b><br>'+list.map(txt).join('<br>')+more+'</div>';
 }
 function toggleStockWarn(e){
   if(e&&e.preventDefault) e.preventDefault();
