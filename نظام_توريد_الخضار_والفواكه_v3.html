@@ -1604,16 +1604,20 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
   </div>
   <div class="form-foot"><button class="btn-main" onclick="saveSettings()">حفظ الإعدادات</button></div>
 
-  <div class="sec-title">إغلاق الشهور (قفل الفترات) <span class="hint">يمنع أي تعديل على فترة مقفلة إلا بكلمة مرور المدير</span></div>
-  <div class="note" style="border-right-color:var(--citrus)">حدِّد تاريخاً، فتُقفَل كل الفترات حتى هذا التاريخ ضمناً (مشتريات/مبيعات/مصروفات/مرتجعات/مخزون/سداد…). أي إضافة أو تعديل أو حذف لسجلٍّ تاريخه داخل الفترة المقفلة سيتطلّب <b>كلمة مرور القفل</b>. القفل وتغيير كلمته لمدير النظام فقط.</div>
+  <div class="sec-title">إغلاق فترة مالية (قفل الفترات) <span class="hint">بنمط دفترة — تُرحّل الأرصدة وتُمنع التعديلات إلا بفتح المدير</span></div>
+  <div class="note" style="border-right-color:var(--citrus)">حدِّد تاريخ الإغلاق، فتُقفَل كل الفترات حتى هذا التاريخ ضمناً. <b>لا تُعدَّل ولا تُضاف ولا تُحذف</b> أي حركة داخلها إلا بعد أن يفتحها <b>المدير</b> بكلمة المرور. الأرصدة (المخزون/الذمم) <b>تُرحّل تلقائياً</b> كأرصدة افتتاحية للفترة الجديدة (نظام مستمر — بلا إعادة إدخال أو حذف). القفل وفتحه لمدير النظام فقط.</div>
   <div class="doc-box no-print" id="periodLockBox">
     <div class="grid">
       <div class="field"><label>مقفل حتى تاريخ (ضمناً)</label><input type="date" id="pl_until"></div>
       <div class="field"><label>كلمة مرور القفل <span class="hint">اتركها فارغة للإبقاء على الحالية</span></label><input type="password" id="pl_pass" autocomplete="new-password" placeholder="••••••"></div>
     </div>
-    <div class="form-foot"><button class="btn-main" onclick="savePeriodLock()">حفظ قفل الفترة</button>
-      <button class="btn btn-del" onclick="clearPeriodLock()">إلغاء القفل</button>
+    <div class="form-foot"><button class="btn-main" onclick="savePeriodLock()">إغلاق الفترة / حفظ</button>
+      <button class="btn" onclick="reopenPeriod()">🔓 فتح الفترة للتعديل</button>
+      <button class="btn" onclick="reclosePeriod()">🔒 إعادة الإغلاق</button>
+      <button class="btn" onclick="showCarriedBalances()">📋 الأرصدة المرحّلة</button>
+      <button class="btn btn-del" onclick="clearPeriodLock()">إلغاء القفل نهائياً</button>
       <span class="mini" id="pl_status"></span></div>
+    <div id="pl_carried" style="margin-top:10px"></div>
   </div>
 
   <div class="sec-title">شعار المنشأة</div>
@@ -1832,7 +1836,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-10-04-b';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-10-06-a';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -5023,16 +5027,16 @@ function renderAdvisor(){
 var stockWarnExpanded=false;
 function stockWarnHtml(){
   if(!L||!L.warn||!L.warn.length) return '';
-  /* اعرض فقط التنبيهات التي تخص الفترة المختارة (تاريخ الحركة داخل النطاق) */
-  var r=rg(), W=L.warn.filter(function(w){ return inRange((w&&w.date)||'', r.from, r.to); });
+  /* اعرض تنبيهات الشهر الحالي فقط — تتجدّد تلقائياً مع بداية كل شهر */
+  var mr=monthRangeOf(curMonth()+'-01');
+  var W=L.warn.filter(function(w){ return inRange((w&&w.date)||'', mr.from, mr.to); });
   if(!W.length) return '';
-  var scoped=!!(r.from||r.to);
   var list=stockWarnExpanded?W:W.slice(0,6);
   var txt=function(w){ return esc((w&&w.text)||String(w)); };
   var more='';
   if(W.length>6) more='<br><a href="#" onclick="toggleStockWarn(event)" style="color:var(--leaf-dark);font-weight:800;cursor:pointer;text-decoration:none">'
     +(stockWarnExpanded?'▲ عرض أقل':'▼ عرض الكل ('+W.length+' تنبيه)')+'</a>';
-  return '<div class="alert"><b>تنبيهات المخزون ('+W.length+')'+(scoped?' — ضمن الفترة المحددة':'')+'</b><br>'+list.map(txt).join('<br>')+more+'</div>';
+  return '<div class="alert"><b>تنبيهات المخزون ('+W.length+') — الشهر الحالي ('+esc(curMonth())+')</b><br>'+list.map(txt).join('<br>')+more+'</div>';
 }
 function toggleStockWarn(e){
   if(e&&e.preventDefault) e.preventDefault();
@@ -6422,10 +6426,36 @@ function periodGuard(date,msg){
   if(_periodUnlocked) return true;
   var pl=db.settings.periodLock;
   if(!pl||!pl.pass) return true;   /* لا كلمة مرور ⇒ لا منع فعلي */
-  var p=prompt('🔒 الفترة مقفلة حتى '+pl.until+'.\n'+(msg||'للتعديل أدخل كلمة مرور القفل:'));
+  if(!isAdmin()){ toast('🔒 الفترة المالية مقفلة حتى '+pl.until+' — لا يمكن التعديل إلا بعد فتحها من المدير.'); return false; }
+  var p=prompt('🔒 الفترة المالية مقفلة حتى '+pl.until+'.\n'+(msg||'أنت المدير — أدخل كلمة مرور القفل لفتح الفترة للتعديل (لهذه الجلسة):'));
   if(p==null) return false;
-  if(hash(p)===pl.pass){ _periodUnlocked=true; toast('فُتح القفل لهذه الجلسة'); return true; }
+  if(hash(p)===pl.pass){ _periodUnlocked=true; toast('فُتحت الفترة للتعديل (لهذه الجلسة)'); try{renderPeriodLock();}catch(e){} return true; }
   toast('كلمة مرور القفل غير صحيحة — العملية ممنوعة'); return false;
+}
+/* المدير يفتح الفترة المقفلة للتعديل (لهذه الجلسة فقط) */
+function reopenPeriod(){
+  if(!isAdmin()){ alert('فتح الفترة لمدير النظام فقط.'); return; }
+  var pl=db.settings.periodLock; if(!pl||!pl.until){ toast('لا توجد فترة مقفلة'); return; }
+  if(_periodUnlocked){ toast('الفترة مفتوحة للتعديل بالفعل'); return; }
+  if(pl.pass){ var p=prompt('أدخل كلمة مرور القفل لفتح الفترة للتعديل:'); if(p==null) return; if(hash(p)!==pl.pass){ toast('كلمة المرور غير صحيحة'); return; } }
+  _periodUnlocked=true; renderPeriodLock();
+  toast('فُتحت الفترة للتعديل — أعِد إغلاقها بعد الانتهاء (أو حدّث الصفحة)');
+}
+/* إعادة إغلاق الفترة فوراً بعد انتهاء التعديل */
+function reclosePeriod(){ _periodUnlocked=false; renderPeriodLock(); toast('أُعيد إغلاق الفترة المالية'); }
+/* الأرصدة المرحّلة كما في تاريخ الإغلاق = الأرصدة الافتتاحية للفترة الجديدة (محاسبياً) */
+function showCarriedBalances(){
+  var box=document.getElementById('pl_carried'); if(!box) return;
+  var d=periodLockUntil(); if(!d){ box.innerHTML='<div class="note">حدّد «مقفل حتى تاريخ» أولاً.</div>'; return; }
+  if(!L) refreshLedger();
+  var snap=stockAsOf(d), byItem={}, invTot=0;
+  Object.keys(snap).forEach(function(k){ var s=snap[k]; if(Math.abs(s.units)<0.001&&Math.abs(s.cost)<0.01) return; invTot+=s.cost; var o=byItem[s.itemId]||(byItem[s.itemId]={u:0,c:0}); o.u+=s.units; o.c+=s.cost; });
+  var rows=Object.keys(byItem).sort(function(a,b){return byItem[b].c-byItem[a].c;}).map(function(id){ var o=byItem[id];
+    return '<tr><td class="name">'+esc(itemName(+id))+'</td><td class="num">'+qty(o.u)+'</td><td class="num">'+money(o.c)+'</td></tr>'; }).join('');
+  box.innerHTML='<div class="note" style="border-right-color:var(--leaf-dark)">الأرصدة المرحّلة كما في نهاية <b>'+esc(d)+'</b> — وهي الأرصدة الافتتاحية للفترة الجديدة تلقائياً (نظام مستمر perpetual: تُرحَّل دون إعادة إدخال أو حذف).</div>'
+    +'<div class="table-scroll"><table><thead><tr><th class="name">الصنف</th><th class="num">الرصيد</th><th class="num">القيمة المرحّلة</th></tr></thead><tbody>'
+    +(rows||'<tr><td colspan="3" class="empty">لا مخزون مرحّل.</td></tr>')
+    +'<tr class="total-row"><td class="name">إجمالي قيمة المخزون المرحّل</td><td></td><td class="num">'+money(invTot)+'</td></tr></tbody></table></div>';
 }
 function renderPeriodLock(){
   var s=document.getElementById('pl_status'); setVal('pl_until',periodLockUntil());
