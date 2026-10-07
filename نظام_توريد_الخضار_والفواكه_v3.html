@@ -1837,7 +1837,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-10-06-b';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-10-07-a';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -6660,13 +6660,15 @@ function renderItemDiag(){
   var from=val('di_from')||'', to=val('di_to')||today();
   var inR=function(d){ return inRange(d,from,to); };
   var agg={};
-  function A(id){ if(!agg[id]) agg[id]={pU:0,pBox:0,pKg:0,sU:0,sBox:0,sKg:0,opU:0,srU:0,prU:0,wU:0}; return agg[id]; }
+  function A(id){ if(!agg[id]) agg[id]={pU:0,pBox:0,pKg:0,sU:0,sBox:0,sKg:0,opU:0,srU:0,prU:0,wU:0,cvIn:0,cvOut:0}; return agg[id]; }
   db.purchases.forEach(function(p){ if(!inR(p.date)) return; (p.lines||[]).forEach(function(l){ var o=A(l.itemId); o.pU+=+l.units||0; o.pBox+=+l.boxes||0; o.pKg+=(+l.units||0)*(+l.uw||0); });});
   db.sales.forEach(function(s){ if(!inR(s.date)) return; (s.lines||[]).forEach(function(l){ var o=A(l.itemId); o.sU+=+l.units||0; o.sBox+=+l.boxes||0; o.sKg+=(+l.units||0)*(+l.uw||0); });});
   (db.openingStock||[]).forEach(function(o2){ if(!inR(o2.date)) return; A(o2.itemId).opU+=+o2.units||0; });   /* افتتاحي/جرد (زيادة) داخل الفترة */
   (db.sreturns||[]).forEach(function(r){ if(!inR(r.date)) return; A(r.itemId).srU+=+r.units||0; });            /* مرتجع بيع */
   (db.preturns||[]).forEach(function(r){ if(!inR(r.date)) return; A(r.itemId).prU+=+r.units||0; });            /* مرتجع شراء */
   (db.waste||[]).forEach(function(w){ if(!inR(w.date)) return; A(w.itemId).wU+=+w.units||0; });                /* فاقد/عجز */
+  /* تحويل مخزني داخل الفترة فقط: يقلّل الصنف المصدر ويزيد الصنف الهدف — يُحتسب في المعادلة حتى لا يظهر كفرق للمراجعة */
+  (db.conversions||[]).forEach(function(c){ if(!inR(c.date)) return; A(c.fromItemId).cvOut+=+c.fromUnits||0; A(c.toItemId).cvIn+=+c.toUnits||0; });
   /* أرصدة بداية/نهاية المدة من لقطة المخزون (تشمل كل الحركات السابقة والجرد) */
   var openSnap=from?stockAsOf(diagDayBefore(from)):{}, closeSnap=stockAsOf(to);
   var openBal={}, closeBal={}, remWh={};
@@ -6677,10 +6679,10 @@ function renderItemDiag(){
   Object.keys(openBal).forEach(function(id){ A(+id); }); Object.keys(closeBal).forEach(function(id){ A(+id); });
   var rows=Object.keys(agg).map(function(id){ id=+id; var o=agg[id], it=byId(db.items,id), bk=!!(it&&it.byKg), sv=!!(it&&it.service);
     var ob=openBal[id]||0, cb=closeBal[id]||0, whs=remWh[id]||[], flags=[], sev=0;
-    /* التسوية داخل الفترة: رصيد البداية + مشتريات + مرتجع بيع + افتتاحي/جرد − مبيعات − مرتجع شراء − فاقد = رصيد النهاية */
-    var recon=ob+o.pU+o.srU+o.opU-o.sU-o.prU-o.wU;
+    /* التسوية داخل الفترة: رصيد البداية + مشتريات + مرتجع بيع + افتتاحي/جرد + تحويل داخل − مبيعات − مرتجع شراء − فاقد − تحويل خارج = رصيد النهاية */
+    var recon=ob+o.pU+o.srU+o.opU+o.cvIn-o.sU-o.prU-o.wU-o.cvOut;
     var diff=cb-recon;
-    var noMove=(o.pU+o.sU+o.opU+o.srU+o.prU+o.wU)===0;
+    var noMove=(o.pU+o.sU+o.opU+o.srU+o.prU+o.wU+o.cvIn+o.cvOut)===0;
     if(noMove && Math.abs(cb)<0.001 && Math.abs(ob)<0.001) return null;   /* لا شيء يخص هذا الصنف في الفترة */
     if(bk && o.pBox>0 && o.sBox>0){ var pw=o.pKg/o.pBox, sw=o.sKg/o.sBox;
       if(Math.abs(pw-sw)>0.15){ flags.push('⚠ تباين وزن العبوة داخل الفترة: شراء '+num(pw)+' كجم · بيع '+num(sw)+' كجم'); sev=3; } }
@@ -6700,13 +6702,17 @@ function renderItemDiag(){
     if(Math.abs(o.srU)>0.001) adj.push('<span class="pos">مرتجع بيع +'+qty(o.srU)+'</span>');
     if(Math.abs(o.wU)>0.001) adj.push('<span class="neg">فاقد/عجز −'+qty(o.wU)+'</span>');
     if(Math.abs(o.prU)>0.001) adj.push('<span class="neg">مرتجع شراء −'+qty(o.prU)+'</span>');
+    if(Math.abs(o.cvIn)>0.001) adj.push('<span class="pos">تحويل مخزني (داخل) +'+qty(o.cvIn)+'</span>');
+    if(Math.abs(o.cvOut)>0.001) adj.push('<span class="neg">تحويل مخزني (خارج) −'+qty(o.cvOut)+'</span>');
     var adjTxt=adj.length?adj.join('<br>'):'—';
     /* معادلة تسوية الفترة: رصيد البداية + مشتريات − مبيعات ± تسويات = رصيد النهاية */
     var parts=['رصيد البداية '+qty(r.ob),'+ مشتريات '+qty(o.pU),'− مبيعات '+qty(o.sU)];
     if(Math.abs(o.opU)>0.001) parts.push('+ افتتاحي/جرد '+qty(o.opU));
     if(Math.abs(o.srU)>0.001) parts.push('+ مرتجع '+qty(o.srU));
+    if(Math.abs(o.cvIn)>0.001) parts.push('+ تحويل داخل '+qty(o.cvIn));
     if(Math.abs(o.wU)>0.001) parts.push('− فاقد '+qty(o.wU));
     if(Math.abs(o.prU)>0.001) parts.push('− مرتجع شراء '+qty(o.prU));
+    if(Math.abs(o.cvOut)>0.001) parts.push('− تحويل خارج '+qty(o.cvOut));
     var reconTxt='<div class="pill pill-info" style="display:block;margin:2px 0;white-space:normal">'+parts.join(' ')+' = <b>'+qty(r.recon)+'</b> '+u+'</div>';
     var whTxt=r.whs.map(function(x){return esc(whName(x.wh))+': '+qty(x.u);}).join(' · ')||'—';
     var flagTxt=r.flags.length?r.flags.map(function(f){return '<div class="pill '+(r.sev>=3?'pill-bad':(r.sev>=2?'pill-warn':'pill-info'))+'" style="display:block;margin:2px 0;white-space:normal">'+esc(f)+'</div>';}).join(''):'<span class="pill pill-ok">سليم</span>';
