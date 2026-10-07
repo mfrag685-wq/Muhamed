@@ -793,7 +793,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
           <div class="field"><label>الصنف</label><select id="t_item" onchange="onTransferItem()"></select></div>
           <div class="field"><label>من مستودع</label><select id="t_from" onchange="showXferAvail()"></select></div>
           <div class="field"><label>إلى مستودع</label><select id="t_to"></select></div>
-          <div class="field"><label id="lbl_t_units">عدد الوحدات</label><input type="number" id="t_units" step="0.01" min="0">
+          <div class="field"><label id="lbl_t_units">عدد الوحدات</label><input type="number" id="t_units" step="0.01" min="0" oninput="showXferAvail()">
             <span class="mini" id="t_availHint"></span></div>
           <div class="field" id="t_uwWrap" style="display:none"><label>وزن الصندوق (كغ)</label>
             <input type="number" id="t_uw" step="0.01" min="0" list="dl_t_uw"><datalist id="dl_t_uw"></datalist></div>
@@ -813,7 +813,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
           <div class="field"><label>التاريخ</label><input type="date" id="w_date"></div>
           <div class="field"><label>المستودع</label><select id="w_wh" onchange="showWasteAvail()"></select></div>
           <div class="field"><label>الصنف</label><select id="w_item" onchange="onWasteItem()"></select></div>
-          <div class="field"><label id="lbl_w_units">عدد الوحدات</label><input type="number" id="w_units" step="0.01" min="0">
+          <div class="field"><label id="lbl_w_units">عدد الوحدات</label><input type="number" id="w_units" step="0.01" min="0" oninput="showWasteAvail()">
             <span class="mini" id="w_availHint"></span></div>
           <div class="field" id="w_uwWrap" style="display:none"><label>وزن الصندوق (كغ)</label>
             <input type="number" id="w_uw" step="0.01" min="0" list="dl_w_uw"><datalist id="dl_w_uw"></datalist></div>
@@ -1837,7 +1837,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-10-07-a';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-10-07-b';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -2651,6 +2651,19 @@ function availUnits(whId,itemId){
   generalWhs().forEach(function(g){ if(g.id!==whId){ var x=L.stock[g.id+'|'+itemId]; if(x) t+=x.units; } });
   return t;
 }
+/* نص الرصيد المتاح بوحدة الصنف الصحيحة:
+   • بالكيلو: الرصيد بالكيلوجرام.
+   • بالوحدة وله وزن وحدة (uw>0): يُظهر العدد ومكافئه بالكيلو معاً (مثال «بصل احمر 10 ك») حتى لا يظهر الرصيد بالعدد فقط.
+   • خدمي/بلا وزن: بالعدد فقط. */
+function availUnitLbl(itemId){ var it=byId(db.items,itemId); return (it&&it.byKg)?'كغ':'وحدة'; }
+function availText(whId,itemId){
+  if(!(whId&&itemId)) return '';
+  var av=availUnits(whId,itemId), it=byId(db.items,itemId);
+  var bk=!!(it&&it.byKg), svc=!!(it&&it.service), uwv=+(it&&it.uw)||0;
+  if(bk) return qty(av)+' كغ';
+  if(!svc&&uwv>0) return qty(av)+' وحدة — ما يعادل '+qty(av*uwv)+' كغ';
+  return qty(av)+' '+(svc?'عدد':'وحدة');
+}
 
 /* ==========================================================================
    تعبئة القوائم المنسدلة
@@ -2884,8 +2897,8 @@ function applyItemTracking(p,it){
   /* لا نملأ وزن الصندوق تلقائياً للأصناف بالكيلو — يبقى إلزامياً بإدخال المستخدم */
 }
 function showAvail(){
-  var w=+val('sl_wh'), i=+val('sl_item'), it=byId(db.items,i);
-  setVal('sl_avail',(w&&i)?qty(availUnits(w,i))+' '+((it&&it.byKg)?'كغ':'وحدة'):'—');
+  var w=+val('sl_wh'), i=+val('sl_item');
+  setVal('sl_avail',(w&&i)?availText(w,i):'—');
 }
 /* حساب السطر — ثنائي الاتجاه للأصناف بالوزن (منع فروق التقريب):
    عدد الصناديق + الوزن الإجمالي + القيمة الإجمالية ⇒ سعر الكيلو = القيمة ÷ الوزن (والعكس).
@@ -3333,10 +3346,13 @@ function applyKgFields(pfx,itemId){
 }
 function xferKg(pfx){ /* الكمية بالكيلو المطلوبة من الحقول */
   var u=fnum(pfx+'_units'); return itemByKg(+val(pfx+'_item'))?u*fnum(pfx+'_uw'):u; }
+function xferEnteredKg(pfx,itemId){ /* مكافئ الكمية المُدخَلة بالكيلو للأصناف بالوحدة ذات وزن وحدة */
+  var it=byId(db.items,itemId), uwv=+(it&&it.uw)||0, u=fnum(pfx+'_units');
+  return (u>0 && !(it&&it.byKg) && !(it&&it.service) && uwv>0) ? ' · المُدخَل '+qty(u)+' وحدة = '+qty(u*uwv)+' كغ' : ''; }
 function showXferAvail(){ var i=+val('t_item'), w=+val('t_from'), el=document.getElementById('t_availHint');
-  if(el) el.textContent=(i&&w)?('المتاح: '+qty(availUnits(w,i))+' '+(itemByKg(i)?'كغ':'وحدة')):''; }
+  if(el) el.textContent=(i&&w)?('المتاح: '+availText(w,i)+xferEnteredKg('t',i)):''; }
 function showWasteAvail(){ var i=+val('w_item'), w=+val('w_wh'), el=document.getElementById('w_availHint');
-  if(el) el.textContent=(i&&w)?('المتاح: '+qty(availUnits(w,i))+' '+(itemByKg(i)?'كغ':'وحدة')):''; }
+  if(el) el.textContent=(i&&w)?('المتاح: '+availText(w,i)+xferEnteredKg('w',i)):''; }
 function onTransferItem(){ applyKgFields('t',+val('t_item')); showXferAvail(); }
 function onWasteItem(){ applyKgFields('w',+val('w_item')); showWasteAvail(); }
 function saveTransfer(){
