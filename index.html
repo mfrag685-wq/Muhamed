@@ -1837,7 +1837,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-10-07-b';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-10-07-c';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -6210,6 +6210,7 @@ function renderMaster(){
       +'<td><span class="pill '+(isActive?'pill-ok':'pill-bad')+'">'+(isActive?'نشط':'متوقف')+'</span></td>'
       +'<td>'+(can('canEdit')?'<button class="btn-sm" onclick="editItem('+i.id+')">تعديل</button> '
         +'<button class="btn-sm" onclick="toggleItemActive('+i.id+')">'+(isActive?'إيقاف':'تنشيط')+'</button> ':'')
+      +(can('settings')&&!i.byKg&&!i.service&&(+i.uw>0)?'<button class="btn-sm btn-alt" onclick="convertItemToKg('+i.id+')" title="يحوّل تتبّع الصنف وكل حركاته إلى الكيلوجرام بأمان دون تغيير القيمة">↻ تتبّع بالكيلو</button> ':'')
       +(can('canDelete')?'<button class="btn-sm btn-del" onclick="delItem('+i.id+')">حذف</button>':'')+'</td></tr>';
   }).join('')||'<tr><td colspan="7" class="empty">لا توجد أصناف. أضف الصنف مع وحدته ووزن الوحدة (معامل التحويل).</td></tr>';
 
@@ -7301,6 +7302,29 @@ function repairKgTracking(){
   });
   if(fixed){ refreshLedger(); commit('تم إصلاح تتبّع الكيلو'); fillAllSelects(); renderMaster(); }
   alert('مراجعة تتبّع الكيلو:\n\n• عدد أصناف الكيلو: '+Object.keys(byKgSet).length+'\n• حركات كانت بالوحدة وحُوِّلت للكيلو: '+fixed+'\n\n'+(fixed?'تم التصحيح — راجع المخزون والتكاليف الآن.':'كل حركات أصناف الكيلو متّسقة — لا أخطاء. ✅'));
+}
+/* ترحيل آمن لصنف واحد من التتبّع بالوحدة إلى الكيلو: يحوّل كل حركاته (الكمية×وزن الوحدة ⇒ كغ، والوزن=1)
+   فتبقى القيمة والتكلفة كما هي ويصبح القياس متّسقاً — البديل الآمن عن قلب علم التتبّع يدوياً (الذي يُفسد الأرصدة). */
+function convertItemToKg(id){
+  if(!guard('settings')) return;
+  var it=byId(db.items,id); if(!it){ toast('الصنف غير موجود'); return; }
+  if(it.service){ toast('الصنف خدمي (بلا وزن) — لا يُتتبَّع بالكيلو'); return; }
+  if(it.byKg){ toast('الصنف مُتتبَّع بالكيلو بالفعل'); return; }
+  if(!(+it.uw>0)){ toast('حدّد «وزن الوحدة» للصنف أولاً ليُحسب المكافئ بالكيلو'); return; }
+  if(!L) refreshLedger();
+  var kg=0,cost=0; Object.keys(L.stock).forEach(function(k){ var s=L.stock[k]; if(s.itemId===id){ kg+=s.weight; cost+=s.cost; } });
+  if(!confirm('ترحيل «'+it.name+'» إلى التتبّع بالكيلو:\n\n• يحوّل كل حركاته السابقة (شراء/بيع/افتتاحي/تحويل/فاقد/مرتجع) من العدد إلى الكيلوجرام.\n• الرصيد سيُعرَض بالكيلو = '+qty(kg)+' كغ (بدل العدد)، والتكلفة تبقى كما هي = '+money(cost)+'.\n• لا تتغيّر القيمة ولا الربح — فقط وحدة القياس.\n\n⚠ العملية لا تُلغى. هل نزّلت نسخة احتياطية؟ المتابعة؟')) return;
+  it.byKg=1;
+  var n=0, hit={}; hit[id]=1;
+  function fixLine(l){ if(l&&hit[l.itemId]){ _lineToKg(l); n++; } }
+  db.purchases.forEach(function(p){ (p.lines||[]).forEach(fixLine); });
+  db.sales.forEach(function(s){ (s.lines||[]).forEach(fixLine); });
+  [db.preturns,db.sreturns,db.transfers,db.waste,db.openingStock].forEach(function(arr){ (arr||[]).forEach(fixLine); });
+  (db.interTransfers||[]).forEach(function(x){
+    if(hit[x.fromItemId]){ var u=+x.units||0,w=+x.uw||0,k=u*w; if(k>0){ x.units=k; x.uw=1; } n++; }
+  });
+  log('edit','البيانات الأساسية','ترحيل «'+it.name+'» إلى التتبّع بالكيلو ('+n+' حركة)');
+  refreshLedger(); commit('تم ترحيل الصنف إلى التتبّع بالكيلو ('+n+' حركة)'); fillAllSelects(); renderMaster();
 }
 function consolidateDepts(){
   if(!guard('settings')) return;
