@@ -212,14 +212,17 @@ table.mini-months{font-size:12px}table.mini-months th,table.mini-months td{paddi
 .card.dark{background:var(--ink);border-color:var(--ink)}
 .card.dark .k,.card.dark .n{color:#93aa9d}.card.dark .v{color:#fff}
 /* ===== الرسوم البيانية ===== */
-.chart-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px;margin:14px 0}
-.chart-box{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
-.chart-box h4{font-size:13.5px;font-weight:700;color:var(--ink);margin-bottom:2px}
-.chart-box .csub{font-size:11.5px;color:var(--ink-3);margin-bottom:10px}
+.chart-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:16px;margin:14px 0}
+.chart-box{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px 18px 14px;box-shadow:0 1px 2px rgba(21,36,32,.04);transition:box-shadow .15s}
+.chart-box:hover{box-shadow:0 4px 16px rgba(21,36,32,.08)}
+.chart-box h4{font-size:14px;font-weight:700;color:var(--ink);margin-bottom:2px;padding-right:11px;border-right:3px solid var(--leaf);line-height:1.3}
+.chart-box .csub{font-size:11.5px;color:var(--ink-3);margin:0 11px 12px 0}
 .chart-box svg{width:100%;height:auto;display:block;overflow:visible}
-.chart-legend{display:flex;flex-wrap:wrap;gap:10px 16px;margin-top:12px}
-.chart-legend .lg{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--ink-2)}
-.chart-legend .sw{width:12px;height:12px;border-radius:3px;flex-shrink:0}
+.chart-box svg path,.chart-box svg rect{transition:opacity .12s}
+.chart-box svg:hover path[fill]:not([fill="transparent"]):hover,.chart-box svg:hover rect[fill]:hover{opacity:.82;cursor:default}
+.chart-legend{display:flex;flex-wrap:wrap;gap:7px 9px;margin-top:13px;padding-top:12px;border-top:1px solid var(--line-soft)}
+.chart-legend .lg{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--ink-2);background:var(--surface-2);border:1px solid var(--line-soft);border-radius:20px;padding:3px 10px 3px 8px}
+.chart-legend .sw{width:11px;height:11px;border-radius:50%;flex-shrink:0}
 .chart-legend .lv{font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums}
 
 .note{background:var(--surface-2);border:1px solid var(--line-soft);border-right:3px solid var(--leaf);
@@ -5996,15 +5999,24 @@ function card(k,v,n,dark){ return '<div class="card'+(dark?' dark':'')+'"><div c
 /* ==========================================================================
    مكتبة الرسوم البيانية — SVG مضمّن بلا مكتبات خارجية (تعمل دون إنترنت)
    ========================================================================== */
-var CHART_COLORS=['#2c7a52','#c1841a','#1c7ed6','#c0392b','#6f42c1','#0ca678','#d6336c','#4c6ef5','#f59f00','#495057'];
-var CHART_AXIS='#8a9a90', CHART_GRID='#e6ebe5', CHART_TEXT='#3f524a';
-function fmtK(n){ n=Number(n)||0; var a=Math.abs(n);
-  if(a>=1e6) return (n/1e6).toFixed(a>=1e7?0:1)+'M';
-  if(a>=1e3) return (n/1e3).toFixed(a>=1e4?0:1)+'K';
-  return String(Math.round(n)); }
+/* لوحة ألوان آمنة لعمى الألوان (مُتحقَّق منها) بدلالة مالية:
+   0=أخضر (إيراد/ربح) · 1=كهرماني (تكلفة) · 2=أزرق (مقياس ثانٍ) · 3=أحمر (مصروف/خسارة) · 4..=فئوية */
+var CHART_COLORS=['#1f9d57','#e8900c','#2a78d6','#e03131','#7048cf','#12b886','#f16916','#3b5bdb','#d6336c','#868e96'];
+var CHART_AXIS='#c3c2b7', CHART_GRID='#e9eee9', CHART_TEXT='#6b7d74', CHART_INK='#243a31';
+function fmtK(n){ n=Number(n)||0; var s=n<0?'−':'', a=Math.abs(n);
+  if(a>=1e6) return s+(a/1e6).toFixed(a>=1e7?0:1).replace(/\.0$/,'')+'M';
+  if(a>=1e3) return s+(a/1e3).toFixed(a>=1e4?0:1).replace(/\.0$/,'')+'K';
+  return s+String(Math.round(a)); }
 function niceMax(v){ if(v<=0) return 1;
   var pow=Math.pow(10,Math.floor(Math.log(v)/Math.LN10)), f=v/pow;
   var nf=f<=1?1:f<=2?2:f<=2.5?2.5:f<=5?5:10; return nf*pow; }
+/* مسار عمود بطرف مُدوَّر بعيداً عن خط الأساس فقط (up=عمود موجب يُدوَّر أعلاه) */
+function barPath(x,y,w,h,up){
+  x=+x;y=+y;w=+w;h=+h; var r=Math.max(0,Math.min(3.5,w/2,h));
+  if(h<=r+0.5) return '<rect x="'+x.toFixed(1)+'" y="'+y.toFixed(1)+'" width="'+w.toFixed(1)+'" height="'+h.toFixed(1)+'"/>';
+  return up
+    ? 'M'+x.toFixed(1)+' '+(y+h).toFixed(1)+' V'+(y+r).toFixed(1)+' Q'+x.toFixed(1)+' '+y.toFixed(1)+' '+(x+r).toFixed(1)+' '+y.toFixed(1)+' H'+(x+w-r).toFixed(1)+' Q'+(x+w).toFixed(1)+' '+y.toFixed(1)+' '+(x+w).toFixed(1)+' '+(y+r).toFixed(1)+' V'+(y+h).toFixed(1)+' Z'
+    : 'M'+x.toFixed(1)+' '+y.toFixed(1)+' H'+(x+w).toFixed(1)+' V'+(y+h-r).toFixed(1)+' Q'+(x+w).toFixed(1)+' '+(y+h).toFixed(1)+' '+(x+w-r).toFixed(1)+' '+(y+h).toFixed(1)+' H'+(x+r).toFixed(1)+' Q'+x.toFixed(1)+' '+(y+h).toFixed(1)+' '+x.toFixed(1)+' '+(y+h-r).toFixed(1)+' Z'; }
 function chartBox(title,sub,inner,legend){
   return '<div class="chart-box"><h4>'+esc(title)+'</h4>'+(sub?'<div class="csub">'+esc(sub)+'</div>':'')
     +inner+(legend||'')+'</div>';
@@ -6022,23 +6034,32 @@ function barChart(title,sub,cats,series,unitFmt){
   unitFmt=unitFmt||money;
   var has=series.some(function(s){return s.vals.some(function(v){return Math.abs(v)>0.0001;});});
   if(!cats.length||!has) return chartBox(title,sub,emptyChart());
-  var W=680,H=300,padL=52,padR=14,padT=14,padB=52,iw=W-padL-padR,ih=H-padT-padB;
+  var n=cats.length, sc=series.length, maxLbl=0;
+  cats.forEach(function(c){ if(String(c).length>maxLbl) maxLbl=String(c).length; });
+  var rot=(n>10||maxLbl>6);
+  var W=560,padL=48,padR=14,padT=18,padB=rot?56:38,H=rot?292:280,iw=W-padL-padR,ih=H-padT-padB;
   var max=0,min=0; series.forEach(function(s){ s.vals.forEach(function(v){ if(v>max)max=v; if(v<min)min=v; }); });
   var top=niceMax(max||1), bot=min<0?-niceMax(-min):0, span=top-bot||1;
-  var y=function(v){ return padT+ih-((v-bot)/span)*ih; };
+  var y=function(v){ return padT+ih-((v-bot)/span)*ih; }, zeroY=y(0);
   var g='',i,step=4;
-  for(i=0;i<=step;i++){ var gv=bot+span*i/step, gy=y(gv);
-    g+='<line x1="'+padL+'" y1="'+gy.toFixed(1)+'" x2="'+(W-padR)+'" y2="'+gy.toFixed(1)+'" stroke="'+CHART_GRID+'" stroke-width="1"/>'
-      +'<text x="'+(padL-6)+'" y="'+(gy+3.5).toFixed(1)+'" text-anchor="end" font-size="10" fill="'+CHART_TEXT+'">'+esc(fmtK(gv))+'</text>'; }
-  var n=cats.length, gw=iw/n, sc=series.length, innerPad=gw*0.18, bw=(gw-innerPad*2)/sc;
-  var bars='',labels='';
+  for(i=0;i<=step;i++){ var gv=bot+span*i/step, gy=y(gv), isZero=Math.abs(gv)<span*1e-6;
+    g+='<line x1="'+padL+'" y1="'+gy.toFixed(1)+'" x2="'+(W-padR)+'" y2="'+gy.toFixed(1)+'" stroke="'+CHART_GRID+'" stroke-width="1"'+(isZero?'':' stroke-dasharray="2 4"')+'/>'
+      +'<text x="'+(padL-7)+'" y="'+(gy+3.8).toFixed(1)+'" text-anchor="end" font-size="11.5" fill="'+CHART_TEXT+'" font-variant-numeric="tabular-nums">'+esc(fmtK(gv))+'</text>'; }
+  var gw=iw/n, innerPad=gw*0.16, slot=(gw-innerPad*2)/sc, bw=Math.min(slot*0.82,40), gap=slot-bw;
+  var showVal=(bw>=15&&n<=14);
+  var bars='',labels='',vals='';
   for(i=0;i<n;i++){ var gx=padL+gw*i;
-    for(var j=0;j<sc;j++){ var v=series[j].vals[i]||0, bx=gx+innerPad+bw*j, by=Math.min(y(v),y(0)), bh=Math.abs(y(v)-y(0));
-      bars+='<rect x="'+bx.toFixed(1)+'" y="'+by.toFixed(1)+'" width="'+(bw*0.86).toFixed(1)+'" height="'+Math.max(0,bh).toFixed(1)
-        +'" rx="2" fill="'+series[j].color+'"><title>'+esc(cats[i]+' · '+series[j].name+': '+unitFmt(v))+'</title></rect>'; }
-    labels+='<text x="'+(gx+gw/2).toFixed(1)+'" y="'+(H-padB+16)+'" text-anchor="middle" font-size="10" fill="'+CHART_TEXT+'">'+esc(cats[i])+'</text>'; }
-  var axis='<line x1="'+padL+'" y1="'+y(0).toFixed(1)+'" x2="'+(W-padR)+'" y2="'+y(0).toFixed(1)+'" stroke="'+CHART_AXIS+'" stroke-width="1.2"/>';
-  var svg='<svg viewBox="0 0 '+W+' '+H+'" role="img">'+g+axis+bars+labels+'</svg>';
+    for(var j=0;j<sc;j++){ var v=series[j].vals[i]||0, bx=gx+innerPad+slot*j+gap/2;
+      var up=v>=0, by=Math.min(y(v),zeroY), bh=Math.max(1.2,Math.abs(y(v)-zeroY));
+      bars+='<path d="'+barPath(bx,by,bw,bh,up)+'" fill="'+series[j].color+'"><title>'+esc(cats[i]+' · '+series[j].name+': '+unitFmt(v))+'</title></path>';
+      if(showVal&&Math.abs(v)>0.0001){ var ty=up?(by-5):(by+bh+12);
+        vals+='<text x="'+(bx+bw/2).toFixed(1)+'" y="'+ty.toFixed(1)+'" text-anchor="middle" font-size="10.5" font-weight="600" fill="'+CHART_INK+'" font-variant-numeric="tabular-nums">'+esc(fmtK(v))+'</text>'; } }
+    var lx=gx+gw/2, ly=H-padB+(rot?13:16);
+    labels+=rot
+      ? '<text x="'+lx.toFixed(1)+'" y="'+ly.toFixed(1)+'" transform="rotate(-32 '+lx.toFixed(1)+' '+ly.toFixed(1)+')" text-anchor="end" font-size="11" fill="'+CHART_TEXT+'">'+esc(cats[i])+'</text>'
+      : '<text x="'+lx.toFixed(1)+'" y="'+ly.toFixed(1)+'" text-anchor="middle" font-size="11.5" fill="'+CHART_TEXT+'">'+esc(cats[i])+'</text>'; }
+  var axis='<line x1="'+padL+'" y1="'+zeroY.toFixed(1)+'" x2="'+(W-padR)+'" y2="'+zeroY.toFixed(1)+'" stroke="'+CHART_AXIS+'" stroke-width="1.4"/>';
+  var svg='<svg viewBox="0 0 '+W+' '+H+'" role="img" direction="ltr" preserveAspectRatio="xMidYMid meet">'+g+axis+bars+vals+labels+'</svg>';
   var leg=legendRow(series.map(function(s){ var tot=0; s.vals.forEach(function(v){tot+=v;}); return {label:s.name,color:s.color,val:unitFmt(tot)}; }));
   return chartBox(title,sub,svg,leg);
 }
@@ -6050,13 +6071,15 @@ function hBarChart(title,sub,data,unitFmt){
   if(!data.length) return chartBox(title,sub,emptyChart());
   var max=0; data.forEach(function(d){ if(Math.abs(d.value)>max) max=Math.abs(d.value); });
   var top=niceMax(max||1);
-  var W=680,rowH=30,padL=140,padR=64,padT=8,padB=8, H=padT+padB+data.length*rowH, iw=W-padL-padR;
+  var W=560,rowH=34,padL=128,padR=58,padT=10,padB=10, H=padT+padB+data.length*rowH, iw=W-padL-padR;
+  var clip=function(s){ s=String(s); return s.length>16?s.slice(0,15)+'…':s; };
   var rows='';
-  data.forEach(function(d,i){ var cy=padT+rowH*i, bl=(Math.abs(d.value)/top)*iw, col=d.color||CHART_COLORS[i%CHART_COLORS.length];
-    rows+='<text x="'+(padL-8)+'" y="'+(cy+rowH/2+3.5).toFixed(1)+'" text-anchor="end" font-size="11.5" fill="'+CHART_TEXT+'">'+esc(d.label)+'</text>'
-      +'<rect x="'+padL+'" y="'+(cy+5).toFixed(1)+'" width="'+Math.max(1,bl).toFixed(1)+'" height="'+(rowH-10)+'" rx="3" fill="'+col+'"><title>'+esc(d.label+': '+unitFmt(d.value))+'</title></rect>'
-      +'<text x="'+(padL+Math.max(1,bl)+6).toFixed(1)+'" y="'+(cy+rowH/2+3.5).toFixed(1)+'" font-size="11" fill="'+CHART_TEXT+'" font-weight="700">'+esc(fmtK(d.value))+'</text>'; });
-  return chartBox(title,sub,'<svg viewBox="0 0 '+W+' '+H+'" role="img">'+rows+'</svg>');
+  data.forEach(function(d,i){ var cy=padT+rowH*i, mid=cy+rowH/2, bl=Math.max(2,(Math.abs(d.value)/top)*iw), col=d.color||CHART_COLORS[i%CHART_COLORS.length], bh=rowH-13;
+    rows+='<text x="'+(padL-9)+'" y="'+(mid+4).toFixed(1)+'" text-anchor="end" font-size="12" fill="'+CHART_INK+'">'+esc(clip(d.label))+'<title>'+esc(d.label)+'</title></text>'
+      +'<rect x="'+padL+'" y="'+(cy+6.5).toFixed(1)+'" width="'+iw+'" height="'+bh+'" rx="4" fill="'+CHART_GRID+'"/>'
+      +'<rect x="'+padL+'" y="'+(cy+6.5).toFixed(1)+'" width="'+bl.toFixed(1)+'" height="'+bh+'" rx="4" fill="'+col+'"><title>'+esc(d.label+': '+unitFmt(d.value))+'</title></rect>'
+      +'<text x="'+(padL+bl+7).toFixed(1)+'" y="'+(mid+4).toFixed(1)+'" font-size="11.5" fill="'+CHART_INK+'" font-weight="700" font-variant-numeric="tabular-nums">'+esc(fmtK(d.value))+'</text>'; });
+  return chartBox(title,sub,'<svg viewBox="0 0 '+W+' '+H+'" role="img" direction="ltr" preserveAspectRatio="xMidYMid meet">'+rows+'</svg>');
 }
 
 /* دائري مجوّف — data:[{label,value}] */
@@ -6066,18 +6089,22 @@ function donutChart(title,sub,data){
     data=head.concat([{label:'أخرى',value:other}]); }
   var total=0; data.forEach(function(d){ total+=d.value; });
   if(total<=0) return chartBox(title,sub,emptyChart());
-  var W=260,cx=130,cy=130,r=104,rin=62,ang=-Math.PI/2,segs='';
+  var W=260,cx=130,cy=130,r=106,rin=64,rmid=(r+rin)/2,ang=-Math.PI/2,segs='',plabels='';
+  var multi=data.length>1;
   data.forEach(function(d,i){ var frac=d.value/total, a2=ang+frac*Math.PI*2, col=CHART_COLORS[i%CHART_COLORS.length];
     var large=frac>0.5?1:0;
     var x1=cx+r*Math.cos(ang),y1=cy+r*Math.sin(ang),x2=cx+r*Math.cos(a2),y2=cy+r*Math.sin(a2);
     var xi2=cx+rin*Math.cos(a2),yi2=cy+rin*Math.sin(a2),xi1=cx+rin*Math.cos(ang),yi1=cy+rin*Math.sin(ang);
     segs+='<path d="M'+x1.toFixed(2)+' '+y1.toFixed(2)+' A'+r+' '+r+' 0 '+large+' 1 '+x2.toFixed(2)+' '+y2.toFixed(2)
-      +' L'+xi2.toFixed(2)+' '+yi2.toFixed(2)+' A'+rin+' '+rin+' 0 '+large+' 0 '+xi1.toFixed(2)+' '+yi1.toFixed(2)+' Z" fill="'+col+'">'
+      +' L'+xi2.toFixed(2)+' '+yi2.toFixed(2)+' A'+rin+' '+rin+' 0 '+large+' 0 '+xi1.toFixed(2)+' '+yi1.toFixed(2)+' Z" fill="'+col+'"'
+      +(multi?' stroke="#fff" stroke-width="2" stroke-linejoin="round"':'')+'>'
       +'<title>'+esc(d.label+': '+money(d.value)+' ('+(frac*100).toFixed(1)+'%)')+'</title></path>';
+    if(frac>=0.08){ var am=(ang+a2)/2, lx=cx+rmid*Math.cos(am), ly=cy+rmid*Math.sin(am);
+      plabels+='<text x="'+lx.toFixed(1)+'" y="'+(ly+3.6).toFixed(1)+'" text-anchor="middle" font-size="10.5" font-weight="700" fill="#fff">'+Math.round(frac*100)+'%</text>'; }
     ang=a2; });
-  var center='<text x="'+cx+'" y="'+(cy-4)+'" text-anchor="middle" font-size="12" fill="'+CHART_TEXT+'">الإجمالي</text>'
-    +'<text x="'+cx+'" y="'+(cy+16)+'" text-anchor="middle" font-size="16" font-weight="700" fill="'+CHART_TEXT+'">'+esc(fmtK(total))+'</text>';
-  var svg='<svg viewBox="0 0 '+W+' 260" role="img" style="max-width:260px;margin:0 auto">'+segs+center+'</svg>';
+  var center='<text x="'+cx+'" y="'+(cy-5)+'" text-anchor="middle" font-size="11" fill="'+CHART_TEXT+'">الإجمالي</text>'
+    +'<text x="'+cx+'" y="'+(cy+15)+'" text-anchor="middle" font-size="17" font-weight="700" fill="'+CHART_INK+'" font-variant-numeric="tabular-nums">'+esc(fmtK(total))+'</text>';
+  var svg='<svg viewBox="0 0 '+W+' 260" role="img" direction="ltr" style="max-width:260px;margin:0 auto">'+segs+plabels+center+'</svg>';
   var leg=legendRow(data.map(function(d,i){ return {label:d.label,color:CHART_COLORS[i%CHART_COLORS.length],val:pct(d.value,total)}; }));
   return chartBox(title,sub,svg,leg);
 }
