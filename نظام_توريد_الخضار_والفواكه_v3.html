@@ -1839,7 +1839,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-10-07-c';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-10-08-a';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -3268,11 +3268,27 @@ function saveSale(){
   if(wasEditS) cancelDoc('s'); else clearDocForNext('s');   /* بعد الإضافة: أبقِ رأس الفاتورة لتسريع التالي */
   commit('تم حفظ فاتورة البيع');
 }
+/* سطر محفوظ → سطر مسودة. في وضع «السعر شامل الضريبة» يُخزَّن السطر صافياً، فيُعاد إلى السعر الشامل
+   كما أُدخل؛ وإلا قسّم الحفظُ التالي الضريبةَ مرة ثانية فنقص السعر والقيمة مع كل تعديل. */
+function draftLineFromSaved(l,r){
+  var o=Object.assign({},l);
+  if((r.vatMode||'add')!=='incl'||o.noTax) return o;
+  var bk=(o.boxes!=null&&(+o.boxW||0)>0);
+  if(o.ep!=null&&isFinite(+o.ep)){   /* السعر المُدخل محفوظ: إعادة البناء منه بدقة */
+    var ep=+o.ep;
+    if(bk){ o.price=(o.eb==='unit')?ep/(+o.boxW):ep; o.total=(+o.units||0)*o.price; }
+    else { o.price=ep; o.total=(o.basis==='kg')?(+o.units||0)*(+o.uw||0)*ep:(+o.units||0)*ep; }
+  } else {   /* سجل قديم: ضرب الصافي في (1 + نسبة الضريبة) */
+    var f=1+(Number(r.vatRate!=null?r.vatRate:vatRate())||0)/100;
+    o.price=round2((+o.price||0)*f); o.total=round2((+o.total||0)*f);
+  }
+  return o;
+}
 function editDoc(k,id){
   if(!guard('canEdit')) return;
   var arr=k==='p'?db.purchases:db.sales, r=byId(arr,id); if(!r) return;
   /* نسخ عميق للأسطر كي لا يمسّ التعديل المباشر السجلَّ الأصلي إلا عند الحفظ */
-  draft[k]={lines:(r.lines||[]).map(function(l){ return Object.assign({},l); }),editId:id};
+  draft[k]={lines:(r.lines||[]).map(function(l){ return draftLineFromSaved(l,r); }),editId:id};
   /* أعِد القائمة كاملة (امسح أي بحث/تصفية) كي يظهر الجهة المطلوبة */
   setVal(k==='p'?'p_supplierSearch':'s_clientSearch',''); setVal(k==='p'?'p_supplierGroup':'s_clientGroup',''); filterInvoiceParty(k);
   if(k==='p'){ setVal('p_date',r.date); setVal('p_no',r.no); setVal('p_supplier',r.supplierId);
