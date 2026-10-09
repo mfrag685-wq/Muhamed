@@ -314,6 +314,30 @@ a.acc:hover{color:var(--leaf-dark)}
 .jaudit.ok{background:var(--leaf-soft);color:var(--leaf-dark)}
 .jaudit.bad{background:var(--tomato-soft);color:var(--tomato)}
 .jaudit b{display:block;margin-bottom:2px;font-size:13.5px}
+/* الدليل التعليمي */
+.learn{border-right:4px solid var(--sky)}
+.rule{background:var(--sky-soft);color:var(--sky);border-radius:10px;padding:8px 12px;font-size:13px;margin-bottom:10px}
+.wh{font-weight:800;font-size:13px;color:var(--ink-3);margin:10px 0 4px}
+.why{display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-bottom:1px dashed var(--line-soft);font-size:14px}
+.why:last-child{border-bottom:0}
+.side{flex-shrink:0;font-size:11.5px;font-weight:800;border-radius:8px;padding:3px 9px;margin-top:2px}
+.side.dr{background:var(--leaf-soft);color:var(--leaf-dark)}.side.cr{background:var(--sky-soft);color:var(--sky)}
+.mist{background:var(--tomato-soft);color:#8a2f1f;border-radius:10px;padding:8px 12px;margin-bottom:6px;font-size:13.5px;line-height:1.8}
+table.imp th,table.imp td{font-size:12.5px;white-space:normal}
+.sum{background:var(--surface-2);border-radius:12px;padding:10px 12px;margin-top:10px;font-size:13.5px;line-height:2}
+.qz-btn{width:100%;margin:6px 0 4px;min-height:46px}
+.qz-h{font-weight:800;margin:12px 0 6px}
+.qz{border:1px solid var(--line-soft);border-radius:12px;padding:10px;margin-bottom:8px;background:#fff}
+.qz-a{font-weight:800;margin-bottom:8px}
+.qz-b{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.qz-b button{background:var(--surface-2);border:1px solid var(--line);font-weight:700;min-height:42px}
+.qz-b button.on.dr{background:var(--leaf);color:#fff;border-color:var(--leaf)}
+.qz-b button.on.cr{background:var(--sky);color:#fff;border-color:var(--sky)}
+.qz-b button.on.no{background:var(--ink-3);color:#fff;border-color:var(--ink-3)}
+.qz-r{margin-top:8px;border-radius:10px;padding:8px 10px;font-size:13px;line-height:1.8}
+.qz-r.ok{background:var(--leaf-soft);color:var(--leaf-dark)}.qz-r.bad{background:var(--tomato-soft);color:var(--tomato)}
+.qz-score{background:var(--citrus-soft);color:#7a4f0a;border-radius:12px;padding:12px;font-weight:800;font-size:16px;text-align:center;margin-bottom:10px}
+.qz-score.ok{background:var(--leaf-soft);color:var(--leaf-dark)}
 /* إشعار */
 #toast{position:fixed;bottom:calc(var(--nav-h) + var(--safe-b) + 14px);left:50%;transform:translateX(-50%) translateY(20px);
   background:var(--ink);color:#fff;padding:10px 18px;border-radius:22px;font-size:13.5px;font-weight:700;opacity:0;pointer-events:none;transition:.2s;z-index:400;max-width:92vw;text-align:center}
@@ -845,7 +869,7 @@ var TREAT_BY_ID={}; TREATS.forEach(function(t){ TREAT_BY_ID[t.id]=t; });
 /* ==========================================================================
    النواة: أدوات عامة + قاعدة البيانات + الصلاحيات + الدخول + المزامنة السحابية
    ========================================================================== */
-var APP_BUILD='2026-10-09-p6';
+var APP_BUILD='2026-10-09-p7';
 var LS_DB='mfp_db_v1', LS_SES='mfp_session_v1';
 
 function $(id){ return document.getElementById(id); }
@@ -3180,6 +3204,185 @@ var _treatView=treatView;
 treatView=function(t){ var h=_treatView(t); return h.replace('<div id="jeBox">','<div id="jeAudit">'+auditBox(t)+'</div><div id="jeBox">'); };
 var _postGuideJE=postGuideJE;
 postGuideJE=function(){ var a=auditJE(G.sel,buildJE(G.sel)); if(a.bad){ toast('لا يمكن الترحيل: المراجعة الآلية وجدت '+a.bad+' ملاحظة — راجعها أعلى القيد'); var b=$('jeAudit'); if(b) b.scrollIntoView({behavior:'smooth',block:'center'}); return; } _postGuideJE(); };
+
+/* ==========================================================================
+   v7 — الدليل التعليمي: «لماذا؟» لكل طرف • اختبر نفسك • أخطاء شائعة • الأثر على القوائم المالية
+   ========================================================================== */
+/* ===== 1) لماذا هذا الطرف؟ ===== */
+var WHY_ACC={
+ '1101':['دخل نقد إلى الصندوق','خرج نقد من الصندوق'],
+ '1102':['دخل مبلغ إلى حساب البنك','خرج مبلغ من حساب البنك'],
+ '1230':['ضريبة دفعتها المنشأة وستخصمها من الهيئة في الإقرار — فهي أصل يُسترد، لا جزء من التكلفة','خُصمت ضريبة المدخلات أو عُكست (إقفال إقرار أو إشعار دائن)'],
+ '2130':['ضريبة حصّلتها المنشأة نيابة عن الهيئة فأصبحت التزاماً عليها — وليست إيراداً','انخفض التزام ضريبة المخرجات (إقفال الإقرار أو إشعار دائن)'],
+ '1220':['دُفع مبلغ عن فترة قادمة لم تُستفد منها بعد — فهو أصل حتى تمر الفترة','مرّت فترة واستُنفد جزء من المدفوع مقدماً فينقص الأصل'],
+ '1111':['أصبح للمنشأة حق استرداد السلفة من الموظف — فهي ذمة مدينة لا مصروف','استُردت السلفة بالخصم من الراتب'],
+ '1110':['سُلّمت عهدة للموظف يتصرف بها نيابة عن المنشأة — تبقى أصلاً حتى التسوية','سُوّيت العهدة بالمستندات'],
+ '1201':['أصبح للمنشأة حق تحصيل من العميل','حُصّل المبلغ أو انخفض حق التحصيل'],
+ '1301':['دخلت بضاعة إلى المخزون بتكلفتها','خرجت بضاعة من المخزون (بيع، صرف، تلف)'],
+ '2101':['نشأ التزام بالسداد للمورد','سُدد للمورد أو انخفض الالتزام'],
+ '2112':['نشأ التزام بدفع صافي الرواتب المستحقة للموظفين','حُوّل صافي الرواتب فانقضى الالتزام'],
+ '2190':['التزام للمؤسسة العامة للتأمينات الاجتماعية (حصة المنشأة أو المستقطع من الموظفين)','سُددت فاتورة التأمينات فانقضى الالتزام'],
+ '2120':['قُبض مبلغ قبل تقديم السلعة أو الخدمة — التزام بالأداء لا إيراد','تحقق الأداء أو استُقطعت الدفعة من المستخلص'],
+ '2121':['قُبض مبلغ عن خدمة لم تُقدّم بعد — إيراد مؤجل (التزام)','قُدّمت الخدمة فانتقل الجزء المكتسب إلى الإيراد'],
+ '3101':['ساهم الملاك برأس مال في المنشأة','تخفيض رأس المال'],
+ '3201':['زادت الأرباح المبقاة','نقصت الأرباح المبقاة (توزيعات أو تصحيح خسائر سابقة)']};
+['1221','1222'].forEach(function(c){ WHY_ACC[c]=WHY_ACC['1220']; });
+['2110','2111','2113','2140','2160','2210'].forEach(function(c){ WHY_ACC[c]=['تكوّن التزام عن فترة مضت ولو لم يُدفع بعد — هذا هو أساس الاستحقاق','سُدّد الالتزام أو استُخدم المخصص فانقضى']; });
+function whyLine(a,side){ a=String(a); var t=accType(a), nat=accNature(a), up=(side==='dr')===(nat==='dr'), w=WHY_ACC[a], r;
+  if(CONTRA[a]) r=up?'حساب مقابل يتجمع فيه التخفيض — '+CONTRA[a]+' مع إبقاء الرصيد الأصلي ظاهراً':'إلغاء المتجمع في الحساب المقابل (عند الاستبعاد أو الشطب)';
+  else if(w) r=up?w[0]:w[1];
+  else r={asset:[up?'أصل زاد لدى المنشأة':'أصل نقص لدى المنشأة','الأصول تزيد بالمدين وتنقص بالدائن'],liab:[up?'التزام نشأ على المنشأة':'التزام سُدّد أو انخفض','الالتزامات تزيد بالدائن وتنقص بالمدين'],
+    equity:[up?'زادت حقوق الملكية':'نقصت حقوق الملكية','حقوق الملكية تزيد بالدائن'],rev:[up?'إيراد اكتسبته المنشأة في هذه الفترة':'تخفيض أو عكس لإيراد سبق إثباته','الإيرادات تزيد بالدائن'],
+    exp:[up?'مصروف تحمّلته المنشأة في هذه الفترة (استُنفدت منافعه)':'تخفيض أو عكس لمصروف سبق إثباته','المصروفات تزيد بالمدين']}[t].join(' — ');
+  return r; }
+function whyBox(t){ var list=buildJE(t); if(!list.length) return '';
+  return '<div class="panel learn"><h3>💡 لماذا هذا القيد؟</h3><div class="rule">القاعدة الذهبية: <b>الأصول والمصروفات</b> تزيد بالمدين، و<b>الالتزامات وحقوق الملكية والإيرادات</b> تزيد بالدائن.</div>'
+    +list.map(function(e){ return (list.length>1?'<div class="wh">'+esc(e.t)+'</div>':'')+e.lines.map(function(l){ var s=l.dr?'dr':'cr', up=(s==='dr')===(accNature(l.a)==='dr');
+      return '<div class="why"><span class="side '+s+'">'+(l.dr?'مدين':'دائن')+'</span><div><b>'+accLink(l.a,s)+'</b> <span class="mini">'+(up?'⬆ يزيد':'⬇ ينقص')+'</span><div class="mini">'+esc(whyLine(l.a,s))+'</div></div></div>'; }).join(''); }).join('')+'</div>'; }
+
+/* ===== 3) أخطاء شائعة ===== */
+var MIST={
+ housing_adv:[['تحميل بدل السكن على «رواتب وأجور أساسية» — البدل عنصر مستقل في عقد العمل وله حسابه','5201'],['تحميل المبلغ كاملاً مصروفاً في شهر الدفع بدل توزيعه على الأشهر المغطاة','5204'],['استخدام «مصروفات مدفوعة مقدماً» العامة بدل حساب بدل السكن المقدم — يصعّب المطابقة مع المسير','1220']],
+ pay_accrual:[['إثبات الرواتب عند التحويل فقط (أساس نقدي) فتختفي الرواتب المستحقة في نهاية الفترة','1102'],['جمع البدلات في حساب الراتب الأساسي',null],['اعتبار حصة الموظف المستقطعة للتأمينات مصروفاً على المنشأة','5202'],['إثبات صافي الرواتب فقط وإهمال الاستقطاعات (التأمينات والسلف)',null]],
+ pay_transfer:[['تحميل الرواتب مصروفاً مرة ثانية عند التحويل رغم إثباتها في قيد الاستحقاق (ازدواج المصروف)','5201']],
+ salary:[['خلط البدلات بالراتب الأساسي في حساب واحد',null]],
+ gosi_accrual:[['خلط حصة المنشأة (مصروف عليها) بحصة الموظف (تُستقطع من راتبه)','2112'],['إثبات حصة المنشأة عند السداد فقط','1102']],
+ gosi_pay:[['تحميل الفاتورة مصروفاً عند السداد رغم استحقاقها في قيد سابق (ازدواج)','5202']],
+ gosi_fine:[['إضافة الغرامة إلى تكلفة الرواتب أو التأمينات','5202']],
+ medins:[['تحميل التأمين الطبي على «مصروف التأمين» العام — هو منفعة موظفين','5212'],['تحميل القسط السنوي كاملاً مصروفاً عند الدفع','5205'],['إضافة ضريبة المدخلات القابلة للخصم إلى تكلفة التأمين',null]],
+ vehins:[['تحميل القسط السنوي كاملاً مصروفاً عند الدفع','5212']],
+ medins_amort:[['ترك المدفوع مقدماً دون إطفاء حتى نهاية السنة',null]],
+ bonus:[['تأجيل إثبات المكافأة حتى صرفها رغم الالتزام بها عن السنة','1102'],['تحميلها على الرواتب الأساسية','5201']],
+ eosb:[['الاكتفاء بإثبات المكافأة عند صرفها (أساس نقدي)','1102'],['إثبات الأرباح والخسائر الاكتوارية في الربح أو الخسارة بدل الدخل الشامل الآخر',null]],
+ eos_pay:[['تحميل كامل المبلغ مصروفاً رغم وجود مخصص مكوّن (ازدواج)','5203']],
+ leave:[['إثبات الإجازة عند صرفها فقط بدل استحقاقها شهرياً','1102']],
+ leave_pay:[['تحميل راتب الإجازة مصروفاً مرة ثانية رغم تكوين المخصص','5264']],
+ adv_emp:[['تحميل السلفة مصروفاً — هي ذمة على الموظف تُسترد','5201'],['خلط سلف الموظفين بالعهد النقدية','1110']],
+ petty:[['تحميل العهدة مصروفاً عند صرفها قبل تسويتها بالمستندات','5213']],
+ travel:[['تحميل بدل الانتداب على مصاريف السفر وخصم ضريبة عليه','5214'],['خصم ضريبة على تذاكر طيران دولية (نسبة صفر)',null]],
+ ppe:[['تحميل الأصل مصروفاً عند الشراء','5213'],['إضافة ضريبة المدخلات القابلة للخصم إلى تكلفة الأصل',null],['بدء الإهلاك من تاريخ الشراء بدل تاريخ الجاهزية للاستخدام',null]],
+ land:[['إهلاك الأرض — الأراضي لا تُهلك','5220']],
+ invpur:[['تحميل المشتريات على تكلفة المبيعات مباشرة في نظام الجرد المستمر','5101'],['إغفال تكلفة النقل من تكلفة المخزون',null]],
+ sale:[['إدراج ضريبة المخرجات ضمن الإيراد',null],['إغفال قيد تكلفة المبيعات المقابل','5101']],
+ prepaid:[['تحميل المبلغ كاملاً مصروفاً في شهر الدفع','5213']],
+ accrued:[['عدم إثبات المصروف حتى وصول الفاتورة أو السداد','1102']],
+ lease:[['تحميل دفعات الإيجار طويل الأجل مصروف إيجار مباشرة متجاهلاً IFRS 16','5210']],
+ loan:[['اعتبار مبلغ القرض المستلم إيراداً','4201'],['عدم فصل الجزء المستحق خلال سنة (متداول)',null]],
+ ecl:[['تخفيض حساب العملاء مباشرة بدل حساب المخصص','1201'],['الانتظار حتى إفلاس العميل لتكوين المخصص',null]],
+ baddebt:[['شطب الدين مصروفاً مع وجود مخصص مكوّن له (تحميل مزدوج)','5230']],
+ custadv:[['إثبات الدفعة المقدمة إيراداً عند قبضها','4101']],
+ deferred:[['إثبات المبلغ كاملاً إيراداً عند القبض','4207']],
+ supadv:[['تحميل الدفعة المقدمة مصروفاً أو مخزوناً قبل الاستلام','1301']],
+ dispose:[['تسجيل كامل سعر البيع إيراداً مبيعات','4101'],['نسيان استبعاد مجمع إهلاك الأصل',null]],
+ zakat:[['تحميل الزكاة على الأرباح المبقاة مباشرة بدل قائمة الربح أو الخسارة','3201']],
+ vat:[['إقفال ضريبة المخرجات في الإيرادات','4201']],
+ grant:[['إثبات المنحة إيراداً قبل التأكد من استيفاء شروطها',null]],
+ provision:[['تكوين مخصص لالتزام «ممكن» فقط — يكفي الإفصاح',null]],
+ impair:[['إضافة خسارة الهبوط إلى مجمع الإهلاك','1502']],
+ capital:[['تسجيل رأس المال إيراداً','4201']],
+ dividend:[['إثبات التوزيعات مصروفاً في قائمة الدخل','5213']],
+ drawings:[['تحميل المسحوبات الشخصية مصروفاً على المنشأة','5213']],
+ fees:[['إغفال التكليف العكسي على خدمات مورد غير مقيم',null]],
+ hosp:[['خصم ضريبة مدخلات مقيّدة على الضيافة','1230']],
+ repair:[['رسملة الصيانة الدورية العادية','1501']],
+ govfees:[['خصم ضريبة على الرسوم الحكومية (خارج النطاق)','1230'],['تحميل رسوم سنوية كاملة في شهر الدفع','5218']],
+ salesret:[['تخفيض حساب الإيرادات مباشرة بدل حساب المردودات المقابل','4101'],['نسيان عكس ضريبة المخرجات',null]],
+ discount:[['إثبات الخصم إيراداً رغم أن البضاعة ما زالت في المخزون','4208']],
+ customs:[['تحميل الرسوم الجمركية مصروفاً بدل تكلفة المخزون','5213'],['إضافة ضريبة الاستيراد القابلة للخصم إلى تكلفة المخزون',null]],
+ cwip:[['إهلاك الأعمال تحت التنفيذ قبل جاهزيتها','5220']],
+ saas:[['رسملة الاشتراك السحابي أصلاً غير ملموس','1530']],
+ cash:[['ترك الرسوم البنكية في المطابقة دون قيد',null]],
+ fx:[['إبقاء رصيد المورد الأجنبي بسعر الشراء دون إعادة ترجمة في نهاية الفترة',null]],
+ intang:[['تحميل الترخيص المملوك مصروفاً عند الشراء','5213']],
+ research:[['رسملة تكاليف مرحلة البحث','1530']],
+ eqrent:[['رسملة إيجار قصير الأجل كأصل حق استخدام','1510']],
+ cashshort:[['إخفاء العجز ضمن مصروفات أخرى دون تحقيق','5213']],
+ count:[['إخفاء عجز الجرد ضمن تكلفة المبيعات دون تحقيق','5101']],
+ nrv:[['تخفيض المخزون إلى سعر البيع بدل صافي القيمة القابلة للتحقق (سعر البيع − تكاليف الإتمام والبيع)',null],['دمج التخفيض في تكلفة المبيعات دون إظهاره منفصلاً','5101']],
+ shares:[['تحميل شراء الأسهم مصروفاً','5213'],['قياس الأسهم المدرجة بالتكلفة بدل القيمة العادلة',null]],
+ warranty:[['انتظار وقوع مطالبات الضمان لإثبات المصروف (أساس نقدي)','1102'],['تكوين المخصص دون أساس تقدير موثق من الخبرة السابقة',null]],
+ penalty:[['تحميل غرامة التأخير التعاقدية مصروفاً بدل تخفيض إيراد العقد','5262']],
+ related:[['عدم الإفصاح عن المعاملة بحجة أنها تمت بالسعر العادي',null],['خلط المستحق من الشريك بحساب العملاء','1201']],
+ error:[['تصحيح خطأ جوهري لسنة سابقة في قائمة دخل السنة الحالية','5213']],
+ invprop:[['تصنيف العقار المؤجر للغير ضمن الممتلكات والمعدات','1501']],
+ subseq:[['تعديل القوائم بحدث غير معدِّل (مثل حريق بعد نهاية السنة) بدل الإفصاح عنه',null],['تجاهل حدث معدِّل (مثل إفلاس عميل رصيده قائم)',null]],
+ donation:[['خصم ضريبة مدخلات على التبرع','1230'],['عدم الإفصاح عن تبرع جوهري لطرف ذي علاقة',null]],
+ deposit:[['تحميل التأمين المسترد مصروفاً','5213'],['خلطه بالمصروفات المدفوعة مقدماً','1220']],
+ lgmargin:[['إدراج الغطاء النقدي المحجوز ضمن النقد وما في حكمه',null],['تحميل الغطاء النقدي مصروفاً وهو مبلغ مسترد','5213']],
+ bounced:[['إبقاء التحصيل مسجلاً وتجاهل الشيك المرتجع',null],['تحميل الشيك المرتجع مصروفاً مباشرة قبل استنفاد التحصيل','5230']],
+ finincome:[['إثبات العائد عند القبض فقط بدل استحقاقه على مدة الوديعة',null],['مقاصة عوائد الودائع مع تكاليف التمويل','5240']],
+ insclaim:[['إثبات التعويض قبل موافقة شركة التأمين',null],['تسجيل التعويض ضمن إيرادات المبيعات','4101']],
+ retcoll:[['إثبات تحصيل المحتجزات إيراداً جديداً — الإيراد أُثبت عند المستخلص','4102']],
+ medins_refund:[['تسجيل الاسترداد إيراداً','4201'],['نسيان عكس ضريبة المدخلات المقابلة',null]],
+ transit:[['تحميل البضاعة بالطريق على تكلفة المبيعات مباشرة','5101'],['إغفال البضاعة المملوكة وهي في الطريق في نهاية السنة',null]]};
+function mistakes(t){ var m=(MIST[t.id]||[]).slice(), list=buildJE(t), has=function(a,s){ return list.some(function(e){ return e.lines.some(function(l){ return l.a===a&&(s?l[s]>0:true); }); }); };
+  var add=function(x){ if(!m.some(function(y){ return y[0]===x[0]; })) m.push(x); };
+  if(has('1230','dr')&&!/ضريبة المدخلات/.test(m.map(function(x){ return x[0]; }).join(' '))) add(['إضافة ضريبة المدخلات القابلة للخصم إلى تكلفة البند بدل إثباتها أصلاً مستقلاً',null]);
+  if((has('1220','dr')||has('1221','dr')||has('1222','dr'))&&!/كاملاً/.test(m.map(function(x){ return x[0]; }).join(' '))) add(['تحميل المدفوع مقدماً مصروفاً كاملاً عند الدفع بدل توزيعه على الفترات',null]);
+  if(has('2130','cr')&&!/المخرجات/.test(m.map(function(x){ return x[0]; }).join(' '))) add(['إدراج ضريبة المخرجات ضمن الإيراد — هي التزام للهيئة',null]);
+  return m; }
+function mistakesBox(t){ var m=mistakes(t); if(!m.length) return '';
+  return '<div class="panel learn"><h3>⚠️ أخطاء شائعة في هذه المعاملة</h3>'+m.map(function(x){ return '<div class="mist">✗ '+esc(x[0])+(x[1]&&COA[x[1]]?' <span class="mini">(الحساب الخاطئ: '+esc(accName(x[1]))+')</span>':'')+'</div>'; }).join('')+'</div>'; }
+
+/* ===== 4) الأثر على القوائم المالية خطوة بخطوة ===== */
+var REC=/شهري|سنوي|الإهلاك|الإطفاء/;
+function impactBox(t){ var list=buildJE(t); if(!list.length) return '';
+  var o=G.o||{}, steps=[], bal={}, accs=[];
+  var apply=function(e){ e.lines.forEach(function(l){ if(accs.indexOf(l.a)<0) accs.push(l.a); bal[l.a]=(bal[l.a]||0)+l.dr-l.cr; }); };
+  var snap=function(label){ var s={label:label,b:{}}; accs.forEach(function(a){ s.b[a]=bal[a]||0; }); var A=0,L=0,E=0,P=0;
+    for(var a in bal){ var ty=accType(a), v=bal[a]; if(ty==='asset') A+=v; else if(ty==='liab') L-=v; else if(ty==='equity') E-=v; else P-=v; }
+    s.A=r2(A); s.L=r2(L); s.E=r2(E); s.P=r2(P); steps.push(s); };
+  list.forEach(function(e,i){ var R=(i>0&&REC.test(e.t))?Math.max(1,Math.min(24,Math.round(+o.m||+o.life||+o.n||1))):1;
+    for(var k=1;k<=R;k++){ apply(e); snap(R>1?(o.m&&!o.life?'الشهر ':'السنة ')+k:e.t); } });
+  var show=steps.length>8?steps.slice(0,3).concat([null]).concat(steps.slice(-3)):steps;
+  var cols=accs.slice(0,6), val=function(a,v){ var n=accNature(a)==='dr'?v:-v; return Math.abs(n)<0.005?'—':fmt(n); };
+  var h='<div class="panel learn"><h3>📊 الأثر على القوائم المالية خطوة بخطوة</h3><div class="mini" style="margin-bottom:8px">التغيّر التراكمي في كل حساب منذ بداية المعاملة (الموجب زيادة بطبيعة الحساب والسالب نقص)، مع التحقق من معادلة الميزانية ⚖️ في كل خطوة.</div>'
+    +'<div class="tbl-wrap"><table class="imp"><thead><tr><th>الخطوة</th>'+cols.map(function(a){ var g=accGroup(a); return '<th class="r">'+esc(accName(a))+'<div class="mini">'+(g[2]==='pl'?'قائمة الدخل':'المركز المالي')+'</div></th>'; }).join('')+'<th class="r">⚖️</th></tr></thead><tbody>'
+    +show.map(function(s){ if(!s) return '<tr><td colspan="'+(cols.length+2)+'" class="mini" style="text-align:center">⋯</td></tr>';
+      var eqOk=Math.abs(s.A-(s.L+s.E+s.P))<0.01; return '<tr><td>'+esc(s.label)+'</td>'+cols.map(function(a){ return '<td class="r num">'+val(a,s.b[a])+'</td>'; }).join('')+'<td class="r">'+(eqOk?'✅':'⚠')+'</td></tr>'; }).join('')+'</tbody></table></div>';
+  var last=steps[steps.length-1], bs=[], pl=[];
+  cols.forEach(function(a){ var v=accNature(a)==='dr'?last.b[a]:-last.b[a]; if(Math.abs(v)<0.005) return; var g=accGroup(a), ty=accType(a);
+    if(g[2]==='pl') pl.push((ty==='exp'?'مصروف':'إيراد')+' «'+accName(a)+'» '+fmt(Math.abs(v))+(ty==='exp'?' يخفض الربح':' يزيد الربح'));
+    else bs.push((v>0?'زيادة':'نقص')+' «'+accName(a)+'» '+fmt(Math.abs(v))); });
+  h+='<div class="sum"><div>🏛️ <b>الأثر على المركز المالي:</b> '+(bs.length?esc(bs.join('، ')):'لا أثر صافٍ')+'</div><div>📈 <b>الأثر على قائمة الربح أو الخسارة:</b> '+(pl.length?esc(pl.join('، ')):'لا أثر على الربح')+'</div>'
+    +'<div>⚖️ <b>معادلة الميزانية (التغيّر):</b> الأصول '+fmt(last.A)+' = الالتزامات '+fmt(last.L)+' + حقوق الملكية '+fmt(r2(last.E+last.P))+(Math.abs(last.P)>0.005?' (عبر '+(last.P<0?'نقص':'زيادة')+' الربح بـ '+fmt(Math.abs(last.P))+')':'')+' ✅</div></div></div>';
+  return h; }
+
+/* ===== 2) اختبر نفسك ===== */
+var QZ=null;
+function shuffle(a){ for(var i=a.length-1;i>0;i--){ var j=Math.floor(Math.random()*(i+1)), x=a[i]; a[i]=a[j]; a[j]=x; } return a; }
+function quizStart(){ var t=G.sel, list=buildJE(t); if(!list.length){ toast('أدخل مبلغاً أولاً'); return; }
+  var wrongs=mistakes(t).map(function(x){ return x[1]; }).filter(function(a){ return a&&COA[a]; });
+  QZ={t:t,list:list,ans:{},done:false,blocks:list.map(function(e,i){ var ok={}; e.lines.forEach(function(l){ ok[l.a]=l.dr?'dr':'cr'; });
+    var cand=Object.keys(ok), d=[];
+    wrongs.forEach(function(a){ if(!ok[a]&&d.indexOf(a)<0) d.push(a); });
+    Object.keys(ok).forEach(function(a){ var g=CG_BY[a]; if(g) g[0].forEach(function(s){ if(!ok[s]&&COA[s]&&d.indexOf(s)<0&&d.length<6) d.push(s); }); });
+    return {ok:ok,opts:shuffle(cand.concat(shuffle(d).slice(0,Math.max(2,4-cand.length+2))))}; })};
+  quizRender(); }
+function quizRender(){ var t=QZ.t, inp=(t.inp||[]).filter(function(i){ return !i.type&&+G.o[i.k]; }).map(function(i){ return esc(i.l)+': '+fmt(G.o[i.k],0); });
+  var b='<div class="disclaimer" style="margin-bottom:10px"><b>المعاملة:</b> '+esc(t.n)+'<br><b>'+esc(t.amtL||'المبلغ')+':</b> '+fmt(G.o.amt)+(inp.length?' — '+inp.join(' — '):'')+'<br>حدّد لكل حساب: هل هو <b>مدين</b> أم <b>دائن</b> في القيد، أم <b>ليس طرفاً</b> فيه.</div>';
+  QZ.blocks.forEach(function(bk,i){ b+='<div class="qz-h">القيد '+(i+1)+(QZ.list.length>1?': '+esc(QZ.list[i].t):'')+'</div>';
+    bk.opts.forEach(function(a){ var k=i+'|'+a, v=QZ.ans[k]||'', res='';
+      if(QZ.done){ var right=bk.ok[a]||'no', okk=(v||'no')===right; res='<div class="qz-r '+(okk?'ok':'bad')+'">'+(okk?'✅ صحيح':'❌ الصحيح: '+(right==='dr'?'مدين':right==='cr'?'دائن':'ليس طرفاً في القيد'))
+        +' — '+esc(right==='no'?(mistakes(t).filter(function(x){ return x[1]===a; }).map(function(x){ return x[0]; })[0]||'هذا الحساب لا يتأثر بهذه المعاملة'):whyLine(a,right))+'</div>'; }
+      b+='<div class="qz"><div class="qz-a">'+esc(accName(a))+' <span class="mini num">'+a+'</span></div><div class="qz-b">'
+        +[['dr','مدين'],['cr','دائن'],['no','ليس طرفاً']].map(function(x){ return '<button class="'+(v===x[0]?'on '+x[0]:'')+'"'+(QZ.done?' disabled':'')+' onclick="QZ.ans[\''+k+'\']=\''+x[0]+'\';quizRender()">'+x[1]+'</button>'; }).join('')+'</div>'+res+'</div>'; }); });
+  var f;
+  if(QZ.done){ var tot=0,ok=0; QZ.blocks.forEach(function(bk,i){ bk.opts.forEach(function(a){ tot++; if((QZ.ans[i+'|'+a]||'no')===(bk.ok[a]||'no')) ok++; }); });
+    b='<div class="qz-score '+(ok===tot?'ok':'')+'">النتيجة: <span class="num">'+ok+' / '+tot+'</span> '+(ok===tot?'🎉 ممتاز! فهمت المعالجة':'— راجع الشرح تحت كل حساب')+'</div>'+b+'<div style="margin-top:10px">'+QZ.list.map(function(e){ return jeTable(e.lines,e.t); }).join('')+'</div>';
+    f='<button class="btn-main" onclick="quizStart()">🔁 حاول مرة أخرى</button><button class="btn" onclick="closeModal()">إغلاق</button>';
+    log('view','دليل المعايير','اختبر نفسك: '+t.n+' — '+ok+'/'+tot); }
+  else f='<button class="btn-main" onclick="QZ.done=true;quizRender()">✔ تحقّق من إجابتي</button>';
+  var m=document.querySelector('#modalRoot .modal-back:last-child .qz-wrap');
+  if(m){ m.innerHTML=b; m.closest('.modal').querySelector('.modal-foot').innerHTML=f; } else modal('🎯 اختبر نفسك','<div class="qz-wrap">'+b+'</div>',f); }
+
+/* ===== تركيب الأقسام في صفحة الحالة ===== */
+var _treatView2=treatView;
+treatView=function(t){ var h=_treatView2(t);
+  h=h.replace('<div id="jeAudit">','<button class="btn-alt qz-btn" onclick="quizStart()">🎯 اختبر نفسك: كوّن القيد بنفسك قبل النظر إليه</button><div id="jeAudit">');
+  return h+'<div id="jeWhy">'+whyBox(t)+'</div><div id="jeImpact">'+impactBox(t)+'</div>'+mistakesBox(t); };
+var _refreshJE2=refreshJE;
+refreshJE=function(){ _refreshJE2(); if(!G.sel) return; var w=$('jeWhy'), i=$('jeImpact'); if(w) w.innerHTML=whyBox(G.sel); if(i) i.innerHTML=impactBox(G.sel); };
 
 /* ===== التشغيل ===== */
 boot();
