@@ -309,6 +309,11 @@ a.acc:hover{color:var(--leaf-dark)}
 .coa-c{color:var(--ink-3);font-size:12.5px;min-width:38px}.coa-n{flex:1;font-weight:700;font-size:13.5px}
 .coa-b{min-width:80px;text-align:left;font-weight:800;font-size:13px}.coa-b.neg{color:var(--tomato)}
 .jwarn{margin-top:8px;background:var(--citrus-soft);color:#7a4f0a;border-radius:12px;padding:10px 12px;font-size:13px;line-height:1.8}
+/* المراجعة الآلية للقيد */
+.jaudit{border-radius:12px;padding:10px 12px;font-size:13px;line-height:1.85;margin:8px 0}
+.jaudit.ok{background:var(--leaf-soft);color:var(--leaf-dark)}
+.jaudit.bad{background:var(--tomato-soft);color:var(--tomato)}
+.jaudit b{display:block;margin-bottom:2px;font-size:13.5px}
 /* إشعار */
 #toast{position:fixed;bottom:calc(var(--nav-h) + var(--safe-b) + 14px);left:50%;transform:translateX(-50%) translateY(20px);
   background:var(--ink);color:#fff;padding:10px 18px;border-radius:22px;font-size:13.5px;font-weight:700;opacity:0;pointer-events:none;transition:.2s;z-index:400;max-width:92vw;text-align:center}
@@ -817,7 +822,7 @@ var TREATS=[
   amtL:'أثر الخطأ (مصروف لم يُسجل سابقاً)',
   je:function(o){ return [{t:'تعديل الأرباح المبقاة الافتتاحية',lines:[{d:'3201',v:o.amt},{c:'2110',v:o.amt}]}]; },
   au:{as:['العرض والإفصاح'],rk:['معالجة الخطأ كتقدير'],pr:['تقييم الجوهرية','فحص إعادة العرض والإفصاح'],isa:['ISA 450','ISA 710']}},
- {id:'petty',n:'عهدة نقدية أو سلفة موظف',cat:'أصول',q:'عهده عهد نقديه سلفه موظف مصروفات نثريه نثريات petty cash',std:['IAS 7','IFRS 9'],
+ {id:'petty',n:'عهدة نقدية للمصروفات النثرية',cat:'أصول',q:'عهده عهد نقديه عهده مؤقته مصروفات نثريه نثريات صندوق نثريات petty cash',std:['IAS 7','IFRS 9'],
   tr:'العهدة أصل على الموظف حتى تسويتها بمستندات صرف معتمدة، ثم تُحمل المصروفات على حساباتها. سلف الموظفين ذمم مدينة.',
   je:function(o){ return [{t:'صرف العهدة',lines:[{d:'1110',v:o.amt},{c:'1102',v:o.amt}]},{t:'عند التسوية بالمستندات',lines:[{d:'5213',v:o.amt},{c:'1110',v:o.amt}]}]; },
   au:{as:['الوجود','الحدوث'],rk:['عهد قديمة غير مسوّاة','مستندات غير أصلية'],pr:['جرد مفاجئ للعهد','فحص مستندات التسوية وتواريخها'],isa:['ISA 500','ISA 240']}},
@@ -840,7 +845,7 @@ var TREAT_BY_ID={}; TREATS.forEach(function(t){ TREAT_BY_ID[t.id]=t; });
 /* ==========================================================================
    النواة: أدوات عامة + قاعدة البيانات + الصلاحيات + الدخول + المزامنة السحابية
    ========================================================================== */
-var APP_BUILD='2026-10-04-p5';
+var APP_BUILD='2026-10-09-p6';
 var LS_DB='mfp_db_v1', LS_SES='mfp_session_v1';
 
 function $(id){ return document.getElementById(id); }
@@ -2767,7 +2772,7 @@ var TREATS3=[
   amtL:'صافي الرواتب المحوّلة',
   je:function(o){ return [{t:'تحويل صافي الرواتب',lines:[{d:'2112',v:o.amt},{c:'1102',v:o.amt}]}]; },
   au:{as:['الحدوث','الدقة'],rk:['تحويل لحسابات غير الموظفين','ازدواج الصرف'],pr:['مطابقة ملف حماية الأجور مع كشف البنك والمسير المعتمد','فحص الآيبانات المتكررة أو المتطابقة مع الإدارة'],isa:['ISA 240','ISA 505']}},
- {id:'adv_emp',n:'سلفة لموظف (تُسترد من الراتب)',cat:'رواتب',fam:'pay',ord:5,nx:['pay_accrual'],
+ {id:'adv_emp',n:'سلفة موظف (تُسترد من الراتب)',cat:'رواتب',fam:'pay',ord:5,nx:['pay_accrual'],
   q:'سلفه موظف سلف الموظفين قرض موظف سلفه راتب مقدم راتب سلفه على الراتب employee advance loan',
   std:['IFRS 9','IAS 19'],
   tr:'السلفة ذمة مدينة على الموظف (أصل مالي) لا مصروف، وتُسترد بالخصم من الرواتب في قيد الاستحقاق. السلف بلا عائد وطويلة الأجل الجوهرية تُخصم لقيمتها الحالية والفرق منفعة موظفين.',
@@ -2878,7 +2883,7 @@ function guideSearch(q){
   var qt=toks(q), r=analyze(q);
   /* مكافأة تطابق العبارة كاملة (مثل «استحقاق رواتب») ثم إعادة الترتيب */
   var ph=qt.filter(function(w){ return w!=='قيد'; }).join(' ');
-  r.t.forEach(function(x){ if(ph.indexOf(' ')>0&&toks(x.x.q+' '+x.x.n).join(' ').indexOf(ph)>=0) x.s+=2; });
+  r.t.forEach(function(x){ if(ph.indexOf(' ')<0) return; if(toks(x.x.n).join(' ').indexOf(ph)>=0) x.s+=3; else if(toks(x.x.q).join(' ').indexOf(ph)>=0) x.s+=2; });  /* العبارة في عنوان الحالة أقوى من وجودها في كلماتها */
   r.t.sort(function(a,b){ return b.s-a.s; });
   var all=r.t, ng=qt.filter(function(w){ return !GENERIC_W[w]; }).length;
   var hmN=all.filter(function(x){ return x.hm; }).length, broad=ng<=2&&hmN>=3;
@@ -3066,6 +3071,115 @@ function healthView(){ var R=healthChecks(), ok=R.filter(function(r){ return r[0
 /* اسم المنشأة الافتراضي القديم يصبح محايداً (لا يمس أي اسم أدخله المستخدم) */
 var _paintUser=paintUser;
 paintUser=function(){ if(DB&&DB.company&&DB.company.name==='منشأتي للمقاولات والتجارة'){ DB.company.name='منشأتي'; DB.company.u=Date.now(); save(); } _paintUser(); };
+
+/* ==========================================================================
+   v6 — مراجعة مهنية للتوجيه المحاسبي + مدقق آلي لكل قيد قبل الترحيل
+   ========================================================================== */
+/* ===== حسابات تفصيلية لمنافع الموظفين والمدفوعات المقدمة ===== */
+(function(){ var add={'1221':'بدل سكن مدفوع مقدماً للموظفين','1222':'تأمين مدفوع مقدماً','1504':'مجمع خسائر الهبوط في القيمة','2113':'مكافآت وحوافز مستحقة للموظفين',
+  '5201':'رواتب وأجور أساسية','5204':'بدل سكن','5205':'تأمين طبي للموظفين','5206':'بدل نقل ومواصلات','5207':'مكافآت وحوافز','5208':'بدلات أخرى (انتداب، طبيعة عمل…)','5209':'أجر العمل الإضافي',
+  '5212':'مصروف التأمين (مركبات وممتلكات وعام)'};
+  for(var k in add) COA[k]=add[k];
+  var put=function(code,anchor){ var g=CG_BY[anchor]; if(g&&g[0].indexOf(code)<0){ g[0].push(code); CG_BY[code]=g; } };
+  ['5204','5205','5206','5207','5208','5209'].forEach(function(c){ put(c,'5201'); });
+  put('1221','1220'); put('1222','1220'); put('1504','1502'); put('2113','2112');
+  CONTRA['1504']='يُخصم من تكلفة الممتلكات (خسائر الهبوط المتراكمة)'; })();
+
+/* ===== تصحيح توجيه الحالات ===== */
+function T(id){ return TREAT_BY_ID[id]; }
+var KIND_PRE={k:'kind',l:'طبيعة المبلغ المدفوع مقدماً',type:'sel',opts:[['ins','تأمين (مركبات/ممتلكات)'],['sub','اشتراك سنوي'],['rent','إيجار قصير الأجل'],['oth','أخرى']],d:'ins'};
+/* بدل السكن: حساب مستقل مدين وحساب مدفوع مقدماً خاص به */
+T('housing_adv').inp=[PAY_INP,{k:'m',l:'عدد الأشهر المغطاة',d:12},CENTER_INP,PJ_INP];
+T('housing_adv').ok=['5204','5104'];
+T('housing_adv').je=function(o){ var mo=o.m>0?r2(o.amt/o.m):o.amt; return [{t:'صرف بدل السكن مقدماً',lines:[{d:'1221',v:o.amt},{c:payAcc(o),v:o.amt}]},{t:'التحميل الشهري لبدل السكن',lines:[{d:expAcc(o,'5204'),v:mo},{c:'1221',v:mo}]}]; };
+T('housing_adv').tr='بدل السكن المدفوع عن أشهر قادمة أصل «بدل سكن مدفوع مقدماً» (بقدر ما يمكن استرداده من الموظف عند تركه العمل)، ويُحمّل شهرياً على حساب «بدل سكن» ضمن منافع الموظفين (IAS 19) — لا على الرواتب الأساسية، كي يظهر كل عنصر من عناصر تكلفة الموظف منفصلاً ويطابق المسير وعقد العمل.';
+/* مسير الرواتب: كل عنصر في حسابه */
+T('pay_accrual').inp=[{k:'housing',l:'بدل السكن الشهري',d:0},{k:'transport',l:'بدل النقل',d:0},{k:'other',l:'بدلات أخرى',d:0},{k:'ot',l:'العمل الإضافي',d:0},
+  {k:'gosiE',l:'حصة الموظفين المستقطعة للتأمينات',d:0},{k:'adv',l:'استرداد سلف من الرواتب',d:0},CENTER_INP,PJ_INP];
+T('pay_accrual').amtL='الراتب الأساسي';
+T('pay_accrual').ok=['5201','5204','5206','5208','5209','5104'];
+T('pay_accrual').je=function(o){ var P=o.center==='proj', g=r2(o.amt+o.housing+o.transport+o.other+o.ot), net=r2(g-o.gosiE-o.adv);
+  var L=P?[{d:'5104',v:g}]:[{d:'5201',v:o.amt},{d:'5204',v:o.housing},{d:'5206',v:o.transport},{d:'5208',v:o.other},{d:'5209',v:o.ot}];
+  return [{t:'استحقاق رواتب الشهر',lines:L.concat([{c:'2112',v:net},{c:'2190',v:o.gosiE},{c:'1111',v:o.adv}])}]; };
+T('pay_accrual').ms='كل عنصر في حسابه: الأساسي، السكن، النقل، البدلات الأخرى، العمل الإضافي — بعد خصم أيام الغياب غير المدفوعة. عمالة المشروع تُحمّل بالكامل على تكلفة المشروع.';
+/* المكافآت */
+T('bonus').ok=['5207','5104'];
+T('bonus').je=function(o){ return [{t:'استحقاق المكافآت والحوافز',lines:[{d:expAcc(o,'5207'),v:o.amt},{c:'2113',v:o.amt}]}]; };
+/* التأمين الطبي = منفعة موظفين؛ تأمين المركبات = مصروف تأمين عام */
+T('medins').ok=['5205'];
+T('medins').je=function(o){ var v=vatIn(o,o.amt), mo=o.m>0?r2(o.amt/o.m):o.amt; return [{t:'إثبات وثيقة التأمين الطبي',lines:[{d:'1222',v:o.amt},v?{d:'1230',v:v}:null,{c:payAcc(o),v:o.amt+v}]},{t:'الإطفاء الشهري',lines:[{d:'5205',v:mo},{c:'1222',v:mo}]}]; };
+T('medins_amort').inp=[{k:'kind',l:'نوع التأمين',type:'sel',opts:[['med','تأمين طبي للموظفين'],['veh','تأمين مركبات وممتلكات']],d:'med'},CENTER_INP,PJ_INP];
+T('medins_amort').ok=['5205','5212','5104'];
+T('medins_amort').je=function(o){ return [{t:'الإطفاء الشهري',lines:[{d:expAcc(o,o.kind==='veh'?'5212':'5205'),v:o.amt},{c:'1222',v:o.amt}]}]; };
+T('medins_add').je=function(o){ var v=vatIn(o,o.amt); return [{t:'إثبات الملحق',lines:[{d:'1222',v:o.amt},v?{d:'1230',v:v}:null,{c:'2101',v:o.amt+v}]}]; };
+T('medins_refund').je=function(o){ var v=vatIn(o,o.amt); return [{t:'إثبات الاسترداد',lines:[{d:'2101',v:o.amt+v},{c:'1222',v:o.amt},v?{c:'1230',v:v}:null]}]; };
+T('medins_refund').revOK=['1230'];
+T('vehins').ok=['5212'];
+T('vehins').je=function(o){ var v=vatIn(o,o.amt), mo=o.m>0?r2(o.amt/o.m):o.amt; return [{t:'إثبات الوثيقة',lines:[{d:'1222',v:o.amt},v?{d:'1230',v:v}:null,{c:payAcc(o),v:o.amt+v}]},{t:'الإطفاء الشهري',lines:[{d:'5212',v:mo},{c:'1222',v:mo}]}]; };
+/* المصروف المدفوع مقدماً: الإطفاء إلى المصروف المطابق لطبيعته */
+T('prepaid').inp=[KIND_PRE,VAT_INP,PAY_INP,{k:'m',l:'عدد أشهر التغطية',d:12}];
+T('prepaid').ok=['5212','5268','5210','5213'];
+T('prepaid').je=function(o){ var v=vatIn(o,o.amt), mo=o.m>0?r2(o.amt/o.m):0, a=o.kind==='ins'?'1222':'1220', e={ins:'5212',sub:'5268',rent:'5210',oth:'5213'}[o.kind]||'5213';
+  return [{t:'سداد المبلغ مقدماً',lines:[{d:a,v:o.amt},v?{d:'1230',v:v}:null,{c:payAcc(o),v:o.amt+v}]},{t:'الإطفاء الشهري',lines:[{d:e,v:mo},{c:a,v:mo}]}]; };
+/* الهبوط في القيمة: حساب متراكم مستقل عن الإهلاك */
+T('impair').je=function(o){ return [{t:'إثبات خسارة الهبوط',lines:[{d:'5231',v:o.amt},{c:'1504',v:o.amt}]}]; };
+/* الرسوم البنكية المكتشفة في المطابقة */
+T('cash').je=function(o){ return [{t:'تسوية رسوم بنكية مكتشفة في المطابقة',lines:[{d:'5226',v:o.amt},{c:'1102',v:o.amt}]}]; };
+/* الإيراد المقدم: الإيراد المطابق لطبيعته */
+T('deferred').inp=[{k:'kind',l:'طبيعة الإيراد',type:'sel',opts:[['svc','خدمة / اشتراك'],['rent','إيجار']],d:'svc'},VAT_INP,PAY_INP,{k:'m',l:'مدة الخدمة بالأشهر',d:12}];
+T('deferred').je=function(o){ var v=vatIn(o,o.amt), mo=o.m>0?r2(o.amt/o.m):0, rv=o.kind==='rent'?'4206':'4207';
+  return [{t:'قبض الإيراد مقدماً',lines:[{d:rcvAcc(o),v:o.amt+v},{c:'2121',v:o.amt},v?{c:'2130',v:v}:null]},{t:'الاعتراف الشهري بالإيراد',lines:[{d:'2121',v:mo},{c:rv,v:mo}]}]; };
+/* السفر: بدل الانتداب منفعة موظف بحساب مستقل وبلا ضريبة */
+T('travel').inp=[VAT_INP,BLOCK_INP,PAY_INP,{k:'pd',l:'منه: بدل انتداب مقطوع للموظف (بلا ضريبة)',d:0},CENTER_INP,PJ_INP];
+T('travel').ok=['5214','5208','5104'];
+T('travel').je=function(o){ var base=r2(o.amt-o.pd), v=vatIn(o,base), blk=o.blocked&&v;
+  return [{t:'إثبات مصاريف السفر',lines:[{d:expAcc(o,'5214'),v:base+(blk?v:0)},{d:expAcc(o,'5208'),v:o.pd},v&&!blk?{d:'1230',v:v}:null,{c:payAcc(o),v:o.amt+v}]}]; };
+T('travel').amtL='إجمالي مصاريف الرحلة (قبل الضريبة)';
+T('travel').vatBase=function(o){ return r2(o.amt-o.pd); };  /* الأساس الخاضع = المصاريف دون بدل الانتداب */
+/* استثناءات مشروعة لاتجاه الحسابات */
+T('salesret').revOK=['5101','2130']; T('discount').revOK=['5101']; T('penalty').revOK=['4102']; T('vat').revOK=['2130','1230'];
+T('warranty').ok=['5263']; T('customs').vatSkip=true;
+/* بنود لا تخضع لضريبة القيمة المضافة فلا تدخل في أساس احتساب 15% */
+var NOVAT_BASE=['5201','5202','5203','5204','5206','5207','5208','5209','5264','5227','5218'];
+
+/* ===== المدقق الآلي للقيد ===== */
+var TITLE_RULES=[
+ [/إجاز/,['5264','5104']],[/سكن/,['5204','5104']],[/طبي/,['5205','5104']],[/مركبات|ممتلكات/,['5212','5104']],[/غرامة/,['5262']],
+ [/التأمينات الاجتماعية/,['5202','5104']],[/مكافآت وحوافز/,['5207','5104']],[/نهاية الخدمة/,['5203']],[/رواتب/,['5201','5202','5204','5206','5208','5209','5104']],
+ [/بنكي|بنكية/,['5226','5104']],[/سفر|انتداب/,['5214','5208','5104']],[/وقود/,['5223','5104']],[/صيانة/,['5219','5104']],[/تدريب/,['5224']],
+ [/ضيافة/,['5215']],[/دعاية|إعلان/,['5216']],[/أتعاب/,['5217']],[/رسوم حكومية/,['5218','5104']],[/زكاة/,['5260']],[/تبرع/,['5227']]];
+function expectedExp(t){ if(t.ok) return t.ok; if(t.id==='generic') return null; for(var i=0;i<TITLE_RULES.length;i++) if(TITLE_RULES[i][0].test(t.n)) return TITLE_RULES[i][1]; return null; }
+function auditJE(t,list){
+  var R=[], bad=0, add=function(ok,msg){ R.push([ok,msg]); if(!ok) bad++; };
+  if(!list.length){ add(false,'لا يوجد قيد — أدخل مبلغاً أكبر من صفر'); return {R:R,bad:bad}; }
+  var unbal=list.filter(function(e){ var d=0,c=0; e.lines.forEach(function(l){ d+=l.dr; c+=l.cr; }); return Math.abs(d-c)>0.005; });
+  add(!unbal.length,unbal.length?'قيد غير متوازن: '+unbal.map(function(e){ return e.t; }).join('، '):'كل القيود متوازنة (المدين = الدائن)');
+  var unk=[]; list.forEach(function(e){ e.lines.forEach(function(l){ if(!COA[l.a]||!CG_BY[l.a]) unk.push(l.a); }); });
+  add(!unk.length,unk.length?'حسابات غير معرّفة في الدليل: '+unk.join('، '):'كل الحسابات معرّفة ولها موقع في دليل الحسابات');
+  /* الاستثناءات المشروعة لكل حالة مذكورة صراحة في revOK (مثل: المردودات تُخفّض تكلفة المبيعات) */
+  var dir=[], X=t.revOK||[]; list.forEach(function(e){ e.lines.forEach(function(l){ var a=String(l.a), ty=accType(a); if(X.indexOf(a)>=0) return;
+    if(ty==='exp'&&l.cr>0) dir.push('«'+accName(a)+'» (مصروف) في الجانب الدائن');
+    if(ty==='rev'&&a!=='4103'&&l.dr>0) dir.push('«'+accName(a)+'» (إيراد) في الجانب المدين');
+    if(a==='1230'&&l.cr>0) dir.push('ضريبة المدخلات في الجانب الدائن');
+    if(a==='2130'&&l.dr>0) dir.push('ضريبة المخرجات في الجانب المدين'); }); });
+  add(!dir.length,dir.length?'اتجاه غير صحيح: '+dir.join('؛ '):'اتجاه كل طرف سليم (المصروفات مدينة، الإيرادات دائنة، الضريبة في جانبها)');
+  var exp=expectedExp(t);
+  if(exp){ var wrong=[]; list.forEach(function(e){ e.lines.forEach(function(l){ var a=String(l.a); if(accType(a)==='exp'&&l.dr>0&&exp.indexOf(a)<0&&['5101','5220','5221','5222','5230','5231','5232','5240','5241','5242','5250'].indexOf(a)<0) wrong.push(accName(a)); }); });
+    add(!wrong.length,wrong.length?'توجيه المصروف لا يطابق طبيعة البند «'+t.n+'»: '+wrong.join('، ')+' — المتوقع: '+exp.map(accName).join(' أو '):'توجيه المصروف يطابق طبيعة البند ('+exp.filter(function(a){ return list.some(function(e){ return e.lines.some(function(l){ return l.a===a; }); }); }).map(accName).join('، ')+')'); }
+  var vatL=list.some(function(e){ return e.lines.some(function(l){ return l.a==='1230'||l.a==='2130'; }); });
+  if(vatL){ var pairs=[]; list.forEach(function(e){ var vi=0,vo=0,base=0; e.lines.forEach(function(l){ if(l.a==='1230') vi+=l.dr-l.cr; else if(l.a==='2130') vo+=l.cr-l.dr; });
+      if(vi>0){ e.lines.forEach(function(l){ if(l.dr>0&&l.a!=='1230'&&NOVAT_BASE.indexOf(l.a)<0) base+=l.dr; }); if(t.vatBase) base=t.vatBase(G.o); if(base>0&&Math.abs(vi-base*0.15)>Math.max(1,base*0.0015)&&!t.vatSkip) pairs.push(e.t); } });
+    add(!pairs.length,pairs.length?'ضريبة المدخلات لا تساوي 15% من الأساس في: '+pairs.join('، '):'ضريبة القيمة المضافة محسوبة بنسبة 15% من الأساس الصحيح'); }
+  return {R:R,bad:bad}; }
+function auditBox(t){ var list=buildJE(t), a=auditJE(t,list);
+  return '<div class="jaudit '+(a.bad?'bad':'ok')+'"><b>'+(a.bad?'⛔ المراجعة الآلية للقيد: توجد ملاحظات — لن يُسمح بالترحيل':'🛡️ المراجعة الآلية للقيد: سليم')+'</b>'
+    +a.R.map(function(r){ return '<div>'+(r[0]?'✅ ':'❌ ')+esc(r[1])+'</div>'; }).join('')+'</div>'; }
+var _refreshJE=refreshJE;
+refreshJE=function(){ _refreshJE(); var b=$('jeAudit'); if(b&&G.sel) b.innerHTML=auditBox(G.sel); };
+var _treatView=treatView;
+treatView=function(t){ var h=_treatView(t); return h.replace('<div id="jeBox">','<div id="jeAudit">'+auditBox(t)+'</div><div id="jeBox">'); };
+var _postGuideJE=postGuideJE;
+postGuideJE=function(){ var a=auditJE(G.sel,buildJE(G.sel)); if(a.bad){ toast('لا يمكن الترحيل: المراجعة الآلية وجدت '+a.bad+' ملاحظة — راجعها أعلى القيد'); var b=$('jeAudit'); if(b) b.scrollIntoView({behavior:'smooth',block:'center'}); return; } _postGuideJE(); };
 
 /* ===== التشغيل ===== */
 boot();
