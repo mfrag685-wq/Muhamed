@@ -1548,6 +1548,9 @@ async function buildPdfBlob(list) {
    يتطلب معرّف عميل OAuth (Client ID) من Google Cloud — الخطوات في «دليل التفعيل السحابي» (ربط Google Drive). */
 const DRIVE_CLIENT_ID = '493790542156-r1hn6i266ciuqk9ulg5u5ab5ubpm7pmp.apps.googleusercontent.com';
 const DRIVE_FOLDER = 'تقارير منسق Excel';
+// العناوين المسجّلة في Google Cloud ← Clients ← Authorized JavaScript origins (يجب أن تطابق عنوان الصفحة حرفياً،
+// وإلا ترفض Google الدخول بخطأ origin_mismatch). روابط المعاينة المؤقتة لا تُسجَّل — الاستخدام من الرابط الرئيسي.
+const DRIVE_ORIGINS = ['https://muhamed.mfrag685.workers.dev'];
 const DRIVE = {tc: null, token: '', exp: 0, pending: null};
 function driveInit() {
   if (DRIVE.tc || !window.google || !google.accounts || !google.accounts.oauth2) return;
@@ -1588,6 +1591,20 @@ async function driveUpload(blob, name) {
   fd.append('file', blob, name);
   return driveFetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,webViewLink', {method: 'POST', body: fd});
 }
+function driveOriginHelp(kinds) {
+  window._driveKinds = kinds;
+  driveModal(`<h3>⚠️ هذا العنوان غير مسجّل لدى Google</h3>
+    <p>تفتح المنسق الآن من العنوان:</p>
+    <div class="dfile" style="direction:ltr;text-align:left"><b>${esc(location.origin)}</b>
+      <div class="acts"><button class="btn sm ghost" onclick="navigator.clipboard.writeText(location.origin).then(()=>toast('تم نسخ العنوان'))">📋 نسخ العنوان</button></div></div>
+    <p>تسمح Google بتسجيل الدخول فقط من العناوين المضافة في <b>Authorized JavaScript origins</b>، وإلا يظهر خطأ <code>origin_mismatch</code>. الحل أحد أمرين:</p>
+    <p><b>١. الأسهل:</b> استخدم الرابط الرئيسي المسجّل:<br>
+      <a class="btn sm pri" style="margin-top:6px" href="${DRIVE_ORIGINS[0]}/inventory.html" target="_blank" rel="noopener">فتح النظام من ${esc(DRIVE_ORIGINS[0].replace('https://', ''))}</a></p>
+    <p><b>٢.</b> أو أضف العنوان أعلاه في Google Cloud: <b>Google Auth Platform ← Clients ← Web client 1 ← Authorized JavaScript origins ← Add URI</b> ← احفظ، وانتظر 5 دقائق ثم اضغط «متابعة».
+      (روابط المعاينة المؤقتة تتغير مع كل تحديث، فلا يُنصح بتسجيلها.)</p>
+    <div class="mbtns"><button class="btn" data-close>إغلاق</button>
+      <button class="btn pri" onclick="store.set('rf-drive-origin-ok:' + location.origin, true); $('driveModal').hidden = true; toDrive(window._driveKinds)">أضفته في Google — متابعة</button></div>`);
+}
 function driveModal(html) { $('driveBox').innerHTML = html; $('driveModal').hidden = false; }
 $('driveModal').addEventListener('click', e => { if (e.target.id === 'driveModal' || e.target.closest('[data-close]')) $('driveModal').hidden = true; });
 document.addEventListener('click', e => { if (!e.target.closest('.drv')) $('driveMenu').hidden = true; });
@@ -1597,6 +1614,8 @@ async function toDrive(kinds) {
     إنشاء «معرّف عميل Google» (Client ID) وإضافته للنظام. الخطوات في «دليل التفعيل السحابي» — قسم <b>ربط Google Drive</b>.</p>
     <div class="mbtns"><button class="btn pri" data-close>حسناً</button></div>`);
   const list = chosen(); if (!list.length) return toast('اختر ورقة واحدة على الأقل');
+  // فحص مسبق: عنوان الصفحة غير مسجّل في Google ← رسالة واضحة بدل خطأ origin_mismatch من Google
+  if (!DRIVE_ORIGINS.includes(location.origin) && !store.get('rf-drive-origin-ok:' + location.origin, false)) return driveOriginHelp(kinds);
   const tokenP = driveToken();                      // داخل ضغطة الزر مباشرة
   const b = $('bDrive'), label = b.innerHTML; b.disabled = true; b.textContent = '⏳ جارٍ الحفظ في Drive…';
   try {
@@ -1626,7 +1645,8 @@ async function toDrive(kinds) {
   } catch (err) {
     console.error(err);
     const m = String(err && err.message || err);
-    toast(/gis/.test(m) ? 'خدمة Google لم تُحمَّل بعد — حاول مرة أخرى بعد لحظات' : /popup|access_denied/.test(m) ? 'أُلغي تسجيل الدخول إلى Google'
+    if (/popup_closed/.test(m) && !DRIVE_ORIGINS.includes(location.origin)) { store.set('rf-drive-origin-ok:' + location.origin, false); return driveOriginHelp(kinds); }
+    toast(/gis/.test(m) ? 'خدمة Google لم تُحمَّل بعد — حاول مرة أخرى بعد لحظات' : /popup|access_denied/.test(m) ? 'أُغلقت نافذة Google قبل إكمال الدخول — إن ظهر فيها خطأ origin_mismatch فعنوان الصفحة غير مسجّل لدى Google'
       : 'تعذّر الحفظ في Drive: ' + m, 5000);
   } finally { b.disabled = false; b.innerHTML = label; }
 }
