@@ -1849,7 +1849,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-10-10-b';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-10-10-c';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -6276,6 +6276,22 @@ function renderDashCharts(pnlRows,pay,rec){
     if(seeProfit){ var tS=0,tC=0; months.forEach(function(k){ tS+=M[k].s; tC+=M[k].c; });
       note.push('هامش ربح المدة: <b>'+(tS>0?((tS-tC)/tS*100).toFixed(1)+'%':'—')+'</b>'); } }
   var trend=lineChart('الاتجاه الشهري','آخر '+nM+' أشهر — مقارنة مستقلة عن فلتر الفترة (قبل الضريبة)',months,trendSeries,{note:note});
+  /* جدول تفصيل المقارنة الشهرية: كل شهر على حدة (مبيعات/مشتريات/مجمل ربح/هامش) مع تغيّر المبيعات عن الشهر السابق */
+  var cmp='';
+  if(nM){
+    var rws=months.map(function(k,i){ var s=M[k].s, p=M[k].p, gp=s-M[k].c, mar=s>0?(gp/s*100):0;
+      var dv=i>0?deltaPct(M[months[i-1]].s,s):null;
+      var dCell=dv?'<span style="color:'+(dv.dir==='up'?'#157a42':'#c1262b')+';font-weight:700">'+esc(dv.txt)+'</span>':'<span class="muted">—</span>';
+      return '<tr><td class="name"><b>'+esc(k)+'</b></td><td>'+money(s)+'</td><td>'+dCell+'</td><td>'+money(p)+'</td>'
+        +(seeProfit?('<td>'+sign(gp)+'</td><td class="muted">'+(s>0?mar.toFixed(1)+'%':'—')+'</td>'):'')+'</tr>'; }).join('');
+    var TS=0,TP=0,TC=0; months.forEach(function(k){ TS+=M[k].s; TP+=M[k].p; TC+=M[k].c; });
+    var totR='<tr class="total-row"><td class="name">الإجمالي</td><td>'+money(TS)+'</td><td></td><td>'+money(TP)+'</td>'
+      +(seeProfit?('<td>'+sign(TS-TC)+'</td><td>'+(TS>0?((TS-TC)/TS*100).toFixed(1)+'%':'—')+'</td>'):'')+'</tr>';
+    var hdr='<tr><th class="name">الشهر</th><th>المبيعات</th><th>تغيّر المبيعات</th><th>المشتريات</th>'+(seeProfit?'<th>مجمل الربح</th><th>الهامش</th>':'')+'</tr>';
+    cmp='<div class="chart-box" style="grid-column:1/-1"><h4>تفصيل المقارنة الشهرية</h4>'
+      +'<div class="csub">كل شهر على حدة — مبيعات ومشتريات'+(seeProfit?' ومجمل ربح وهامش':'')+' وتغيّر المبيعات عن الشهر السابق</div>'
+      +'<div class="table-scroll"><table><thead>'+hdr+'</thead><tbody>'+rws+totR+'</tbody></table></div></div>';
+  }
   /* 2) توزيع المصروفات + 3) أعلى العملاء ربحاً — بيانات تكلفة/ربح تُخفى عمّن لا يملك صلاحية الأرباح */
   var donut='',top='';
   if(seeProfit){
@@ -6287,7 +6303,7 @@ function renderDashCharts(pnlRows,pay,rec){
       .filter(function(d){return Math.abs(d.value)>0.009;}).sort(function(a,b){return b.value-a.value;}).slice(0,6);
     top=hBarChart('أعلى الفروع/العملاء ربحاً','صافي الربح بعد توزيع المصروفات',cl);
   }
-  box.innerHTML=trend+donut+top;
+  box.innerHTML=trend+donut+top+cmp;
 }
 
 /* ==========================================================================
