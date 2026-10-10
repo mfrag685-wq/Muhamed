@@ -236,7 +236,7 @@ tr:hover td{background:#f8fafc}
    ============================================================ */
 const KEY="inv_system_v2";
 /* رقم إصدار التطبيق — يُزاد مع كل تحديث؛ يُقارَن بالنسخة المنشورة لإظهار زر التحديث */
-const APP_VERSION="2026-10-05-04";
+const APP_VERSION="2026-10-10-01";
 let DB,ME;
 /* التحقق من توفّر نسخة أحدث بجلب الملف نفسه (بدون كاش) ومقارنة رقم الإصدار */
 function checkForUpdate(){
@@ -667,9 +667,19 @@ function mergeUnionById(rem,loc){
 }
 /* دمج السجلّات (حركات/دفعات/نشاط) بمفتاح فريد = uid أو بصمة طبيعية —
    يمنع فقدان سجلّين مختلفين لهما نفس المعرّف الرقمي القديم (تضارب أجهزة) */
+/* وقت آخر تحديث للسجل (للتعديل) — يحسم أي نسخة تفوز عند تعارض نفس السجل */
+function _recTime(x){const t=x&&(x.editedAt||x.at);const n=t?Date.parse(t):0;return isNaN(n)?0:n;}
+/* دمج السجلات بهوية ثابتة لا تتأثر بتعديل المحتوى:
+   المفتاح = uid ثم المعرّف الرقمي id (لا نستخدم بصمة المحتوى لأن تعديل السعر/الكمية
+   يغيّرها فيُعتبر السجل جديداً ويتكرر — وهذا سبب تضخّم الرصيد عند تعديل حركة).
+   عند تكرار نفس المفتاح نُبقي الأحدث تعديلاً (editedAt/at) لتفوز آخر نسخة. */
 function mergeLog(rem,loc,sigFn){
   const map=new Map();
-  const add=x=>{if(!x)return;const k=x.uid||("s:"+sigFn(x));if(!map.has(k))map.set(k,x);else map.set(k,x);};
+  const add=x=>{if(!x)return;
+    const k = x.uid!=null&&x.uid!=="" ? ("u:"+x.uid) : (x.id!=null ? ("id:"+x.id) : ("s:"+sigFn(x)));
+    const prev=map.get(k);
+    if(!prev||_recTime(x)>=_recTime(prev))map.set(k,x);
+  };
   (Array.isArray(rem)?rem:[]).forEach(add);
   (Array.isArray(loc)?loc:[]).forEach(add);
   return [...map.values()];
@@ -1876,9 +1886,17 @@ function auditStock(){
     if(led!==i.qty)mism.push({m:itemModel(i),stored:i.qty,led});
     if(led<0)neg.push({m:itemModel(i),led});});
   cmoves().forEach(mv=>{if(mv.itemId==null||!itemIds.has(mv.itemId))orphan.push(mv);});
-  const rows=(arr,cols)=>arr.length?`<div class="table-wrap"><table><tbody>${arr}</tbody></table></div>`:`<p style="color:var(--green);font-size:13px">✔ لا مشاكل</p>`;
+  // ٤) حركات مكرّرة مشتبهة: نفس الصنف/النوع/الكمية/التاريخ + نفس المستند (فسح/فاتورة) + نفس المورد
+  const grp={};
+  cmoves().forEach(m=>{const ref=m.type==="inbound"?(m.customs||""):(m.invoice||"");if(!ref)return;
+    const k=[m.itemId,m.type,m.qty,m.date,ref,m.supplierId||"",m.invGid||""].join("|");
+    (grp[k]=grp[k]||[]).push(m);});
+  const dupExtras=[];
+  Object.values(grp).forEach(a=>{if(a.length<2)return;
+    a.sort((x,y)=>_recTime(y)-_recTime(x)); // نُبقي الأحدث تعديلاً ونعرض الباقي للحذف
+    for(let i=1;i<a.length;i++)dupExtras.push(a[i]);});
   const el=document.createElement("div");el.className="modal";
-  el.innerHTML=`<div class="box" style="max-width:640px"><h3>🔍 تدقيق دفتر المخزون</h3>
+  el.innerHTML=`<div class="box" style="max-width:640px;max-height:88vh;overflow:auto"><h3>🔍 تدقيق دفتر المخزون</h3>
     <p style="font-size:13px;color:var(--muted);margin-bottom:8px">المصدر الوحيد للرصيد هو دفتر الحركات؛ هذه فحوص للتحقق من التطابق.</p>
     <div style="font-weight:800;color:${mism.length?'var(--red)':'var(--green)'};margin:8px 0 4px">١) عدم تطابق الرصيد المخزَّن مع الدفتر (${mism.length})</div>
     ${mism.length?`<div class="table-wrap"><table><thead><tr><th>الموديل</th><th>مخزَّن</th><th>من الدفتر</th></tr></thead><tbody>${mism.map(x=>`<tr><td>${esc(x.m)}</td><td style="color:var(--red)">${x.stored}</td><td style="color:var(--green)">${x.led}</td></tr>`).join("")}</tbody></table></div>`:`<p style="color:var(--green);font-size:13px">✔ كل الأرصدة مطابقة للدفتر</p>`}
@@ -1886,6 +1904,9 @@ function auditStock(){
     ${neg.length?`<div class="table-wrap"><table><thead><tr><th>الموديل</th><th>الرصيد</th></tr></thead><tbody>${neg.map(x=>`<tr><td>${esc(x.m)}</td><td style="color:var(--red);font-weight:700">${x.led}</td></tr>`).join("")}</tbody></table></div>`:`<p style="color:var(--green);font-size:13px">✔ لا أرصدة سالبة</p>`}
     <div style="font-weight:800;color:${orphan.length?'var(--red)':'var(--green)'};margin:10px 0 4px">٣) حركات يتيمة (بلا صنف) (${orphan.length})</div>
     ${orphan.length?`<p style="font-size:13px;color:var(--red)">${orphan.length} حركة تشير لصنف محذوف/غير موجود.</p>`:`<p style="color:var(--green);font-size:13px">✔ لا حركات يتيمة</p>`}
+    <div style="font-weight:800;color:${dupExtras.length?'var(--red)':'var(--green)'};margin:10px 0 4px">٤) حركات مكرّرة مشتبهة (${dupExtras.length})</div>
+    ${dupExtras.length?`<p style="font-size:12px;color:var(--muted);margin-bottom:6px">حركات بنفس الصنف والكمية والتاريخ والمستند (فسح/فاتورة) — راجِعها واحذف المكرّر منها فقط إن كان خطأً.</p>
+      <div class="table-wrap"><table><thead><tr><th>الموديل</th><th>النوع</th><th>الكمية</th><th>التاريخ</th><th>فسح/فاتورة</th><th></th></tr></thead><tbody>${dupExtras.map(m=>{const it=DB.items.find(i=>i.id===m.itemId)||{};return `<tr><td>${esc(m.model||itemModel(it))}</td><td>${typeAr(m.type)}</td><td>${m.qty}</td><td>${esc(m.date||"")}</td><td>${esc(m.type==="inbound"?(m.customs||""):(m.invoice||""))}</td><td>${can("canDelete")?`<button class="btn red sm" onclick="if(delMovement(${m.id})!==false){this.closest('.modal').remove();auditStock();}">حذف المكرّر</button>`:""}</td></tr>`;}).join("")}</tbody></table></div>`:`<p style="color:var(--green);font-size:13px">✔ لا حركات مكرّرة</p>`}
     <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
       ${mism.length?`<button class="btn green" onclick="recalcStock();save();this.closest('.modal').remove();toast('تمت مزامنة الأرصدة مع الدفتر');if(CURRENT_PAGE)refreshView();">🔧 مزامنة الأرصدة مع الدفتر</button>`:""}
       <button class="btn gray" onclick="this.closest('.modal').remove()">إغلاق</button></div></div>`;
