@@ -314,6 +314,9 @@ a.acc:hover{color:var(--leaf-dark)}
 .jaudit.ok{background:var(--leaf-soft);color:var(--leaf-dark)}
 .jaudit.bad{background:var(--tomato-soft);color:var(--tomato)}
 .jaudit b{display:block;margin-bottom:2px;font-size:13.5px}
+/* جدول التوزيع */
+table.sch th,table.sch td{padding:7px 6px;font-size:12.5px}
+table.sch td:first-child{white-space:nowrap}
 /* الدليل التعليمي */
 .learn{border-right:4px solid var(--sky)}
 .rule{background:var(--sky-soft);color:var(--sky);border-radius:10px;padding:8px 12px;font-size:13px;margin-bottom:10px}
@@ -869,7 +872,7 @@ var TREAT_BY_ID={}; TREATS.forEach(function(t){ TREAT_BY_ID[t.id]=t; });
 /* ==========================================================================
    النواة: أدوات عامة + قاعدة البيانات + الصلاحيات + الدخول + المزامنة السحابية
    ========================================================================== */
-var APP_BUILD='2026-10-09-p7';
+var APP_BUILD='2026-10-10-p8';
 var LS_DB='mfp_db_v1', LS_SES='mfp_session_v1';
 
 function $(id){ return document.getElementById(id); }
@@ -1263,6 +1266,7 @@ function calcInputs(t){
   (t.inp||[]).forEach(function(i){
     if(i.type==='chk') h+='<div><label>&nbsp;</label><label style="display:flex;gap:8px;align-items:center;font-weight:700;min-height:44px"><input type="checkbox" '+(G.o[i.k]?'checked':'')+' onchange="G.o.'+i.k+'=this.checked;refreshJE()">'+esc(i.l)+'</label></div>';
     else if(i.type==='proj'){ if(G.o.center==='proj'||!t.inp.some(function(x){ return x.k==='center'; })) h+='<div><label>'+esc(i.l)+'</label><select onchange="G.o.pj=this.value"><option value="">— اختر المشروع —</option>'+projOpts().map(function(o){ return '<option value="'+o[0]+'"'+(G.o.pj===o[0]?' selected':'')+'>'+esc(o[1])+'</option>'; }).join('')+'</select></div>'; }
+    else if(i.type==='date') h+='<div><label>'+esc(i.l)+'</label><input type="date" value="'+(G.o[i.k]||'')+'" onchange="G.o.'+i.k+'=this.value;refreshJE()"></div>';
     else if(i.type==='sel') h+='<div><label>'+esc(i.l)+'</label><select onchange="G.o.'+i.k+'=this.value;'+(i.k==='nature'||i.k==='center'?'$(\'gRes\').innerHTML=guideResults()':'refreshJE()')+'">'+i.opts.map(function(o){ return '<option value="'+o[0]+'"'+(G.o[i.k]===o[0]?' selected':'')+'>'+esc(o[1])+'</option>'; }).join('')+'</select></div>';
     else h+='<div><label>'+esc(i.l)+'</label><input type="number" inputmode="decimal" step="any" value="'+G.o[i.k]+'" oninput="G.o.'+i.k+'=+this.value||0;refreshJE()"></div>';
   });
@@ -1288,7 +1292,7 @@ function treatView(t){
     +sec('c1','🎯','المعالجة المحاسبية',esc(t.id==='generic'?GEN_TR[G.o.nature||'exp']:t.tr))
     +(t.ms?sec('c3','📏','القياس',esc(t.ms)):'')+(t.vt?sec('c4','🧾','ضريبة القيمة المضافة (المملكة)',esc(t.vt)):'')
     +(t.id==='generic'?'<div class="disclaimer" style="margin-bottom:10px">💡 لم نجد بنداً مخصصاً مطابقاً، فطبّقنا قواعد الاعتراف العامة. اختر «طبيعة البند» الصحيحة أدناه لتتغير المعالجة والقيد. قاعدة القرار: هل يمنح منافع لأكثر من فترة وتسيطر عليه المنشأة؟ ← أصل. هل يغطي فترة مستقبلية؟ ← مدفوع مقدماً. غير ذلك ← مصروف الفترة.</div>':'')
-    +'<div class="sec" style="display:block"><div style="display:flex;gap:12px;align-items:center;margin-bottom:8px"><div class="si c5">🧮</div><h5 style="font-size:15px;font-weight:800">القيود الآلية — أدخل أرقامك</h5></div>'+calcInputs(t)+'<div id="jeBox">'+buildJE(t).map(function(x){ return jeTable(x.lines,x.t); }).join('')+'</div>'
+    +'<div class="sec" style="display:block"><div style="display:flex;gap:12px;align-items:center;margin-bottom:8px"><div class="si c5">🧮</div><h5 style="font-size:15px;font-weight:800">القيود الآلية — أدخل أرقامك</h5></div>'+calcInputs(t)+'<div id="jeBox">'+jeBoxHTML(t)+'</div>'
     +(can('journal','a')?'<div class="btn-row" style="margin-top:8px"><button class="btn-main" onclick="postGuideJE()">📒 ترحيل القيود إلى الدفاتر (مسودة)</button></div>':'')+'</div>'
     +(au.as?sec('c2','🔍','إرشادات المراجعة — الإقرارات المستهدفة','<div class="tags">'+au.as.map(function(a){ return '<span class="pill pill-plum">'+esc(a)+'</span>'; }).join('')+'</div>'):'')
     +(au.rk?sec('c8','⚠️','مخاطر التحريف الجوهري المحتملة',ul(au.rk)):'')
@@ -1311,7 +1315,7 @@ function printTreat(){
   var t=G.sel, au=t.au||{};
   var b='<h4>البند: '+esc(t.n)+'</h4><p><b>المعايير:</b> '+t.std.map(function(s){ var x=STD_BY_ID[s]; return esc(s+(x?' — '+x.n:'')); }).join('، ')+'</p>'
     +'<h4>المعالجة المحاسبية</h4><p>'+esc(t.id==='generic'?GEN_TR[G.o.nature||'exp']:t.tr)+'</p>'+(t.ms?'<p><b>القياس:</b> '+esc(t.ms)+'</p>':'')+(t.vt?'<p><b>ضريبة القيمة المضافة:</b> '+esc(t.vt)+'</p>':'')
-    +'<h4>القيود المحاسبية</h4>'+buildJE(t).map(function(x){ return jeTable(x.lines,x.t); }).join('')
+    +'<h4>القيود المحاسبية</h4>'+jeBoxHTML(t)
     +(au.as?'<h4>إرشادات المراجعة</h4><p><b>الإقرارات:</b> '+au.as.map(esc).join('، ')+'</p>':'')
     +(au.rk?'<p><b>المخاطر:</b></p>'+ul(au.rk):'')+(au.pr?'<p><b>الإجراءات:</b></p>'+ul(au.pr):'')+(au.isa?'<p><b>معايير المراجعة:</b> '+au.isa.join('، ')+'</p>':'')
     +(t.ds?'<h4>الإفصاح</h4><p>'+esc(t.ds)+'</p>':'')+'<p style="font-size:11px;color:#666;margin-top:12px">محتوى تعليمي — يُرجع للنص الرسمي المعتمد.</p>';
@@ -2895,7 +2899,7 @@ function caseDefaults(t,amt){ var o={amt:amt,pj:''}; (t.inp||[]).forEach(functio
 function miniJE(t,amt){ var r=[]; try{ r=t.je?t.je(caseDefaults(t,amt)):[]; }catch(e){ r=[]; } if(r.length&&!r[0].lines) r=[{t:'',lines:r}];
   var e=r[0]; if(!e) return ''; var ls=e.lines.filter(function(l){ return l&&r2(l.v)>0; });
   return '<div class="mje">'+ls.map(function(l){ return '<div class="'+(l.d?'d':'c')+'"><span>'+(l.d?'من ح/ ':'إلى ح/ ')+accLink(l.d||l.c,l.d?'dr':'cr')+'</span><b class="num">'+fmt(l.v,0)+'</b></div>'; }).join('')
-    +(r.length>1?'<div class="more">+ '+(r.length-1)+' قيد لاحق ('+esc(r.slice(1).map(function(x){ return x.t; }).join('، '))+')</div>':'')+'</div>'; }
+    +(r.length>1?'<div class="more">+ '+(r.length-1)+' قيد لاحق ('+esc(r.length>3?'توزيع شهري حسب التواريخ':r.slice(1).map(function(x){ return x.t; }).join('، '))+')</div>':'')+'</div>'; }
 function caseCard(t,amt,i){
   return '<div class="case" role="button" tabindex="0" onclick="pickTreat(\''+t.id+'\')" onkeydown="if(event.key===\'Enter\')pickTreat(\''+t.id+'\')">'
     +'<div class="case-h">'+(i!=null?'<span class="case-n num">'+(i+1)+'</span>':'')+'<div style="flex:1;min-width:0"><b>'+esc(t.n)+'</b><div class="mini">'+esc(t.cat)+' — '+t.std.join(' • ')+'</div></div><span class="case-go">‹</span></div>'
@@ -3235,7 +3239,8 @@ function whyLine(a,side){ a=String(a); var t=accType(a), nat=accNature(a), up=(s
     equity:[up?'زادت حقوق الملكية':'نقصت حقوق الملكية','حقوق الملكية تزيد بالدائن'],rev:[up?'إيراد اكتسبته المنشأة في هذه الفترة':'تخفيض أو عكس لإيراد سبق إثباته','الإيرادات تزيد بالدائن'],
     exp:[up?'مصروف تحمّلته المنشأة في هذه الفترة (استُنفدت منافعه)':'تخفيض أو عكس لمصروف سبق إثباته','المصروفات تزيد بالمدين']}[t].join(' — ');
   return r; }
-function whyBox(t){ var list=buildJE(t); if(!list.length) return '';
+function uniqJE(list){ var seen={}; return list.filter(function(e){ var k=e.lines.map(function(l){ return l.a+(l.dr?'d':'c'); }).sort().join(','); if(seen[k]) return false; seen[k]=1; return true; }).map(function(e){ return /^توزيع /.test(e.t)?{t:'قيد التوزيع الشهري (يتكرر لكل شهر بنصيبه)',lines:e.lines}:e; }); }
+function whyBox(t){ var list=uniqJE(buildJE(t)); if(!list.length) return '';
   return '<div class="panel learn"><h3>💡 لماذا هذا القيد؟</h3><div class="rule">القاعدة الذهبية: <b>الأصول والمصروفات</b> تزيد بالمدين، و<b>الالتزامات وحقوق الملكية والإيرادات</b> تزيد بالدائن.</div>'
     +list.map(function(e){ return (list.length>1?'<div class="wh">'+esc(e.t)+'</div>':'')+e.lines.map(function(l){ var s=l.dr?'dr':'cr', up=(s==='dr')===(accNature(l.a)==='dr');
       return '<div class="why"><span class="side '+s+'">'+(l.dr?'مدين':'دائن')+'</span><div><b>'+accLink(l.a,s)+'</b> <span class="mini">'+(up?'⬆ يزيد':'⬇ ينقص')+'</span><div class="mini">'+esc(whyLine(l.a,s))+'</div></div></div>'; }).join(''); }).join('')+'</div>'; }
@@ -3351,7 +3356,7 @@ function impactBox(t){ var list=buildJE(t); if(!list.length) return '';
 /* ===== 2) اختبر نفسك ===== */
 var QZ=null;
 function shuffle(a){ for(var i=a.length-1;i>0;i--){ var j=Math.floor(Math.random()*(i+1)), x=a[i]; a[i]=a[j]; a[j]=x; } return a; }
-function quizStart(){ var t=G.sel, list=buildJE(t); if(!list.length){ toast('أدخل مبلغاً أولاً'); return; }
+function quizStart(){ var t=G.sel, list=uniqJE(buildJE(t)); if(!list.length){ toast('أدخل مبلغاً أولاً'); return; }
   var wrongs=mistakes(t).map(function(x){ return x[1]; }).filter(function(a){ return a&&COA[a]; });
   QZ={t:t,list:list,ans:{},done:false,blocks:list.map(function(e,i){ var ok={}; e.lines.forEach(function(l){ ok[l.a]=l.dr?'dr':'cr'; });
     var cand=Object.keys(ok), d=[];
@@ -3383,6 +3388,71 @@ treatView=function(t){ var h=_treatView2(t);
   return h+'<div id="jeWhy">'+whyBox(t)+'</div><div id="jeImpact">'+impactBox(t)+'</div>'+mistakesBox(t); };
 var _refreshJE2=refreshJE;
 refreshJE=function(){ _refreshJE2(); if(!G.sel) return; var w=$('jeWhy'), i=$('jeImpact'); if(w) w.innerHTML=whyBox(G.sel); if(i) i.innerHTML=impactBox(G.sel); };
+
+/* ==========================================================================
+   v8 — توزيع المدفوعات المقدمة والإيرادات المؤجلة حسب التاريخ (من … إلى …)
+   نصيب كل شهر تقويمي فعلي، والشهر الجزئي بنسبة أيامه، والفرق التقريبي يُحمّل على آخر شهر
+   ========================================================================== */
+var AR_MONTHS=['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
+function pD(s){ var m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(String(s||'')); return m?Date.UTC(+m[1],+m[2]-1,+m[3]):null; }
+function fD(t){ var d=new Date(t); return d.getUTCFullYear()+'-'+String(d.getUTCMonth()+1).padStart(2,'0')+'-'+String(d.getUTCDate()).padStart(2,'0'); }
+function fDar(s){ var p=String(s).split('-'); return +p[2]+' '+AR_MONTHS[+p[1]-1]+' '+p[0]; }
+var DAY=864e5;
+function addMonths(s,n){ var t=pD(s), d=new Date(t); return fD(Date.UTC(d.getUTCFullYear(),d.getUTCMonth()+n,d.getUTCDate())); }
+function monthEndOf(t){ var d=new Date(t); return Date.UTC(d.getUTCFullYear(),d.getUTCMonth()+1,0); }
+/* جدول التوزيع: months = شهرياً بالتساوي مع تناسب الشهر الجزئي بأيامه ، days = حسب الأيام الفعلية */
+function allocSchedule(amount,from,to,meth){
+  var s=pD(from), e=pD(to), rows=[]; if(s==null||e==null||e<s||!(amount>0)) return rows;
+  var cur=s; while(cur<=e&&rows.length<120){ var me=Math.min(monthEndOf(cur),e), days=Math.round((me-cur)/DAY)+1, d=new Date(cur), dim=new Date(monthEndOf(cur)).getUTCDate();
+    rows.push({y:d.getUTCFullYear(),m:d.getUTCMonth(),label:AR_MONTHS[d.getUTCMonth()]+' '+d.getUTCFullYear(),from:fD(cur),to:fD(me),days:days,dim:dim,w:meth==='days'?days:days/dim});
+    cur=me+DAY; }
+  var W=0; rows.forEach(function(r){ W+=r.w; }); var acc=0;
+  rows.forEach(function(r,i){ r.amt=i<rows.length-1?r2(amount*r.w/W):r2(amount-acc); acc=r2(acc+r.amt); r.cum=acc; r.left=r2(amount-acc); });
+  return rows; }
+function defFrom(){ var d=new Date(); return fD(Date.UTC(d.getFullYear(),d.getMonth(),1)); }
+function defTo(f,n){ var t=pD(addMonths(f,n)); return fD(t-DAY); }
+var FROM_INP={k:'from',l:'بداية الفترة (من تاريخ)',type:'date'}, TO_INP={k:'to',l:'نهاية الفترة (إلى تاريخ)',type:'date'};
+var METH_INP={k:'meth',l:'طريقة التوزيع',type:'sel',opts:[['months','شهرياً بالتساوي (الشهر الجزئي بنسبة أيامه)'],['days','حسب عدد الأيام الفعلية في كل شهر']],d:'months'};
+/* الحالات التي يُوزَّع فيها مبلغ على فترة: [الحالة، نوع الحساب الذي يُستنفد] */
+var ALLOC=[['housing_adv','أصل'],['prepaid','أصل'],['medins','أصل'],['vehins','أصل'],['saas','أصل'],['govfees','أصل'],['deferred','التزام']];
+ALLOC.forEach(function(x){ var t=TREAT_BY_ID[x[0]]; if(!t) return; t.alloc=x[1];
+  t.inp=(t.inp||[]).filter(function(i){ return i.k!=='m'; });
+  t.inp.splice(0,0,FROM_INP,TO_INP,METH_INP);
+  var orig=t.je;
+  t.je=function(o){ var sch=allocSchedule(o.amt,o.from,o.to,o.meth); var oo=Object.assign({},o,{m:sch.length}); var r=orig(oo);
+    if(!sch.length||r.length<2) return r;
+    var tmpl=r[1].lines.filter(Boolean), out=[r[0]];
+    sch.forEach(function(s){ out.push({t:'توزيع '+s.label+' ('+s.days+' يوماً)',dt:s.to,lines:tmpl.map(function(l){ return l.d?{d:l.d,v:s.amt}:{c:l.c,v:s.amt}; })}); });
+    return out.concat(r.slice(2)); }; });
+/* الحقول الافتراضية والتواريخ من نص البحث («من 2026-01-01 إلى 2026-06-30» أو «لمدة 6 شهور») */
+var _pickTreat3=pickTreat;
+pickTreat=function(id,silent){ var t=TREAT_BY_ID[id]; _pickTreat3(id,silent); if(!t||!t.alloc) return;
+  var q=String(G.q||'').replace(/[٠-٩]/g,function(d){ return '٠١٢٣٤٥٦٧٨٩'.indexOf(d); });
+  var ds=(q.match(/\d{4}-\d{1,2}-\d{1,2}|\d{1,2}\/\d{1,2}\/\d{4}/g)||[]).map(function(x){ var p=x.indexOf('/')>0?x.split('/').reverse():x.split('-'); return p[0]+'-'+String(p[1]).padStart(2,'0')+'-'+String(p[2]).padStart(2,'0'); }).filter(function(x){ return pD(x)!=null; });
+  var mm=/(\d+)\s*(شهر|شهور|اشهر|أشهر)/.exec(q), yy=/(\d+)\s*(سنه|سنة|سنوات)/.exec(q), n=mm?+mm[1]:yy?+yy[1]*12:12;
+  G.o.from=ds[0]||defFrom(); G.o.to=ds[1]||defTo(G.o.from,n);
+  if(!silent) $('gRes').innerHTML=guideResults(); };
+var _caseDefaults=caseDefaults;
+caseDefaults=function(t,amt){ var o=_caseDefaults(t,amt); if(t.alloc){ o.from=defFrom(); o.to=defTo(o.from,12); } return o; };
+
+/* ===== عرض القيود: القيد الأول ثم جدول التوزيع الشهري بدل عشرات الجداول ===== */
+function jeBoxHTML(t){ var list=buildJE(t), raw=t.je(G.o||{}), sch=t.alloc?allocSchedule(G.o.amt,G.o.from,G.o.to,G.o.meth):[];
+  if(!sch.length||list.length<2) return list.map(function(x){ return jeTable(x.lines,x.t); }).join('');
+  var first=list[0], m=list[1].lines, dr=m.filter(function(l){ return l.dr; })[0], cr=m.filter(function(l){ return l.cr; })[0];
+  var h=jeTable(first.lines,first.t+' — في '+fDar(G.o.from));
+  h+='<div class="je"><div style="padding:8px 12px;font-weight:800;font-size:13px;background:var(--surface-2);border-bottom:1px solid var(--line-soft)">📅 قيود التوزيع الشهرية: من ح/ '+accLink(dr.a,'dr')+' ← إلى ح/ '+accLink(cr.a,'cr')
+    +'<div class="mini">'+fDar(G.o.from)+' ← '+fDar(G.o.to)+' — '+sch.length+' شهراً — '+(G.o.meth==='days'?'حسب الأيام الفعلية':'شهرياً بالتساوي والشهر الجزئي بنسبة أيامه')+'</div></div>'
+    +'<div style="overflow-x:auto"><table class="sch"><thead><tr><th>الشهر</th><th class="r">نصيب الشهر</th><th class="r">المتبقي '+(t.alloc==='التزام'?'(مؤجل)':'(مقدماً)')+'</th></tr></thead><tbody>'
+    +sch.map(function(s){ return '<tr><td><b>'+s.label+'</b><div class="mini">'+(+s.from.slice(8))+'–'+(+s.to.slice(8))+' · '+s.days+(s.days<s.dim?'/'+s.dim:'')+' يوم</div></td><td class="r num"><b>'+fmt(s.amt)+'</b></td><td class="r num">'+fmt(s.left)+'</td></tr>'; }).join('')
+    +'</tbody><tfoot><tr><td>الإجمالي</td><td class="r num">'+fmt(G.o.amt)+'</td><td></td></tr></tfoot></table></div></div>';
+  var yrs={}; sch.forEach(function(s){ yrs[s.y]=r2((yrs[s.y]||0)+s.amt); }); var ys=Object.keys(yrs).sort();
+  if(ys.length>1){ var y0=ys[0], left=r2(G.o.amt-yrs[y0]);
+    h+='<div class="sum">📆 <b>القطع بين السنوات المالية:</b> '+ys.map(function(y){ return 'يخص سنة '+y+': <b class="num">'+fmt(yrs[y])+'</b>'; }).join(' — ')
+      +'<br>في قوائم 31 ديسمبر '+y0+' يظهر <b class="num">'+fmt(left)+'</b> '+(t.alloc==='التزام'?'التزاماً (إيراداً مؤجلاً) لأنه لم يُكتسب بعد':'أصلاً (مدفوعاً مقدماً) لأنه يخص السنة التالية')+'.</div>'; }
+  return h; }
+refreshJE=(function(prev){ return function(){ prev(); var e=$('jeBox'); if(e&&G.sel) e.innerHTML=jeBoxHTML(G.sel); }; })(refreshJE);
+/* كلمات الفترة والتاريخ تصف المدة لا البند — تُستبعد من مطابقة البحث */
+STOP=new RegExp(STOP.source.replace(')$','|الي|حتي|لمده|مده|خلال|شهر|شهور|اشهر|سنه|سنوات|سنين|يوم|ايام|تاريخ|بتاريخ|بدايه|نهايه|يبدا|ينتهي)$'));
 
 /* ===== التشغيل ===== */
 boot();
