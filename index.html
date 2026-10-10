@@ -1849,7 +1849,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-10-10-c';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-10-10-d';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -6254,11 +6254,20 @@ function renderDash(){
 /* رسوم لوحة الملخص: اتجاه شهري + توزيع المصروفات + أعلى العملاء ربحاً */
 function renderDashCharts(pnlRows,pay,rec){
   var box=document.getElementById('dashCharts'); if(!box) return;
-  /* 1) اتجاه شهري للمقارنة عبر الأشهر — مستقلّ عن فلتر الفترة (يأخذ آخر 8 أشهر فعلية من كل البيانات) */
+  /* 1) اتجاه شهري للمقارنة عبر الأشهر — مستقلّ عن فلتر الفترة (يأخذ آخر 8 أشهر فعلية من كل البيانات).
+     إن كان أحدث شهر فيه بيانات هو الشهر الحالي (ناقص)، تُقارَن كل الأشهر على «نفس الفترة»:
+     من يوم 1 حتى آخر يوم فيه مبيعات بالشهر الحالي (مثال: 2026-10 حتى يوم 8 ↔ 2026-09 حتى يوم 8). */
+  var curMo=curMonth(), maxYM='';
+  db.sales.forEach(function(s){ var ym=(s.date||'').slice(0,7); if(ym>maxYM) maxYM=ym; });
+  db.purchases.forEach(function(p){ var ym=(p.date||'').slice(0,7); if(ym>maxYM) maxYM=ym; });
+  var isPartial=!!(maxYM&&maxYM===curMo), cutD=31;
+  if(isPartial){ cutD=0; db.sales.forEach(function(s){ if((s.date||'').slice(0,7)===maxYM){ var d=+((s.date||'').slice(8,10))||0; if(d>cutD) cutD=d; } });
+    if(!cutD) cutD=+(today().slice(8,10))||31; }
+  var inWin=function(ds){ return !isPartial || ((+((ds||'').slice(8,10))||0)<=cutD); };
   var M={}; function mk(d){ var k=(d||'').slice(0,7); if(!k) return null; if(!M[k]) M[k]={s:0,p:0,c:0}; return M[k]; }
-  db.sales.forEach(function(s){ var m=mk(s.date); if(!m) return; m.s+=+s.total||0;
+  db.sales.forEach(function(s){ if(!inWin(s.date)) return; var m=mk(s.date); if(!m) return; m.s+=+s.total||0;
     (s.lines||[]).forEach(function(l,i){ m.c+=L.cogsLine[s.id+'#'+i]||0; }); });
-  db.purchases.forEach(function(p){ var m=mk(p.date); if(m) m.p+=+p.total||0; });
+  db.purchases.forEach(function(p){ if(!inWin(p.date)) return; var m=mk(p.date); if(m) m.p+=+p.total||0; });
   var months=Object.keys(M).sort().slice(-8), seeProfit=canSeeProfit();
   var trendSeries=[
     {name:'المبيعات',color:CHART_COLORS[0],vals:months.map(function(k){return M[k].s;})},
@@ -6270,26 +6279,27 @@ function renderDashCharts(pnlRows,pay,rec){
   if(nM){ var bi=0; sVals.forEach(function(v,i){ if(v>sVals[bi]) bi=i; });
     var avgS=sVals.reduce(function(a,b){return a+b;},0)/nM;
     if(nM>=2){ var d=deltaPct(sVals[nM-2],sVals[nM-1]);
-      if(d) note.push('مبيعات '+esc(months[nM-1])+' مقابل '+esc(months[nM-2])+': <b>'+esc(d.txt)+'</b>'); }
-    note.push('أفضل شهر: <b>'+esc(months[bi])+'</b> ('+esc(fmtK(sVals[bi]))+')');
-    note.push('متوسط المبيعات: <b>'+esc(fmtK(avgS))+'</b>/شهر');
+      if(d) note.push('مبيعات '+esc(months[nM-1])+(isPartial?(' (حتى يوم '+cutD+')'):'')+' مقابل '+esc(months[nM-2])+(isPartial?' لنفس الفترة':'')+': <b>'+esc(d.txt)+'</b>'); }
+    note.push((isPartial?'أعلى فترة':'أفضل شهر')+': <b>'+esc(months[bi])+'</b> ('+esc(fmtK(sVals[bi]))+')');
+    note.push('متوسط المبيعات: <b>'+esc(fmtK(avgS))+'</b>/'+(isPartial?'فترة':'شهر'));
     if(seeProfit){ var tS=0,tC=0; months.forEach(function(k){ tS+=M[k].s; tC+=M[k].c; });
-      note.push('هامش ربح المدة: <b>'+(tS>0?((tS-tC)/tS*100).toFixed(1)+'%':'—')+'</b>'); } }
-  var trend=lineChart('الاتجاه الشهري','آخر '+nM+' أشهر — مقارنة مستقلة عن فلتر الفترة (قبل الضريبة)',months,trendSeries,{note:note});
+      note.push('هامش الربح: <b>'+(tS>0?((tS-tC)/tS*100).toFixed(1)+'%':'—')+'</b>'); } }
+  var subT=isPartial?('مقارنة حتى يوم '+cutD+' من كل شهر — نفس الفترة (قبل الضريبة)'):('آخر '+nM+' أشهر — مقارنة مستقلة عن فلتر الفترة (قبل الضريبة)');
+  var trend=lineChart('الاتجاه الشهري',subT,months,trendSeries,{note:note});
   /* جدول تفصيل المقارنة الشهرية: كل شهر على حدة (مبيعات/مشتريات/مجمل ربح/هامش) مع تغيّر المبيعات عن الشهر السابق */
   var cmp='';
   if(nM){
     var rws=months.map(function(k,i){ var s=M[k].s, p=M[k].p, gp=s-M[k].c, mar=s>0?(gp/s*100):0;
       var dv=i>0?deltaPct(M[months[i-1]].s,s):null;
       var dCell=dv?'<span style="color:'+(dv.dir==='up'?'#157a42':'#c1262b')+';font-weight:700">'+esc(dv.txt)+'</span>':'<span class="muted">—</span>';
-      return '<tr><td class="name"><b>'+esc(k)+'</b></td><td>'+money(s)+'</td><td>'+dCell+'</td><td>'+money(p)+'</td>'
+      return '<tr><td class="name"><b>'+esc(k)+'</b>'+(isPartial?' <span class="muted" style="font-weight:400">(1–'+cutD+')</span>':'')+'</td><td>'+money(s)+'</td><td>'+dCell+'</td><td>'+money(p)+'</td>'
         +(seeProfit?('<td>'+sign(gp)+'</td><td class="muted">'+(s>0?mar.toFixed(1)+'%':'—')+'</td>'):'')+'</tr>'; }).join('');
     var TS=0,TP=0,TC=0; months.forEach(function(k){ TS+=M[k].s; TP+=M[k].p; TC+=M[k].c; });
     var totR='<tr class="total-row"><td class="name">الإجمالي</td><td>'+money(TS)+'</td><td></td><td>'+money(TP)+'</td>'
       +(seeProfit?('<td>'+sign(TS-TC)+'</td><td>'+(TS>0?((TS-TC)/TS*100).toFixed(1)+'%':'—')+'</td>'):'')+'</tr>';
     var hdr='<tr><th class="name">الشهر</th><th>المبيعات</th><th>تغيّر المبيعات</th><th>المشتريات</th>'+(seeProfit?'<th>مجمل الربح</th><th>الهامش</th>':'')+'</tr>';
-    cmp='<div class="chart-box" style="grid-column:1/-1"><h4>تفصيل المقارنة الشهرية</h4>'
-      +'<div class="csub">كل شهر على حدة — مبيعات ومشتريات'+(seeProfit?' ومجمل ربح وهامش':'')+' وتغيّر المبيعات عن الشهر السابق</div>'
+    cmp='<div class="chart-box" style="grid-column:1/-1"><h4>تفصيل المقارنة الشهرية'+(isPartial?' — حتى يوم '+cutD+' من كل شهر':'')+'</h4>'
+      +'<div class="csub">'+(isPartial?('مقارنة «نفس الفترة»: من يوم 1 حتى يوم '+cutD+' من كل شهر (عادلة لأن الشهر الحالي لم يكتمل) — '):'كل شهر على حدة — ')+'مبيعات ومشتريات'+(seeProfit?' ومجمل ربح وهامش':'')+' وتغيّر المبيعات عن الشهر السابق لنفس الفترة</div>'
       +'<div class="table-scroll"><table><thead>'+hdr+'</thead><tbody>'+rws+totR+'</tbody></table></div></div>';
   }
   /* 2) توزيع المصروفات + 3) أعلى العملاء ربحاً — بيانات تكلفة/ربح تُخفى عمّن لا يملك صلاحية الأرباح */
