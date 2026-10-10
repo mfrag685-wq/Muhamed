@@ -42,7 +42,7 @@ button{cursor:pointer}
 .steps div{background:#f8fafc;border:1px solid var(--line);border-radius:10px;padding:10px 14px;font-size:13px;color:#334155}
 .steps b{color:var(--brand-d)}
 
-.btn{border:0;border-radius:9px;padding:10px 16px;font-weight:600;background:#e2e8f0;color:#0f172a;display:inline-flex;align-items:center;gap:6px}
+.btn{border:0;border-radius:9px;padding:10px 16px;font-weight:600;background:#e2e8f0;color:#0f172a;display:inline-flex;align-items:center;gap:6px;text-decoration:none}
 .btn:hover{filter:brightness(.96)}
 .btn.pri{background:var(--brand);color:#fff}
 .btn.xl{background:#16a34a;color:#fff}
@@ -210,6 +210,32 @@ button{cursor:pointer}
 .rep.tt-line tr.t td{background:transparent;color:#111827;border-top:1px solid var(--pk);border-bottom:3px double var(--pk)}
 .rep.da-right tbody td{text-align:right}.rep.da-center tbody td{text-align:center}.rep.da-left tbody td{text-align:left}
 .rep .ft{margin-top:10px;color:#475569;font-size:.9em}
+.rep .lg{text-align:center;margin-bottom:6px}
+.rep .lg img{max-height:64px;max-width:220px;object-fit:contain}
+.rep .kpis{display:flex;gap:10px;margin:8px 0 12px;flex-wrap:wrap}
+.rep .kpi{flex:1;min-width:120px;border:1px solid var(--bd);border-top:3px solid var(--pk);border-radius:6px;padding:7px 10px;text-align:center;background:#fff}
+.rep .kpi b{display:block;font-size:1.3em;color:var(--pk);direction:ltr;font-variant-numeric:tabular-nums}
+.rep .kpi span{font-size:.8em;color:#64748b}
+.rep .sg{display:flex;gap:24px;margin-top:30px;page-break-inside:avoid}
+.rep .sg div{flex:1;text-align:center}
+.rep .sg span{font-weight:700;color:var(--pk)}
+.rep .sg i{display:block;border-bottom:1px solid #94a3b8;height:36px;margin:0 10px}
+.logo-ctl{flex:1;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.logo-ctl img{height:34px;max-width:90px;object-fit:contain;border:1px solid var(--line);border-radius:6px;padding:2px;background:#fff}
+.drv{position:relative}
+.btn.drive{background:#fff;color:#1f2937;border:1px solid #cbd5e1}
+.btn.drive b{color:#1a73e8}
+.dmenu{position:absolute;top:calc(100% + 6px);inset-inline-end:0;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 10px 30px rgba(15,23,42,.18);padding:6px;z-index:30;min-width:190px}
+.dmenu button{display:block;width:100%;text-align:start;border:0;background:none;padding:9px 10px;border-radius:8px;font-size:13.5px}
+.dmenu button:hover{background:#f1f5f9}
+.modal{position:fixed;inset:0;background:rgba(15,23,42,.45);display:flex;align-items:center;justify-content:center;z-index:90;padding:16px}
+.mbox{background:#fff;border-radius:16px;max-width:480px;width:100%;padding:18px;box-shadow:0 20px 50px rgba(0,0,0,.25)}
+.mbox h3{font-size:16px;margin-bottom:10px}
+.mbox p{color:#475569;line-height:1.8;font-size:13.5px}
+.dfile{border:1px solid var(--line);border-radius:10px;padding:9px 10px;margin-bottom:8px}
+.dfile b{display:block;font-size:13px;margin-bottom:6px;word-break:break-all}
+.dfile .acts{display:flex;gap:6px;flex-wrap:wrap}
+.mbtns{display:flex;justify-content:flex-end;gap:8px;margin-top:12px}
 
 .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#0f172a;color:#fff;padding:11px 18px;border-radius:10px;
   font-size:13.5px;opacity:0;pointer-events:none;transition:.2s;z-index:99;max-width:90vw}
@@ -333,6 +359,19 @@ button{cursor:pointer}
         <label class="chk"><input type="checkbox" id="o_showDate" data-o="showDate"> إظهار تاريخ الإعداد</label>
       </div>
 
+      <div class="card" data-g="titles">
+        <h3>✨ لمسات احترافية</h3>
+        <div class="row"><label>شعار الجهة</label><div class="logo-ctl"><img id="logoPrev" alt="" hidden>
+          <button class="btn ghost sm" onclick="$('logoFile').click()">🖼 اختيار شعار</button>
+          <button class="btn ghost sm" id="logoDel" onclick="setLogo('')" hidden>حذف</button></div>
+          <input type="file" id="logoFile" accept="image/*" hidden></div>
+        <label class="chk"><input type="checkbox" id="o_kpi" data-o="kpi"> بطاقات ملخص أعلى الجدول (عدد السجلات وأهم الإجماليات)</label>
+        <label class="chk"><input type="checkbox" id="o_bars" data-o="bars"> أشرطة بيانات داخل الأعمدة الرقمية (تُبرز القيم الكبيرة)</label>
+        <label class="chk"><input type="checkbox" id="o_sign" data-o="sign"> خانات التوقيع أسفل التقرير</label>
+        <div class="row"><label>التوقيعات</label><input type="text" id="o_signLabels" data-o="signLabels" placeholder="إعداد، مراجعة، اعتماد"></div>
+        <div class="hint">تظهر هذه اللمسات في المعاينة وPDF وExcel، وتُحفظ مع القالب.</div>
+      </div>
+
       <div class="card" data-g="font">
         <h3>🔤 الخط وشكل الكتابة</h3>
         <div class="row"><label>خط البيانات</label><select id="o_font" data-o="font">
@@ -421,6 +460,14 @@ button{cursor:pointer}
           <button class="fit" data-z="fit" title="ملاءمة عرض الجدول للمساحة المتاحة">↔ ملاءمة</button></div>
         <button class="btn xl" id="bXlsx" onclick="downloadXlsx()">⬇ تنزيل Excel</button>
         <button class="btn pdf" onclick="downloadPdf()">⬇ تنزيل PDF</button>
+        <div class="drv">
+          <button class="btn drive" id="bDrive" onclick="$('driveMenu').hidden = !$('driveMenu').hidden">☁️ <b>Google Drive</b> ▾</button>
+          <div class="dmenu" id="driveMenu" hidden>
+            <button onclick="toDrive(['xlsx'])">📗 حفظ Excel في Drive</button>
+            <button onclick="toDrive(['pdf'])">📕 حفظ PDF في Drive</button>
+            <button onclick="toDrive(['xlsx', 'pdf'])">📚 حفظ الاثنين</button>
+          </div>
+        </div>
       </div>
       <div class="stats" id="stats"></div>
       <div class="hidbar" id="hidbar"></div>
@@ -431,6 +478,7 @@ button{cursor:pointer}
 </div>
 
 <div id="printArea"></div>
+<div class="modal" id="driveModal" hidden><div class="mbox" id="driveBox"></div></div>
 <div class="toast" id="toast"></div>
 
 <script>
@@ -476,6 +524,7 @@ const DESIGNS = [
 const DEFAULTS = {primary:'#1f3864', accent:'#bf9000', company:'', footer:'', showDate:true,
   titleStyle:'bar', headStyle:'filled', borders:'all', font:'Arial', size:'11', decimals:'auto',
   dir:'auto', orient:'auto', zebra:true, serial:false, autoTotal:true, showTotal:true, useOrig:false, negRed:true, filter:true,
+  logo:'', logoWH:null, kpi:false, bars:false, sign:false, signLabels:'إعداد، مراجعة، اعتماد',
   fontHead:'same', titleSize:'7', borderStyle:'thin', borderColor:'theme', frame:false, density:'normal',
   headAlign:'center', dataAlign:'auto', currency:'', dateFmt:'ymd', paper:'A4', totalStyle:'band', zebraTone:'light',
   // عريض / مائل / تسطير لكل جزء: t=العنوان u=العنوان الفرعي h=رأس الجدول d=البيانات s=الإجمالي
@@ -529,6 +578,9 @@ function theme(o = O, sheet = null) {
   const bd = o.borderColor === 'gray' ? '#94a3b8' : o.borderColor === 'black' ? '#111827' : org ? mix(p, '#000000', .3) : mix(p, '#ffffff', .68);
   const t = {p, pk, pt: onColor(p), z: mix(p, '#ffffff', o.zebraTone === 'medium' ? .84 : .91), ra: '', bd,
     tb: mix(a, '#ffffff', .8), tt: mix(a, '#000000', .45), ta: a, tso: onColor(a), tf: p, tft: onColor(p), org: !!org};
+  // لون أشرطة البيانات: درجة فاتحة من لون الرأس نفسه (يحافظ على هوية الألوان، ذهبي لملف أصفر، أزرق لتصميم كحلي…)
+  const barBase = lum(p) > .4 ? mix(p, '#000000', .2) : p;
+  t.bar = mix(barBase, '#ffffff', .62); t.barX = mix(barBase, '#ffffff', .4);
   if (org) {
     t.ra = org.rowA || ''; t.z = org.rowB || '#ffffff';
     if (org.title) { t.tf = org.title; t.tft = onColor(org.title); }
@@ -730,7 +782,13 @@ function model(sheet) {
     totalRow = {total: true, auto: true, vals};
   }
   const orient = O.orient !== 'auto' ? O.orient : (cols.length > 6 ? 'landscape' : 'portrait');
-  return {sheet, rtl, cols, rows, totalRow, orient, heads: headLevels(cols), dataCount: rows.filter(r => !r.total).length,
+  // بطاقات الملخص: عدد السجلات + أول ثلاثة أعمدة تُجمع؛ وأكبر قيمة مطلقة لكل عمود لأشرطة البيانات
+  const dataVals = j => rows.filter(r => !r.total).map(r => r.vals[j]).filter(v => typeof v === 'number');
+  cols.forEach((c, j) => { if (c.type === 'num' && c.sum) c.barMax = Math.max(0, ...dataVals(j).map(Math.abs)); });
+  const kpis = [{label: rtl ? 'عدد السجلات' : 'Records', value: rows.filter(r => !r.total).length, c: {type: 'serial'}}]
+    .concat(cols.map((c, j) => [c, j]).filter(([c]) => c.sum).slice(0, 3)
+      .map(([c, j]) => ({label: (rtl ? 'إجمالي ' : 'Total ') + c.name, value: round(dataVals(j).reduce((a, b) => a + b, 0)), c})));
+  return {sheet, rtl, cols, rows, totalRow, orient, heads: headLevels(cols), kpis, dataCount: rows.filter(r => !r.total).length,
     hasTotal: sheet.body.some(r => r.total) || !!(O.autoTotal && cols.some(c => c.sum))};
 }
 // صفوف الرأس متعدد المستويات: كل خلية {label, j, span, rowspan, leaf} — العناوين المشتركة تُدمج أفقياً
@@ -787,10 +845,13 @@ function renderHTML(m, preview) {
     `--bw:${bw};--bs:${bs};--pad:${dens().pad};--ha:${O.headAlign};--tsz:${((+O.size + +O.titleSize) / +O.size).toFixed(3)}em;${fx};` +
     `font-size:${O.size * 1.25}px;--pfs:${O.size}pt`;
   let h = `<div class="${cls}" dir="${m.rtl ? 'rtl' : 'ltr'}" style="${style}">`;
+  if (O.logo) h += `<div class="lg"><img alt="" src="${O.logo}"></div>`;
   if (O.company) h += `<div class="co">${esc(O.company)}</div>`;
   if (s.title) h += `<div class="ti ${O.titleStyle === 'bar' ? 'barred' : O.titleStyle === 'line' ? 'lined' : ''}">${esc(s.title)}</div>`;
   if (s.subtitle) h += `<div class="su">${esc(s.subtitle)}</div>`;
   if (O.showDate) h += `<div class="dt">${m.rtl ? 'تاريخ الإعداد' : 'Prepared on'}: ${today()}</div>`;
+  if (O.kpi && m.kpis.length > 1) h += '<div class="kpis">' + m.kpis.map(k => `<div class="kpi"><b>${esc(display(k.value, k.c))}</b><span>${esc(k.label)}</span></div>`).join('') + '</div>';
+  const barPos = t.bar, barNeg = '#fecaca', barDir = m.rtl ? 'left' : 'right';
   h += '<table><thead>' + m.heads.map(lv => '<tr>' + lv.map(x => {
     const c = m.cols[x.j], hide = preview && x.leaf && c.src >= 0 ? `<button class="hx" data-src="${c.src}" title="إخفاء هذا العمود">✕</button>` : '';
     return `<th${x.span > 1 ? ` colspan="${x.span}"` : ''}${x.rowspan > 1 ? ` rowspan="${x.rowspan}"` : ''}>${esc(x.label)}${hide}</th>`;
@@ -799,14 +860,21 @@ function renderHTML(m, preview) {
     const c = m.cols[i], isN = typeof v === 'number';
     const k = (isN || c.type === 'serial') ? 'n' : (v && typeof v === 'object') ? 'c' : '';
     const del = preview && r.total && i === r.vals.length - 1 ? '<button class="hx" data-total="1" title="حذف صف الإجمالي">✕</button>' : '';
-    return `<td class="${k}${isN && v < 0 && O.negRed && c.type !== 'serial' ? ' neg' : ''}">${esc(display(v, c))}${del}</td>`;
+    const pct = O.bars && isN && !r.total && c.barMax ? Math.round(Math.abs(v) / c.barMax * 100) : 0;
+    const bar = pct ? ` style="background:linear-gradient(to ${barDir},${v < 0 ? barNeg : barPos} ${pct}%,transparent ${pct}%)"` : '';
+    return `<td class="${k}${isN && v < 0 && O.negRed && c.type !== 'serial' ? ' neg' : ''}"${bar}>${esc(display(v, c))}${del}</td>`;
   }).join('') + '</tr>';
   h += m.rows.map(row).join('');
   if (m.totalRow) h += row(m.totalRow);
   h += '</tbody></table>';
   if (O.footer) h += `<div class="ft">${esc(O.footer)}</div>`;
+  if (O.sign && signList().length) h += '<div class="sg">' + signList().map(l => `<div><span>${esc(l)}</span><i></i></div>`).join('') + '</div>';
   return h + '</div>';
 }
+
+const signList = () => String(O.signLabels || '').split(/[،,]/).map(x => x.trim()).filter(Boolean).slice(0, 5);
+// تقسيم n عموداً إلى k مجموعات متجاورة (للبطاقات والتوقيعات في Excel)
+function segments(n, k) { k = Math.min(k, n); const out = []; let c = 1; for (let i = 0; i < k; i++) { const w = Math.floor(n / k) + (i < n % k ? 1 : 0); out.push([c, c + w - 1]); c += w; } return out; }
 
 /* ================= واجهة المستخدم ================= */
 let toastT;
@@ -921,6 +989,7 @@ $('tplFile').addEventListener('change', async e => {
 });
 
 function syncInputs() {
+  if (typeof syncLogo === 'function' && $('logoPrev')) syncLogo();
   document.querySelectorAll('[data-o]').forEach(el => { if (el.type === 'checkbox') el.checked = !!O[el.dataset.o]; else el.value = O[el.dataset.o]; });
   const s = cur();
   document.querySelectorAll('[data-s]').forEach(el => el.value = s ? s[el.dataset.s] : '');
@@ -1170,6 +1239,18 @@ function buildSheet(wb, m, usedNames) {
     : {top: side(bst, t.bd), bottom: side(bst, t.bd), left: side(bst, t.bd), right: side(bst, t.bd)};
 
   let r = 1;
+  const widths = m.cols.map((c, j) => colWidth(m, j));
+  // الشعار: صف خاص في الأعلى والصورة في منتصف عرض الجدول
+  if (O.logo && O.logoWH) {
+    const ext = /^data:image\/jpe?g/.test(O.logo) ? 'jpeg' : 'png';
+    const id = wb.addImage({base64: O.logo.split(',')[1], extension: ext});
+    const ih = 54, iw = Math.round(ih * O.logoWH[0] / O.logoWH[1]), px = widths.map(w => w * 7 + 5), total = px.reduce((a, b) => a + b, 0);
+    let x = Math.max(0, (total - iw) / 2), col = 0;
+    while (col < px.length - 1 && x > px[col]) { x -= px[col]; col++; }
+    ws.getRow(r).height = ih * .75 + 6;
+    ws.addImage(id, {tl: {col: col + x / px[col], row: r - 1 + .05}, ext: {width: iw, height: ih}, editAs: 'oneCell'});
+    r++;
+  }
   const band = (text, f, opts = {}) => {
     if (n > 1) ws.mergeCells(r, 1, r, n);
     const c = ws.getCell(r, 1);
@@ -1188,6 +1269,26 @@ function buildSheet(wb, m, usedNames) {
   }
   if (s.subtitle) band(s.subtitle, {...fx('u'), size: fs + 1, color: {argb: 'FF475569'}}, {height: 18});
   if (O.showDate) band((m.rtl ? 'تاريخ الإعداد: ' : 'Prepared on: ') + today(), {size: fs - 1, color: {argb: 'FF64748B'}});
+  // بطاقات الملخص: صف للقيم وصف للعناوين، كل بطاقة مجموعة أعمدة مدمجة
+  if (O.kpi && m.kpis.length > 1 && n > 1) {
+    ws.getRow(r).height = 6; r++;
+    const segs = segments(n, m.kpis.length);
+    segs.forEach(([c0, c1], i) => {
+      const k = m.kpis[i], v = ws.getCell(r, c0), l = ws.getCell(r + 1, c0);
+      if (c1 > c0) { ws.mergeCells(r, c0, r, c1); ws.mergeCells(r + 1, c0, r + 1, c1); }
+      v.value = k.value; l.value = k.label;
+      if (k.c.type === 'num') v.numFmt = numFmt(k.c.dec, false, k.c.cur);
+      v.font = {name: hfont, bold: true, size: fs + 4, color: {argb: argb(t.pk)}};
+      l.font = {name: font, size: fs - 1, color: {argb: 'FF64748B'}};
+      [v, l].forEach(x => x.alignment = {horizontal: 'center', vertical: 'middle', readingOrder: m.rtl ? 'rtl' : 'ltr'});
+      for (let j = c0; j <= c1; j++) {
+        ws.getCell(r, j).border = {top: side('medium', t.pk), left: j === c0 ? side('thin', t.bd) : undefined, right: j === c1 ? side('thin', t.bd) : undefined};
+        ws.getCell(r + 1, j).border = {bottom: side('thin', t.bd), left: j === c0 ? side('thin', t.bd) : undefined, right: j === c1 ? side('thin', t.bd) : undefined};
+      }
+    });
+    ws.getRow(r).height = Math.round((fs + 4) * 1.9); ws.getRow(r + 1).height = Math.round(fs * 1.5);
+    r += 2;
+  }
   if (r > 1) { ws.getRow(r).height = 8; r++; }
 
   // رأس الجدول (مستوى واحد أو أكثر مع دمج الخلايا كما في الملف الأصلي)
@@ -1252,9 +1353,28 @@ function buildSheet(wb, m, usedNames) {
       cell.border = b;
     }
   }
+  // أشرطة البيانات: تنسيق شرطي حقيقي في Excel يتحدّث مع تغيّر القيم
+  if (O.bars && last >= first) m.cols.forEach((c, j) => {
+    if (!c.barMax) return;
+    const L = ws.getColumn(j + 1).letter;
+    ws.addConditionalFormatting({ref: `${L}${first}:${L}${last}`, rules: [{type: 'dataBar', minLength: 0, maxLength: 100, gradient: false,
+      cfvo: [{type: 'num', value: 0}, {type: 'max'}], color: {argb: argb(t.barX)}}]});
+  });
   if (O.footer) { r++; band(O.footer, {size: fs, color: {argb: 'FF475569'}}); }
+  // خانات التوقيع: عنوان كل خانة ثم سطر للتوقيع
+  if (O.sign && signList().length) {
+    r += 2;
+    segments(n, signList().length).forEach(([c0, c1], i) => {
+      if (c1 > c0) { ws.mergeCells(r, c0, r, c1); ws.mergeCells(r + 1, c0, r + 1, c1); }
+      const l = ws.getCell(r, c0);
+      l.value = signList()[i]; l.font = {name: hfont, bold: true, size: fs, color: {argb: argb(t.pk)}};
+      l.alignment = {horizontal: 'center', vertical: 'middle', readingOrder: m.rtl ? 'rtl' : 'ltr'};
+      for (let j = c0; j <= c1; j++) ws.getCell(r + 1, j).border = {bottom: side('thin', '#94a3b8')};
+    });
+    ws.getRow(r + 1).height = 34; r += 2;
+  }
 
-  m.cols.forEach((c, j) => { ws.getColumn(j + 1).width = colWidth(m, j); });
+  m.cols.forEach((c, j) => { ws.getColumn(j + 1).width = widths[j]; });
   ws.views = [{rightToLeft: m.rtl, showGridLines: false, state: 'frozen', xSplit: 0, ySplit: hl, topLeftCell: 'A' + (hl + 1)}];
   if (O.filter && last >= first) ws.autoFilter = {from: {row: hl, column: 1}, to: {row: last, column: n}};
   ws.pageSetup.printTitlesRow = hr + ':' + hl;
@@ -1269,17 +1389,20 @@ function saveBlob(blob, name) {
 }
 const chosen = () => S.sheets.filter(s => s.include && s.cols.some(c => c.include && !c.deleted));
 
+const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+async function buildXlsxBlob(list) {
+  const wb = new ExcelJS.Workbook();
+  wb.creator = 'منسق التقارير'; wb.created = new Date();
+  const used = new Set();
+  list.forEach(s => buildSheet(wb, model(s), used));
+  return new Blob([await wb.xlsx.writeBuffer()], {type: XLSX_MIME});
+}
 async function downloadXlsx() {
   if (typeof ExcelJS === 'undefined') return toast('تعذّر تحميل مكتبة Excel — تأكد من الاتصال بالإنترنت');
   const list = chosen(); if (!list.length) return toast('اختر ورقة واحدة على الأقل');
   const b = $('bXlsx'); b.disabled = true;
   try {
-    const wb = new ExcelJS.Workbook();
-    wb.creator = 'منسق التقارير'; wb.created = new Date();
-    const used = new Set();
-    list.forEach(s => buildSheet(wb, model(s), used));
-    const buf = await wb.xlsx.writeBuffer();
-    saveBlob(new Blob([buf], {type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}), outName('xlsx'));
+    saveBlob(await buildXlsxBlob(list), outName('xlsx'));
     toast('✅ تم تنزيل ملف Excel المنسّق');
   } catch (err) { console.error(err); toast('خطأ أثناء إنشاء الملف: ' + err.message, 5000); }
   finally { b.disabled = false; }
@@ -1360,7 +1483,177 @@ async function cloudStart() {
   }
 }
 
+/* ================= شعار الجهة ================= */
+function setLogo(url, wh) {
+  O.logo = url || ''; O.logoWH = url ? wh : null; saveOpts(); syncLogo(); renderPreview();
+}
+function syncLogo() { $('logoPrev').hidden = !O.logo; $('logoPrev').src = O.logo || ''; $('logoDel').hidden = !O.logo; }
+$('logoFile').addEventListener('change', async e => {
+  const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+  try {
+    // تصغير الشعار (حتى 360×180) ليبقى خفيفاً في القوالب والمزامنة
+    const bmp = await createImageBitmap(f), k = Math.min(1, 360 / bmp.width, 180 / bmp.height);
+    const c = document.createElement('canvas'); c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
+    c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+    setLogo(c.toDataURL('image/png'), [c.width, c.height]); toast('✅ أُضيف الشعار');
+  } catch (err) { toast('تعذّرت قراءة الصورة'); }
+});
+
+/* ================= ملف PDF حقيقي (لـ Google Drive) =================
+   زر «تنزيل PDF» يبقى عبر الطباعة (نص حقيقي). للرفع إلى Drive نحتاج ملفاً: تُرسم الصفحات كصور عالية الدقة
+   مع قصّ الصفحات عند حدود الصفوف وتكرار رأس الجدول في كل صفحة. */
+const H2C = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+const JSPDF = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+async function buildPdfBlob(list) {
+  if (!window.html2canvas) await loadScript(H2C);
+  if (!window.jspdf) await loadScript(JSPDF);
+  const models = list.map(model), orient = models.some(m => m.orient === 'landscape') ? 'landscape' : 'portrait';
+  const pdf = new window.jspdf.jsPDF({orientation: orient, unit: 'px', format: O.paper === 'A3' ? 'a3' : O.paper === 'Letter' ? 'letter' : 'a4', hotfixes: ['px_scaling']});
+  const PW = pdf.internal.pageSize.getWidth(), PH = pdf.internal.pageSize.getHeight(), M = 36, CW = PW - 2 * M, CH = PH - 2 * M, K = 2;
+  const host = document.createElement('div');
+  host.style.cssText = `position:fixed;left:-30000px;top:0;width:${CW}px;background:#fff`;
+  document.body.appendChild(host);
+  const slice = (cv, y0, y1, x, y, sc) => {
+    const c = document.createElement('canvas'); c.width = cv.width; c.height = Math.max(1, Math.round((y1 - y0) * K));
+    c.getContext('2d').drawImage(cv, 0, Math.round(y0 * K), cv.width, c.height, 0, 0, cv.width, c.height);
+    pdf.addImage(c.toDataURL('image/jpeg', .92), 'JPEG', x, y, cv.width / K * sc, (y1 - y0) * sc);
+  };
+  let firstPage = true;
+  try {
+    for (const m of models) {
+      host.innerHTML = renderHTML(m);
+      const rep = host.firstElementChild;
+      rep.querySelectorAll('td').forEach(td => { td.style.whiteSpace = 'normal'; });
+      await document.fonts.ready;
+      const cv = await window.html2canvas(rep, {scale: K, backgroundColor: '#ffffff', logging: false});
+      const top = rep.getBoundingClientRect().top, H = rep.getBoundingClientRect().height;
+      const th = rep.querySelector('thead').getBoundingClientRect(), hT = th.top - top, hB = th.bottom - top;
+      const cuts = [...rep.querySelectorAll('tbody tr')].map(tr => tr.getBoundingClientRect().bottom - top).concat([H]);
+      const sc = Math.min(1, CW / (cv.width / K)), x = M + (CW - cv.width / K * sc) / 2;
+      for (let y = 0, page = 0; y < H - 1; page++) {
+        if (!firstPage) pdf.addPage(); firstPage = false;
+        let oy = M, limit = y + CH / sc;
+        if (page > 0) { slice(cv, hT, hB, x, oy, sc); oy += (hB - hT) * sc; limit -= hB - hT; }   // تكرار رأس الجدول
+        const end = H <= limit ? H : (cuts.filter(c => c > y + 1 && c <= limit).pop() || limit);
+        slice(cv, y, end, x, oy, sc);
+        y = end;
+      }
+    }
+  } finally { host.remove(); }
+  return pdf.output('blob');
+}
+
+/* ================= Google Drive =================
+   صلاحية drive.file فقط: الأداة ترى وتعدّل الملفات التي أنشأتها هي فقط، ولا تصل لباقي ملفات Drive.
+   يتطلب معرّف عميل OAuth (Client ID) من Google Cloud — الخطوات في «دليل التفعيل السحابي» (ربط Google Drive). */
+const DRIVE_CLIENT_ID = '493790542156-r1hn6i266ciuqk9ulg5u5ab5ubpm7pmp.apps.googleusercontent.com';
+const DRIVE_FOLDER = 'تقارير منسق Excel';
+// العناوين المسجّلة في Google Cloud ← Clients ← Authorized JavaScript origins (يجب أن تطابق عنوان الصفحة حرفياً،
+// وإلا ترفض Google الدخول بخطأ origin_mismatch). روابط المعاينة المؤقتة لا تُسجَّل — الاستخدام من الرابط الرئيسي.
+const DRIVE_ORIGINS = ['https://muhamed.mfrag685.workers.dev'];
+const DRIVE = {tc: null, token: '', exp: 0, pending: null};
+function driveInit() {
+  if (DRIVE.tc || !window.google || !google.accounts || !google.accounts.oauth2) return;
+  const done = (ok, val) => { const p = DRIVE.pending; DRIVE.pending = null; if (p) ok ? p.res(val) : p.rej(val); };
+  DRIVE.tc = google.accounts.oauth2.initTokenClient({client_id: DRIVE_CLIENT_ID, scope: 'https://www.googleapis.com/auth/drive.file',
+    callback: r => { if (r && r.access_token) { DRIVE.token = r.access_token; DRIVE.exp = Date.now() + (r.expires_in || 3600) * 1000; done(true, r.access_token); }
+      else done(false, new Error((r && r.error) || 'auth')); },
+    error_callback: e => done(false, new Error((e && e.type) || 'popup_closed'))});
+}
+// يجب استدعاؤها مباشرة داخل ضغطة الزر (نافذة Google تُفتح فقط من تفاعل المستخدم)
+function driveToken() {
+  if (DRIVE.token && Date.now() < DRIVE.exp - 60000) return Promise.resolve(DRIVE.token);
+  driveInit();
+  if (!DRIVE.tc) return Promise.reject(new Error('gis'));
+  return new Promise((res, rej) => { DRIVE.pending = {res, rej}; DRIVE.tc.requestAccessToken(); });
+}
+async function driveFetch(url, opt = {}) {
+  const r = await fetch(url, Object.assign({}, opt, {headers: Object.assign({Authorization: 'Bearer ' + DRIVE.token}, opt.headers || {})}));
+  if (r.status === 401) DRIVE.token = '';
+  if (!r.ok) throw new Error('Drive ' + r.status);
+  return r.status === 204 ? {} : r.json();
+}
+async function driveFolder() {
+  const key = 'rf-drive-folder:' + (USER ? USER.key : '');
+  let id = store.get(key, '');
+  if (id) { try { const f = await driveFetch(`https://www.googleapis.com/drive/v3/files/${id}?fields=id,trashed`); if (!f.trashed) return id; } catch (e) {} }
+  const q = encodeURIComponent(`name='${DRIVE_FOLDER}' and mimeType='application/vnd.google-apps.folder' and trashed=false`);
+  const l = await driveFetch('https://www.googleapis.com/drive/v3/files?spaces=drive&fields=files(id)&q=' + q);
+  id = l.files && l.files[0] && l.files[0].id;
+  if (!id) id = (await driveFetch('https://www.googleapis.com/drive/v3/files?fields=id', {method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({name: DRIVE_FOLDER, mimeType: 'application/vnd.google-apps.folder'})})).id;
+  store.set(key, id);
+  return id;
+}
+async function driveUpload(blob, name) {
+  const fd = new FormData();
+  fd.append('metadata', new Blob([JSON.stringify({name, parents: [await driveFolder()]})], {type: 'application/json'}));
+  fd.append('file', blob, name);
+  return driveFetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,webViewLink', {method: 'POST', body: fd});
+}
+function driveOriginHelp(kinds) {
+  window._driveKinds = kinds;
+  driveModal(`<h3>⚠️ هذا العنوان غير مسجّل لدى Google</h3>
+    <p>تفتح المنسق الآن من العنوان:</p>
+    <div class="dfile" style="direction:ltr;text-align:left"><b>${esc(location.origin)}</b>
+      <div class="acts"><button class="btn sm ghost" onclick="navigator.clipboard.writeText(location.origin).then(()=>toast('تم نسخ العنوان'))">📋 نسخ العنوان</button></div></div>
+    <p>تسمح Google بتسجيل الدخول فقط من العناوين المضافة في <b>Authorized JavaScript origins</b>، وإلا يظهر خطأ <code>origin_mismatch</code>. الحل أحد أمرين:</p>
+    <p><b>١. الأسهل:</b> استخدم الرابط الرئيسي المسجّل:<br>
+      <a class="btn sm pri" style="margin-top:6px" href="${DRIVE_ORIGINS[0]}/inventory.html" target="_blank" rel="noopener">فتح النظام من ${esc(DRIVE_ORIGINS[0].replace('https://', ''))}</a></p>
+    <p><b>٢.</b> أو أضف العنوان أعلاه في Google Cloud: <b>Google Auth Platform ← Clients ← Web client 1 ← Authorized JavaScript origins ← Add URI</b> ← احفظ، وانتظر 5 دقائق ثم اضغط «متابعة».
+      (روابط المعاينة المؤقتة تتغير مع كل تحديث، فلا يُنصح بتسجيلها.)</p>
+    <div class="mbtns"><button class="btn" data-close>إغلاق</button>
+      <button class="btn pri" onclick="store.set('rf-drive-origin-ok:' + location.origin, true); $('driveModal').hidden = true; toDrive(window._driveKinds)">أضفته في Google — متابعة</button></div>`);
+}
+function driveModal(html) { $('driveBox').innerHTML = html; $('driveModal').hidden = false; }
+$('driveModal').addEventListener('click', e => { if (e.target.id === 'driveModal' || e.target.closest('[data-close]')) $('driveModal').hidden = true; });
+document.addEventListener('click', e => { if (!e.target.closest('.drv')) $('driveMenu').hidden = true; });
+async function toDrive(kinds) {
+  $('driveMenu').hidden = true;
+  if (!DRIVE_CLIENT_ID) return driveModal(`<h3>☁️ ربط Google Drive</h3><p>الحفظ في Google Drive يحتاج تفعيلاً لمرة واحدة من مدير النظام:
+    إنشاء «معرّف عميل Google» (Client ID) وإضافته للنظام. الخطوات في «دليل التفعيل السحابي» — قسم <b>ربط Google Drive</b>.</p>
+    <div class="mbtns"><button class="btn pri" data-close>حسناً</button></div>`);
+  const list = chosen(); if (!list.length) return toast('اختر ورقة واحدة على الأقل');
+  // فحص مسبق: عنوان الصفحة غير مسجّل في Google ← رسالة واضحة بدل خطأ origin_mismatch من Google
+  if (!DRIVE_ORIGINS.includes(location.origin) && !store.get('rf-drive-origin-ok:' + location.origin, false)) return driveOriginHelp(kinds);
+  const tokenP = driveToken();                      // داخل ضغطة الزر مباشرة
+  const b = $('bDrive'), label = b.innerHTML; b.disabled = true; b.textContent = '⏳ جارٍ الحفظ في Drive…';
+  try {
+    await tokenP;
+    const files = [];
+    for (const k of kinds) {
+      const blob = k === 'xlsx' ? await buildXlsxBlob(list) : await buildPdfBlob(list);
+      files.push(await driveUpload(blob, outName(k).replace(/\.(\w+)$/, ` ${today().replace(/\//g, '-')}.$1`)));
+    }
+    window._driveFiles = files;
+    driveModal(`<h3>✅ تم الحفظ في Google Drive</h3><p style="margin-bottom:10px">في مجلد «${esc(DRIVE_FOLDER)}»</p>` +
+      files.map((f, i) => `<div class="dfile"><b>${f.name.endsWith('.pdf') ? '📕' : '📗'} ${esc(f.name)}</b><div class="acts">
+        <a class="btn sm pri" href="${esc(f.webViewLink)}" target="_blank" rel="noopener">فتح في Drive</a>
+        <button class="btn sm ghost" onclick="navigator.clipboard.writeText(_driveFiles[${i}].webViewLink).then(()=>toast('تم نسخ الرابط'))">📋 نسخ الرابط</button>
+        <a class="btn sm ghost" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent(f.name + '\n' + f.webViewLink)}">🟢 واتساب</a></div></div>`).join('') +
+      `<label class="chk"><input type="checkbox" id="driveShare"> السماح لأي شخص لديه الرابط بعرض الملف (لمشاركته)</label>
+       <div class="mbtns"><button class="btn" data-close>إغلاق</button></div>`);
+    $('driveShare').addEventListener('change', async e => {
+      if (!e.target.checked) return;
+      e.target.disabled = true;
+      try {
+        for (const f of files) await driveFetch(`https://www.googleapis.com/drive/v3/files/${f.id}/permissions`, {method: 'POST',
+          headers: {'Content-Type': 'application/json'}, body: JSON.stringify({role: 'reader', type: 'anyone'})});
+        toast('🔗 أصبح الرابط متاحاً لمن يملكه');
+      } catch (err) { e.target.checked = false; e.target.disabled = false; toast('تعذّر تغيير المشاركة'); }
+    });
+  } catch (err) {
+    console.error(err);
+    const m = String(err && err.message || err);
+    if (/popup_closed/.test(m) && !DRIVE_ORIGINS.includes(location.origin)) { store.set('rf-drive-origin-ok:' + location.origin, false); return driveOriginHelp(kinds); }
+    toast(/gis/.test(m) ? 'خدمة Google لم تُحمَّل بعد — حاول مرة أخرى بعد لحظات' : /popup|access_denied/.test(m) ? 'أُغلقت نافذة Google قبل إكمال الدخول — إن ظهر فيها خطأ origin_mismatch فعنوان الصفحة غير مسجّل لدى Google'
+      : 'تعذّر الحفظ في Drive: ' + m, 5000);
+  } finally { b.disabled = false; b.innerHTML = label; }
+}
+if (DRIVE_CLIENT_ID && USER) loadScript('https://accounts.google.com/gsi/client').then(driveInit).catch(() => {});
+
 if (USER) {
+  syncLogo();
   $('who').textContent = '👤 ' + (USER.name || '');
   $('tplOwner').textContent = '🔒 قوالب «' + (USER.name || '') + '» — خاصة بك ولا تظهر لأي مستخدم آخر.';
 } else { $('drop').hidden = true; $('locked').hidden = false; }
