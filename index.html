@@ -1849,7 +1849,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-10-10-f';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-10-10-g';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -5787,7 +5787,7 @@ function renderIncome(){
     +line('يُخصم: تكلفة البضاعة المباعة',T.cogs,1)+line('يُخصم: الفاقد والتوالف',T.waste,1)
     +'<tr class="sub-row"><td class="name">مجمل الربح</td><td>'+sign(T.gp)+'</td><td>'+pct(T.gp,T.nrev)+'</td></tr>'
     +line('يُخصم: المصروفات المباشرة',T.direct,1)+line('يُخصم: المصروفات المشتركة',T.shared,1)
-    +((P.vatNet>0.009)?'<tr class="sub-row"><td class="name muted">— منها: صافي ضريبة القيمة المضافة المستحقة للسداد (خسارة)</td><td class="muted neg">'+money(P.vatNet)+'</td><td class="muted">'+pct(P.vatNet,T.nrev)+'</td></tr>':'')
+    +((P.vatNet>0.009)?'<tr class="sub-row"><td class="name" style="color:var(--tomato);font-size:14px;font-weight:800;background:var(--tomato-soft)">— منها: صافي ضريبة القيمة المضافة المستحقة للسداد (خسارة)</td><td style="color:var(--tomato);font-size:14px;font-weight:800;background:var(--tomato-soft)">'+money(P.vatNet)+'</td><td style="color:var(--tomato);font-size:13px;font-weight:700;background:var(--tomato-soft)">'+pct(P.vatNet,T.nrev)+'</td></tr>':'')
     +((P.vatNet<-0.009)?'<tr class="sub-row"><td class="name muted">— منها: رصيد ضريبة القيمة المضافة لصالحك (ربح يقلّل المصروفات)</td><td class="muted">'+money(-P.vatNet)+'</td><td class="muted">'+pct(-P.vatNet,T.nrev)+'</td></tr>':'')
     +'<tr class="total-row"><td>صافي الربح / (الخسارة)</td><td>'+sign(T.net)+'</td><td>'+pct(T.net,T.nrev)+'</td></tr>';
   renderIncomeDetail(P);
