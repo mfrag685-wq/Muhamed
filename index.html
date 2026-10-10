@@ -1633,6 +1633,21 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
     <div id="pl_carried" style="margin-top:10px"></div>
   </div>
 
+  <div class="sec-title">مسؤولو الإدخال ورسائل المتابعة <span class="hint">تنبيهات «لم يُدخَل» باسم المسؤول وبآخر يوم تم إدخاله</span></div>
+  <div class="note" style="border-right-color:var(--sky)">تُذكّر هذه الرسائل كل مسؤول باسمه، وتُحسب تلقائياً <b>آخر يوم تم فيه الإدخال واليوم التالي المطلوب</b> (مثال: «آخر إدخال كان 2026-10-09، الرجاء إدخال يوم 2026-10-10»). أنت تعدّل <b>الاسم ومقدمة الرسالة فقط</b>؛ أما جملة احتساب الأيام فتُضاف آلياً. استخدم <b>{name}</b> في المقدمة ليظهر اسم المسؤول.</div>
+  <div class="doc-box no-print" id="entryCfgBox">
+    <div class="grid-2">
+      <div class="field"><label>مسؤول المبيعات/المصروفات</label><input type="text" id="en_salesName" placeholder="عبد الناصر"></div>
+      <div class="field"><label>مقدمة رسالة المبيعات <span class="hint">{name} = الاسم</span></label><input type="text" id="en_salesIntro" placeholder="تحية طيبة أستاذ {name} 🌿"></div>
+      <div class="field"><label>مسؤول المشتريات</label><input type="text" id="en_purchName" placeholder="عمرو"></div>
+      <div class="field"><label>مقدمة رسالة المشتريات <span class="hint">{name} = الاسم</span></label><input type="text" id="en_purchIntro" placeholder="تحية طيبة أستاذ {name} 🚚"></div>
+    </div>
+    <div class="form-foot"><button class="btn-main" onclick="saveEntryCfg()">حفظ أسماء المتابعة</button>
+      <button class="btn" onclick="resetEntryCfg()">استعادة الافتراضي</button>
+      <span class="mini" id="en_status"></span></div>
+    <div id="en_preview" class="mini" style="margin-top:8px;color:var(--ink-3)"></div>
+  </div>
+
   <div class="sec-title">شعار المنشأة</div>
   <div class="note">يظهر الشعار في الترويسة وشاشة الدخول ورؤوس التقارير المطبوعة لكل المستخدمين فور الحفظ. يُفضَّل صورة مربعة (PNG أو JPG) — يُصغَّر تلقائياً لتقليل حجم البيانات.</div>
   <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
@@ -1849,7 +1864,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-10-10-g';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-10-10-h';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -5053,24 +5068,31 @@ function operationalAlerts(from,to){
   var A=[], td=today();
   var inP=function(d){ return (!from||d>=from)&&(!to||d<=to); };
   var includesToday=(!from||from<=td)&&(!to||to>=td);   /* الفترة تشمل اليوم (أو مفتوحة) */
-  if(includesToday){
-    /* الفترة الجارية: تنبيهات اليوم والتأخّر مقارنةً بتاريخ اليوم */
-    if(!db.sales.some(function(s){return s.date===td;}))
-      A.push({level:'warn',title:'لم تُسجَّل مبيعات اليوم بعد',text:'إن كنت قد بعت بضاعة اليوم فسجّل فواتير البيع الآن، حتى تكون الأرقام والمخزون صحيحة. (تاريخ اليوم: '+td+')'});
-    if(!db.purchases.some(function(p){return p.date===td;}))
-      A.push({level:'tip',title:'لم تُسجَّل مشتريات اليوم بعد',text:'إن استلمت بضاعة من المورد اليوم فسجّل فاتورة الشراء أولاً بأول، حتى يزيد المخزون بشكل صحيح.'});
-    var dts=[]; db.sales.forEach(function(s){if(s.date<=td)dts.push(s.date);}); db.purchases.forEach(function(p){if(p.date<=td)dts.push(p.date);});
-    if(dts.length){ dts.sort(); var last=dts[dts.length-1];
-      var gap=Math.round((new Date(td)-new Date(last))/86400000);
-      if(gap>=2) A.push({level:'warn',title:'تأخّر في تسجيل الحركات',text:'آخر فاتورة مسجّلة بتاريخ '+last+' — مضى '+gap+' يوم بلا تسجيل. سجّل حركات الأيام الفائتة حتى لا تختلط الحسابات.'});
+  var cfg=entryCfg();
+  /* تنبيه متابعة باسم المسؤول + آخر يوم إدخال + اليوم التالي المطلوب (جملة الأيام تُحتسب آلياً) */
+  function followUp(arr,name,introTpl,kindDef,kindBare,level){
+    var intro=entryIntro(introTpl,name), days=[];
+    (arr||[]).forEach(function(x){ if(x.date&&x.date<=td) days.push(x.date); });
+    if(!days.length){
+      return {level:level,title:'متابعة إدخال '+kindDef+' — '+name, text:intro+' لم تُسجَّل '+kindBare+' بعد — الرجاء البدء بإدخال '+kindBare+' يوم '+td+'.'};
     }
+    days.sort(); var last=days[days.length-1];
+    if(last>=td) return null;   /* الإدخال محدَّث حتى اليوم */
+    var nd=ivAddDays(last,1), gap=Math.round((new Date(td)-new Date(last))/86400000);
+    return {level:level,title:'متابعة إدخال '+kindDef+' — '+name,
+      text:intro+' آخر يوم تم فيه إدخال '+kindDef+' هو '+last+'، الرجاء إدخال '+kindBare+' يوم '+nd
+        +(gap>=2?(' ثم إكمال الأيام التالية تباعاً (مضى '+gap+' يوم بلا إدخال).'):'.')};
+  }
+  if(includesToday){
+    var a1=followUp(db.sales,cfg.salesName,cfg.salesIntro,'المبيعات','مبيعات','warn'); if(a1) A.push(a1);
+    var a2=followUp(db.purchases,cfg.purchName,cfg.purchIntro,'المشتريات','مشتريات','tip'); if(a2) A.push(a2);
   } else {
-    /* فترة مغلقة (ماضية): تنبيهات تخص محتوى الفترة نفسها */
+    /* فترة مغلقة (ماضية): تنبيهات تخص محتوى الفترة نفسها — باسم المسؤول */
     var per='('+(from||'البداية')+' ← '+(to||'')+')';
     if(!db.sales.some(function(s){return inP(s.date);}))
-      A.push({level:'warn',title:'لا توجد مبيعات في الفترة المحددة',text:'الفترة '+per+' لا تحتوي أي فاتورة بيع. تأكد من تسجيل مبيعات هذه الفترة إن وُجدت.'});
+      A.push({level:'warn',title:'لا مبيعات في الفترة — '+cfg.salesName,text:entryIntro(cfg.salesIntro,cfg.salesName)+' الفترة '+per+' لا تحتوي أي فاتورة بيع. تأكد من تسجيل مبيعات هذه الفترة إن وُجدت.'});
     if(!db.purchases.some(function(p){return inP(p.date);}))
-      A.push({level:'tip',title:'لا توجد مشتريات في الفترة المحددة',text:'الفترة '+per+' لا تحتوي أي فاتورة شراء.'});
+      A.push({level:'tip',title:'لا مشتريات في الفترة — '+cfg.purchName,text:entryIntro(cfg.purchIntro,cfg.purchName)+' الفترة '+per+' لا تحتوي أي فاتورة شراء.'});
   }
   return A;
 }
@@ -6628,7 +6650,35 @@ function renderSettingsForm(){
   try{ renderStaleUsers(); }catch(e){}
   try{ renderWipeStatus(); }catch(e){}
   try{ renderPeriodLock(); }catch(e){}
+  try{ renderEntryCfg(); }catch(e){}
 }
+/* ===== مسؤولو الإدخال ورسائل المتابعة ===== */
+var ENTRY_DEFAULTS={salesName:'عبد الناصر',purchName:'عمرو',salesIntro:'تحية طيبة أستاذ {name} 🌿',purchIntro:'تحية طيبة أستاذ {name} 🚚'};
+function entryCfg(){ var s=(db.settings&&db.settings.entry)||{};
+  return {
+    salesName:(s.salesName!=null&&s.salesName!=='')?s.salesName:ENTRY_DEFAULTS.salesName,
+    purchName:(s.purchName!=null&&s.purchName!=='')?s.purchName:ENTRY_DEFAULTS.purchName,
+    salesIntro:(s.salesIntro!=null&&s.salesIntro!=='')?s.salesIntro:ENTRY_DEFAULTS.salesIntro,
+    purchIntro:(s.purchIntro!=null&&s.purchIntro!=='')?s.purchIntro:ENTRY_DEFAULTS.purchIntro
+  }; }
+function entryIntro(tpl,name){ return String(tpl||'').replace(/\{name\}/g,name); }
+function renderEntryCfg(){
+  var c=entryCfg();
+  setVal('en_salesName',c.salesName); setVal('en_purchName',c.purchName);
+  setVal('en_salesIntro',c.salesIntro); setVal('en_purchIntro',c.purchIntro);
+  var pv=document.getElementById('en_preview');
+  if(pv) pv.innerHTML='<b>معاينة:</b> '+esc(entryIntro(c.salesIntro,c.salesName))+' آخر يوم تم فيه إدخال المبيعات هو 2026-10-09، الرجاء إدخال مبيعات يوم 2026-10-10.';
+}
+function saveEntryCfg(){
+  if(!guard('settings')) return;
+  db.settings.entry={ salesName:(val('en_salesName')||'').trim(), purchName:(val('en_purchName')||'').trim(),
+    salesIntro:(val('en_salesIntro')||'').trim(), purchIntro:(val('en_purchIntro')||'').trim() };
+  var n=document.getElementById('en_status'); if(n) n.textContent='تم الحفظ ✅';
+  log('data','الإعدادات','تحديث مسؤولي الإدخال ورسائل المتابعة');
+  commit('تم حفظ أسماء المتابعة'); renderEntryCfg();
+}
+function resetEntryCfg(){ if(!guard('settings')) return; if(db.settings) db.settings.entry=null; renderEntryCfg();
+  var n=document.getElementById('en_status'); if(n) n.textContent='أُعيدت الافتراضية — اضغط حفظ للتثبيت'; }
 /* ===== قفل الفترات (إغلاق الشهور) ===== */
 var _periodUnlocked=false;
 function periodLockUntil(){ var p=db.settings&&db.settings.periodLock; return (p&&p.until)||''; }
