@@ -1849,7 +1849,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-10-10-a';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-10-10-b';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -6254,26 +6254,28 @@ function renderDash(){
 /* رسوم لوحة الملخص: اتجاه شهري + توزيع المصروفات + أعلى العملاء ربحاً */
 function renderDashCharts(pnlRows,pay,rec){
   var box=document.getElementById('dashCharts'); if(!box) return;
-  /* 1) اتجاه شهري: مبيعات صافية · مشتريات صافية · مجمل الربح */
+  /* 1) اتجاه شهري للمقارنة عبر الأشهر — مستقلّ عن فلتر الفترة (يأخذ آخر 8 أشهر فعلية من كل البيانات) */
   var M={}; function mk(d){ var k=(d||'').slice(0,7); if(!k) return null; if(!M[k]) M[k]={s:0,p:0,c:0}; return M[k]; }
-  db.sales.forEach(function(s){ if(!inRg(s.date)) return; var m=mk(s.date); if(!m) return; m.s+=+s.total||0;
+  db.sales.forEach(function(s){ var m=mk(s.date); if(!m) return; m.s+=+s.total||0;
     (s.lines||[]).forEach(function(l,i){ m.c+=L.cogsLine[s.id+'#'+i]||0; }); });
-  db.purchases.forEach(function(p){ if(!inRg(p.date)) return; var m=mk(p.date); if(m) m.p+=+p.total||0; });
+  db.purchases.forEach(function(p){ var m=mk(p.date); if(m) m.p+=+p.total||0; });
   var months=Object.keys(M).sort().slice(-8), seeProfit=canSeeProfit();
   var trendSeries=[
     {name:'المبيعات',color:CHART_COLORS[0],vals:months.map(function(k){return M[k].s;})},
     {name:'المشتريات',color:CHART_COLORS[1],vals:months.map(function(k){return M[k].p;})}
   ];
   if(seeProfit) trendSeries.push({name:'مجمل الربح',color:CHART_COLORS[2],vals:months.map(function(k){return M[k].s-M[k].c;})});
-  /* رؤى تحليلية: أفضل شهر مبيعاً · متوسط المبيعات · هامش ربح المدة */
-  var sVals=months.map(function(k){return M[k].s;}), note=[];
-  if(months.length){ var bi=0; sVals.forEach(function(v,i){ if(v>sVals[bi]) bi=i; });
-    var avgS=sVals.reduce(function(a,b){return a+b;},0)/months.length;
+  /* رؤى تحليلية: نمو آخر شهر عن سابقه · أفضل شهر · متوسط المبيعات · هامش ربح المدة */
+  var sVals=months.map(function(k){return M[k].s;}), note=[], nM=months.length;
+  if(nM){ var bi=0; sVals.forEach(function(v,i){ if(v>sVals[bi]) bi=i; });
+    var avgS=sVals.reduce(function(a,b){return a+b;},0)/nM;
+    if(nM>=2){ var d=deltaPct(sVals[nM-2],sVals[nM-1]);
+      if(d) note.push('مبيعات '+esc(months[nM-1])+' مقابل '+esc(months[nM-2])+': <b>'+esc(d.txt)+'</b>'); }
     note.push('أفضل شهر: <b>'+esc(months[bi])+'</b> ('+esc(fmtK(sVals[bi]))+')');
     note.push('متوسط المبيعات: <b>'+esc(fmtK(avgS))+'</b>/شهر');
     if(seeProfit){ var tS=0,tC=0; months.forEach(function(k){ tS+=M[k].s; tC+=M[k].c; });
       note.push('هامش ربح المدة: <b>'+(tS>0?((tS-tC)/tS*100).toFixed(1)+'%':'—')+'</b>'); } }
-  var trend=lineChart('الاتجاه الشهري','مبيعات ومشتريات'+(seeProfit?' ومجمل الربح':'')+' (قبل الضريبة)',months,trendSeries,{note:note});
+  var trend=lineChart('الاتجاه الشهري','آخر '+nM+' أشهر — مقارنة مستقلة عن فلتر الفترة (قبل الضريبة)',months,trendSeries,{note:note});
   /* 2) توزيع المصروفات + 3) أعلى العملاء ربحاً — بيانات تكلفة/ربح تُخفى عمّن لا يملك صلاحية الأرباح */
   var donut='',top='';
   if(seeProfit){
@@ -6285,12 +6287,7 @@ function renderDashCharts(pnlRows,pay,rec){
       .filter(function(d){return Math.abs(d.value)>0.009;}).sort(function(a,b){return b.value-a.value;}).slice(0,6);
     top=hBarChart('أعلى الفروع/العملاء ربحاً','صافي الربح بعد توزيع المصروفات',cl);
   }
-  /* 4) الذمم: يظهر فقط لمن يملك صلاحية الأرصدة */
-  var arap=canSeeBalances()?barChart('المراكز المدينة والدائنة','أرصدة قائمة حتى الآن',['الذمم'],[
-    {name:'مستحق من العملاء',color:CHART_COLORS[0],vals:[rec]},
-    {name:'مستحق للموردين',color:CHART_COLORS[3],vals:[pay]}
-  ]):'';
-  box.innerHTML=trend+donut+top+arap;
+  box.innerHTML=trend+donut+top;
 }
 
 /* ==========================================================================
