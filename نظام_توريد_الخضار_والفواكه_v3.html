@@ -1849,7 +1849,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-10-10-e';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-10-10-f';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -6259,15 +6259,12 @@ function renderDashCharts(pnlRows,pay,rec){
      فإن لم يكتمل ذلك الشهر (آخر يوم < عدد أيام الشهر) تُقارَن كل الأشهر على «نفس الفترة» من يوم 1
      حتى يوم القطع (مثال: أحدث حركة 2026-10-08 ⇒ تُقارن كل شهر على أيام 1..8 — ومنها سبتمبر 1..8). */
   function daysInYM(ym){ var y=+ym.slice(0,4), m=+ym.slice(5,7); return (y&&m)?new Date(y,m,0).getDate():31; }
-  function lastDayIn(ym){ var dd=0;
-    db.sales.forEach(function(s){ if((s.date||'').slice(0,7)===ym){ var d=+((s.date||'').slice(8,10))||0; if(d>dd) dd=d; } });
-    db.purchases.forEach(function(p){ if((p.date||'').slice(0,7)===ym){ var d=+((p.date||'').slice(8,10))||0; if(d>dd) dd=d; } });
-    return dd; }
+  /* يوم القطع يعتمد على آخر «مبيعة فعلية» فقط (لا المشتريات) — أحدث شهر فيه بيع وآخر يوم بيع فيه */
   var maxYM='';
   db.sales.forEach(function(s){ var ym=(s.date||'').slice(0,7); if(ym>maxYM) maxYM=ym; });
-  db.purchases.forEach(function(p){ var ym=(p.date||'').slice(0,7); if(ym>maxYM) maxYM=ym; });
   var cutD=31, isPartial=false;
-  if(maxYM){ var ld=lastDayIn(maxYM); if(ld>0 && ld<daysInYM(maxYM)){ isPartial=true; cutD=ld; } }
+  if(maxYM){ var ld=0; db.sales.forEach(function(s){ if((s.date||'').slice(0,7)===maxYM){ var d=+((s.date||'').slice(8,10))||0; if(d>ld) ld=d; } });
+    if(ld>0 && ld<daysInYM(maxYM)){ isPartial=true; cutD=ld; } }
   var inWin=function(ds){ return !isPartial || ((+((ds||'').slice(8,10))||0)<=cutD); };
   var M={}; function mk(d){ var k=(d||'').slice(0,7); if(!k) return null; if(!M[k]) M[k]={s:0,p:0,c:0}; return M[k]; }
   db.sales.forEach(function(s){ if(!inWin(s.date)) return; var m=mk(s.date); if(!m) return; m.s+=+s.total||0;
@@ -6318,7 +6315,30 @@ function renderDashCharts(pnlRows,pay,rec){
       .filter(function(d){return Math.abs(d.value)>0.009;}).sort(function(a,b){return b.value-a.value;}).slice(0,6);
     top=hBarChart('أعلى الفروع/العملاء ربحاً','صافي الربح بعد توزيع المصروفات',cl);
   }
-  box.innerHTML=trend+donut+top+cmp;
+  /* 4) مقارنة الفروع/العملاء: مبيعات كل فرع لنفس الفترة من الشهر الحالي مقابل الشهر السابق */
+  var branchCmp='';
+  if(seeProfit && maxYM){
+    var curYM=maxYM, pd=new Date(curYM+'-01T00:00:00'); pd.setMonth(pd.getMonth()-1); var prevYM=pd.toISOString().slice(0,7);
+    var anyBranch=db.clients.some(function(c){ return isBranch(c.id); });
+    var bmap={};
+    db.sales.forEach(function(s){ var ym=(s.date||'').slice(0,7); if(ym!==curYM&&ym!==prevYM) return; if(isPartial&&!inWin(s.date)) return;
+      var cid=s.clientId; if(anyBranch && !isBranch(cid)) return;
+      if(!bmap[cid]) bmap[cid]={cur:0,prev:0};
+      if(ym===curYM) bmap[cid].cur+=+s.total||0; else bmap[cid].prev+=+s.total||0; });
+    var bk=Object.keys(bmap).filter(function(k){ return Math.abs(bmap[k].cur)>0.009||Math.abs(bmap[k].prev)>0.009; }).sort(function(a,b){ return bmap[b].cur-bmap[a].cur; });
+    if(bk.length){
+      var tc=0,tp=0; bk.forEach(function(k){ tc+=bmap[k].cur; tp+=bmap[k].prev; });
+      var dChip=function(a,b){ var dv=deltaPct(a,b); return dv?'<span style="color:'+(dv.dir==='up'?'#157a42':'#c1262b')+';font-weight:700">'+esc(dv.txt)+'</span>':'<span class="muted">—</span>'; };
+      var brows=bk.map(function(k){ var o=bmap[k];
+        return '<tr><td class="name"><b>'+esc(clientName(+k))+'</b></td><td>'+money(o.cur)+'</td><td>'+money(o.prev)+'</td><td>'+dChip(o.prev,o.cur)+'</td><td class="muted">'+(tc>0?(o.cur/tc*100).toFixed(1)+'%':'—')+'</td></tr>'; }).join('');
+      var btot='<tr class="total-row"><td class="name">الإجمالي</td><td>'+money(tc)+'</td><td>'+money(tp)+'</td><td>'+dChip(tp,tc)+'</td><td></td></tr>';
+      var winTxt=isPartial?('أول '+cutD+' يوم'):'الشهر كامل', lbl=anyBranch?'الفرع':'العميل';
+      branchCmp='<div class="chart-box" style="grid-column:1/-1"><h4>مقارنة '+(anyBranch?'الفروع':'العملاء')+' — '+esc(curYM)+' مقابل '+esc(prevYM)+' <span class="muted" style="font-weight:400">('+winTxt+')</span></h4>'
+        +'<div class="csub">مبيعات كل '+lbl+' لنفس الفترة من الشهرين، مع التغيّر والحصة من إجمالي الفترة</div>'
+        +'<div class="table-scroll"><table><thead><tr><th class="name">'+lbl+'</th><th>'+esc(curYM)+(isPartial?' (1–'+cutD+')':'')+'</th><th>'+esc(prevYM)+(isPartial?' (1–'+cutD+')':'')+'</th><th>التغيّر</th><th>الحصة</th></tr></thead><tbody>'+brows+btot+'</tbody></table></div></div>';
+    }
+  }
+  box.innerHTML=trend+donut+top+cmp+branchCmp;
 }
 
 /* ==========================================================================
