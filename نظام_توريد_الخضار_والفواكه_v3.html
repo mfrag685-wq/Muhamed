@@ -1849,7 +1849,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-10-10-d';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-10-10-e';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -6254,15 +6254,20 @@ function renderDash(){
 /* رسوم لوحة الملخص: اتجاه شهري + توزيع المصروفات + أعلى العملاء ربحاً */
 function renderDashCharts(pnlRows,pay,rec){
   var box=document.getElementById('dashCharts'); if(!box) return;
-  /* 1) اتجاه شهري للمقارنة عبر الأشهر — مستقلّ عن فلتر الفترة (يأخذ آخر 8 أشهر فعلية من كل البيانات).
-     إن كان أحدث شهر فيه بيانات هو الشهر الحالي (ناقص)، تُقارَن كل الأشهر على «نفس الفترة»:
-     من يوم 1 حتى آخر يوم فيه مبيعات بالشهر الحالي (مثال: 2026-10 حتى يوم 8 ↔ 2026-09 حتى يوم 8). */
-  var curMo=curMonth(), maxYM='';
+  /* 1) اتجاه شهري للمقارنة عبر الأشهر — مستقلّ عن فلتر الفترة وعن ساعة الجهاز.
+     يُحدَّد «يوم القطع» من البيانات نفسها: أحدث شهر فيه حركة، وآخر يوم فيه حركة بذلك الشهر.
+     فإن لم يكتمل ذلك الشهر (آخر يوم < عدد أيام الشهر) تُقارَن كل الأشهر على «نفس الفترة» من يوم 1
+     حتى يوم القطع (مثال: أحدث حركة 2026-10-08 ⇒ تُقارن كل شهر على أيام 1..8 — ومنها سبتمبر 1..8). */
+  function daysInYM(ym){ var y=+ym.slice(0,4), m=+ym.slice(5,7); return (y&&m)?new Date(y,m,0).getDate():31; }
+  function lastDayIn(ym){ var dd=0;
+    db.sales.forEach(function(s){ if((s.date||'').slice(0,7)===ym){ var d=+((s.date||'').slice(8,10))||0; if(d>dd) dd=d; } });
+    db.purchases.forEach(function(p){ if((p.date||'').slice(0,7)===ym){ var d=+((p.date||'').slice(8,10))||0; if(d>dd) dd=d; } });
+    return dd; }
+  var maxYM='';
   db.sales.forEach(function(s){ var ym=(s.date||'').slice(0,7); if(ym>maxYM) maxYM=ym; });
   db.purchases.forEach(function(p){ var ym=(p.date||'').slice(0,7); if(ym>maxYM) maxYM=ym; });
-  var isPartial=!!(maxYM&&maxYM===curMo), cutD=31;
-  if(isPartial){ cutD=0; db.sales.forEach(function(s){ if((s.date||'').slice(0,7)===maxYM){ var d=+((s.date||'').slice(8,10))||0; if(d>cutD) cutD=d; } });
-    if(!cutD) cutD=+(today().slice(8,10))||31; }
+  var cutD=31, isPartial=false;
+  if(maxYM){ var ld=lastDayIn(maxYM); if(ld>0 && ld<daysInYM(maxYM)){ isPartial=true; cutD=ld; } }
   var inWin=function(ds){ return !isPartial || ((+((ds||'').slice(8,10))||0)<=cutD); };
   var M={}; function mk(d){ var k=(d||'').slice(0,7); if(!k) return null; if(!M[k]) M[k]={s:0,p:0,c:0}; return M[k]; }
   db.sales.forEach(function(s){ if(!inWin(s.date)) return; var m=mk(s.date); if(!m) return; m.s+=+s.total||0;
