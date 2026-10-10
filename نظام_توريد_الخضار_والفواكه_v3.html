@@ -197,6 +197,13 @@ tr.sub-row td{background:#f7faf6;font-weight:700;font-size:12.5px;color:var(--in
 table.mini-months{font-size:12px}table.mini-months th,table.mini-months td{padding:5px 7px;text-align:center;white-space:nowrap}table.mini-months td.name,table.mini-months th.name{text-align:right;position:sticky;right:0;background:var(--surface);z-index:1;min-width:150px}table.mini-months thead th:last-child,table.mini-months tbody td:last-child{background:var(--surface-2);font-weight:700}
 .empty{text-align:center;color:var(--ink-3);padding:26px;font-size:14px}
 .pos{color:var(--leaf-dark);font-weight:700}.neg{color:var(--tomato);font-weight:700}.muted{color:var(--ink-3)}
+/* بطاقة تنبيه متابعة الموظفين — لون مميّز بارز + علامة تعجب حمراء متحركة */
+.staff-alert{background:linear-gradient(180deg,#fff4e6 0%,#fff8f0 100%);border:1.5px solid #f6c38a;border-right:6px solid #e11d48;border-radius:12px;padding:12px 15px;box-shadow:0 2px 10px rgba(225,29,72,.12)}
+.staff-alert-h{font-weight:900;font-size:14px;color:#9f1239;margin-bottom:4px;display:flex;align-items:center;gap:7px}
+.staff-alert-t{font-size:13px;color:#7c2d12;line-height:1.8;font-weight:600}
+.staff-bang{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:#dc2626;color:#fff;font-weight:900;font-size:14px;flex-shrink:0;animation:staffBang 1.1s ease-in-out infinite}
+@keyframes staffBang{0%{transform:scale(1);box-shadow:0 0 0 0 rgba(220,38,38,.55)}60%{transform:scale(1.22);box-shadow:0 0 0 7px rgba(220,38,38,0)}100%{transform:scale(1);box-shadow:0 0 0 0 rgba(220,38,38,0)}}
+@media(prefers-reduced-motion:reduce){.staff-bang{animation:none}}
 .pill{display:inline-block;padding:2px 9px;border-radius:20px;font-size:11.5px;font-weight:700}
 .pill-ok{background:var(--leaf-soft);color:var(--leaf-dark)}
 .pill-warn{background:var(--citrus-soft);color:#87590a}
@@ -1866,7 +1873,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-10-10-i';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-10-10-j';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -5027,15 +5034,13 @@ function financialAdvice(from,to){
   /* فروع خاسرة */
   var lb=db.clients.filter(function(c){ return isBranch(c.id)&&rows[c.id]&&rows[c.id].net<-0.5; });
   if(lb.length) A.push({level:'warn',title:'فروع خاسرة ('+lb.length+')',text:lb.map(function(c){return c.name+' ('+money(rows[c.id].net)+')';}).join('، ')+'. راجع مصروفات هذه الفروع وأسعار بيعها.'});
-  /* ذمم العملاء */
-  var pt=partyTotals(), AR=0, topC=null;
-  db.clients.forEach(function(c){ var v=pt.cl[c.id], bal=clBal(v); if(bal>0.5){ AR+=bal; if(!topC||bal>topC.bal) topC={name:c.name,bal:bal}; } });
-  if(AR>0.5) A.push({level:'tip',title:'ذمم لدى العملاء',text:'المستحق لك من العملاء '+money(AR)+(topC?('، أكبرها: '+topC.name+' ('+money(topC.bal)+')'):'')+'. تابع التحصيل لتحسين السيولة.'});
-  /* مخزون راكد */
+  /* (أُخفيت تنبيهات ذمم العملاء والموردين من المستشار بناءً على التفضيل — تبقى الأرقام في الملخص والتقارير) */
+  /* مخزون راكد — أصناف لم تُبَع خلال الفترة ورأس مالها مجمّد (تُذكَر بالاسم والقيمة للوضوح) */
   var sold={}; db.sales.forEach(function(s){ if(inP(s.date))(s.lines||[]).forEach(function(l){ sold[l.itemId]=1; }); });
-  var stItems={},staleVal=0; Object.keys(stkAsOf).forEach(function(k){ var s=stkAsOf[k]; if(s.units>0.0001&&!sold[s.itemId]){ stItems[s.itemId]=1; staleVal+=s.cost; } });
-  var nStale=Object.keys(stItems).length;
-  if(nStale) A.push({level:'tip',title:'مخزون راكد ('+nStale+' صنف)',text:'أصناف عليها رصيد بقيمة '+money(staleVal)+' دون أي مبيعات في الفترة — رأس مال مجمّد. فكّر بعروض/خصومات لتصريفها قبل تلفها.'});
+  var stVal={},staleVal=0; Object.keys(stkAsOf).forEach(function(k){ var s=stkAsOf[k]; if(s.units>0.0001&&!sold[s.itemId]){ stVal[s.itemId]=(stVal[s.itemId]||0)+s.cost; staleVal+=s.cost; } });
+  var stKeys=Object.keys(stVal).sort(function(a,b){return stVal[b]-stVal[a];}), nStale=stKeys.length;
+  if(nStale) A.push({level:'tip',title:'مخزون راكد ('+nStale+' صنف) — '+money(staleVal),
+    text:'أصناف لم تتحرّك بأي بيع خلال الفترة ورأس مالها مجمّد: '+stKeys.slice(0,5).map(function(id){return itemName(+id)+' ('+money(stVal[id])+')';}).join('، ')+(nStale>5?' وغيرها':'')+'. الحل: اعرضها بخصم أو روّج لها لتصريفها قبل تلفها.'});
   /* المنتجات التامة/المعبأة الجاهزة للبيع (مخرجات قوائم المكوّنات) */
   var finItems={}; (db.boms||[]).forEach(function(b){ finItems[b.finishedItemId]=1; });
   var finVal=0,finQty={},finSold={};
@@ -5086,16 +5091,16 @@ function operationalAlerts(from,to){
         +(gap>=2?(' ثم إكمال الأيام التالية تباعاً (مضى '+gap+' يوم بلا إدخال).'):'.')};
   }
   if(includesToday){
-    var a1=followUp(db.sales,cfg.salesName,cfg.salesIntro,'المبيعات','مبيعات','warn'); if(a1) A.push(a1);
-    var a2=followUp(db.purchases,cfg.purchName,cfg.purchIntro,'المشتريات','مشتريات','tip'); if(a2) A.push(a2);
-    var a3=followUp(db.expenses,cfg.expName,cfg.expIntro,'المصروفات','مصروفات','tip'); if(a3) A.push(a3);
+    var a1=followUp(db.sales,cfg.salesName,cfg.salesIntro,'المبيعات','مبيعات','staff'); if(a1) A.push(a1);
+    var a2=followUp(db.purchases,cfg.purchName,cfg.purchIntro,'المشتريات','مشتريات','staff'); if(a2) A.push(a2);
+    var a3=followUp(db.expenses,cfg.expName,cfg.expIntro,'المصروفات','مصروفات','staff'); if(a3) A.push(a3);
   } else {
     /* فترة مغلقة (ماضية): تنبيهات تخص محتوى الفترة نفسها — باسم المسؤول */
     var per='('+(from||'البداية')+' ← '+(to||'')+')';
     if(!db.sales.some(function(s){return inP(s.date);}))
-      A.push({level:'warn',title:'لا مبيعات في الفترة — '+cfg.salesName,text:entryIntro(cfg.salesIntro,cfg.salesName)+' الفترة '+per+' لا تحتوي أي فاتورة بيع. تأكد من تسجيل مبيعات هذه الفترة إن وُجدت.'});
+      A.push({level:'staff',title:'لا مبيعات في الفترة — '+cfg.salesName,text:entryIntro(cfg.salesIntro,cfg.salesName)+' الفترة '+per+' لا تحتوي أي فاتورة بيع. تأكد من تسجيل مبيعات هذه الفترة إن وُجدت.'});
     if(!db.purchases.some(function(p){return inP(p.date);}))
-      A.push({level:'tip',title:'لا مشتريات في الفترة — '+cfg.purchName,text:entryIntro(cfg.purchIntro,cfg.purchName)+' الفترة '+per+' لا تحتوي أي فاتورة شراء.'});
+      A.push({level:'staff',title:'لا مشتريات في الفترة — '+cfg.purchName,text:entryIntro(cfg.purchIntro,cfg.purchName)+' الفترة '+per+' لا تحتوي أي فاتورة شراء.'});
   }
   return A;
 }
@@ -5105,10 +5110,17 @@ function renderAdvisor(){
   var A=operationalAlerts(r.from,r.to);   /* تنبيهات تشغيلية خاصة بالفترة المحددة */
   if(canSeeProfit()){ A=A.concat(financialAdvice(r.from,r.to)); }   /* التحليل المالي لأصحاب صلاحية الأرباح */
   if(!A.length){ box.innerHTML=''; return; }
-  var col={danger:'#dc2626',warn:'#d97706',tip:'#2563eb',good:'#059669'}, ic={danger:'⛔',warn:'⚠️',tip:'💡',good:'✅'}, ord={danger:0,warn:1,tip:2,good:3};
-  A.sort(function(a,b){ return ord[a.level]-ord[b.level]; });
+  /* ترتيب حسب الأهمية والصلة: الأخطار الحرجة ثم متابعة الموظفين (بارزة) ثم التحذيرات فالنصائح فالإيجابيات */
+  var col={danger:'#dc2626',staff:'#e11d48',warn:'#d97706',tip:'#2563eb',good:'#059669'},
+      ic={danger:'⛔',warn:'⚠️',tip:'💡',good:'✅'}, ord={danger:0,staff:1,warn:2,tip:3,good:4};
+  A.sort(function(a,b){ return (ord[a.level]-ord[b.level]); });
   box.innerHTML='<div class="sec-title">🧠 المستشار المالي — تنبيهات وحلول</div>'
     +'<div style="display:grid;gap:10px;margin-bottom:14px">'+A.map(function(a){
+      if(a.level==='staff'){
+        return '<div class="staff-alert">'
+          +'<div class="staff-alert-h"><span class="staff-bang">!</span> '+esc(a.title)+'</div>'
+          +'<div class="staff-alert-t">'+esc(a.text)+'</div></div>';
+      }
       return '<div style="background:var(--surface,#fff);border:1px solid var(--line);border-right:5px solid '+col[a.level]+';border-radius:10px;padding:11px 14px">'
         +'<div style="font-weight:800;margin-bottom:3px">'+ic[a.level]+' '+esc(a.title)+'</div>'
         +'<div style="font-size:13px;color:#475569;line-height:1.7">'+esc(a.text)+'</div></div>';
