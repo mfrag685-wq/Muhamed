@@ -3158,6 +3158,7 @@ function cancelDoc(k){
     setVal(k==='p'?'p_paid':'s_recv',0);
     setVatMode(k,'add'); setVal(k+'_vatrate',vatRate());   /* الافتراضي: تُضاف الضريبة فوق السعر (الأكثر استخداماً) */
     setVal(k==='p'?'p_supplierSearch':'s_clientSearch',''); filterInvoiceParty(k);   /* إعادة قائمة الجهات كاملة */
+    var df0=k==='p'?'p_date':'s_date'; if(periodLocked(val(df0))&&!_periodUnlocked) setVal(df0,today());   /* لا تبدأ فاتورة جديدة بتاريخ مقفل */
     document.getElementById(k==='p'?'p_editing':'s_editing').textContent='';
   } else {
     editId[k]=null;
@@ -3191,6 +3192,8 @@ function clearDocForNext(k){
   var p=k==='p'?'pl':'sl';
   ['_item','_units','_price','_total','_tw'].forEach(function(sfx){ if(document.getElementById(p+sfx)) setVal(p+sfx,''); });
   var n=document.getElementById(k==='p'?'p_editing':'s_editing'); if(n) n.textContent='';
+  /* إن كان التاريخ المُبقى واقعاً في فترة مقفلة (ولم يفتحها المدير) ⇒ انقله لليوم حتى لا تُحجب الفاتورة التالية بتاريخ قديم */
+  var df=k==='p'?'p_date':'s_date'; if(periodLocked(val(df))&&!_periodUnlocked) setVal(df,today());
   /* يبقى ثابتاً: المورد/العميل، المستودع، التاريخ، طريقة/نسبة الضريبة، الملاحظة */
 }
 /* تكرار آخر فاتورة: يملأ النموذج بنفس الجهة وأصنافها (كفاتورة جديدة) لتعديل الكميات/الأسعار بسرعة */
@@ -6588,8 +6591,8 @@ function periodGuard(date,msg){
   if(_periodUnlocked) return true;
   var pl=db.settings.periodLock;
   if(!pl||!pl.pass) return true;   /* لا كلمة مرور ⇒ لا منع فعلي */
-  if(!isAdmin()){ toast('🔒 الفترة المالية مقفلة حتى '+pl.until+' — لا يمكن التعديل إلا بعد فتحها من المدير.'); return false; }
-  var p=prompt('🔒 الفترة المالية مقفلة حتى '+pl.until+'.\n'+(msg||'أنت المدير — أدخل كلمة مرور القفل لفتح الفترة للتعديل (لهذه الجلسة):'));
+  if(!isAdmin()){ toast('🔒 تاريخ العملية ('+date+') داخل فترة مالية مقفلة حتى '+pl.until+' — تحقّق من تاريخ الفاتورة، أو اطلب من المدير فتح الفترة.'); return false; }
+  var p=prompt('🔒 تاريخ العملية ('+date+') داخل فترة مالية مقفلة حتى '+pl.until+'.\n'+(msg||'أنت المدير — أدخل كلمة مرور القفل لفتح الفترة للتعديل (لهذه الجلسة):'));
   if(p==null) return false;
   if(hash(p)===pl.pass){ _periodUnlocked=true; toast('فُتحت الفترة للتعديل (لهذه الجلسة)'); try{renderPeriodLock();}catch(e){} return true; }
   toast('كلمة مرور القفل غير صحيحة — العملية ممنوعة'); return false;
