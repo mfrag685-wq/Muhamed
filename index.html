@@ -219,6 +219,9 @@ table.mini-months{font-size:12px}table.mini-months th,table.mini-months td{paddi
 @keyframes staffBang{0%{transform:scale(1);box-shadow:0 0 0 0 rgba(220,38,38,.55)}60%{transform:scale(1.22);box-shadow:0 0 0 7px rgba(220,38,38,0)}100%{transform:scale(1);box-shadow:0 0 0 0 rgba(220,38,38,0)}}
 @keyframes bellRing{0%,70%,100%{transform:rotate(0)}10%{transform:rotate(16deg)}20%{transform:rotate(-13deg)}30%{transform:rotate(10deg)}40%{transform:rotate(-7deg)}50%{transform:rotate(4deg)}60%{transform:rotate(-2deg)}}
 @media(prefers-reduced-motion:reduce){.staff-bang,.staff-alert{animation:none!important}}
+/* البانر العلوي لتأخّر الإدخالات — أعلى النظام فوق تنبيهات المخزون */
+.entry-alerts{display:grid;gap:8px;margin:12px 0 4px}
+@media print{.entry-alerts{display:none}}
 /* ملاحظات موجّهة للمستخدم — شريط بارز أعلى الشاشة */
 .user-notes{display:grid;gap:8px;margin:12px 0 4px}
 .user-note{display:flex;align-items:flex-start;gap:10px;background:linear-gradient(180deg,#fffbeb 0%,#fff7e6 100%);border:1px solid #f3d38a;border-right:6px solid #d97706;border-radius:12px;padding:11px 14px;box-shadow:0 2px 10px rgba(217,119,6,.12)}
@@ -532,6 +535,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
   <button class="tab-btn" data-tab="settings" data-perm="settings">الإعدادات</button>
 </nav>
 
+<div id="entryAlertsBox" class="no-print"></div>
 <div id="userNotesBox" class="no-print"></div>
 
 <!-- ======================= الملخص ======================= -->
@@ -1912,7 +1916,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-10-11-c';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-10-11-d';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -5011,6 +5015,7 @@ function renderCore(){
   setVal('f_from2',r.from); setVal('f_to2',r.to); setVal('allocMethod',db.settings.alloc||'sales');
   renderPurchases(); renderSales(); renderReturns(); renderStock(); renderInterTransfers(); renderExpenses();
   renderAccounts(); renderOpAcc(); renderProdTab();
+  try{ renderEntryAlerts(); }catch(e){}
   try{ renderUserNotes(); }catch(e){}
   renderDraft('p'); renderDraft('s');
   document.getElementById('storageNote').innerHTML = storageOK
@@ -5111,14 +5116,10 @@ function financialAdvice(from,to){
   if(!A.length) A.push({level:'good',title:'كل المؤشرات جيدة',text:'لا توجد تنبيهات — أداء مالي سليم خلال الفترة المختارة.'});
   return A;
 }
-/* تنبيهات تشغيلية بسيطة لكل الموظفين — خاصة بالفترة المحددة */
-function operationalAlerts(from,to){
-  var A=[], td=today();
-  var inP=function(d){ return (!from||d>=from)&&(!to||d<=to); };
-  var includesToday=(!from||from<=td)&&(!to||to>=td);   /* الفترة تشمل اليوم (أو مفتوحة) */
-  var cfg=entryCfg();
-  /* تنبيه متابعة متدرّج: مهلة سماح اختيارية (grace) + شدّة تتصاعد مع التأخّر:
-     يوم واحد = تذكير هادئ · يومان = متابعة · ثلاثة فأكثر = تأخّر عاجل. الاسم والمقدمة قابلان للتعديل. */
+/* تنبيهات تأخّر الإدخالات (متدرّجة) — تُعرض في بانر علوي عالمي أعلى تنبيهات المخزون ليراها الجميع عند فتح النظام.
+   مهلة سماح اختيارية (grace) + شدّة تتصاعد: يوم = تذكير هادئ · يومان = متابعة · 3+ = تأخّر عاجل. */
+function entryDelayAlerts(){
+  var A=[], td=today(), cfg=entryCfg();
   function followUp(arr,name,introTpl,kindDef,kindBare,grace){
     grace=grace||0;
     var intro=entryIntro(introTpl,name), days=[];
@@ -5128,27 +5129,41 @@ function operationalAlerts(from,to){
         text:intro+' لم تُسجَّل '+kindBare+' بعد — الرجاء البدء بإدخال '+kindBare+' يوم '+td+'.'};
     }
     days.sort(); var last=days[days.length-1];
-    if(last>=td) return null;   /* الإدخال محدَّث حتى اليوم */
+    if(last>=td) return null;   /* محدَّث حتى اليوم */
     var nd=ivAddDays(last,1), gap=Math.round((new Date(td)-new Date(last))/86400000);
-    if(gap<=grace) return null;   /* ضمن مهلة السماح المسموح بها لهذا النوع */
-    if(gap===1){   /* هادئ — تذكير بسيط ليوم واحد */
-      return {level:'staff',tier:'soft',sev:2,title:'تذكير بإدخال '+kindDef+' — '+name,
-        text:intro+' لم يُسجَّل إدخال '+kindBare+' ليوم '+td+' بعد — يُرجى تسجيله في وقته.'};
-    }
-    if(gap===2){   /* متابعة — يومان */
-      return {level:'staff',tier:'mid',sev:1,title:'متابعة إدخال '+kindDef+' — '+name,
-        text:intro+' آخر يوم تم فيه إدخال '+kindDef+' هو '+last+' — الرجاء إدخال '+kindBare+' يوم '+nd+' (متأخّر يومان).'};
-    }
-    /* عاجل — ثلاثة أيام فأكثر */
+    if(gap<=grace) return null;   /* ضمن مهلة السماح */
+    if(gap===1) return {level:'staff',tier:'soft',sev:2,title:'تذكير بإدخال '+kindDef+' — '+name,
+      text:intro+' لم يُسجَّل إدخال '+kindBare+' ليوم '+td+' بعد — يُرجى تسجيله في وقته.'};
+    if(gap===2) return {level:'staff',tier:'mid',sev:1,title:'متابعة إدخال '+kindDef+' — '+name,
+      text:intro+' آخر يوم تم فيه إدخال '+kindDef+' هو '+last+' — الرجاء إدخال '+kindBare+' يوم '+nd+' (متأخّر يومان).'};
     return {level:'staff',tier:'urgent',sev:0,title:'⚠ تأخُّر إدخال '+kindDef+' — '+name,
       text:intro+' آخر يوم تم فيه إدخال '+kindDef+' هو '+last+' — مضى '+gap+' أيام بلا إدخال. يُرجى استدراك الأيام الفائتة بدءاً من '+nd+'.'};
   }
-  if(includesToday){
-    var a1=followUp(db.sales,cfg.salesName,cfg.salesIntro,'المبيعات','مبيعات',1); if(a1) A.push(a1);   /* المبيعات: مهلة يوم */
-    var a2=followUp(db.purchases,cfg.purchName,cfg.purchIntro,'المشتريات','مشتريات',0); if(a2) A.push(a2);
-    var a3=followUp(db.expenses,cfg.expName,cfg.expIntro,'المصروفات','مصروفات',0); if(a3) A.push(a3);
-  } else {
-    /* فترة مغلقة (ماضية): تنبيهات تخص محتوى الفترة نفسها — باسم المسؤول */
+  var a1=followUp(db.sales,cfg.salesName,cfg.salesIntro,'المبيعات','مبيعات',1); if(a1) A.push(a1);   /* المبيعات: مهلة يوم */
+  var a2=followUp(db.purchases,cfg.purchName,cfg.purchIntro,'المشتريات','مشتريات',0); if(a2) A.push(a2);
+  var a3=followUp(db.expenses,cfg.expName,cfg.expIntro,'المصروفات','مصروفات',0); if(a3) A.push(a3);
+  A.sort(function(a,b){ return (a.sev==null?9:a.sev)-(b.sev==null?9:b.sev); });   /* العاجل أولاً */
+  return A;
+}
+/* بطاقة تنبيه موظّف (متدرّجة) — مشتركة بين البانر العلوي والمستشار */
+function staffCardHtml(a){
+  var tier=a.tier||'mid', tierIc={soft:'🔔',mid:'!',urgent:'!'};
+  return '<div class="staff-alert t-'+tier+'">'
+    +'<div class="staff-alert-h"><span class="staff-bang">'+(tierIc[tier]||'!')+'</span> '+esc(a.title)+'</div>'
+    +'<div class="staff-alert-t">'+esc(a.text)+'</div></div>';
+}
+/* البانر العلوي العالمي لتأخّر الإدخالات — يظهر لكل المستخدمين على كل الشاشات وأعلى تنبيهات المخزون */
+function renderEntryAlerts(){
+  var box=document.getElementById('entryAlertsBox'); if(!box) return;
+  var A=entryDelayAlerts();
+  box.innerHTML=A.length?('<div class="entry-alerts">'+A.map(staffCardHtml).join('')+'</div>'):'';
+}
+/* تنبيهات تشغيلية للفترة الماضية فقط (داخل المستشار) — تأخّر «اليوم» انتقل للبانر العلوي */
+function operationalAlerts(from,to){
+  var A=[], td=today(), cfg=entryCfg();
+  var inP=function(d){ return (!from||d>=from)&&(!to||d<=to); };
+  var includesToday=(!from||from<=td)&&(!to||to>=td);
+  if(!includesToday){
     var per='('+(from||'البداية')+' ← '+(to||'')+')';
     if(!db.sales.some(function(s){return inP(s.date);}))
       A.push({level:'staff',tier:'mid',sev:1,title:'لا مبيعات في الفترة — '+cfg.salesName,text:entryIntro(cfg.salesIntro,cfg.salesName)+' الفترة '+per+' لا تحتوي أي فاتورة بيع. تأكد من تسجيل مبيعات هذه الفترة إن وُجدت.'});
@@ -5168,15 +5183,9 @@ function renderAdvisor(){
       ic={danger:'⛔',warn:'⚠️',tip:'💡',good:'✅'}, ord={danger:0,staff:1,warn:2,tip:3,good:4};
   /* الفرز: حسب الأهمية، ثم داخل متابعة الموظفين حسب شدّة التأخّر (عاجل أولاً) */
   A.sort(function(a,b){ return (ord[a.level]-ord[b.level]) || ((a.sev==null?9:a.sev)-(b.sev==null?9:b.sev)); });
-  var tierIc={soft:'🔔',mid:'!',urgent:'!'};
   box.innerHTML='<div class="sec-title">🧠 المستشار المالي — تنبيهات وحلول</div>'
     +'<div style="display:grid;gap:10px;margin-bottom:14px">'+A.map(function(a){
-      if(a.level==='staff'){
-        var tier=a.tier||'mid';
-        return '<div class="staff-alert t-'+tier+'">'
-          +'<div class="staff-alert-h"><span class="staff-bang">'+(tierIc[tier]||'!')+'</span> '+esc(a.title)+'</div>'
-          +'<div class="staff-alert-t">'+esc(a.text)+'</div></div>';
-      }
+      if(a.level==='staff'){ return staffCardHtml(a); }
       return '<div style="background:var(--surface,#fff);border:1px solid var(--line);border-right:5px solid '+col[a.level]+';border-radius:10px;padding:11px 14px">'
         +'<div style="font-weight:800;margin-bottom:3px">'+ic[a.level]+' '+esc(a.title)+'</div>'
         +'<div style="font-size:13px;color:#475569;line-height:1.7">'+esc(a.text)+'</div></div>';
