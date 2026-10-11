@@ -222,7 +222,14 @@ table.mini-months{font-size:12px}table.mini-months th,table.mini-months td{paddi
 /* البانر العلوي لتأخّر الإدخالات — أعلى النظام فوق تنبيهات المخزون */
 .ack-btn{background:#fff;border:1.5px solid currentColor;color:inherit;border-radius:9px;padding:6px 13px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;transition:background .15s,transform .1s}
 .ack-btn:hover{background:rgba(0,0,0,.05)}.ack-btn:active{transform:scale(.97)}
-@media print{.ack-btn{display:none}}
+.sr-list{display:grid;gap:5px}
+.sr-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:rgba(255,255,255,.6);border:1px solid rgba(0,0,0,.07);border-radius:9px;padding:5px 10px}
+.sr-name{font-weight:800;font-size:13px}
+.sr-end{display:flex;align-items:center;gap:9px;margin-inline-start:auto}
+.sr-bal{font-weight:800;font-size:13px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.sr-ack{padding:3px 11px;font-size:11.5px}
+.sr-more{font-size:12px;font-weight:700;opacity:.72;padding:2px 4px}
+@media print{.ack-btn,.sr-ack{display:none}}
 .entry-alerts{display:grid;gap:8px;margin:12px 0 4px}
 @media print{.entry-alerts{display:none}}
 /* ملاحظات موجّهة للمستخدم — شريط بارز أعلى الشاشة */
@@ -1919,7 +1926,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-10-11-i';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-10-11-j';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -5210,25 +5217,34 @@ function stockReviewAckMatch(ack,u,kind){
   return u>0.001 && Math.abs(u-q)<=tol;
 }
 function stockReviewAlerts(){
-  var raw=stockReviewRaw(), acks=stockReviewAcks(), cfg=entryCfg(), mo=raw.month;
+  var raw=stockReviewRaw(), acks=stockReviewAcks(), cfg=entryCfg(), mo=raw.month, CAP=12;
   var neg=raw.neg.filter(function(x){ return !stockReviewAckMatch(acks[x.id],x.u,'neg'); });
   var high=raw.high.filter(function(x){ return !stockReviewAckMatch(acks[x.id],x.u,'high'); });
-  /* سطر الصنف: الرصيد + تتبُّع مشتريات ومبيعات الشهر الحالي لتظهر الفجوة */
-  var line=function(x){ return itemName(x.id)+' (الرصيد '+qty(x.u)+' '+x.ul+' · شراء الشهر '+qty(x.mPur)+' · بيع الشهر '+qty(x.mSold)+')'; };
+  var mk=function(arr){ return arr.slice(0,CAP).map(function(x){ return {id:x.id,u:x.u,ul:x.ul}; }); };   /* مختصر: اسم + رصيد فقط */
   var A=[];
   if(neg.length){
     A.push({level:'staff',tier:'urgent',sev:0,ackKind:'neg',title:'مراجعة رصيد سالب — '+cfg.purchName,
-      text:timeGreet(cfg.purchName)+' — متابعة شهر '+mo+': أصناف رصيدها سالب (بِيع أكثر من المتاح) — غالباً مشتريات غير مُدخَلة: '
-        +neg.slice(0,5).map(line).join('، ')+(neg.length>5?' وغيرها':'')
-        +'. الرجاء إدخال المشتريات الناقصة أو الإقرار بأن الرصيد المتاح هو المخزون الفعلي.'}); }
+      intro:timeGreet(cfg.purchName)+' · متابعة شهر '+mo+' — أصناف رصيدها سالب (بِيع أكثر من المتاح)؛ راجِع المشتريات أو أقِرّ بصحة كل رصيد:',
+      items:mk(neg), more:(neg.length>CAP?neg.length-CAP:0)}); }
   if(high.length){
     A.push({level:'staff',tier:'mid',sev:1,ackKind:'high',title:'مراجعة/إقرار رصيد مرتفع — '+cfg.salesName,
-      text:timeGreet(cfg.salesName)+' — متابعة شهر '+mo+': أرصدة مرتفعة على غير المعتاد لنشاط يومي (شراء دون بيع كافٍ، أو مبيعات لم تُدخَل): '
-        +high.slice(0,5).map(line).join('، ')+(high.length>5?' وغيرها':'')
-        +'. الرجاء مراجعة المبيعات وإدخال ما لم يُسجَّل، أو الإقرار بأن الكمية المتاحة هي مخزون فعلي.'}); }
+      intro:timeGreet(cfg.salesName)+' · متابعة شهر '+mo+' — أرصدة مرتفعة على غير المعتاد؛ راجِع المبيعات أو أقِرّ بصحة كل رصيد:',
+      items:mk(high), more:(high.length>CAP?high.length-CAP:0)}); }
   return A;
 }
-/* إقرار الموظف بصحة الرصيد — يسجّل الكمية الحالية ويُخفي التنبيه (يعود إن تغيّر الرصيد جوهرياً) */
+/* إقرار صنف واحد بعينه — يُخفي صفّه ويترك الباقي (يعود إن تغيّر رصيده أكثر من 15%) */
+function ackStockItem(id,kind){
+  if(!ME) return; id=+id;
+  var raw=stockReviewRaw(), list=(kind==='neg')?raw.neg:raw.high, it=null;
+  for(var i=0;i<list.length;i++){ if(list[i].id===id){ it=list[i]; break; } }
+  if(!it){ try{renderEntryAlerts();}catch(e){} return; }
+  var acks=stockReviewAcks(); acks[id]={q:round2(it.u),k:kind,by:ME.id,byName:(ME.name||''),ts:Date.now()};
+  try{ log('data','التنبيهات','إقرار صحة رصيد «'+itemName(id)+'»'); }catch(e){}
+  try{ commit('إقرار صحة رصيد صنف'); }catch(e){}
+  try{ renderEntryAlerts(); }catch(e){}
+  try{ toast('تم الإقرار بصحة رصيد «'+itemName(id)+'»'); }catch(e){}
+}
+/* إقرار الموظف بصحة كل الأرصدة في التنبيه — يُخفي التنبيه (يعود إن تغيّر رصيد جوهرياً) */
 function ackStockReview(kind){
   if(!ME) return;
   var raw=stockReviewRaw(), list=(kind==='neg')?raw.neg:raw.high, acks=stockReviewAcks();
@@ -5243,10 +5259,25 @@ function ackStockReview(kind){
 /* بطاقة تنبيه موظّف (متدرّجة) — مشتركة بين البانر العلوي والمستشار */
 function staffCardHtml(a){
   var tier=a.tier||'mid', tierIc={soft:'🔔',mid:'!',urgent:'!'};
-  var ack=a.ackKind?('<div style="margin-top:9px"><button type="button" class="ack-btn" onclick="ackStockReview(\''+a.ackKind+'\')">✔ أقِرّ بصحة الرصيد وأُخفي التنبيه</button></div>'):'';
+  var body;
+  if(a.items&&a.items.length){
+    /* قائمة مختصرة: صفّ لكل صنف (اسم + رصيد) وزر إقرار خاص به + زر إقرار الكل */
+    var rows=a.items.map(function(x){
+      return '<div class="sr-row"><span class="sr-name">'+esc(itemName(x.id))+'</span>'
+        +'<span class="sr-end"><span class="sr-bal">'+qty(x.u)+' '+x.ul+'</span>'
+        +'<button type="button" class="ack-btn sr-ack" onclick="ackStockItem('+x.id+',\''+a.ackKind+'\')">✔ إقرار</button></span></div>';
+    }).join('');
+    var more=a.more?('<div class="sr-more">… وغيرها '+a.more+' صنف</div>'):'';
+    body='<div class="staff-alert-t" style="margin-bottom:7px">'+esc(a.intro)+'</div>'
+      +'<div class="sr-list">'+rows+more+'</div>'
+      +'<div style="margin-top:8px"><button type="button" class="ack-btn" onclick="ackStockReview(\''+a.ackKind+'\')">✔ إقرار كل ما سبق وإخفاء التنبيه</button></div>';
+  } else {
+    var ack=a.ackKind?('<div style="margin-top:9px"><button type="button" class="ack-btn" onclick="ackStockReview(\''+a.ackKind+'\')">✔ أقِرّ بصحة الرصيد وأُخفي التنبيه</button></div>'):'';
+    body='<div class="staff-alert-t">'+esc(a.text)+'</div>'+ack;
+  }
   return '<div class="staff-alert t-'+tier+'">'
     +'<div class="staff-alert-h"><span class="staff-bang">'+(tierIc[tier]||'!')+'</span> '+esc(a.title)+'</div>'
-    +'<div class="staff-alert-t">'+esc(a.text)+'</div>'+ack+'</div>';
+    +body+'</div>';
 }
 /* البانر العلوي العالمي لتأخّر الإدخالات — يظهر لكل المستخدمين على كل الشاشات وأعلى تنبيهات المخزون */
 function renderEntryAlerts(){
