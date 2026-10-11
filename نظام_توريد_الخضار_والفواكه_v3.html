@@ -222,14 +222,14 @@ table.mini-months{font-size:12px}table.mini-months th,table.mini-months td{paddi
 /* البانر العلوي لتأخّر الإدخالات — أعلى النظام فوق تنبيهات المخزون */
 .ack-btn{background:#fff;border:1.5px solid currentColor;color:inherit;border-radius:9px;padding:6px 13px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;transition:background .15s,transform .1s}
 .ack-btn:hover{background:rgba(0,0,0,.05)}.ack-btn:active{transform:scale(.97)}
-.sr-list{display:grid;gap:5px}
-.sr-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:rgba(255,255,255,.6);border:1px solid rgba(0,0,0,.07);border-radius:9px;padding:5px 10px}
-.sr-name{font-weight:800;font-size:13px}
-.sr-end{display:flex;align-items:center;gap:9px;margin-inline-start:auto}
-.sr-bal{font-weight:800;font-size:13px;font-variant-numeric:tabular-nums;white-space:nowrap}
-.sr-ack{padding:3px 11px;font-size:11.5px}
-.sr-more{font-size:12px;font-weight:700;opacity:.72;padding:2px 4px}
-@media print{.ack-btn,.sr-ack{display:none}}
+.sr-chips{display:flex;flex-wrap:wrap;gap:6px}
+.sr-chip{display:inline-flex;align-items:center;gap:7px;background:rgba(255,255,255,.72);border:1px solid rgba(0,0,0,.1);border-radius:999px;padding:3px 5px 3px 11px}
+.sr-name{font-weight:800;font-size:12.5px}
+.sr-bal{font-weight:800;font-size:12px;font-variant-numeric:tabular-nums;white-space:nowrap;opacity:.88}
+.sr-x{width:21px;height:21px;border-radius:50%;border:1.5px solid currentColor;background:#fff;color:inherit;font-size:11px;font-weight:900;line-height:1;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;padding:0;flex-shrink:0}
+.sr-x:hover{background:rgba(0,0,0,.06)}
+.sr-more{font-size:12px;font-weight:700;opacity:.72;align-self:center;padding:0 4px}
+@media print{.ack-btn,.sr-x{display:none}}
 .entry-alerts{display:grid;gap:8px;margin:12px 0 4px}
 @media print{.entry-alerts{display:none}}
 /* ملاحظات موجّهة للمستخدم — شريط بارز أعلى الشاشة */
@@ -1926,7 +1926,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-10-11-j';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-10-11-k';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -5261,16 +5261,16 @@ function staffCardHtml(a){
   var tier=a.tier||'mid', tierIc={soft:'🔔',mid:'!',urgent:'!'};
   var body;
   if(a.items&&a.items.length){
-    /* قائمة مختصرة: صفّ لكل صنف (اسم + رصيد) وزر إقرار خاص به + زر إقرار الكل */
-    var rows=a.items.map(function(x){
-      return '<div class="sr-row"><span class="sr-name">'+esc(itemName(x.id))+'</span>'
-        +'<span class="sr-end"><span class="sr-bal">'+qty(x.u)+' '+x.ul+'</span>'
-        +'<button type="button" class="ack-btn sr-ack" onclick="ackStockItem('+x.id+',\''+a.ackKind+'\')">✔ إقرار</button></span></div>';
+    /* رقاقات مدمجة: عدّة أصناف في السطر (اسم + رصيد + زر ✔ للإقرار الفردي) + زر إقرار الكل */
+    var chips=a.items.map(function(x){
+      return '<span class="sr-chip"><span class="sr-name">'+esc(itemName(x.id))+'</span>'
+        +'<span class="sr-bal">'+qty(x.u)+' '+x.ul+'</span>'
+        +'<button type="button" class="sr-x" title="أقِرّ بصحة رصيد هذا الصنف" onclick="ackStockItem('+x.id+',\''+a.ackKind+'\')">✔</button></span>';
     }).join('');
-    var more=a.more?('<div class="sr-more">… وغيرها '+a.more+' صنف</div>'):'';
+    var more=a.more?('<span class="sr-more">… وغيرها '+a.more+' صنف</span>'):'';
     body='<div class="staff-alert-t" style="margin-bottom:7px">'+esc(a.intro)+'</div>'
-      +'<div class="sr-list">'+rows+more+'</div>'
-      +'<div style="margin-top:8px"><button type="button" class="ack-btn" onclick="ackStockReview(\''+a.ackKind+'\')">✔ إقرار كل ما سبق وإخفاء التنبيه</button></div>';
+      +'<div class="sr-chips">'+chips+more+'</div>'
+      +'<div style="margin-top:8px"><button type="button" class="ack-btn" onclick="ackStockReview(\''+a.ackKind+'\')">✔ إقرار الكل وإخفاء التنبيه</button></div>';
   } else {
     var ack=a.ackKind?('<div style="margin-top:9px"><button type="button" class="ack-btn" onclick="ackStockReview(\''+a.ackKind+'\')">✔ أقِرّ بصحة الرصيد وأُخفي التنبيه</button></div>'):'';
     body='<div class="staff-alert-t">'+esc(a.text)+'</div>'+ack;
