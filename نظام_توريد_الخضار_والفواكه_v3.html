@@ -1919,7 +1919,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-10-11-h';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-10-11-i';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -5171,34 +5171,35 @@ function entryDelayAlerts(){
    رصيد مرتفع (يغطي أيام بيع كثيرة) ⇐ غالباً مبيعات غير مُدخَلة ⇒ يُوجَّه لمسؤول المبيعات.
    رصيد سالب (بِيع أكثر من المتاح) ⇐ غالباً مشتريات ناقصة ⇒ يُوجَّه لمسؤول المشتريات.
    في الحالتين يُطلب منه المراجعة أو الإقرار بأن الكمية المتاحة مخزون فعلي. */
-var STOCK_REVIEW_COVER_DAYS=7;   /* رصيد يغطي أكثر من هذا العدد من أيام البيع = مرتفع لنشاط يومي */
+var STOCK_REVIEW_COVER_DAYS=3;   /* رصيد يغطي أكثر من هذا العدد من أيام البيع = مرتفع لنشاط يومي */
 /* تحية مرتبطة بساعة الجهاز — صباحاً (4ص–12ظ) «صباح الخير» وإلا «مساء الخير» */
 function timeGreet(name){ var h=new Date().getHours(), am=(h>=4&&h<12); return (am?'صباح الخير يا ':'مساء الخير يا ')+name+(am?' ☀️':' 🌙'); }
 /* حساب الأصناف ذات الرصيد غير الطبيعي (قبل تصفية الإقرارات) — يُستخدَم في توليد التنبيه وفي الإقرار */
 function stockReviewRaw(){
   if(!L) refreshLedger();
-  var td=today();
+  var td=today(), mFrom=curMonth()+'-01', dayN=Math.max(1,parseInt(td.slice(8,10),10)||1);
   var unitOf=function(it){ return (it&&it.byKg)?'كجم':((it&&it.service)?'عدد':'وحدة'); };
   /* الأرصدة الحالية مجمّعة عبر المستودعات + تكلفتها (تُستبعَد الخدمات بلا مخزون) */
   var bal={}, cost={};
   Object.keys(L.stock).forEach(function(k){ var s=L.stock[k], it=byId(db.items,s.itemId);
     if(it&&it.service) return;
     bal[s.itemId]=(bal[s.itemId]||0)+s.units; cost[s.itemId]=(cost[s.itemId]||0)+s.cost; });
-  /* معدّل البيع اليومي خلال آخر 30 يوماً لتقدير «أيام التغطية» (بنفس وحدة الرصيد) */
-  var from30=ivAddDays(td,-30), sold={};
-  db.sales.forEach(function(s){ if(s.date>=from30&&s.date<=td)(s.lines||[]).forEach(function(l){ sold[l.itemId]=(sold[l.itemId]||0)+(+l.units||0); }); });
+  /* متابعة الشهر الحالي: مشتريات ومبيعات كل صنف من أول الشهر حتى اليوم (بنفس وحدة الرصيد) */
+  var mSold={}, mPur={};
+  db.sales.forEach(function(s){ if(s.date>=mFrom&&s.date<=td)(s.lines||[]).forEach(function(l){ mSold[l.itemId]=(mSold[l.itemId]||0)+(+l.units||0); }); });
+  db.purchases.forEach(function(p){ if(p.date>=mFrom&&p.date<=td)(p.lines||[]).forEach(function(l){ mPur[l.itemId]=(mPur[l.itemId]||0)+(+l.units||0); }); });
   var totPos=0; Object.keys(bal).forEach(function(id){ if(cost[id]>0) totPos+=cost[id]; });
-  var valFloor=Math.max(100,totPos*0.01);   /* تجاهُل الكميات التافهة — ركّز على الأرصدة ذات القيمة */
+  var valFloor=Math.max(50,totPos*0.002);   /* أرضية صغيرة فقط لتجاهُل الكميات التافهة — لا تستبعد الأرصدة الكبيرة */
   var neg=[], high=[];
-  Object.keys(bal).forEach(function(id){ id=+id; var u=bal[id], c=cost[id]||0, it=byId(db.items,id);
-    if(u<-0.001){ neg.push({id:id,u:u,ul:unitOf(it)}); return; }
-    /* رصيد مرتفع ذو قيمة: يغطي أيام بيع كثيرة (متحرّك متراكم) أو مخزون ضخم بلا مبيعات (راكد) */
-    if(u>0.001 && c>=valFloor){ var avg=(sold[id]||0)/30, cover=avg>0.0001?u/avg:Infinity;
-      if(cover>STOCK_REVIEW_COVER_DAYS) high.push({id:id,u:u,c:c,avg:avg,cover:cover,ul:unitOf(it)}); }
+  Object.keys(bal).forEach(function(id){ id=+id; var u=bal[id], c=cost[id]||0, it=byId(db.items,id), ul=unitOf(it);
+    if(u<-0.001){ neg.push({id:id,u:u,ul:ul,mPur:mPur[id]||0,mSold:mSold[id]||0}); return; }
+    /* رصيد موجب ذو قيمة يغطي أكثر من حدّ أيام البيع لنشاط يومي (متراكم)، أو مخزون كبير بلا مبيعات هذا الشهر (راكد) */
+    if(u>0.001 && c>=valFloor){ var avg=(mSold[id]||0)/dayN, cover=avg>0.0001?u/avg:Infinity;
+      if(cover>STOCK_REVIEW_COVER_DAYS) high.push({id:id,u:u,c:c,avg:avg,cover:cover,ul:ul,mPur:mPur[id]||0,mSold:mSold[id]||0}); }
   });
   neg.sort(function(a,b){ return a.u-b.u; });        /* الأكثر سَلبية أولاً */
   high.sort(function(a,b){ return b.c-a.c; });        /* الأكبر قيمةً أولاً (يظهر الأضخم) */
-  return {neg:neg, high:high};
+  return {neg:neg, high:high, month:curMonth()};
 }
 /* مخزن إقرارات الموظفين بصحة الأرصدة — يخفي التنبيه حتى يتغيّر الرصيد جوهرياً */
 function stockReviewAcks(){ db.settings=db.settings||{}; return db.settings.stockReviewAck||(db.settings.stockReviewAck={}); }
@@ -5209,19 +5210,21 @@ function stockReviewAckMatch(ack,u,kind){
   return u>0.001 && Math.abs(u-q)<=tol;
 }
 function stockReviewAlerts(){
-  var raw=stockReviewRaw(), acks=stockReviewAcks(), cfg=entryCfg();
+  var raw=stockReviewRaw(), acks=stockReviewAcks(), cfg=entryCfg(), mo=raw.month;
   var neg=raw.neg.filter(function(x){ return !stockReviewAckMatch(acks[x.id],x.u,'neg'); });
   var high=raw.high.filter(function(x){ return !stockReviewAckMatch(acks[x.id],x.u,'high'); });
+  /* سطر الصنف: الرصيد + تتبُّع مشتريات ومبيعات الشهر الحالي لتظهر الفجوة */
+  var line=function(x){ return itemName(x.id)+' (الرصيد '+qty(x.u)+' '+x.ul+' · شراء الشهر '+qty(x.mPur)+' · بيع الشهر '+qty(x.mSold)+')'; };
   var A=[];
   if(neg.length){
     A.push({level:'staff',tier:'urgent',sev:0,ackKind:'neg',title:'مراجعة رصيد سالب — '+cfg.purchName,
-      text:timeGreet(cfg.purchName)+' — أصناف رصيدها سالب (بِيع أكثر من المتاح) — غالباً مشتريات غير مُدخَلة: '
-        +neg.slice(0,5).map(function(x){ return itemName(x.id)+' ('+qty(x.u)+' '+x.ul+')'; }).join('، ')+(neg.length>5?' وغيرها':'')
+      text:timeGreet(cfg.purchName)+' — متابعة شهر '+mo+': أصناف رصيدها سالب (بِيع أكثر من المتاح) — غالباً مشتريات غير مُدخَلة: '
+        +neg.slice(0,5).map(line).join('، ')+(neg.length>5?' وغيرها':'')
         +'. الرجاء إدخال المشتريات الناقصة أو الإقرار بأن الرصيد المتاح هو المخزون الفعلي.'}); }
   if(high.length){
     A.push({level:'staff',tier:'mid',sev:1,ackKind:'high',title:'مراجعة/إقرار رصيد مرتفع — '+cfg.salesName,
-      text:timeGreet(cfg.salesName)+' — أرصدة مرتفعة على غير المعتاد لنشاط يومي (قد تكون مبيعات لم تُدخَل أو مخزون راكد): '
-        +high.slice(0,5).map(function(x){ var cov=(x.cover===Infinity)?'بلا مبيعات 30 يوماً':('≈ '+(x.cover>90?'+90':Math.round(x.cover))+' يوم بيع'); return itemName(x.id)+' ('+qty(x.u)+' '+x.ul+' · '+cov+')'; }).join('، ')+(high.length>5?' وغيرها':'')
+      text:timeGreet(cfg.salesName)+' — متابعة شهر '+mo+': أرصدة مرتفعة على غير المعتاد لنشاط يومي (شراء دون بيع كافٍ، أو مبيعات لم تُدخَل): '
+        +high.slice(0,5).map(line).join('، ')+(high.length>5?' وغيرها':'')
         +'. الرجاء مراجعة المبيعات وإدخال ما لم يُسجَّل، أو الإقرار بأن الكمية المتاحة هي مخزون فعلي.'}); }
   return A;
 }
