@@ -1916,7 +1916,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-10-11-e';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-10-11-f';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -5164,6 +5164,44 @@ function entryDelayAlerts(){
   A.sort(function(a,b){ return (a.sev==null?9:a.sev)-(b.sev==null?9:b.sev); });   /* العاجل أولاً */
   return A;
 }
+/* تنبيهات مراجعة/إقرار الأرصدة — النشاط يومي: مع إدخال المبيعات والمشتريات في وقتها لا تبقى أرصدة عالية.
+   رصيد مرتفع (يغطي أيام بيع كثيرة) ⇐ غالباً مبيعات غير مُدخَلة ⇒ يُوجَّه لمسؤول المبيعات.
+   رصيد سالب (بِيع أكثر من المتاح) ⇐ غالباً مشتريات ناقصة ⇒ يُوجَّه لمسؤول المشتريات.
+   في الحالتين يُطلب منه المراجعة أو الإقرار بأن الكمية المتاحة مخزون فعلي. */
+var STOCK_REVIEW_COVER_DAYS=7;   /* رصيد يغطي أكثر من هذا العدد من أيام البيع = مرتفع لنشاط يومي */
+function stockReviewAlerts(){
+  if(!L) refreshLedger();
+  var cfg=entryCfg(), td=today();
+  var unitOf=function(it){ return (it&&it.byKg)?'كجم':((it&&it.service)?'عدد':'وحدة'); };
+  /* الأرصدة الحالية مجمّعة عبر المستودعات + تكلفتها (تُستبعَد الخدمات بلا مخزون) */
+  var bal={}, cost={};
+  Object.keys(L.stock).forEach(function(k){ var s=L.stock[k], it=byId(db.items,s.itemId);
+    if(it&&it.service) return;
+    bal[s.itemId]=(bal[s.itemId]||0)+s.units; cost[s.itemId]=(cost[s.itemId]||0)+s.cost; });
+  /* معدّل البيع اليومي خلال آخر 30 يوماً لتقدير «أيام التغطية» (بنفس وحدة الرصيد) */
+  var from30=ivAddDays(td,-30), sold={};
+  db.sales.forEach(function(s){ if(s.date>=from30&&s.date<=td)(s.lines||[]).forEach(function(l){ sold[l.itemId]=(sold[l.itemId]||0)+(+l.units||0); }); });
+  var totPos=0; Object.keys(bal).forEach(function(id){ if(cost[id]>0) totPos+=cost[id]; });
+  var valFloor=Math.max(100,totPos*0.01);   /* تجاهُل الكميات التافهة — ركّز على الأرصدة ذات القيمة */
+  var neg=[], high=[];
+  Object.keys(bal).forEach(function(id){ id=+id; var u=bal[id], c=cost[id]||0, it=byId(db.items,id);
+    if(u<-0.001){ neg.push({id:id,u:u,ul:unitOf(it)}); return; }
+    if(u>0.001){ var avg=(sold[id]||0)/30, cover=avg>0.0001?u/avg:0;
+      if(cover>STOCK_REVIEW_COVER_DAYS && c>=valFloor) high.push({id:id,u:u,c:c,cover:cover,ul:unitOf(it)}); }
+  });
+  var A=[];
+  if(neg.length){ neg.sort(function(a,b){ return a.u-b.u; });
+    A.push({level:'staff',tier:'urgent',sev:0,title:'مراجعة رصيد سالب — '+cfg.purchName,
+      text:entryIntro(cfg.purchIntro,cfg.purchName)+' أصناف رصيدها سالب (بِيع أكثر من المتاح) — غالباً مشتريات غير مُدخَلة: '
+        +neg.slice(0,5).map(function(x){ return itemName(x.id)+' ('+qty(x.u)+' '+x.ul+')'; }).join('، ')+(neg.length>5?' وغيرها':'')
+        +'. الرجاء إدخال المشتريات الناقصة أو الإقرار بأن الرصيد المتاح هو المخزون الفعلي.'}); }
+  if(high.length){ high.sort(function(a,b){ return b.cover-a.cover; });
+    A.push({level:'staff',tier:'mid',sev:1,title:'مراجعة/إقرار رصيد مرتفع — '+cfg.salesName,
+      text:entryIntro(cfg.salesIntro,cfg.salesName)+' أرصدة مرتفعة على غير المعتاد لنشاط يومي (قد تكون مبيعات لم تُدخَل بعد): '
+        +high.slice(0,5).map(function(x){ return itemName(x.id)+' ('+qty(x.u)+' '+x.ul+' ≈ '+(x.cover>90?'+90':Math.round(x.cover))+' يوم بيع)'; }).join('، ')+(high.length>5?' وغيرها':'')
+        +'. الرجاء مراجعة المبيعات وإدخال ما لم يُسجَّل، أو الإقرار بأن الكمية المتاحة هي مخزون فعلي.'}); }
+  return A;
+}
 /* بطاقة تنبيه موظّف (متدرّجة) — مشتركة بين البانر العلوي والمستشار */
 function staffCardHtml(a){
   var tier=a.tier||'mid', tierIc={soft:'🔔',mid:'!',urgent:'!'};
@@ -5175,6 +5213,8 @@ function staffCardHtml(a){
 function renderEntryAlerts(){
   var box=document.getElementById('entryAlertsBox'); if(!box) return;
   var A=entryDelayAlerts();
+  try{ A=A.concat(stockReviewAlerts()); }catch(e){}   /* تنبيهات مراجعة/إقرار الأرصدة غير الطبيعية */
+  A.sort(function(a,b){ return (a.sev==null?9:a.sev)-(b.sev==null?9:b.sev); });   /* الأعجل أولاً (فرز ثابت يُبقي تأخّر الإدخال فوق مراجعة الأرصدة عند تساوي الشدّة) */
   box.innerHTML=A.length?('<div class="entry-alerts">'+A.map(staffCardHtml).join('')+'</div>'):'';
 }
 /* تنبيهات تشغيلية للفترة الماضية فقط (داخل المستشار) — تأخّر «اليوم» انتقل للبانر العلوي */
