@@ -1916,7 +1916,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-10-11-d';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-10-11-e';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -3866,6 +3866,25 @@ function editExpense(id){
   if(r.splits){ db.clients.forEach(function(c){ setVal('esp_'+c.id, r.splits[c.id]||''); }); updateSplitSummary(); }
   document.getElementById('e_editing').textContent='وضع التعديل'; showTab('expenses');
 }
+/* تكرار مصروف (شهري/يومي): يملأ النموذج ببيانات المصروف كـ«إدخال جديد» بتاريخ اليوم — عدّل التاريخ/المبلغ ثم احفظ */
+function repeatExpense(id){
+  if(!guard('canAdd')) return;
+  var r=byId(db.expenses,id); if(!r){ toast('المصروف غير موجود'); return; }
+  var _g=document.getElementById('e_grouped'); if(_g) _g.checked=false; expGrp=[]; grpEdit=null; toggleGroupExpense();   /* نسخة مفردة دائماً */
+  editId.e=null;   /* إدخال جديد وليس تعديلاً */
+  setVal('e_date',today()); setVal('e_type',r.type);
+  fillExpCats(r.cat); setVal('e_cat',r.cat); setVal('e_amount',r.amount); setVal('e_desc',r.desc);
+  setVal('e_supplierSearch',''); filterExpenseSupplier();
+  setVal('e_supplier',r.supplierId||''); onExpenseSupplier();
+  setVal('e_amortUnit',r.amortUnit||'none'); setVal('e_amortCount',r.amortCount||''); onAmortChange();
+  onExpenseType();
+  if(r.type==='shared_ex') setVal('e_exclClient',r.exclClientId||'');
+  if(r.type==='direct') setVal('e_client',r.clientId||'');
+  if(r.splits){ db.clients.forEach(function(c){ setVal('esp_'+c.id, r.splits[c.id]||''); }); updateSplitSummary(); }
+  var n=document.getElementById('e_editing'); if(n) n.textContent='↻ نسخة متكرّرة — عدّل التاريخ/المبلغ ثم احفظ لإضافتها';
+  showTab('expenses'); try{ focusField('e_date'); }catch(e){}
+  toast('نُسخت بيانات المصروف — عدّل التاريخ ثم احفظ');
+}
 function payParties(){
   var t=val('pay_type'), q=(val('pay_search')||'').trim();
   var arr=(t==='supplier')?db.suppliers:db.clients;
@@ -5733,7 +5752,8 @@ function renderExpenses(){
       +'<td class="name">'+esc(x.cat||'')+'</td><td>'+money(x.amount)+(amortInfo(x)?' <span class="pill pill-info">'+esc(amortLabel(x))+'</span>':'')+'</td>'
       +'<td class="name">'+esc(x.desc)+(x.grp?' <span class="pill pill-info" title="بند ضمن سند مجمّع">🧾 '+esc(x.voucher||'سند مجمّع')+'</span>':'')+'</td>'
       +'<td class="name muted">'+enteredBy(x)+'</td>'
-      +'<td>'+actionBtns('expenses',x.id,'editExpense('+x.id+')')+'</td></tr>';
+      +'<td>'+(can('canAdd')?'<button class="btn-sm btn-alt" onclick="repeatExpense('+x.id+')" title="تكرار هذا المصروف بتاريخ جديد (يومي/شهري) مع إمكانية التعديل">⟳ تكرار</button> ':'')
+        +actionBtns('expenses',x.id,'editExpense('+x.id+')')+'</td></tr>';
   });
   document.getElementById('tbExpenses').innerHTML=mineOnlyRow(8)+(h?h+'<tr class="total-row"><td colspan="4">الإجمالي</td><td>'+money(T)+'</td><td colspan="3"></td></tr>'
     :'<tr><td colspan="8" class="empty">لا توجد مصروفات في هذه الفترة.</td></tr>');
