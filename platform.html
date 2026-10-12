@@ -874,7 +874,7 @@ var TREAT_BY_ID={}; TREATS.forEach(function(t){ TREAT_BY_ID[t.id]=t; });
 /* ==========================================================================
    النواة: أدوات عامة + قاعدة البيانات + الصلاحيات + الدخول + المزامنة السحابية
    ========================================================================== */
-var APP_BUILD='2026-10-12-p13';
+var APP_BUILD='2026-10-12-p14';
 var LS_DB='mfp_db_v1', LS_SES='mfp_session_v1';
 
 function $(id){ return document.getElementById(id); }
@@ -4334,6 +4334,55 @@ WHY_ACC['1326']=['غرفة لم تعد صالحة للبيع بسعرها — ت
     +steps.map(function(s){ return '<tr><td colspan="2" style="background:var(--surface-2);font-weight:800">'+esc(s[0])+'</td></tr>'+s[1].map(function(id){ var x=TREAT_BY_ID[id]; if(!x) return ''; n++;
       return '<tr><td class="num" style="width:28px"><b>'+n+'</b></td><td><a class="acc" href="javascript:void 0" onclick="pickTreat(\''+id+'\')">'+esc(x.n)+'</a><div class="mini">'+esc(x.std.join(' • '))+'</div></td></tr>'; }).join(''); }).join('')+'</tbody></table></div>'; };
 })();
+
+/* ==========================================================================
+   v14 — فلترة الدليل: نشاط المنشأة + نوع الشركة (سعودية / استثمار)
+   الحالات العامة تظهر دائماً، وحالات الأنشطة الأخرى لا تظهر في البحث ولا التصفح
+   ========================================================================== */
+var CO_TYPES=[['all','🌐','كل الشركات'],['sa','🇸🇦','شركة سعودية (ملكية سعودية/خليجية)'],['inv','🤝','شركة استثمار (شركاء أجانب)']];
+var CO_TYPE=(function(){ try{ return localStorage.getItem('pf_co')||'all'; }catch(e){ return 'all'; } })();
+var CO_ONLY={inv_map:'inv',inv_mixed_zt:'inv',inv_dtax:'inv',zakat:'sa'};
+var ACT_NAME={}; BIZ_ACTS.forEach(function(a){ ACT_NAME[a.id]=a.ic+' '+a.n; });
+/* أنشطة الحالة: من عائلتها أو فئتها؛ الحالة بلا نشاط محدد عامة لكل المنشآت */
+function caseActs(t){ if(t.acts) return t.acts; var f=t.fam;
+  if(f==='mfg'||f==='rtl'||f==='furn'||f==='food'||f==='chem') return [f];
+  if(f==='trd') return ['furn','food','chem'];
+  if(t.cat==='مقاولات'||t.id==='contract') return ['con'];
+  return null; }
+function caseVisible(t){ if(!t||t.id==='generic') return true;
+  var a=caseActs(t); if(a&&COA_ACT!=='all'&&a.indexOf(COA_ACT)<0) return false;
+  var c=CO_ONLY[t.id]; if(c&&CO_TYPE!=='all'&&c!==CO_TYPE) return false;
+  return true; }
+function filterOn(){ return COA_ACT!=='all'||CO_TYPE!=='all'; }
+function withVisible(fn){ return function(){ var all=TREATS; TREATS=all.filter(caseVisible); try{ return fn.apply(this,arguments); } finally{ TREATS=all; } }; }
+var analyzeAll=analyze;
+analyze=withVisible(analyze);
+browseTreats=withVisible(browseTreats);
+nextSteps=(function(f){ return function(t){ var keep=t.nx; t.nx=(t.nx||[]).filter(function(id){ return caseVisible(TREAT_BY_ID[id]); }); try{ return f(t); } finally{ t.nx=keep; } }; })(nextSteps);
+function setCo(c){ CO_TYPE=c; try{ localStorage.setItem('pf_co',c); }catch(e){} afterFilter(); }
+function setGAct(a){ COA_ACT=a; try{ localStorage.setItem('pf_act',a); }catch(e){} afterFilter(); }
+function afterFilter(){ if(G.sel&&!caseVisible(G.sel)) G.sel=null; if(G.q&&$('gq')){ $('gq').value=G.q; runGuide(); } else render(); }
+function guideFilterBar(){
+  var chip=function(on,click,txt){ return '<button class="'+(on?'active':'')+'" onclick="'+click+'">'+txt+'</button>'; };
+  return '<div class="panel" style="padding:12px"><div style="display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px"><b>🎯 فلترة الدليل</b>'
+    +(filterOn()?'<button class="btn-sm" onclick="COA_ACT=\'all\';CO_TYPE=\'all\';try{localStorage.setItem(\'pf_act\',\'all\');localStorage.setItem(\'pf_co\',\'all\')}catch(e){};afterFilter()">إظهار الكل</button>':'')+'</div>'
+    +'<div class="mini" style="margin-bottom:4px">نشاط المنشأة</div><div class="seg">'+BIZ_ACTS.map(function(a){ return chip(a.id===COA_ACT,'setGAct(\''+a.id+'\')',a.ic+' '+a.n); }).join('')+'</div>'
+    +'<div class="mini" style="margin-bottom:4px">نوع الشركة</div><div class="seg">'+CO_TYPES.map(function(c){ return chip(c[0]===CO_TYPE,'setCo(\''+c[0]+'\')',c[1]+' '+c[2]); }).join('')+'</div>'
+    +(filterOn()?'<div class="mini" style="margin-top:2px">يظهر الآن: الحالات العامة'+(COA_ACT!=='all'?' + حالات «'+esc(ACT_NAME[COA_ACT]||'')+'» فقط':'')+(CO_TYPE==='sa'?' — بدون حالات الشركاء الأجانب (ضريبة الدخل والضريبة المؤجلة)':CO_TYPE==='inv'?' — بمعالجة الشركة المختلطة (زكاة + ضريبة دخل)':'')+'</div>':'')+'</div>'; }
+VIEWS.guide=(function(f){ return function(arg){ var h=f(arg); return h.replace('<div id="gRes">',guideFilterBar()+'<div id="gRes">'); }; })(VIEWS.guide);
+/* إذا قاد البحث لحالة خارج الفلتر: تُستبدل بأقرب حالة ظاهرة مع تنبيه */
+runGuide=(function(f){ return function(){ f(); var t=G.sel;
+  if(CO_TYPE==='inv'&&/زكا/.test(norm(G.q||''))&&(!t||t.id==='zakat'||t.id==='generic')){ pickTreat('inv_mixed_zt',true); $('gRes').innerHTML=guideResults(); return; }
+  if(filterOn()&&(!t||t.id==='generic')){ var top=(analyzeAll(G.q).t||[])[0]; if(top&&!caseVisible(top.x)){ var a0=caseActs(top.x);
+    $('gRes').innerHTML='<div class="disclaimer" style="margin-bottom:10px">🔎 أقرب حالة لبحثك «'+esc(top.x.n)+'» تخص '+esc(a0&&COA_ACT!=='all'?'نشاط «'+(ACT_NAME[a0[0]]||a0[0])+'»':'نوع شركة آخر')+' وهي مخفية بالفلتر. <a href="javascript:void 0" onclick="COA_ACT=\'all\';CO_TYPE=\'all\';afterFilter()">إظهار الكل</a></div>'+$('gRes').innerHTML; } return; }
+  if(!t||caseVisible(t)) return;
+  var s=guideSearch(G.q), alt=s.all.filter(function(x){ return caseVisible(x.x); })[0];
+  G.sel=null; if(alt) pickTreat(alt.x.id,true);
+  var a=caseActs(t), why=a&&COA_ACT!=='all'&&a.indexOf(COA_ACT)<0?'نشاط «'+(ACT_NAME[a[0]]||a[0])+'»':'نوع شركة آخر';
+  $('gRes').innerHTML='<div class="disclaimer" style="margin-bottom:10px">🔎 أقرب حالة لبحثك «'+esc(t.n)+'» تخص '+esc(why)+' وهي مخفية بالفلتر. <a href="javascript:void 0" onclick="COA_ACT=\'all\';CO_TYPE=\'all\';afterFilter()">إظهار الكل</a></div>'+guideResults(); }; })(runGuide);
+/* شركة سعودية: لا شركاء أجانب (100%) — شركة استثمار: الزكاة تُفتح بمعالجة الشركة المختلطة */
+pickTreat=(function(f){ return function(id,silent){ if(id==='zakat'&&CO_TYPE==='inv') id='inv_mixed_zt'; f(id,silent); var t=TREAT_BY_ID[id];
+  if(t&&CO_TYPE==='sa'&&(t.inp||[]).some(function(i){ return i.k==='sp'; })){ G.o.sp=100; if(!silent) $('gRes').innerHTML=guideResults(); } }; })(pickTreat);
 
 /* ===== التشغيل ===== */
 boot();
