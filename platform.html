@@ -874,7 +874,7 @@ var TREAT_BY_ID={}; TREATS.forEach(function(t){ TREAT_BY_ID[t.id]=t; });
 /* ==========================================================================
    النواة: أدوات عامة + قاعدة البيانات + الصلاحيات + الدخول + المزامنة السحابية
    ========================================================================== */
-var APP_BUILD='2026-10-12-p16';
+var APP_BUILD='2026-10-12-p17';
 var LS_DB='mfp_db_v1', LS_SES='mfp_session_v1';
 
 function $(id){ return document.getElementById(id); }
@@ -4595,6 +4595,50 @@ MIST.furn_sales_room=[['تسجيل عمولة الربع كاملة في شهر 
 WHY_ACC['2129']=['نشأ مبلغ مستحق لمكتب الشراء عن عمولة شحنة — التزام جارٍ','سُدد جزء من رصيد المكتب'];
 WHY_ACC['2114']=['عمولة اكتسبها المندوب ولم تُصرف بعد — التزام مستحق','صُرفت العمولة للمندوب أو خُصمت عن مرتجع'];
 (function(){ var t=TREAT_BY_ID.furn_map; if(!t) return; var x=t.xcalc; t.xcalc=function(o){ var h=x.call(t,o); return h.replace('</tbody></table></div>','<tr><td colspan="2" style="background:var(--surface-2);font-weight:800">العمولات</td></tr>'+['furn_buy_comm','furn_sales_piece','furn_sales_room'].map(function(id){ var c=TREAT_BY_ID[id]; return '<tr><td class="num">•</td><td><a class="acc" href="javascript:void 0" onclick="pickTreat(\''+id+'\')">'+esc(c.n)+'</a></td></tr>'; }).join('')+'</tbody></table></div>'); }; })();
+
+/* ==========================================================================
+   v17 — حسابات العمولات كاملة في الدليل المحاسبي وفق المعايير
+   ========================================================================== */
+(function(){
+  var gIc=CG_BY['5120'];
+  var add={'5128':['عمولات وكلاء ومكاتب الشراء (تكلفة استيراد)',gIc,['trd']],
+    '5291':['عمولات مندوبي المبيعات (موظفون)',CG_BY['5229'],null],
+    '2115':['عمولات مستحقة لوسطاء ومندوبين مستقلين',CG_BY['2110'],null],
+    '1273':['عمولات مستردة من المندوبين (عن مرتجعات)',CG_BY['1270'],null]};
+  Object.keys(add).forEach(function(c){ var x=add[c]; COA[c]=x[0]; var g=x[1]; if(g&&g[0].indexOf(c)<0){ g[0].push(c); CG_BY[c]=g; } if(x[2]) ACT_TAG[c]=x[2]; });
+  COA['2129']='جاري مكاتب ووكلاء الشراء (عمولات المشتريات)';
+  COA['5229']='عمولات بيع لوسطاء ومندوبين مستقلين';
+  COA['2114']='عمولات مستحقة لمندوبي المبيعات (موظفون)';
+  var gs=CG_BY['5229']; if(gs) gs[5]='عمولات المبيعات مصروف بيع وتوزيع. عمولة الحصول على عقد تزيد مدته عن سنة تُرسمل أصلاً «تكاليف الحصول على العقود» وتُطفأ (IFRS 15.91-94)، وإلا تُحمّل مصروفاً فوراً. عمولات الموظفين منفعة قصيرة الأجل (IAS 19) تُعرض ضمن مصروفات البيع.';
+  if(gIc) gIc[5]=(gIc[5]||'')+' عمولة وكيل الشراء المرتبطة بالشحنة من تكاليف الاقتناء المباشرة.';
+  WHY_ACC['5291']=['عمولة اكتسبها مندوب موظف عن مبيعات الفترة — مصروف بيع','عكس عمولة عن مبيعات مرتجعة'];
+  WHY_ACC['2115']=['عمولة مستحقة لوسيط أو مندوب مستقل لم تُصرف بعد','صُرفت العمولة للوسيط'];
+  WHY_ACC['1273']=['عمولة صُرفت عن غرفة أُرجعت فأصبحت مستردة من المندوب','استُردت أو خُصمت من عمولة لاحقة'];
+  WHY_ACC['5128']=['عمولة وكيل الشراء جزء من تكلفة البضاعة المستوردة (جرد دوري)','أُقفلت في تكلفة المبيعات'];
+})();
+var REP_INP={k:'emp',l:'المندوب',type:'sel',opts:[['emp','موظف في المنشأة'],['ext','وسيط أو مندوب مستقل']],d:'emp'};
+function repAcc(o){ return o.emp==='ext'?{x:'5229',p:'2115'}:{x:'5291',p:'2114'}; }
+(function(){
+  var B=TREAT_BY_ID.furn_buy_comm; if(B){
+    B.inp=[SYS_INP].concat(B.inp.filter(function(i){ return i.k!=='sys'; }));
+    var j=B.je; B.je=function(o){ return j(o).map(function(e){ return {t:e.t,lines:e.lines.map(function(l){ return l&&l.d==='1302'&&o.sys==='per'?{d:'5128',v:l.v}:l; })}; }); };
+    B.tr+=' في الجرد المستمر تُحمّل على حساب الشحنة «بضاعة بالطريق» ثم تنتقل للمخزون؛ في الجرد الدوري تُسجل في «عمولات وكلاء ومكاتب الشراء» ضمن تكاليف الاستيراد وتُقفل في تكلفة المبيعات مع إدخال حصة الباقي في مخزون آخر المدة.';
+    B.ok=['5128']; }
+  var P=TREAT_BY_ID.furn_sales_piece; if(P){
+    P.inp=[{k:'n',l:'عدد القطع المباعة',d:10},REP_INP];
+    P.je=function(o){ var a=repAcc(o), c=r2(o.amt*(+o.n||0)); return [{t:'استحقاق عمولة القطع المباعة',lines:[{d:a.x,v:c},{c:a.p,v:c}]},{t:'صرف العمولة',lines:[{d:a.p,v:c},{c:'1102',v:c}]}]; };
+    P.ok=['5229','5291']; }
+  var R=TREAT_BY_ID.furn_sales_room; if(R){
+    R.inp=R.inp.filter(function(i){ return i.k!=='emp'&&i.k!=='rp'; }).concat([REP_INP,{k:'rp',l:'غرف مرتجعة صُرفت عمولتها سابقاً (تُسترد)',d:0}]);
+    var rj=R.je; R.je=function(o){ var a=repAcc(o), rec=r2((+o.rp||0)*o.amt);
+      var sw=function(c){ return c==='5229'?a.x:c==='2114'?a.p:c; };
+      var L=rj(o).map(function(e){ return {t:e.t,lines:e.lines.map(function(l){ return !l?l:l.d?{d:sw(l.d),v:l.v}:{c:sw(l.c),v:l.v}; })}; });
+      if(rec>0){ L.push({t:'عمولة صُرفت عن غرف أُرجعت لاحقاً — تُسترد من المندوب',lines:[{d:'1273',v:rec},{c:a.x,v:rec}]}); L.push({t:'خصم المسترد من العمولة التالية',lines:[{d:a.p,v:rec},{c:'1273',v:rec}]}); }
+      return L; };
+    R.ok=['5229','5291']; R.revOK=['5229','5291']; }
+  MIST.furn_sales_piece=(MIST.furn_sales_piece||[]).concat([['تحميل عمولة المندوب الموظف على «عمولات وسطاء مستقلين» فيختلط الإفصاح','5229']]);
+  MIST.furn_sales_room=(MIST.furn_sales_room||[]).concat([['شطب عمولة الغرفة المرتجعة مصروفاً بدل استردادها من المندوب',null]]);
+})();
 
 /* ===== التشغيل ===== */
 boot();
