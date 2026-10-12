@@ -317,6 +317,8 @@ a.acc:hover{color:var(--leaf-dark)}
 /* جدول التوزيع */
 table.sch th,table.sch td{padding:7px 6px;font-size:12.5px}
 table.sch td:first-child{white-space:nowrap}
+/* رابط المنصة التعليمية */
+.lnk{display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap;background:var(--surface-2);border-radius:12px;padding:10px 12px;font-size:13.5px;font-weight:700;word-break:break-all}
 /* الدليل التعليمي */
 .learn{border-right:4px solid var(--sky)}
 .rule{background:var(--sky-soft);color:var(--sky);border-radius:10px;padding:8px 12px;font-size:13px;margin-bottom:10px}
@@ -872,7 +874,7 @@ var TREAT_BY_ID={}; TREATS.forEach(function(t){ TREAT_BY_ID[t.id]=t; });
 /* ==========================================================================
    النواة: أدوات عامة + قاعدة البيانات + الصلاحيات + الدخول + المزامنة السحابية
    ========================================================================== */
-var APP_BUILD='2026-10-10-p8';
+var APP_BUILD='2026-10-12-p9';
 var LS_DB='mfp_db_v1', LS_SES='mfp_session_v1';
 
 function $(id){ return document.getElementById(id); }
@@ -3019,7 +3021,7 @@ function accInfo(c,side){
   h+='<div class="grid g2" style="gap:8px;margin:12px 0">'
     +[['رقم الحساب','<span class="num">'+c+'</span>'],['القائمة المالية',stName],['التصنيف',(cls||(t==='equity'?'حقوق ملكية':(t==='rev'?'إيراد':'مصروف')))],
       ['الطبيعة',natTxt],['المعيار المرجعي','<span class="pill pill-info">'+esc(g[4])+'</span>'],['الرصيد الحالي (مرحّل)',money(Math.abs(shown))+' <span class="mini">'+(Math.abs(bal)<0.005?'':(shown>=0?(nat==='dr'?'مدين':'دائن'):'⚠ عكس طبيعته'))+'</span>']]
-      .map(function(x){ return '<div class="ainf"><span class="mini">'+x[0]+'</span><div>'+x[1]+'</div></div>'; }).join('')+'</div>';
+      .filter(function(x){ return !(LEARN&&/الرصيد/.test(x[0])); }).map(function(x){ return '<div class="ainf"><span class="mini">'+x[0]+'</span><div>'+x[1]+'</div></div>'; }).join('')+'</div>';
   if(CONTRA[c]) h+='<div class="disclaimer" style="margin-bottom:8px">↔️ <b>حساب مقابل (Contra):</b> '+esc(CONTRA[c])+'، لذلك طبيعته عكس مجموعته.</div>';
   if(g[5]) h+='<div class="disclaimer" style="margin-bottom:8px">📌 <b>العرض والإفصاح:</b> '+esc(g[5])+'</div>';
   if(g[2]==='pl') h+='<div class="disclaimer" style="margin-bottom:8px">🔄 حساب مؤقت: يُقفل رصيده في نهاية السنة المالية في «الأرباح المبقاة».</div>';
@@ -3453,6 +3455,117 @@ function jeBoxHTML(t){ var list=buildJE(t), raw=t.je(G.o||{}), sch=t.alloc?alloc
 refreshJE=(function(prev){ return function(){ prev(); var e=$('jeBox'); if(e&&G.sel) e.innerHTML=jeBoxHTML(G.sel); }; })(refreshJE);
 /* كلمات الفترة والتاريخ تصف المدة لا البند — تُستبعد من مطابقة البحث */
 STOP=new RegExp(STOP.source.replace(')$','|الي|حتي|لمده|مده|خلال|شهر|شهور|اشهر|سنه|سنوات|سنين|يوم|ايام|تاريخ|بتاريخ|بدايه|نهايه|يبدا|ينتهي)$'));
+
+/* ==========================================================================
+   v9 — المنصة التعليمية برابط خارجي (/learn) وحسابات معزولة
+   • حسابات المتدربين في مساحة عمل مستقلة «learn» — ليست أعضاء في «main»
+     فقواعد Firebase تمنعهم من قراءة أي بيانات تشغيلية (التوريد أو المنصة)
+   • كل متدرب له صلاحيات: الدليل، المكتبة، دليل الحسابات، اختبر نفسك، أدوات المراجع
+   ========================================================================== */
+var LEARN=/[?&]learn\b/.test(location.search);
+var LEARN_WID='learn';
+var LEARN_MODS=[['guide','دليل المعايير الذكي (المعالجة والقيود والشرح)'],['stdlib','مكتبة المعايير'],['coa','دليل الحسابات'],['quiz','اختبر نفسك'],['auditor','أدوات المراجع (تعليمي)']];
+/* المتدرّب ليس دوراً داخلياً — لا يُضاف لقائمة أدوار المنصة */
+function learnEmail(u){ u=String(u||'').trim(); return u.indexOf('@')>0?u:'u'+hash(u.toLowerCase())+'@'+LEARN_WID+'.vegerp.app'; }
+function learnLink(){ var b=location.origin+location.pathname.replace(/[^\/]*$/,''); return b+'learn'; }
+
+/* ===== إدارة المتدربين (للمدير داخل المنصة) ===== */
+function learnRef(p){ return firebase.database().ref('workspaces/'+LEARN_WID+'/members'+(p?'/'+p:'')); }
+function learnReady(){ return cloudEnabled()&&firebase.auth().currentUser; }
+/* أول استخدام: يُسجَّل حساب المدير مديراً لمساحة التعلم (القاعدة تسمح بذلك فقط إن كانت المساحة فارغة) */
+function ensureLearnAdmin(){ var me=firebase.auth().currentUser.uid;
+  return learnRef(me).once('value').then(function(s){ var v=s.val(); if(v&&v.role==='admin') return true;
+    return learnRef(me).set({role:'admin',username:ME.username,name:ME.name,at:firebase.database.ServerValue.TIMESTAMP}).then(function(){ return true; }); }); }
+var LRN={list:null,err:''};
+function loadLearners(){ if(!learnReady()) return;
+  ensureLearnAdmin().then(function(){ return learnRef().once('value'); }).then(function(s){ var v=s.val()||{}; LRN.list=Object.keys(v).filter(function(k){ return v[k].role==='learner'; }).map(function(k){ return Object.assign({uid:k},v[k]); }); LRN.err=''; drawLearners(); })
+    .catch(function(e){ LRN.err=String(e&&(e.code||e.message)||e); drawLearners(); }); }
+function permChips(p){ return LEARN_MODS.filter(function(m){ return p&&p[m[0]]; }).map(function(m){ return '<span class="tag">'+esc(m[1].split(' (')[0])+'</span>'; }).join('')||'<span class="mini">بلا صلاحيات</span>'; }
+function drawLearners(){ var b=$('learnList'); if(!b) return;
+  if(LRN.err){ b.innerHTML='<div class="login-err" style="display:block">تعذّر الوصول لمساحة التعلم: '+esc(LRN.err)+(/permission/i.test(LRN.err)?' — مساحة التعلم مسجّلة باسم مدير آخر.':'')+'</div>'; return; }
+  if(!LRN.list){ b.innerHTML='<div class="mini">جارٍ التحميل…</div>'; return; }
+  b.innerHTML=LRN.list.length?LRN.list.map(function(u){ return '<div class="sec" style="display:block"><div class="btn-row" style="justify-content:space-between"><div><b>'+esc(u.name)+'</b> <span class="mini num">'+esc(u.username)+'</span> '+(u.active===false?'<span class="pill pill-bad">موقوف</span>':'<span class="pill pill-ok">نشط</span>')+'</div>'
+      +'<div class="btn-row"><button class="btn-sm" onclick="openLearner(\''+u.uid+'\')">الصلاحيات</button><button class="btn-sm" onclick="toggleLearner(\''+u.uid+'\')">'+(u.active===false?'تفعيل':'إيقاف')+'</button><button class="btn-sm" style="color:var(--tomato)" onclick="delLearner(\''+u.uid+'\')">حذف</button></div></div><div class="tags" style="margin-top:6px">'+permChips(u.perms)+'</div></div>'; }).join(''):'<div class="empty" style="padding:12px">لا يوجد متدربون بعد</div>'; }
+function learnersPanel(){ if(ME.role!=='manager') return '';
+  var h='<div class="panel" style="margin-top:14px;border-right:4px solid var(--sky)"><h3>🎓 المنصة التعليمية — رابط خارجي للمتدربين</h3>'
+   +'<p style="font-size:13.5px;line-height:1.9;color:var(--ink-2)">حسابات المتدربين <b>معزولة تماماً</b>: تدخل من الرابط أدناه فترى المحتوى التعليمي المسموح لها فقط، ولا يمكنها الدخول إلى نظام التوريد أو المنصة أو قراءة أي بيانات تشغيلية — المنع مفروض في قواعد الخادم وليس في الواجهة فقط.</p>'
+   +'<div class="lnk"><span class="num" id="lrnUrl">'+esc(learnLink())+'</span><div class="btn-row"><button class="btn-sm" onclick="copyLearn()">📋 نسخ الرابط</button><a class="btn-sm" style="text-decoration:none;display:inline-flex;align-items:center" target="_blank" href="'+esc(learnLink())+'">↗ فتح</a></div></div>';
+  if(!learnReady()) return h+'<div class="login-err" style="display:block;margin-top:10px">إدارة المتدربين تتطلب الدخول بحسابك السحابي (المؤشر «متصل ☁»).</div></div>';
+  setTimeout(loadLearners,0);
+  return h+'<div class="btn-row" style="margin:12px 0"><button class="btn-main" onclick="openLearner()">＋ متدرّب جديد</button></div><div id="learnList"><div class="mini">جارٍ التحميل…</div></div></div>'; }
+var _usersView=VIEWS.users;
+VIEWS.users=function(){ return _usersView()+learnersPanel(); };
+function copyLearn(){ var t=learnLink(); (navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).then(function(){ toast('نُسخ الرابط'); },function(){ prompt('انسخ الرابط:',t); }); }
+function openLearner(uid){ var u=uid&&LRN.list?LRN.list.filter(function(x){ return x.uid===uid; })[0]:null, p=u?(u.perms||{}):{guide:1,stdlib:1,coa:1,quiz:1};
+  modal(u?'صلاحيات المتدرّب':'متدرّب جديد',(u?'<p><b>'+esc(u.name)+'</b> <span class="mini num">'+esc(u.username)+'</span></p>':'<div class="grid g2"><div class="field"><label>الاسم</label><input id="ln_name"></div><div class="field"><label>اسم المستخدم (للدخول)</label><input id="ln_user" autocapitalize="off" spellcheck="false"></div>'
+      +'<div class="field" style="grid-column:1/-1"><label>كلمة المرور <span class="mini">(٦ خانات على الأقل — سلّمها للمتدرّب)</span></label><input id="ln_pass" type="text" autocomplete="off"></div></div>')
+    +'<div style="font-weight:800;margin:6px 0">ما يمكنه رؤيته</div>'+LEARN_MODS.map(function(m){ return '<label style="display:flex;gap:8px;align-items:center;min-height:40px;font-weight:700"><input type="checkbox" class="lnp" value="'+m[0]+'"'+(p[m[0]]?' checked':'')+'>'+esc(m[1])+'</label>'; }).join(''),
+    '<button class="btn-main" onclick="saveLearner(\''+(uid||'')+'\')">💾 حفظ</button>'); }
+function saveLearner(uid){ var perms={}; document.querySelectorAll('.lnp').forEach(function(c){ if(c.checked) perms[c.value]=1; });
+  if(uid){ learnRef(uid+'/perms').set(perms).then(function(){ log('edit','المنصة التعليمية','تعديل صلاحيات متدرّب'); save(); closeModal(); toast('حُفظت الصلاحيات'); loadLearners(); },function(e){ toast('تعذّر الحفظ: '+(e.code||e.message)); }); return; }
+  var name=$('ln_name').value.trim(), un=$('ln_user').value.trim(), pw=$('ln_pass').value;
+  if(!name||!un){ toast('الاسم واسم المستخدم مطلوبان'); return; } if(pw.length<6){ toast('كلمة المرور ٦ خانات على الأقل'); return; }
+  if(LRN.list&&LRN.list.some(function(x){ return String(x.username).toLowerCase()===un.toLowerCase(); })){ toast('اسم المستخدم موجود'); return; }
+  var sec=firebase.apps.filter(function(a){ return a.name==='learnSec'; })[0]||firebase.initializeApp(CLOUD_CONFIG,'learnSec'), em=learnEmail(un);
+  toast('جارٍ إنشاء الحساب…');
+  /* حساب ثانوي كي لا يُسجَّل خروج المدير؛ إن كان الحساب موجوداً مسبقاً نتحقق بكلمة المرور نفسها */
+  sec.auth().createUserWithEmailAndPassword(em,pw).catch(function(e){ if(e&&e.code==='auth/email-already-in-use') return sec.auth().signInWithEmailAndPassword(em,pw); throw e; })
+   .then(function(c){ var id=c.user.uid; return sec.auth().signOut().then(function(){ return learnRef(id).set({role:'learner',username:un,name:name,perms:perms,active:true,by:ME.username,at:firebase.database.ServerValue.TIMESTAMP}); }); })
+   .then(function(){ log('add','المنصة التعليمية','إضافة متدرّب: '+un); save(); closeModal(); toast('أُضيف المتدرّب'); loadLearners();
+      var msg='مرحباً '+name+'،\nرابط المنصة التعليمية (دليل المعايير):\n'+learnLink()+'\nاسم المستخدم: '+un;
+      modal('✅ تم إنشاء الحساب','<p style="line-height:2">أرسل للمتدرّب الرابط واسم المستخدم، وسلّمه كلمة المرور بشكل منفصل.</p><textarea readonly style="min-height:110px">'+esc(msg)+'</textarea>',
+        '<a class="btn-main" style="text-decoration:none;display:inline-flex;align-items:center;justify-content:center" target="_blank" href="https://wa.me/?text='+encodeURIComponent(msg)+'">مشاركة عبر واتساب</a><button class="btn" onclick="closeModal()">إغلاق</button>'); })
+   .catch(function(e){ var c=String(e&&e.code||''); toast(c==='auth/wrong-password'||c==='auth/invalid-credential'?'اسم المستخدم مستخدم مسبقاً بكلمة مرور مختلفة':c==='auth/weak-password'?'كلمة المرور ضعيفة':'تعذّر الإنشاء: '+(e.message||c)); }); }
+function toggleLearner(uid){ var u=LRN.list.filter(function(x){ return x.uid===uid; })[0]; learnRef(uid+'/active').set(u.active===false).then(function(){ log('edit','المنصة التعليمية',(u.active===false?'تفعيل':'إيقاف')+' متدرّب '+u.username); save(); loadLearners(); }); }
+function delLearner(uid){ var u=LRN.list.filter(function(x){ return x.uid===uid; })[0];
+  confirmBox('حذف المتدرّب «'+esc(u.name)+'»؟ لن يتمكن من الدخول.',function(){ learnRef(uid).remove().then(function(){ log('delete','المنصة التعليمية','حذف متدرّب '+u.username); save(); loadLearners(); toast('حُذف'); }); }); }
+
+/* ===== وضع التعلم (عند الفتح من الرابط /learn) ===== */
+if(LEARN){
+  var LP=function(){ return ME&&ME.learnAdmin?{guide:1,stdlib:1,coa:1,quiz:1,auditor:1}:((ME&&ME.lperms)||{}); };
+  can=function(mod,act){ if(!ME) return false; var p=LP(); act=act||'v';
+    if(mod==='guide') return (act==='v'||act==='p')&&!!(p.guide||p.stdlib);
+    if(mod==='audit') return !!p.auditor&&(act==='v'||act==='a'||act==='e'||act==='p');
+    if(mod==='dash') return act==='v';
+    return false; };
+  NAV=[{id:'home',ic:'🏠',n:'الرئيسية',g:'المنصة التعليمية'},{id:'guide',ic:'📚',n:'دليل المعايير الذكي',sn:'الدليل',lp:'guide',g:'المنصة التعليمية'},
+       {id:'stdlib',ic:'📖',n:'مكتبة المعايير',sn:'المكتبة',lp:'stdlib',g:'المنصة التعليمية'},{id:'coa',ic:'🌳',n:'دليل الحسابات',sn:'الحسابات',lp:'coa',g:'المنصة التعليمية'},
+       {id:'auditor',ic:'🧑‍⚖️',n:'أدوات المراجع',sn:'المراجع',lp:'auditor',g:'المنصة التعليمية'}];
+  navOk=function(n){ return !n.lp||!!LP()[n.lp]; };
+  buildNav=function(){ var ns=NAV.filter(navOk);
+    $('sideNav').innerHTML='<div class="grp">المنصة التعليمية</div>'+ns.map(function(n){ return '<button data-v="'+n.id+'" onclick="go(\''+n.id+'\')"><span class="ic">'+n.ic+'</span>'+n.n+'</button>'; }).join('');
+    $('bottomNav').innerHTML=ns.slice(0,4).map(function(n){ return '<button data-v="'+n.id+'" onclick="go(\''+n.id+'\')"><span class="ic">'+n.ic+'</span>'+(n.sn||n.n)+'</button>'; }).join('')+'<button data-v="more" onclick="openMore()"><span class="ic">☰</span>المزيد</button>'; };
+  openMore=function(){ openSheet('<div class="sheet-grid">'+NAV.filter(navOk).map(function(n){ return '<button onclick="closeSheet();go(\''+n.id+'\')"><span class="ic">'+n.ic+'</span>'+(n.sn||n.n)+'</button>'; }).join('')+'<button onclick="logout()"><span class="ic">🚪</span>خروج</button></div>'); };
+  openUserMenu=function(){ openSheet('<div style="margin-bottom:12px"><b>'+esc(ME.name)+'</b><div class="mini">'+esc(ME.username)+' — 🎓 '+(ME.learnAdmin?'مدير (معاينة)':'متدرّب')+'</div></div><button class="btn-del" style="width:100%" onclick="logout()">🚪 تسجيل الخروج</button>'); };
+  paintUser=function(){ $('uName').textContent=ME.name; $('uRole').textContent=ME.learnAdmin?'مدير (معاينة)':'متدرّب'; $('uAv').textContent=(ME.name||'?').trim().charAt(0); $('coName').textContent='المنصة التعليمية'; };
+  smartAlerts=function(){ return []; };
+  VIEWS.home=function(){ var ns=NAV.filter(function(n){ return n.id!=='home'&&navOk(n); });
+    return '<div class="guide-hero"><h2>🎓 مرحباً '+esc(ME.name.split(' ')[0])+'</h2><p>منصة تعليمية للمعايير الدولية للتقرير المالي المعتمدة في المملكة والمعايير الدولية للمراجعة: اكتب أي معاملة لتعرف المعيار والمعالجة والقيد، ولماذا، وأثره على القوائم المالية.</p></div>'
+      +'<div class="apps-h">ما يمكنك استخدامه</div><div class="apps">'+ns.map(function(n){ return '<button class="app" onclick="go(\''+n.id+'\')"><span class="ai">'+n.ic+'</span><span class="an">'+n.n+'</span></button>'; }).join('')+'</div>'
+      +(LP().guide?'<div class="panel" style="margin-top:16px"><h3>💡 كيف تبدأ</h3><div class="sc" style="font-size:14px;line-height:2">1) افتح «دليل المعايير» واكتب معاملة مثل: «بدل سكن 10000 من 2026-01-01 إلى 2026-06-30».<br>2) '+(LP().quiz?'جرّب «اختبر نفسك» قبل أن تنظر للقيد.<br>3) ':'')+'اقرأ «لماذا هذا القيد؟» و«الأثر على القوائم المالية» و«الأخطاء الشائعة».<br>اضغط أي حساب في القيد لمعرفة موقعه في دليل الحسابات.</div></div>':''); };
+  var _tv=treatView; treatView=function(t){ var h=_tv(t); if(!LP().quiz) h=h.replace(/<button class="btn-alt qz-btn"[^>]*>[\s\S]*?<\/button>/,''); return h; };
+  var _av=VIEWS.auditor; VIEWS.auditor=function(){ if(AT.tab==='health'||AT.tab==='ana') AT.tab='mat'; return _av().replace(/<button class="[^"]*" onclick="AT\.tab='(health|ana)';render\(\)">[^<]*<\/button>/g,''); };
+  /* الدخول: حساب المتدرب في مساحة «learn» — أو حساب مدير المنشأة للمعاينة */
+  var learnFail=function(m){ loginErr(m); try{ firebase.auth().signOut(); }catch(e){} };
+  var learnStart=function(m,adm){ ME={id:'L-'+(m.uid||''),username:m.username,name:m.name||m.username,role:'learner',lperms:m.perms||{},learnAdmin:!!adm};
+    $('lg_pass').value=''; $('loginScreen').classList.add('hidden'); $('app').classList.remove('hidden'); setCloud('ok'); paintUser(); buildNav(); go(location.hash.slice(1)||'home'); };
+  var learnCheck=function(user,un){ return firebase.database().ref('workspaces/'+LEARN_WID+'/members/'+user.uid).once('value').then(function(s){ var m=s.val();
+      if(m&&m.role==='learner'){ if(m.active===false) throw {code:'inactive'}; m.uid=user.uid; return [m,false]; }
+      return firebase.database().ref('workspaces/'+cloudWid()+'/members/'+user.uid).once('value').then(function(s2){ var mm=s2.val(); if(mm&&mm.role==='admin') return [{uid:user.uid,username:un||mm.username||'',name:mm.name||un||'المدير'},true]; throw {code:'not-learner'}; }); }); };
+  doLogin=function(ev){ ev&&ev.preventDefault(); loginErr(''); var un=$('lg_user').value.trim(), pw=$('lg_pass').value; if(!un||!pw){ loginErr('أدخل اسم المستخدم وكلمة المرور'); return; }
+    if(!cloudEnabled()){ loginErr('المنصة التعليمية تتطلب اتصالاً بالإنترنت'); return; }
+    var btn=$('lgBtn'); btn.disabled=true; btn.textContent='جارٍ التحقق…'; var done=function(){ btn.disabled=false; btn.textContent='دخول'; };
+    firebase.auth().signInWithEmailAndPassword(learnEmail(un),pw).catch(function(){ return firebase.auth().signInWithEmailAndPassword(synthEmail(un),pw); })
+      .then(function(c){ return learnCheck(c.user,un); }).then(function(r){ done(); learnStart(r[0],r[1]); })
+      .catch(function(e){ done(); var c=String(e&&e.code||''); learnFail(c==='inactive'?'هذا الحساب موقوف — تواصل مع المدير.':c==='not-learner'?'هذا الحساب غير مضاف للمنصة التعليمية.':/network/.test(c)?'تعذّر الاتصال بالإنترنت.':'اسم المستخدم أو كلمة المرور غير صحيحة'); }); };
+  boot=function(){ DB=loadDB(); document.title='المنصة التعليمية — دليل المعايير';
+    var lc=document.querySelector('.login-card'); lc.querySelector('h2').textContent='المنصة التعليمية'; lc.querySelector('.lead').textContent='دليل المعايير الذكي • المعالجة المحاسبية • القيود • المراجعة';
+    lc.querySelector('.mark').textContent='🎓'; lc.querySelector('.author-tag').innerHTML='الدخول بالحساب الذي أرسله لك المدير<br>إعداد وتصميم <b>محمد فرج</b> — جميع الحقوق محفوظة © 2026';
+    loginNote('');
+    if(!cloudEnabled()) return;
+    var off=firebase.auth().onAuthStateChanged(function(u){ off(); if(!u) return; learnCheck(u,'').then(function(r){ learnStart(r[0],r[1]); }).catch(function(){ try{ firebase.auth().signOut(); }catch(e){} }); }); };
+  logout=function(){ try{ firebase.auth().signOut(); }catch(e){} location.hash=''; location.reload(); };
+}
 
 /* ===== التشغيل ===== */
 boot();
