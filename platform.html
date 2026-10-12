@@ -874,7 +874,7 @@ var TREAT_BY_ID={}; TREATS.forEach(function(t){ TREAT_BY_ID[t.id]=t; });
 /* ==========================================================================
    النواة: أدوات عامة + قاعدة البيانات + الصلاحيات + الدخول + المزامنة السحابية
    ========================================================================== */
-var APP_BUILD='2026-10-12-p15';
+var APP_BUILD='2026-10-12-p16';
 var LS_DB='mfp_db_v1', LS_SES='mfp_session_v1';
 
 function $(id){ return document.getElementById(id); }
@@ -4460,6 +4460,141 @@ caseDefaults=(function(f){ return function(t,amt){ var o=f(t,amt); if(t.id==='pp
 pickTreat=(function(f){ return function(id,silent){ f(id,silent); if((id==='ppe'||id==='intang')&&G.o){ if(!G.o.buy) G.o.buy=today(); if(!G.o.use) G.o.use=G.o.buy;
   var q=String(G.q||'').replace(/[٠-٩]/g,function(d){ return '٠١٢٣٤٥٦٧٨٩'.indexOf(d); }), mm=/(\d+)\s*(شهر|شهور|اشهر|أشهر)/.exec(q), yy=/(\d+)\s*(سنه|سنة|سنوات)/.exec(q);
   if(mm) G.o.lifeM=+mm[1]; else if(yy) G.o.lifeM=+yy[1]*12; if(!silent) $('gRes').innerHTML=guideResults(); } }; })(pickTreat);
+
+/* ==========================================================================
+   v16 — (1) التاريخ الهجري (أم القرى) في العقود وتحويله للميلادي
+         (2) الإيجارات IFRS 16 بالتواريخ: جدول دفعات، قيمة حالية بالأيام، فائدة واستهلاك حسب السنة المالية
+         (3) عمولات غرف النوم: وكيل الشراء، المندوب لكل قطعة، المندوب لكل غرفة (شهري/ربع سنوي)
+   ========================================================================== */
+var HFMT=(function(){ try{ return new Intl.DateTimeFormat('en-u-ca-islamic-umalqura',{timeZone:'UTC',year:'numeric',month:'numeric',day:'numeric'}); }catch(e){ return null; } })();
+var H_MONTHS=['محرم','صفر','ربيع الأول','ربيع الآخر','جمادى الأولى','جمادى الآخرة','رجب','شعبان','رمضان','شوال','ذو القعدة','ذو الحجة'];
+function gToHp(t){ if(!HFMT) return null; var p={}; HFMT.formatToParts(new Date(t)).forEach(function(x){ p[x.type]=x.value; }); return {y:+String(p.year).replace(/\D/g,''),m:+p.month,d:+p.day}; }
+function gToH(s){ var t=pD(s); if(t==null) return ''; var h=gToHp(t); return h?h.y+'-'+String(h.m).padStart(2,'0')+'-'+String(h.d).padStart(2,'0'):''; }
+function hToG(y,m,d){ if(!HFMT) return null; while(m>12){ m-=12; y++; } while(m<1){ m+=12; y--; }
+  var est=Date.UTC(622,6,16)+Math.round(((y-1)*354.36667+(m-1)*29.5306+(d-1))*DAY);
+  for(var k=0;k<=8;k++) for(var s=-1;s<=1;s+=2){ var t=est+s*k*DAY, h=gToHp(t); if(h&&h.y===y&&h.m===m&&h.d===d) return fD(t); }
+  return d>29?hToG(y,m,d-1):null; }
+function parseH(s){ s=String(s||'').replace(/[٠-٩]/g,function(c){ return '٠١٢٣٤٥٦٧٨٩'.indexOf(c); }).trim(); var m=/^(\d{4})\D(\d{1,2})\D(\d{1,2})$/.exec(s)||null, y,mo,d;
+  if(m){ y=+m[1]; mo=+m[2]; d=+m[3]; } else { m=/^(\d{1,2})\D(\d{1,2})\D(\d{4})$/.exec(s); if(!m) return null; d=+m[1]; mo=+m[2]; y=+m[3]; }
+  if(mo<1||mo>12||d<1||d>30||y<1300||y>1600) return null; return {y:y,m:mo,d:d}; }
+function hDar(h){ return h.d+' '+H_MONTHS[h.m-1]+' '+h.y+'هـ'; }
+function hAddMonths(h,n){ var y=h.y, m=h.m+n; return hToG(y,m,h.d); }
+var CAL_INP={k:'cal',l:'تقويم العقد',type:'calsel',d:'g'};
+var HFROM={k:'hfrom',l:'بداية العقد (هجري: 1447-03-01)',type:'htext'}, HTO={k:'hto',l:'نهاية العقد (هجري)',type:'htext'};
+/* تطبيق التقويم الهجري: يحوّل من/إلى إلى ميلادي قبل أي احتساب */
+function applyCal(o){ if(!o||o.cal!=='h') return; var a=parseH(o.hfrom), b=parseH(o.hto), ga=a&&hToG(a.y,a.m,a.d), gb=b&&hToG(b.y,b.m,b.d); if(ga) o.from=ga; if(gb) o.to=gb; }
+function calNote(o){ if(!o||o.cal!=='h') return ''; var a=parseH(o.hfrom), b=parseH(o.hto);
+  if(!a||!b) return '<div class="disclaimer" style="margin-bottom:8px">⚠️ أدخل تاريخي البداية والنهاية بالهجري بصيغة 1447-03-01.</div>';
+  var days=Math.round((pD(o.to)-pD(o.from))/DAY)+1;
+  return '<div class="sum">🌙 <b>العقد بالتقويم الهجري (أم القرى):</b> من '+hDar(a)+' = <b>'+fDar(o.from)+'</b> إلى '+hDar(b)+' = <b>'+fDar(o.to)+'</b> — المدة الفعلية <b class="num">'+days+'</b> يوماً.'
+    +'<br>المعايير لا تشترط تقويماً معيناً؛ العبرة بالمدة الفعلية وتواريخ الدفع، والسنة المالية ميلادية فيُوزّع على الأيام الفعلية. السنة الهجرية 354–355 يوماً، فإيجار سنة هجرية يعادل نحو '+fmt(365/354.37*100,1)+'% منه سنوياً بالميلادي، والعقد لسنة هجرية واحدة أقل من 12 شهراً ميلادياً.</div>'; }
+calcInputs=(function(f){ return function(t){ var inp=t.inp||[]; if(!inp.some(function(i){ return i.type==='calsel'; })) return f(t);
+  var H=G.o.cal==='h', t2=Object.assign({},t,{inp:inp.filter(function(i){ return i.type!=='calsel'&&i.type!=='htext'&&!(H&&(i.k==='from'||i.k==='to')); })}), h=f(t2);
+  var x='<div><label>'+esc(CAL_INP.l)+'</label><select onchange="calSwitch(this.value)"><option value="g"'+(H?'':' selected')+'>ميلادي</option><option value="h"'+(H?' selected':'')+'>هجري (أم القرى)</option></select></div>';
+  if(H) [HFROM,HTO].forEach(function(i){ x+='<div><label>'+esc(i.l)+'</label><input type="text" inputmode="numeric" placeholder="1447-03-01" value="'+esc(G.o[i.k]||'')+'" onchange="G.o.'+i.k+'=this.value;refreshJE()"></div>'; });
+  return h.replace('<div class="calc">','<div class="calc">'+x); }; })(calcInputs);
+function calSwitch(v){ G.o.cal=v; if(v==='h'){ if(!G.o.hfrom) G.o.hfrom=gToH(G.o.from||today()); if(!G.o.hto) G.o.hto=gToH(G.o.to||today()); } $('gRes').innerHTML=guideResults(); }
+buildJE=(function(f){ return function(t){ applyCal(G.o); return f(t); }; })(buildJE);
+jeBoxHTML=(function(f){ return function(t){ applyCal(G.o); return calNote(G.o)+f(t); }; })(jeBoxHTML);
+/* إضافة خيار التقويم الهجري لكل الحالات الموزعة بالتاريخ */
+TREATS.forEach(function(t){ if(t.alloc&&!(t.inp||[]).some(function(i){ return i.type==='calsel'; })) t.inp=[CAL_INP].concat(t.inp,[HFROM,HTO]); });
+
+/* ===== الإيجار (المستأجر) — IFRS 16 بالتواريخ ===== */
+var FREQ_M={y:12,h:6,q:3,m:1};
+function leasePlan(o){ var T0=pD(o.from), T1=pD(o.to); if(T0==null||T1==null||T1<T0) return null; T1+=DAY;
+  var pm=FREQ_M[o.freq]||12, H=o.cal==='h'&&parseH(o.hfrom), h0=H?parseH(o.hfrom):null, pays=[];
+  var at=function(k){ return H?pD(hAddMonths(h0,k*pm)):pD(addMonths(o.from,k*pm)); };
+  for(var k=0;k<600;k++){ var s=at(k); if(s==null||s>=T1) break; var e=Math.min(at(k+1)||T1,T1); pays.push({t:o.tm==='arr'?e-DAY:s,amt:+o.amt||0,ps:s,pe:e-DAY}); }
+  var r=(+o.rate||0)/100, df=function(t){ return Math.pow(1+r,-(t-T0)/DAY/365); }, PV=0; pays.forEach(function(p){ p.pv=r2(p.amt*df(p.t)); PV+=p.amt*df(p.t); }); PV=r2(PV);
+  var days=Math.round((T1-T0)/DAY), short=T1<=pD(addMonths(o.from,12))||!!o.low, total=r2(pays.reduce(function(a,p){ return a+p.amt; },0));
+  return {T0:T0,T1:T1,pays:pays,PV:PV,days:days,short:short,total:total,r:r}; }
+/* الالتزام في تاريخ معين (بعد الدفعات المستحقة حتى ذلك التاريخ) مع الفائدة حسب الأيام */
+function leaseRun(P,until){ var bal=P.PV, last=P.T0, interest=0, paid=0;
+  P.pays.forEach(function(p){ if(p.t>until) return; var i=bal*(Math.pow(1+P.r,(p.t-last)/DAY/365)-1); interest+=i; bal+=i-p.amt; paid+=p.amt; last=p.t; });
+  var i2=bal*(Math.pow(1+P.r,(until-last)/DAY/365)-1); interest+=i2; bal+=i2; return {bal:Math.max(0,r2(bal)),interest:r2(interest),paid:r2(paid)}; }
+function leaseYears(o,P){ var fye=Math.min(12,Math.max(1,Math.round(+o.fye||12))), rou=r2(P.PV+(+o.idc||0)), sch=allocSchedule(P.short?P.total:rou,o.from,fD(P.T1-DAY),'months'), by={}, yrs=[];
+  sch.forEach(function(s){ var y=fyOf(s.to,fye); if(!by[y]){ by[y]={y:y,dep:0,from:s.from}; yrs.push(by[y]); } by[y].dep=r2(by[y].dep+s.amt); by[y].to=s.to; });
+  var prev={bal:P.PV,interest:0,paid:0}, accDep=0;
+  yrs.forEach(function(b){ var end=pD(b.to), cur=leaseRun(P,end), nxt=leaseRun(P,pD(addMonths(b.to,12)));
+    b.int=r2(cur.interest-prev.interest); b.paid=r2(cur.paid-prev.paid); b.bal=cur.bal; b.curr=r2(Math.max(0,cur.bal-nxt.bal)); accDep=r2(accDep+b.dep); b.nbv=r2(rou-accDep); prev=cur; });
+  return {fye:fye,rou:rou,yrs:yrs}; }
+(function(){ var t=TREAT_BY_ID.lease; if(!t) return;
+  t.n='استئجار مكتب أو مستودع أو معرض أو معدات (عقد إيجار — ميلادي أو هجري)';
+  t.q+=' عقد ايجار هجري ايجار هجري ايجار معرض ايجار صاله عرض دفعات الايجار حق استخدام التزام ايجار ifrs 16';
+  t._k=toks(t.q+' '+t.n); t.std=['IFRS 16','VAT-KSA','IAS 1'];
+  t.tr='المستأجر يُثبت «أصل حق استخدام» و«التزام إيجار» بالقيمة الحالية للدفعات غير المسددة في تاريخ بدء العقد، مخصومة بمعدل الاقتراض الإضافي (IFRS 16.26). ثم: فائدة على الالتزام بطريقة الفائدة الفعلية حسب الأيام، واستهلاك لأصل حق الاستخدام بالقسط الثابت على مدة العقد (IFRS 16.31-38). الاستثناء: العقود 12 شهراً فأقل أو الأصول منخفضة القيمة تُحمّل مصروفاً بالقسط الثابت على المدة (IFRS 16.6). تاريخ العقد الهجري يُحوَّل للميلادي وتُحتسب المدة والخصم بالأيام الفعلية. ضريبة القيمة المضافة 15% على الإيجار التجاري ليست جزءاً من الالتزام (أصل قابل للخصم عند كل دفعة)، والسكني معفى. يُفصل الالتزام في نهاية السنة إلى متداول (يُسدد خلال 12 شهراً) وغير متداول.';
+  t.inp=[CAL_INP,FROM_INP,TO_INP,{k:'freq',l:'دورية الدفع',type:'sel',opts:[['y','سنوية'],['h','نصف سنوية'],['q','ربع سنوية'],['m','شهرية']],d:'y'},{k:'tm',l:'توقيت الدفع',type:'sel',opts:[['adv','مقدماً في بداية كل فترة'],['arr','في نهاية كل فترة']],d:'adv'},
+    {k:'rate',l:'معدل الاقتراض الإضافي %',d:6},{k:'idc',l:'تكاليف مباشرة أولية (سعي، توثيق)',d:0},{k:'low',l:'أصل منخفض القيمة (استثناء)',type:'chk',d:false},VAT_INP,{k:'fye',l:'شهر نهاية السنة المالية (1-12)',d:12},HFROM,HTO];
+  t.amtL='قيمة الدفعة الواحدة (قبل الضريبة)';
+  t.xcalc=function(o){ var P=leasePlan(o); if(!P) return '<div class="disclaimer">أدخل تاريخي بداية العقد ونهايته.</div>'; var Y=leaseYears(o,P), cur=function(v){ return '<td class="r num">'+fmt(v)+'</td>'; };
+    var h='<div class="je"><div style="padding:8px 12px;font-weight:800;font-size:13px;background:var(--surface-2);border-bottom:1px solid var(--line-soft)">🗓️ جدول الدفعات — '+P.pays.length+' دفعة، الإجمالي '+fmt(P.total)+' — المدة '+P.days+' يوماً'+(P.short?' — <span class="pill pill-warn">عقد قصير الأجل/منخفض القيمة: مصروف بالقسط الثابت</span>':' — القيمة الحالية '+fmt(P.PV))+'</div>'
+      +'<div class="tbl-wrap"><table><thead><tr><th>#</th><th>تاريخ الدفع</th>'+(o.cal==='h'?'<th>هجري</th>':'')+'<th class="r">الدفعة</th>'+(P.short?'':'<th class="r">القيمة الحالية</th>')+'</tr></thead><tbody>'
+      +P.pays.map(function(p,i){ var hh=gToHp(p.t); return '<tr><td class="num">'+(i+1)+'</td><td>'+fDar(fD(p.t))+'</td>'+(o.cal==='h'?'<td>'+(hh?hDar(hh):'')+'</td>':'')+cur(p.amt)+(P.short?'':cur(p.pv))+'</tr>'; }).join('')+'</tbody></table></div></div>';
+    h+='<div class="je"><div style="padding:8px 12px;font-weight:800;font-size:13px;background:var(--surface-2);border-bottom:1px solid var(--line-soft)">📅 الأثر على كل سنة مالية</div><div class="tbl-wrap"><table><thead><tr><th>السنة المالية</th>'
+      +(P.short?'<th class="r">مصروف الإيجار</th><th class="r">المدفوع</th>':'<th class="r">الفائدة</th><th class="r">استهلاك حق الاستخدام</th><th class="r">المدفوع</th><th class="r">الالتزام آخر السنة</th><th class="r">منه متداول</th><th class="r">صافي حق الاستخدام</th>')+'</tr></thead><tbody>'
+      +Y.yrs.map(function(b){ return '<tr><td><b>'+esc(fyLabel(b.y,Y.fye))+'</b></td>'+(P.short?cur(b.dep)+cur(b.paid):cur(b.int)+cur(b.dep)+cur(b.paid)+cur(b.bal)+cur(b.curr)+cur(b.nbv))+'</tr>'; }).join('')+'</tbody></table></div></div>';
+    if(!P.short) h+='<div class="sum">📊 إجمالي ما يُحمّل على الربح أو الخسارة = الفائدة '+fmt(r2(Y.yrs.reduce(function(a,b){ return a+b.int; },0)))+' + الاستهلاك '+fmt(Y.rou)+' = إجمالي الدفعات '+fmt(P.total)+(o.idc?' + التكاليف الأولية':'')+' — لكن التوقيت يختلف: العبء أعلى في السنوات الأولى بسبب الفائدة.</div>';
+    return h; };
+  t.je=function(o){ applyCal(o); var P=leasePlan(o); if(!P) return []; var Y=leaseYears(o,P), y1=Y.yrs[0], vat=function(v){ return vatIn(o,v); }, L=[];
+    if(P.short){ var p1=P.pays.filter(function(p){ return y1&&p.t<=pD(y1.to); }).reduce(function(a,p){ return a+p.amt; },0);
+      L.push({t:'دفعات السنة الأولى (مدفوعة مقدماً)',lines:[{d:'1220',v:r2(p1)},{d:'1230',v:vat(r2(p1))},{c:'1102',v:r2(p1+vat(r2(p1)))}]});
+      Y.yrs.slice(0,2).forEach(function(b){ L.push({t:'مصروف الإيجار — '+fyLabel(b.y,Y.fye),lines:[{d:'5210',v:b.dep},{c:'1220',v:b.dep}]}); }); return L; }
+    L.push({t:'الاعتراف الأولي — '+fDar(o.from),lines:[{d:'1510',v:Y.rou},{c:'2170',v:P.PV},{c:'1102',v:+o.idc||0}]});
+    if(y1){ var a=y1.paid; L.push({t:'دفعات '+fyLabel(y1.y,Y.fye),lines:[{d:'2170',v:a},{d:'1230',v:vat(a)},{c:'1102',v:r2(a+vat(a))}]});
+      L.push({t:'فائدة التزام الإيجار — '+fyLabel(y1.y,Y.fye),lines:[{d:'5240',v:y1.int},{c:'2170',v:y1.int}]});
+      L.push({t:'استهلاك أصل حق الاستخدام — '+fyLabel(y1.y,Y.fye),lines:[{d:'5221',v:y1.dep},{c:'1511',v:y1.dep}]}); }
+    return L; };
+  t.ok=['5210','5221','5240'];
+  MIST.lease=[['تحميل دفعات عقد طويل الأجل مصروف إيجار بدل أصل حق استخدام والتزام','5210'],['اعتبار السنة الهجرية سنة ميلادية كاملة عند توزيع الإيجار',null],['إدراج ضريبة القيمة المضافة ضمن التزام الإيجار','2170'],['عرض كامل الالتزام متداولاً أو غير متداول دون فصل',null]];
+})();
+caseDefaults=(function(f){ return function(t,amt){ var o=f(t,amt); if(t.id==='lease'){ o.from=defFrom(); o.to=defTo(o.from,36); } return o; }; })(caseDefaults);
+pickTreat=(function(f){ return function(id,silent){ f(id,silent); if(id!=='lease'||!G.o) return; if(!G.o.from) G.o.from=defFrom();
+  var q=String(G.q||'').replace(/[٠-٩]/g,function(d){ return '٠١٢٣٤٥٦٧٨٩'.indexOf(d); }), mm=/(\d+)\s*(شهر|شهور|اشهر|أشهر)/.exec(q), yy=/(\d+)\s*(سنه|سنة|سنوات)/.exec(q);
+  G.o.to=defTo(G.o.from,mm?+mm[1]:yy?+yy[1]*12:36); if(/هجري/.test(q)) calSwitch('h'); else if(!silent) $('gRes').innerHTML=guideResults(); }; })(pickTreat);
+
+/* ===== عمولات غرف النوم ===== */
+(function(){ var add={'2129':['جاري مكاتب ووكلاء الشراء','2101',['trd']],'2114':['عمولات مستحقة للمندوبين','2110',null]};
+  Object.keys(add).forEach(function(c){ var x=add[c]; COA[c]=x[0]; var g=CG_BY[x[1]]; if(g&&g[0].indexOf(c)<0){ g[0].push(c); CG_BY[c]=g; } if(x[2]) ACT_TAG[c]=x[2]; }); })();
+var TREATS8=[
+ {id:'furn_buy_comm',n:'عمولة وكيل أو مكتب الشراء بنسبة من كل شحنة (حساب جاري)',cat:'استيراد غرف النوم',fam:'furn',ord:1.5,
+  q:'عموله مشتريات عموله على المشتريات عموله مكتب شراء وكيل شراء مكتب وساطه عموله الشحنه نسبه من قيمه الشحنه جاري المكتب buying agent commission',
+  std:['IAS 2','VAT-KSA','INCOME-TAX'],
+  tr:'عمولة وكيل الشراء المرتبطة بشحنة معينة تكلفة مباشرة لاقتناء البضاعة فتُضاف لتكلفة الشحنة ثم لتكلفة الغرف (IAS 2.11) — لا تُحمّل مصروفاً عمومياً، وتظهر في تكلفة المبيعات عند بيع الغرف. رصيد المكتب يُتابع في حساب جارٍ دائن يُسدد دورياً ويُطابق بكشف حسابه. إذا كان المكتب داخل المملكة فعلى العمولة ضريبة قيمة مضافة 15% قابلة للخصم. إذا كان خارج المملكة: احتساب عكسي لضريبة القيمة المضافة، ويُراجع خضوع المبلغ لضريبة الاستقطاع حسب مكان أداء الخدمة واتفاقية منع الازدواج.',
+  inp:[{k:'pct',l:'نسبة العمولة من قيمة الشحنة %',d:3},{k:'loc',l:'موقع المكتب',type:'sel',opts:[['in','داخل المملكة'],['out','خارج المملكة']],d:'out'},{k:'wht',l:'ضريبة استقطاع (إن انطبقت) %',d:0}],amtL:'قيمة الشحنة بالريال',
+  je:function(o){ var c=pctOf(o.amt,o.pct), v=pctOf(c,15), w=o.loc==='out'?pctOf(c,o.wht):0, L=[{t:'إثبات العمولة على الشحنة (تكلفة البضاعة)',lines:[{d:'1302',v:c},o.loc==='in'?{d:'1230',v:v}:null,{c:'2129',v:o.loc==='in'?r2(c+v):r2(c-w)},{c:'2142',v:w}]}];
+    if(o.loc==='out') L.push({t:'الاحتساب العكسي لضريبة القيمة المضافة على خدمة المكتب',lines:[{d:'1230',v:v},{c:'2130',v:v}]});
+    L.push({t:'سداد رصيد المكتب الجاري',lines:[{d:'2129',v:o.loc==='in'?r2(c+v):r2(c-w)},{c:'1102',v:o.loc==='in'?r2(c+v):r2(c-w)}]}); return L; },
+  vatSkip:1,
+  au:{as:['التقييم','الاكتمال'],rk:['تحميل عمولة الشراء مصروفاً عمومياً','رصيد جاري المكتب غير مطابق'],pr:['مطابقة كشف حساب المكتب مع الشحنات','إعادة احتساب النسبة على قيمة كل شحنة'],isa:['ISA 505','ISA 500']}},
+ {id:'furn_sales_piece',n:'عمولة مندوب المبيعات بمبلغ ثابت لكل قطعة مباعة',cat:'استيراد غرف النوم',fam:'furn',ord:12,
+  q:'عموله مبيعات عموله المندوب عموله على كل قطعه مبلغ لكل قطعه مباعه حافز مبيعات مندوب مبيعات sales commission per piece',
+  std:['IFRS 15','IAS 19'],
+  tr:'عمولة المبيعات تكلفة إضافية للحصول على العقد. لأن بيع الغرفة يكتمل خلال أقل من سنة يجوز تحميلها مصروف بيع فوراً (الإعفاء العملي IFRS 15.94) بدل رسملتها. تُستحق مع كل بيع حتى لو صُرفت لاحقاً. إذا كان المندوب موظفاً فهي منفعة موظفين قصيرة الأجل (IAS 19) لا تدخل في أجر الاشتراك في التأمينات الاجتماعية، وتُراجع آثارها على الحقوق النظامية في نظام العمل. إذا كان مستقلاً فهي التزام لمورد خدمة.',
+  inp:[{k:'n',l:'عدد القطع المباعة',d:10},{k:'emp',l:'المندوب',type:'sel',opts:[['emp','موظف في المنشأة'],['ext','مندوب مستقل (عمولة فقط)']],d:'emp'}],amtL:'العمولة لكل قطعة',
+  je:function(o){ var c=r2(o.amt*(+o.n||0)); return [{t:'استحقاق عمولة القطع المباعة',lines:[{d:'5229',v:c},{c:o.emp==='ext'?'2101':'2114',v:c}]},{t:'صرف العمولة',lines:[{d:o.emp==='ext'?'2101':'2114',v:c},{c:'1102',v:c}]}]; },
+  ok:['5229'],
+  au:{as:['الحدوث','الدقة'],rk:['عمولات عن مبيعات غير حقيقية أو مرتجعة'],pr:['مطابقة العمولات مع فواتير المبيعات لكل مندوب','فحص استرداد العمولة عن المرتجعات'],isa:['ISA 240','ISA 500']}},
+ {id:'furn_sales_room',n:'عمولة مندوب لكل غرفة تُصرف شهرياً أو كل 3 أشهر (مستحقات)',cat:'استيراد غرف النوم',fam:'furn',ord:13,
+  q:'عموله لكل غرفه مستحقات المندوب عموله شهريه عموله ربع سنويه كل 3 شهور تصرف كل ثلاث اشهر عمولات مستحقه للمندوب',
+  std:['IFRS 15','IAS 19','IAS 1'],
+  tr:'العمولة تُستحق شهرياً بعدد الغرف المباعة فعلاً (أساس الاستحقاق) حتى لو كان صرفها كل ثلاثة أشهر؛ الرصيد غير المصروف في نهاية الشهر أو السنة التزام «عمولات مستحقة للمندوبين». الغرف المرتجعة خلال الفترة تُخصم عمولتها إذا نص الاتفاق على ذلك. تُعرض مصروف بيع وتوزيع.',
+  inp:[{k:'m1',l:'غرف مباعة — الشهر الأول',d:8},{k:'m2',l:'غرف مباعة — الشهر الثاني',d:6},{k:'m3',l:'غرف مباعة — الشهر الثالث',d:10},{k:'ret',l:'غرف مرتجعة تُخصم عمولتها',d:0},{k:'per',l:'دورية الصرف',type:'sel',opts:[['q','كل 3 أشهر'],['m','شهرياً']],d:'q'}],amtL:'العمولة لكل غرفة',
+  xcalc:function(o){ var rows=[['m1','الشهر الأول'],['m2','الشهر الثاني'],['m3','الشهر الثالث']], acc=0, Q=o.per!=='m';
+    return '<div class="je"><div style="padding:8px 12px;font-weight:800;font-size:13px;background:var(--surface-2);border-bottom:1px solid var(--line-soft)">🧮 استحقاق العمولة شهرياً و'+(Q?'صرفها آخر الربع':'صرفها كل شهر')+'</div><table><thead><tr><th>الشهر</th><th class="r">الغرف</th><th class="r">العمولة المستحقة</th><th class="r">المصروف</th><th class="r">الرصيد المستحق آخر الشهر</th></tr></thead><tbody>'
+      +rows.map(function(r,i){ var n=+o[r[0]]||0, c=r2(n*o.amt), last=i===2, ded=last?r2((+o.ret||0)*o.amt):0, pay=Q?(last?r2(acc+c-ded):0):r2(c-ded); acc=r2(acc+c-ded-pay); return '<tr><td>'+r[1]+'</td><td class="r num">'+n+'</td><td class="r num">'+fmt(r2(c-ded))+'</td><td class="r num">'+fmt(pay)+'</td><td class="r num">'+fmt(acc)+'</td></tr>'; }).join('')+'</tbody></table></div>'; },
+  je:function(o){ var c=function(k){ return r2((+o[k]||0)*o.amt); }, ded=r2((+o.ret||0)*o.amt), tot=r2(c('m1')+c('m2')+c('m3')-ded);
+    var L=[{t:'استحقاق عمولة الشهر الأول',lines:[{d:'5229',v:c('m1')},{c:'2114',v:c('m1')}]},{t:'استحقاق عمولة الشهر الثاني',lines:[{d:'5229',v:c('m2')},{c:'2114',v:c('m2')}]},{t:'استحقاق عمولة الشهر الثالث',lines:[{d:'5229',v:c('m3')},{c:'2114',v:c('m3')}]},{t:'خصم عمولة الغرف المرتجعة',lines:[{d:'2114',v:ded},{c:'5229',v:ded}]}];
+    L.push({t:o.per==='m'?'صرف العمولات شهرياً (إجمالي الربع)':'صرف عمولات الربع للمندوب',lines:[{d:'2114',v:tot},{c:'1102',v:tot}]}); return L; },
+  ok:['5229'],revOK:['5229'],
+  au:{as:['الاكتمال','القطع'],rk:['تسجيل العمولة عند الصرف فقط فتختفي المستحقات في نهاية السنة'],pr:['مطابقة رصيد العمولات المستحقة بكشوف المبيعات لكل مندوب','فحص القطع في نهاية السنة'],isa:['ISA 500','ISA 501']}}
+];
+TREATS8.forEach(function(t){ TREATS.push(t); TREAT_BY_ID[t.id]=t; t._k=toks(t.q+' '+t.n); });
+MIST.furn_buy_comm=[['تحميل عمولة مكتب الشراء مصروفاً إدارياً بدل تكلفة البضاعة','5229'],['نسيان الاحتساب العكسي لضريبة القيمة المضافة على عمولة المكتب الخارجي',null]];
+MIST.furn_sales_piece=[['رسملة عمولة بيع غرفة تُسلم خلال أيام أصلاً',null],['تسجيل العمولة عند الصرف لا عند البيع',null]];
+MIST.furn_sales_room=[['تسجيل عمولة الربع كاملة في شهر الصرف فقط','5229'],['صرف العمولة عن غرف أُرجعت دون خصمها',null]];
+WHY_ACC['2129']=['نشأ مبلغ مستحق لمكتب الشراء عن عمولة شحنة — التزام جارٍ','سُدد جزء من رصيد المكتب'];
+WHY_ACC['2114']=['عمولة اكتسبها المندوب ولم تُصرف بعد — التزام مستحق','صُرفت العمولة للمندوب أو خُصمت عن مرتجع'];
+(function(){ var t=TREAT_BY_ID.furn_map; if(!t) return; var x=t.xcalc; t.xcalc=function(o){ var h=x.call(t,o); return h.replace('</tbody></table></div>','<tr><td colspan="2" style="background:var(--surface-2);font-weight:800">العمولات</td></tr>'+['furn_buy_comm','furn_sales_piece','furn_sales_room'].map(function(id){ var c=TREAT_BY_ID[id]; return '<tr><td class="num">•</td><td><a class="acc" href="javascript:void 0" onclick="pickTreat(\''+id+'\')">'+esc(c.n)+'</a></td></tr>'; }).join('')+'</tbody></table></div>'); }; })();
 
 /* ===== التشغيل ===== */
 boot();
