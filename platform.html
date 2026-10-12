@@ -874,7 +874,7 @@ var TREAT_BY_ID={}; TREATS.forEach(function(t){ TREAT_BY_ID[t.id]=t; });
 /* ==========================================================================
    النواة: أدوات عامة + قاعدة البيانات + الصلاحيات + الدخول + المزامنة السحابية
    ========================================================================== */
-var APP_BUILD='2026-10-12-p14';
+var APP_BUILD='2026-10-12-p15';
 var LS_DB='mfp_db_v1', LS_SES='mfp_session_v1';
 
 function $(id){ return document.getElementById(id); }
@@ -4383,6 +4383,83 @@ runGuide=(function(f){ return function(){ f(); var t=G.sel;
 /* شركة سعودية: لا شركاء أجانب (100%) — شركة استثمار: الزكاة تُفتح بمعالجة الشركة المختلطة */
 pickTreat=(function(f){ return function(id,silent){ if(id==='zakat'&&CO_TYPE==='inv') id='inv_mixed_zt'; f(id,silent); var t=TREAT_BY_ID[id];
   if(t&&CO_TYPE==='sa'&&(t.inp||[]).some(function(i){ return i.k==='sp'; })){ G.o.sp=100; if(!silent) $('gRes').innerHTML=guideResults(); } }; })(pickTreat);
+
+/* ==========================================================================
+   v15 — (1) فلتر أنشطة متعدد الاختيار: إضافة أو إلغاء أي نشاط أثناء البحث
+         (2) الأصول: العمر بالأشهر + تاريخ الشراء + تاريخ الجاهزية للاستخدام (بداية الإهلاك)
+             مع جدول إهلاك حسب السنوات المالية وقيود مؤرخة
+   ========================================================================== */
+var ACT_SEL=(function(){ try{ var v=JSON.parse(localStorage.getItem('pf_acts')||'null'); if(v&&v.length!=null) return v; }catch(e){} return COA_ACT&&COA_ACT!=='all'?[COA_ACT]:[]; })();
+function syncAct(){ COA_ACT=ACT_SEL.length===0?'all':ACT_SEL.length===1?ACT_SEL[0]:'multi'; try{ localStorage.setItem('pf_acts',JSON.stringify(ACT_SEL)); localStorage.setItem('pf_act',COA_ACT==='multi'?'all':COA_ACT); }catch(e){} }
+function toggleAct(a){ if(a==='all') ACT_SEL=[]; else { var i=ACT_SEL.indexOf(a); if(i>=0) ACT_SEL.splice(i,1); else ACT_SEL.push(a); } syncAct(); }
+syncAct();
+actOk=function(c){ return !ACT_SEL.length||ACT_SEL.some(function(a){ return actFits(c,a); }); };
+caseVisible=function(t){ if(!t||t.id==='generic') return true;
+  var a=caseActs(t); if(a&&ACT_SEL.length&&!a.some(function(x){ return ACT_SEL.indexOf(x)>=0; })) return false;
+  var c=CO_ONLY[t.id]; if(c&&CO_TYPE!=='all'&&c!==CO_TYPE) return false; return true; };
+filterOn=function(){ return ACT_SEL.length>0||CO_TYPE!=='all'; };
+setAct=function(a){ toggleAct(a); render(); };
+setGAct=function(a){ toggleAct(a); afterFilter(); };
+afterFilter=(function(f){ return function(){ if(COA_ACT==='all'&&ACT_SEL.length){ ACT_SEL=[]; syncAct(); } f(); }; })(afterFilter);
+function actChips(click){ return BIZ_ACTS.map(function(x){ var on=x.id==='all'?!ACT_SEL.length:ACT_SEL.indexOf(x.id)>=0;
+  return '<button class="'+(on?'active':'')+'" aria-pressed="'+on+'" onclick="'+click+'(\''+x.id+'\')">'+(x.id!=='all'?(on?'✓ ':'＋ '):'')+x.ic+' '+x.n+'</button>'; }).join(''); }
+function selNames(){ return ACT_SEL.map(function(a){ return '«'+(ACT_NAME[a]||a)+'»'; }).join(' و'); }
+actBar=function(){ var sel=BIZ_ACTS.filter(function(x){ return ACT_SEL.indexOf(x.id)>=0; });
+  return '<div class="panel" style="padding:12px"><div style="font-weight:800;margin-bottom:4px">🏢 أنشطة المنشأة — اضغط لإضافة نشاط أو إلغائه</div><div class="mini" style="margin-bottom:8px">يمكن اختيار أكثر من نشاط معاً؛ «كل الأنشطة» يلغي الفلتر.</div><div class="seg" style="flex-wrap:wrap">'+actChips('setAct')+'</div>'
+    +(sel.length?sel.map(function(a){ return '<div class="mini" style="margin-top:8px;line-height:1.9"><b>'+a.ic+' '+esc(a.n)+':</b> '+esc(a.d)+'</div>'; }).join(''):'<div class="mini" style="margin-top:8px">يُعرض الدليل كاملاً: الحسابات المشتركة + حسابات كل الأنشطة.</div>')+'</div>'; };
+guideFilterBar=function(){
+  var chip=function(on,click,txt){ return '<button class="'+(on?'active':'')+'" onclick="'+click+'">'+txt+'</button>'; };
+  return '<div class="panel" style="padding:12px"><div style="display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px"><b>🎯 فلترة الدليل</b>'
+    +(filterOn()?'<button class="btn-sm" onclick="ACT_SEL=[];syncAct();CO_TYPE=\'all\';try{localStorage.setItem(\'pf_co\',\'all\')}catch(e){};afterFilter()">إظهار الكل</button>':'')+'</div>'
+    +'<div class="mini" style="margin-bottom:4px">نشاط المنشأة — اضغط لإضافة أو إلغاء (أكثر من نشاط مسموح)</div><div class="seg" style="flex-wrap:wrap">'+actChips('setGAct')+'</div>'
+    +'<div class="mini" style="margin-bottom:4px">نوع الشركة</div><div class="seg">'+CO_TYPES.map(function(c){ return chip(c[0]===CO_TYPE,'setCo(\''+c[0]+'\')',c[1]+' '+c[2]); }).join('')+'</div>'
+    +(filterOn()?'<div class="mini" style="margin-top:2px">يظهر الآن: الحالات العامة'+(ACT_SEL.length?' + حالات '+esc(selNames())+' فقط':'')+(CO_TYPE==='sa'?' — بدون حالات الشركاء الأجانب':CO_TYPE==='inv'?' — بمعالجة الشركة المختلطة (زكاة + ضريبة دخل)':'')+'</div>':'')+'</div>'; };
+
+/* ===== الأصول: الإهلاك بالأشهر والتواريخ ===== */
+function fyOf(dstr,fye){ var y=+dstr.slice(0,4), m=+dstr.slice(5,7); return m<=fye?y:y+1; }
+function fyLabel(y,fye){ return 'السنة المنتهية في '+(new Date(Date.UTC(y,fye,0)).getUTCDate())+' '+AR_MONTHS[fye-1]+' '+y; }
+var DEP_INP=[{k:'buy',l:'تاريخ الشراء',type:'date'},{k:'use',l:'تاريخ الجاهزية للاستخدام (بداية الإهلاك)',type:'date'},{k:'lifeM',l:'العمر الإنتاجي (بالأشهر)',d:60},
+  {k:'conv',l:'طريقة احتساب الأقساط',type:'sel',opts:[['mdays','شهرياً بالتساوي — الشهر الأول والأخير بنسبة أيامهما'],['days','حسب الأيام الفعلية لكل شهر'],['mstart','شهر كامل من بداية شهر الجاهزية (سياسة تبسيط)']],d:'mdays'},{k:'fye',l:'شهر نهاية السنة المالية (1-12)',d:12}];
+function depPlan(o,base){ var use=o.use||o.buy||today(), from=o.conv==='mstart'?use.slice(0,8)+'01':use, n=Math.max(1,Math.round(+o.lifeM||0)), to=defTo(from,n), fye=Math.min(12,Math.max(1,Math.round(+o.fye||12)));
+  var sch=allocSchedule(base,from,to,o.conv==='days'?'days':'months'), yrs=[], by={};
+  sch.forEach(function(r){ var y=fyOf(r.to,fye); if(!by[y]){ by[y]={y:y,amt:0,days:0,months:0,from:r.from,to:r.to}; yrs.push(by[y]); } var b=by[y]; b.amt=r2(b.amt+r.amt); b.days+=r.days; b.months+=r.days/r.dim; b.to=r.to; });
+  var acc=0; yrs.forEach(function(b){ acc=r2(acc+b.amt); b.acc=acc; });
+  return {from:from,to:to,fye:fye,n:n,sch:sch,yrs:yrs,mo:sch.length>2?sch[1].amt:(sch[0]?sch[0].amt:0)}; }
+function depTable(o,cost,res,label){ var p=depPlan(o,r2(cost-res)), gap=o.buy&&o.use&&o.use>o.buy;
+  var h='<div class="je"><div style="padding:8px 12px;font-weight:800;font-size:13px;background:var(--surface-2);border-bottom:1px solid var(--line-soft)">📅 جدول '+label+' حسب السنوات المالية'
+    +'<div class="mini">التكلفة '+fmt(cost)+' — المتبقية '+fmt(res)+' — القابل لل'+label+' '+fmt(r2(cost-res))+' — العمر '+p.n+' شهراً ('+fmt(p.n/12,1)+' سنة) — من '+fDar(p.from)+' إلى '+fDar(p.to)+' — القسط الشهري الكامل '+fmt(p.mo)+'</div></div>'
+    +'<div class="tbl-wrap"><table><thead><tr><th>السنة المالية</th><th>الفترة</th><th class="r">الأشهر</th><th class="r">'+label+' السنة</th><th class="r">المجمع</th><th class="r">صافي القيمة الدفترية</th></tr></thead><tbody>'
+    +p.yrs.map(function(b){ return '<tr><td><b>'+esc(fyLabel(b.y,p.fye))+'</b></td><td class="mini">'+fDar(b.from)+' – '+fDar(b.to)+'</td><td class="r num">'+fmt(b.months,1)+'</td><td class="r num"><b>'+fmt(b.amt)+'</b></td><td class="r num">'+fmt(b.acc)+'</td><td class="r num">'+fmt(r2(cost-b.acc))+'</td></tr>'; }).join('')
+    +'</tbody></table></div></div>';
+  if(gap) h+='<div class="sum">🏗️ من '+fDar(o.buy)+' إلى '+fDar(o.use)+' ('+Math.round((pD(o.use)-pD(o.buy))/DAY)+' يوماً) الأصل غير جاهز للاستخدام: يُعرض ضمن «أعمال رأسمالية تحت التنفيذ» بلا '+label+'، ويُحوّل للأصول عند الجاهزية.</div>';
+  if(p.yrs.length) h+='<div class="sum">📆 في قوائم '+esc(fyLabel(p.yrs[0].y,p.fye))+': '+label+' السنة <b class="num">'+fmt(p.yrs[0].amt)+'</b> عن '+fmt(p.yrs[0].months,1)+' شهراً فقط — وصافي القيمة الدفترية <b class="num">'+fmt(r2(cost-p.yrs[0].acc))+'</b>.</div>';
+  return h; }
+function datedJE(o,cost,assetAcc,cwip,expAcc2,accAcc,vatV,payA,lbl){ var p=depPlan(o,r2(cost-(+o.res||0))), gap=o.buy&&o.use&&o.use>o.buy, L=[];
+  L.push({t:'إثبات الشراء — '+fDar(o.buy||today())+(gap?' (غير جاهز بعد ← تحت التنفيذ)':''),lines:[{d:gap?cwip:assetAcc,v:cost},{d:'1230',v:vatV},{c:payA,v:r2(cost+vatV)}]});
+  if(gap) L.push({t:'التحويل إلى الأصول عند الجاهزية — '+fDar(o.use),lines:[{d:assetAcc,v:cost},{c:cwip,v:cost}]});
+  p.yrs.slice(0,2).forEach(function(b,i){ L.push({t:lbl+' '+fyLabel(b.y,p.fye)+(i===0&&b.months<11.99?' — جزء من السنة ('+fmt(b.months,1)+' شهر)':''),lines:[{d:expAcc2,v:b.amt},{c:accAcc,v:b.amt}]}); });
+  return L; }
+(function(){
+  var P=TREAT_BY_ID.ppe; if(P){
+    P.inp=[VAT_INP,PAY_INP,{k:'inst',l:'نقل وتركيب وتجهيز (يُضاف للتكلفة)',d:0}].concat(DEP_INP,[{k:'res',l:'القيمة المتبقية',d:0}]);
+    P.tr='يُرسمل الأصل بالتكلفة: سعر الشراء + النقل + التركيب والتجهيز + الرسوم غير المستردة، ولا تدخل ضريبة القيمة المضافة القابلة للاسترداد. يبدأ الإهلاك عندما يصبح الأصل «جاهزاً للاستخدام» أي في موقعه وحالته اللازمة للتشغيل كما تقصد الإدارة (IAS 16.55) — لا من تاريخ الشراء ولا من تاريخ الاستعمال الفعلي؛ فالأصل الجاهز المتوقف مؤقتاً يُهلك. إذا احتاج تركيباً أو تجهيزاً بعد الشراء يبقى ضمن «أعمال رأسمالية تحت التنفيذ» بلا إهلاك حتى الجاهزية. القسط الثابت = (التكلفة − القيمة المتبقية) ÷ العمر بالأشهر، والسنة الأولى تأخذ نصيبها من الأشهر/الأيام فقط. يتوقف الإهلاك عند تصنيف الأصل محتفظاً به للبيع أو استبعاده، أيهما أسبق.';
+    P.calcCost=function(o){ return r2(o.amt+(+o.inst||0)); };
+    P.xcalc=function(o){ return depTable(o,this.calcCost(o),+o.res||0,'الإهلاك'); };
+    P.je=function(o){ var c=P.calcCost(o); return datedJE(o,c,'1501','1540','5220','1502',vatIn(o,c),payAcc(o),'إهلاك'); };
+    P.vatBase=function(o){ return P.calcCost(o); };
+    MIST.ppe=(MIST.ppe||[]).concat([['بدء الإهلاك من تاريخ الشراء رغم أن الأصل لم يكن جاهزاً للاستخدام','5220'],['تأجيل الإهلاك حتى الاستعمال الفعلي رغم جاهزية الأصل',null],['احتساب إهلاك سنة كاملة في سنة الشراء',null]]);
+  }
+  var I=TREAT_BY_ID.intang; if(I){
+    I.inp=I.inp.filter(function(i){ return i.k!=='life'; }).concat(DEP_INP.map(function(i){ return i.k==='use'?{k:'use',l:'تاريخ الجاهزية للاستخدام (بداية الإطفاء)',type:'date'}:i.k==='lifeM'?{k:'lifeM',l:'مدة الإطفاء (بالأشهر)',d:36}:i; }),[{k:'res',l:'القيمة المتبقية (عادة صفر)',d:0}]);
+    I.xcalc=function(o){ return o.kind==='sub'?'':depTable(o,o.amt,+o.res||0,'الإطفاء'); };
+    I.je=function(o){ return datedJE(o,o.amt,'1530','1540','5222','1531',vatIn(o,o.amt),payAcc(o),'إطفاء'); };
+  }
+  [P,I].forEach(function(t){ if(t) t.vatSkip=0; });
+})();
+caseDefaults=(function(f){ return function(t,amt){ var o=f(t,amt); if(t.id==='ppe'||t.id==='intang'){ o.buy=o.buy||today(); o.use=o.use||today(); } return o; }; })(caseDefaults);
+pickTreat=(function(f){ return function(id,silent){ f(id,silent); if((id==='ppe'||id==='intang')&&G.o){ if(!G.o.buy) G.o.buy=today(); if(!G.o.use) G.o.use=G.o.buy;
+  var q=String(G.q||'').replace(/[٠-٩]/g,function(d){ return '٠١٢٣٤٥٦٧٨٩'.indexOf(d); }), mm=/(\d+)\s*(شهر|شهور|اشهر|أشهر)/.exec(q), yy=/(\d+)\s*(سنه|سنة|سنوات)/.exec(q);
+  if(mm) G.o.lifeM=+mm[1]; else if(yy) G.o.lifeM=+yy[1]*12; if(!silent) $('gRes').innerHTML=guideResults(); } }; })(pickTreat);
 
 /* ===== التشغيل ===== */
 boot();
