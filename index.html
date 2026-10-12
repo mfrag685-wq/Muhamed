@@ -218,7 +218,9 @@ table.mini-months{font-size:12px}table.mini-months th,table.mini-months td{paddi
 .t-urgent .staff-bang{background:#dc2626;animation:staffBang 1.1s ease-in-out infinite}
 @keyframes staffBang{0%{transform:scale(1);box-shadow:0 0 0 0 rgba(220,38,38,.55)}60%{transform:scale(1.22);box-shadow:0 0 0 7px rgba(220,38,38,0)}100%{transform:scale(1);box-shadow:0 0 0 0 rgba(220,38,38,0)}}
 @keyframes bellRing{0%,70%,100%{transform:rotate(0)}10%{transform:rotate(16deg)}20%{transform:rotate(-13deg)}30%{transform:rotate(10deg)}40%{transform:rotate(-7deg)}50%{transform:rotate(4deg)}60%{transform:rotate(-2deg)}}
-@media(prefers-reduced-motion:reduce){.staff-bang,.staff-alert{animation:none!important}}
+/* تنبيهات الموظفين حرجة — تنبض على كل الأجهزة (بما فيها الكمبيوتر) حتى مع تفعيل «تقليل الحركة» */
+.sd-lines{margin-top:5px;display:grid;gap:3px}
+.sd-line{font-size:12.5px;line-height:1.7;font-weight:600}
 /* البانر العلوي لتأخّر الإدخالات — أعلى النظام فوق تنبيهات المخزون */
 .ack-btn{background:#fff;border:1.5px solid currentColor;color:inherit;border-radius:9px;padding:6px 13px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;transition:background .15s,transform .1s}
 .ack-btn:hover{background:rgba(0,0,0,.05)}.ack-btn:active{transform:scale(.97)}
@@ -1932,7 +1934,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-10-12-a';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-10-12-b';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -5162,31 +5164,43 @@ function financialAdvice(from,to){
 }
 /* تنبيهات تأخّر الإدخالات (متدرّجة) — تُعرض في بانر علوي عالمي أعلى تنبيهات المخزون ليراها الجميع عند فتح النظام.
    مهلة سماح اختيارية (grace) + شدّة تتصاعد: يوم = تذكير هادئ · يومان = متابعة · 3+ = تأخّر عاجل. */
+var ENTRY_TODAY_HOUR=10;   /* تُعتبر إدخالات «اليوم» مستحقّة بدءاً من هذه الساعة صباحاً، لا من بداية اليوم */
 function entryDelayAlerts(){
-  var A=[], td=today(), cfg=entryCfg();
+  var cfg=entryCfg(), realTd=today();
+  /* «اليوم الفعّال»: قبل الساعة 10ص لا يُطالَب بإدخال اليوم بعد (يُعتبر المرجع هو الأمس) */
+  var td=(new Date().getHours()<ENTRY_TODAY_HOUR)?ivAddDays(realTd,-1):realTd;
   function followUp(arr,name,introTpl,kindDef,kindBare,grace){
     grace=grace||0;
     var intro=entryIntro(introTpl,name), days=[];
-    (arr||[]).forEach(function(x){ if(x.date&&x.date<=td) days.push(x.date); });
-    if(!days.length){
-      return {level:'staff',tier:'mid',sev:1,title:'متابعة إدخال '+kindDef+' — '+name,
-        text:intro+' لم تُسجَّل '+kindBare+' بعد — الرجاء البدء بإدخال '+kindBare+' يوم '+td+'.'};
-    }
+    (arr||[]).forEach(function(x){ if(x.date&&x.date<=realTd) days.push(x.date); });
+    if(!days.length) return {name:name,intro:intro,kindDef:kindDef,tier:'mid',sev:1,
+      msg:'لم تُسجَّل '+kindBare+' بعد — الرجاء البدء بإدخال '+kindBare+' يوم '+td+'.'};
     days.sort(); var last=days[days.length-1];
-    if(last>=td) return null;   /* محدَّث حتى اليوم */
+    if(last>=td) return null;   /* محدَّث حتى اليوم الفعّال */
     var nd=ivAddDays(last,1), gap=Math.round((new Date(td)-new Date(last))/86400000);
     if(gap<=grace) return null;   /* ضمن مهلة السماح */
-    if(gap===1) return {level:'staff',tier:'soft',sev:2,title:'تذكير بإدخال '+kindDef+' — '+name,
-      text:intro+' لم يُسجَّل إدخال '+kindBare+' ليوم '+td+' بعد — يُرجى تسجيله في وقته.'};
-    if(gap===2) return {level:'staff',tier:'mid',sev:1,title:'متابعة إدخال '+kindDef+' — '+name,
-      text:intro+' آخر يوم تم فيه إدخال '+kindDef+' هو '+last+' — الرجاء إدخال '+kindBare+' يوم '+nd+' (متأخّر يومان).'};
-    return {level:'staff',tier:'urgent',sev:0,title:'⚠ تأخُّر إدخال '+kindDef+' — '+name,
-      text:intro+' آخر يوم تم فيه إدخال '+kindDef+' هو '+last+' — مضى '+gap+' أيام بلا إدخال. يُرجى استدراك الأيام الفائتة بدءاً من '+nd+'.'};
+    if(gap===1) return {name:name,intro:intro,kindDef:kindDef,tier:'soft',sev:2,
+      msg:'لم يُسجَّل إدخال '+kindBare+' ليوم '+td+' بعد — يُرجى تسجيله في وقته.'};
+    if(gap===2) return {name:name,intro:intro,kindDef:kindDef,tier:'mid',sev:1,
+      msg:'آخر يوم تم فيه إدخال '+kindDef+' هو '+last+' — الرجاء إدخال '+kindBare+' يوم '+nd+' (متأخّر يومان).'};
+    return {name:name,intro:intro,kindDef:kindDef,tier:'urgent',sev:0,
+      msg:'آخر يوم تم فيه إدخال '+kindDef+' هو '+last+' — مضى '+gap+' أيام بلا إدخال. يُرجى استدراك الأيام الفائتة بدءاً من '+nd+'.'};
   }
-  var a1=followUp(db.sales,cfg.salesName,cfg.salesIntro,'المبيعات','مبيعات',1); if(a1) A.push(a1);   /* المبيعات: مهلة يوم */
-  var a2=followUp(db.purchases,cfg.purchName,cfg.purchIntro,'المشتريات','مشتريات',0); if(a2) A.push(a2);
-  var a3=followUp(db.expenses,cfg.expName,cfg.expIntro,'المصروفات','مصروفات',0); if(a3) A.push(a3);
-  A.sort(function(a,b){ return (a.sev==null?9:a.sev)-(b.sev==null?9:b.sev); });   /* العاجل أولاً */
+  var raw=[
+    followUp(db.sales,cfg.salesName,cfg.salesIntro,'المبيعات','مبيعات',1),   /* المبيعات: مهلة يوم */
+    followUp(db.purchases,cfg.purchName,cfg.purchIntro,'المشتريات','مشتريات',0),
+    followUp(db.expenses,cfg.expName,cfg.expIntro,'المصروفات','مصروفات',0)
+  ].filter(function(x){ return x; });
+  /* تجميع حسب الموظّف: بطاقة واحدة لكل اسم (بلا تكرار الاسم متداخلاً) */
+  var order=[], byName={};
+  raw.forEach(function(r){ if(!byName[r.name]){ byName[r.name]=[]; order.push(r.name); } byName[r.name].push(r); });
+  var A=order.map(function(name){
+    var items=byName[name].slice().sort(function(a,b){ return a.sev-b.sev; });   /* الأعجل أولاً داخل الموظّف */
+    var top=items[0];
+    return {level:'staff', tier:top.tier, sev:top.sev, title:'متابعة الإدخال — '+name, intro:top.intro,
+      lines:items.map(function(it){ return it.kindDef+': '+it.msg; })};
+  });
+  A.sort(function(a,b){ return (a.sev==null?9:a.sev)-(b.sev==null?9:b.sev); });   /* الموظّف الأعجل أولاً */
   return A;
 }
 /* تنبيهات مراجعة/إقرار الأرصدة — النشاط يومي: مع إدخال المبيعات والمشتريات في وقتها لا تبقى أرصدة عالية.
@@ -5302,6 +5316,10 @@ function staffCardHtml(a){
     var allBtn=mayAck?('<div style="margin-top:8px"><button type="button" class="ack-btn" onclick="ackStockReview(\''+a.ackKind+'\')">✔ إقرار الكل وإخفاء التنبيه</button></div>'):'';
     body='<div class="staff-alert-t" style="margin-bottom:7px">'+esc(a.intro)+'</div>'
       +'<div class="sr-chips">'+chips+more+'</div>'+allBtn;
+  } else if(a.lines&&a.lines.length){
+    /* بطاقة موظّف مجمَّعة: تحية مرة واحدة ثم سطر لكل نوع إدخال (مبيعات/مصروفات…) */
+    body='<div class="staff-alert-t">'+esc(a.intro||'')+'</div>'
+      +'<div class="staff-alert-t sd-lines">'+a.lines.map(function(ln){ return '<div class="sd-line">• '+esc(ln)+'</div>'; }).join('')+'</div>';
   } else {
     var ack=a.ackKind?('<div style="margin-top:9px"><button type="button" class="ack-btn" onclick="ackStockReview(\''+a.ackKind+'\')">✔ أقِرّ بصحة الرصيد وأُخفي التنبيه</button></div>'):'';
     body='<div class="staff-alert-t">'+esc(a.text)+'</div>'+ack;
