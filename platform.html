@@ -874,7 +874,7 @@ var TREAT_BY_ID={}; TREATS.forEach(function(t){ TREAT_BY_ID[t.id]=t; });
 /* ==========================================================================
    النواة: أدوات عامة + قاعدة البيانات + الصلاحيات + الدخول + المزامنة السحابية
    ========================================================================== */
-var APP_BUILD='2026-10-12-p18';
+var APP_BUILD='2026-10-12-p19';
 var LS_DB='mfp_db_v1', LS_SES='mfp_session_v1';
 
 function $(id){ return document.getElementById(id); }
@@ -2950,7 +2950,7 @@ var _pickTreat=pickTreat;
 pickTreat=function(id,silent){ _pickTreat(id,silent); if(!silent){ var e=$('gRes'); if(e) window.scrollTo({top:e.getBoundingClientRect().top+window.scrollY-70,behavior:'smooth'}); } };
 /* تصفح البنود حسب الفئة بترتيب سير العمل */
 browseTreats=function(){
-  var cats={}, order=['رواتب','تأمينات','مصروفات','إيرادات','أصول','مخزون','تصنيع','استيراد وجملة','استيراد غرف النوم','استيراد الخضار والفاكهة','استيراد الكيماويات','تجزئة','التزامات','زكاة وضرائب','استثمار وشركاء','عملات','حقوق ملكية','إفصاح','مقاولات'];
+  var cats={}, order=['رواتب','تأمينات','مصروفات','إيرادات','أصول','مخزون','تصنيع','استيراد وجملة','استيراد غرف النوم','استيراد الخضار والفاكهة','استيراد الكيماويات','تجزئة','نقل ولوجستيات','التزامات','زكاة وضرائب','استثمار وشركاء','عملات','حقوق ملكية','إفصاح','مقاولات'];
   TREATS.forEach(function(t){ if(t.id==='generic') return; if(t.cat==='مقاولات'&&!hasProj()&&t.id!=='lgmargin') { (cats['مقاولات']=cats['مقاولات']||[]).push(t); return; } (cats[t.cat]=cats[t.cat]||[]).push(t); });
   var keys=Object.keys(cats).sort(function(a,b){ var ia=order.indexOf(a), ib=order.indexOf(b); return (ia<0?99:ia)-(ib<0?99:ib); });
   return '<div class="panel"><h3>🗂️ تصفّح كل الحالات حسب الفئة</h3>'+keys.map(function(c){ var L=cats[c].sort(function(a,b){ return (a.ord||99)-(b.ord||99); });
@@ -4504,15 +4504,17 @@ var FREQ_M={y:12,h:6,q:3,m:1};
 function leasePlan(o){ var T0=pD(o.from), T1=pD(o.to); if(T0==null||T1==null||T1<T0) return null; T1+=DAY;
   var pm=FREQ_M[o.freq]||12, H=o.cal==='h'&&parseH(o.hfrom), h0=H?parseH(o.hfrom):null, pays=[];
   var at=function(k){ return H?pD(hAddMonths(h0,k*pm)):pD(addMonths(o.from,k*pm)); };
-  for(var k=0;k<600;k++){ var s=at(k); if(s==null||s>=T1) break; var e=Math.min(at(k+1)||T1,T1); pays.push({t:o.tm==='arr'?e-DAY:s,amt:+o.amt||0,ps:s,pe:e-DAY}); }
+  var stub=null; for(var k=0;k<600;k++){ var s=at(k); if(s==null||s>=T1) break; var nx=at(k+1)||T1, e=Math.min(nx,T1), full=Math.round((nx-s)/DAY), part=Math.round((e-s)/DAY), amt=+o.amt||0;
+    if(part<full){ if(part<=7){ stub={days:part,skip:true,end:fD(s-DAY)}; break; } amt=r2(amt*part/full); stub={days:part,full:full,amt:amt}; }
+    pays.push({t:o.tm==='arr'?e-DAY:s,amt:amt,ps:s,pe:e-DAY}); }
   var r=(+o.rate||0)/100, df=function(t){ return Math.pow(1+r,-(t-T0)/DAY/365); }, PV=0; pays.forEach(function(p){ p.pv=r2(p.amt*df(p.t)); PV+=p.amt*df(p.t); }); PV=r2(PV);
-  var days=Math.round((T1-T0)/DAY), short=T1<=pD(addMonths(o.from,12))||!!o.low, total=r2(pays.reduce(function(a,p){ return a+p.amt; },0));
-  return {T0:T0,T1:T1,pays:pays,PV:PV,days:days,short:short,total:total,r:r}; }
+  var days=Math.round((T1-T0)/DAY), short=(T1<=pD(addMonths(o.from,12))&&!o.noex)||!!o.low, total=r2(pays.reduce(function(a,p){ return a+p.amt; },0));
+  return {T0:T0,T1:T1,pays:pays,PV:PV,days:days,short:short,total:total,r:r,stub:stub}; }
 /* الالتزام في تاريخ معين (بعد الدفعات المستحقة حتى ذلك التاريخ) مع الفائدة حسب الأيام */
 function leaseRun(P,until){ var bal=P.PV, last=P.T0, interest=0, paid=0;
   P.pays.forEach(function(p){ if(p.t>until) return; var i=bal*(Math.pow(1+P.r,(p.t-last)/DAY/365)-1); interest+=i; bal+=i-p.amt; paid+=p.amt; last=p.t; });
   var i2=bal*(Math.pow(1+P.r,(until-last)/DAY/365)-1); interest+=i2; bal+=i2; return {bal:Math.max(0,r2(bal)),interest:r2(interest),paid:r2(paid)}; }
-function leaseYears(o,P){ var fye=Math.min(12,Math.max(1,Math.round(+o.fye||12))), rou=r2(P.PV+(+o.idc||0)), sch=allocSchedule(P.short?P.total:rou,o.from,fD(P.T1-DAY),'months'), by={}, yrs=[];
+function leaseYears(o,P){ var fye=Math.min(12,Math.max(1,Math.round(+o.fye||12))), rou=r2(P.PV+(+o.idc||0)), sch=allocSchedule(P.short?r2(P.total+(+o.idc||0)):rou,o.from,fD(P.T1-DAY),'months'), by={}, yrs=[];
   sch.forEach(function(s){ var y=fyOf(s.to,fye); if(!by[y]){ by[y]={y:y,dep:0,from:s.from}; yrs.push(by[y]); } by[y].dep=r2(by[y].dep+s.amt); by[y].to=s.to; });
   var prev={bal:P.PV,interest:0,paid:0}, accDep=0;
   yrs.forEach(function(b){ var end=pD(b.to), cur=leaseRun(P,end), nxt=leaseRun(P,pD(addMonths(b.to,12)));
@@ -4524,7 +4526,7 @@ function leaseYears(o,P){ var fye=Math.min(12,Math.max(1,Math.round(+o.fye||12))
   t._k=toks(t.q+' '+t.n); t.std=['IFRS 16','VAT-KSA','IAS 1'];
   t.tr='المستأجر يُثبت «أصل حق استخدام» و«التزام إيجار» بالقيمة الحالية للدفعات غير المسددة في تاريخ بدء العقد، مخصومة بمعدل الاقتراض الإضافي (IFRS 16.26). ثم: فائدة على الالتزام بطريقة الفائدة الفعلية حسب الأيام، واستهلاك لأصل حق الاستخدام بالقسط الثابت على مدة العقد (IFRS 16.31-38). الاستثناء: العقود 12 شهراً فأقل أو الأصول منخفضة القيمة تُحمّل مصروفاً بالقسط الثابت على المدة (IFRS 16.6). تاريخ العقد الهجري يُحوَّل للميلادي وتُحتسب المدة والخصم بالأيام الفعلية. ضريبة القيمة المضافة 15% على الإيجار التجاري ليست جزءاً من الالتزام (أصل قابل للخصم عند كل دفعة)، والسكني معفى. يُفصل الالتزام في نهاية السنة إلى متداول (يُسدد خلال 12 شهراً) وغير متداول.';
   t.inp=[CAL_INP,FROM_INP,TO_INP,{k:'freq',l:'دورية الدفع',type:'sel',opts:[['y','سنوية'],['h','نصف سنوية'],['q','ربع سنوية'],['m','شهرية']],d:'y'},{k:'tm',l:'توقيت الدفع',type:'sel',opts:[['adv','مقدماً في بداية كل فترة'],['arr','في نهاية كل فترة']],d:'adv'},
-    {k:'rate',l:'معدل الاقتراض الإضافي %',d:6},{k:'idc',l:'تكاليف مباشرة أولية (سعي، توثيق)',d:0},{k:'low',l:'أصل منخفض القيمة (استثناء)',type:'chk',d:false},VAT_INP,{k:'fye',l:'شهر نهاية السنة المالية (1-12)',d:12},HFROM,HTO];
+    {k:'rate',l:'معدل الاقتراض الإضافي %',d:6},{k:'idc',l:'تكاليف مباشرة أولية (سعي، توثيق)',d:0},{k:'low',l:'أصل منخفض القيمة (استثناء)',type:'chk',d:false},{k:'noex',l:'عدم تطبيق استثناء العقد قصير الأجل (رسملة)',type:'chk',d:false},VAT_INP,{k:'fye',l:'شهر نهاية السنة المالية (1-12)',d:12},HFROM,HTO];
   t.amtL='قيمة الدفعة الواحدة (قبل الضريبة)';
   t.xcalc=function(o){ var P=leasePlan(o); if(!P) return '<div class="disclaimer">أدخل تاريخي بداية العقد ونهايته.</div>'; var Y=leaseYears(o,P), cur=function(v){ return '<td class="r num">'+fmt(v)+'</td>'; };
     var h='<div class="je"><div style="padding:8px 12px;font-weight:800;font-size:13px;background:var(--surface-2);border-bottom:1px solid var(--line-soft)">🗓️ جدول الدفعات — '+P.pays.length+' دفعة، الإجمالي '+fmt(P.total)+' — المدة '+P.days+' يوماً'+(P.short?' — <span class="pill pill-warn">عقد قصير الأجل/منخفض القيمة: مصروف بالقسط الثابت</span>':' — القيمة الحالية '+fmt(P.PV))+'</div>'
@@ -4659,7 +4661,7 @@ function monRows(amount,from,to){ return allocSchedule(amount,from,to,'months');
 /* ===== (1) الإيجار: كل شهر يتحمل نصيبه ===== */
 (function(){ var t=TREAT_BY_ID.lease; if(!t) return; t.compactMonthly=1;
   var runSafe=function(P,until){ return until<P.T0?{bal:P.PV,interest:0,paid:0}:leaseRun(P,until); };
-  t.monthly=function(o,P){ var rou=r2(P.PV+(+o.idc||0)), rows=monRows(P.short?P.total:rou,o.from,fD(P.T1-DAY));
+  t.monthly=function(o,P){ var rou=r2(P.PV+(+o.idc||0)), rows=monRows(P.short?r2(P.total+(+o.idc||0)):rou,o.from,fD(P.T1-DAY));
     rows.forEach(function(r){ var a=pD(r.from), b=pD(r.to); r.pay=r2(P.pays.filter(function(p){ return p.t>=a&&p.t<=b; }).reduce(function(s,p){ return s+p.amt; },0));
       if(!P.short){ var e=runSafe(P,b), s=runSafe(P,a-DAY); r.int=r2(e.interest-s.interest); r.bal=e.bal; } });
     return rows; };
@@ -4669,6 +4671,7 @@ function monRows(amount,from,to){ return allocSchedule(amount,from,to,'months');
       +R.map(function(r){ return '<tr><td>'+r.label+'</td><td class="r num">'+r.days+(r.days<r.dim?'/'+r.dim:'')+'</td>'+(P.short?c(r.amt):c(r.int)+c(r.amt)+c(r.bal))+c(r.pay)+'</tr>'; }).join('')+'</tbody></table></div></details>'; };
   t.je=function(o){ applyCal(o); var P=leasePlan(o); if(!P) return []; var R=t.monthly(o,P), vat=function(v){ return vatIn(o,v); }, L=[];
     if(P.short){ P.pays.forEach(function(p,i){ L.push({t:'سداد دفعة الإيجار '+(i+1)+' — '+fDar(fD(p.t))+' (مدفوعة مقدماً)',lines:[{d:'1220',v:p.amt},{d:'1230',v:vat(p.amt)},{c:'1102',v:r2(p.amt+vat(p.amt))}]}); });
+      if(+o.idc>0) L.push({t:'تكاليف مباشرة أولية (سعي، توثيق) — تُوزّع مع الإيجار على مدة العقد',lines:[{d:'1220',v:+o.idc},{c:'1102',v:+o.idc}]});
       R.forEach(function(r){ L.push({t:MON+r.label+' ('+r.days+' يوماً)',lines:[{d:'5210',v:r.amt},{c:'1220',v:r.amt}]}); }); return L; }
     var Y=leaseYears(o,P), fyEnd=Y.yrs[0]?pD(Y.yrs[0].to):P.T1;
     L.push({t:'الاعتراف الأولي — '+fDar(o.from),lines:[{d:'1510',v:Y.rou},{c:'2170',v:P.PV},{c:'1102',v:+o.idc||0}]});
@@ -4751,6 +4754,189 @@ pickTreat=(function(f){ return function(id,silent){ f(id,silent); if(['loan','lg
   if(!G.o.from) G.o.from=defFrom();
   if(id==='loan'){ if(n) G.o.n=n; } else if(!G.o.to||n) G.o.to=defTo(G.o.from,n||(id==='grant_future'?6:12));
   if(!silent) $('gRes').innerHTML=guideResults(); }; })(pickTreat);
+/* ==========================================================================
+   v19 — (1) نشاط النقل والخدمات اللوجستية
+         (2) صلاحية كل موظف: الأنشطة ونوع الشركة التي يراها عند الدخول
+   ========================================================================== */
+BIZ_ACTS.splice(BIZ_ACTS.length,0,{id:'log',ic:'🚚',n:'النقل والخدمات اللوجستية',d:'إيراد النقل يُعترف به على مدى الرحلة (IFRS 15) والرحلات غير المكتملة في نهاية الفترة أصول عقود، النقل الدولي صفري الضريبة والمحلي 15%، النقل من الباطن (أصيل أم وكيل)، أسطول بإهلاك المكوّنات (الهيكل والإطارات والعمرة — IAS 16.43)، الصيانة الدورية مصروف والعمرة الجوهرية ترسمل، أجور السائقين وبدلات الرحلات وعهد الطريق، المخالفات المرورية، ومطالبات تلف البضائع (IAS 37).',st:['IFRS 15','IAS 16','IAS 37','IFRS 16','VAT-KSA']});
+ACT_NAME.log='🚚 النقل والخدمات اللوجستية';
+(function(){
+  var add={'1505':['شاحنات ومركبات نقل (الهيكل)','1501'],'1506':['مقطورات وصهاريج وبرادات','1501'],'1507':['مكونات الأسطول (إطارات، عمرة محركات)','1501'],
+    '1307':['مخزون ورشة الأسطول (قطع غيار، إطارات، زيوت)','1301'],'1112':['عهد السائقين لمصروفات الطريق','1111'],'1274':['مخالفات مرورية مستردة من السائقين','1270'],'1275':['أرصدة بطاقات الوقود المسبقة','1270'],
+    '2116':['مستحقات ناقلين من الباطن','2101'],'2117':['بدلات رحلات ومبيت مستحقة للسائقين','2110'],'2163':['مخصص مطالبات تلف وفقد البضائع المنقولة','2160'],
+    '4107':['إيرادات النقل البري المحلي','4101'],'4108':['إيرادات النقل الدولي (صفري الضريبة)','4101'],'4109':['إيرادات خدمات لوجستية (تخزين، مناولة، تخليص)','4101'],'4110':['إيراد عمولة وساطة نقل (وكيل)','4101'],
+    '5140':['أجور السائقين ومساعديهم','5101'],'5141':['بدلات رحلات ومبيت السائقين','5101'],'5142':['وقود الأسطول','5101'],'5143':['صيانة وإصلاح الأسطول (دورية)','5101'],
+    '5144':['إطارات وزيوت وقطع غيار مستهلكة','5101'],'5145':['تكاليف نقل من الباطن (ناقلون خارجيون)','5101'],'5146':['رسوم طرق وموانئ وتصاريح وبطاقات تشغيل','5101'],
+    '5147':['تأمين الأسطول والبضائع المنقولة','5101'],'5148':['إهلاك الأسطول','5101'],'5149':['تتبع GPS واتصالات الأسطول','5101'],
+    '5293':['مخالفات مرورية غير مستردة','5262'],'5294':['تعويضات تلف وفقد بضائع العملاء','5262']};
+  Object.keys(add).forEach(function(c){ var x=add[c]; COA[c]=x[0]; var g=CG_BY[x[1]]; if(g&&g[0].indexOf(c)<0){ g[0].push(c); CG_BY[c]=g; } ACT_TAG[c]=['log']; });
+  ['1203'].forEach(function(c){ ACT_TAG[c]=(ACT_TAG[c]||[]).concat(['log']); });
+})();
+var SCOPE_INP={k:'scope',l:'نوع النقل',type:'sel',opts:[['loc','نقل محلي داخل المملكة (15%)'],['intl','نقل دولي من/إلى المملكة (صفري الضريبة)']],d:'loc'};
+var TREATS9=[
+ {id:'log_trip_rev',n:'إيراد رحلة نقل — محلي أو دولي، مع الرحلات غير المكتملة في نهاية الفترة',cat:'نقل ولوجستيات',fam:'log',ord:1,nx:['log_subcontract','log_driver_pay'],
+  q:'ايراد نقل ايراد رحله نقل بضائع اجره نقل فاتوره نقل رحله غير مكتمله نقل دولي نقل محلي شحن بري ايراد الشحن freight revenue trip',
+  std:['IFRS 15','VAT-KSA'],
+  tr:'خدمة النقل التزام أداء يُستوفى على مدى زمني لأن العميل يستفيد منها أثناء تنفيذها (IFRS 15.35(a))؛ فالرحلة التي لم تكتمل في نهاية الفترة يُثبت منها إيراد بنسبة ما أُنجز (مسافة أو زمن) مقابل «أصول العقود»، ثم تتحول لذمة مدينة عند التسليم والفوترة. النقل الدولي للبضائع من المملكة أو إليها خاضع لنسبة الصفر، والمحلي 15%.',
+  inp:[SCOPE_INP,{k:'pct',l:'نسبة الإنجاز في نهاية الفترة (للرحلات الجارية) %',d:0},PAY_INP],amtL:'أجرة الرحلة (قبل الضريبة)',
+  je:function(o){ var rev=o.scope==='intl'?'4108':'4107', v=o.scope==='intl'?0:pctOf(o.amt,15), done=pctOf(o.amt,o.pct), L=[];
+    if(done>0) L.push({t:'نهاية الفترة: إيراد الجزء المنجز من الرحلة الجارية',lines:[{d:'1203',v:done},{c:rev,v:done}]});
+    L.push({t:'التسليم والفوترة'+(o.scope==='intl'?' (صفري الضريبة)':''),lines:[{d:rcvAcc(o),v:r2(o.amt+v)},{c:'1203',v:done},{c:rev,v:r2(o.amt-done)},{c:'2130',v:v}]}); return L; },
+  au:{as:['القطع','الحدوث'],rk:['إثبات كامل إيراد رحلات لم تكتمل','تطبيق نسبة الصفر على نقل محلي'],pr:['فحص بوالص الشحن ومحاضر التسليم حول نهاية الفترة','فحص مستندات التصدير/الاستيراد للرحلات الصفرية'],isa:['ISA 501','ISA 240']}},
+ {id:'log_subcontract',n:'نقل من الباطن عبر ناقل خارجي (أصيل أم وكيل)',cat:'نقل ولوجستيات',fam:'log',ord:2,
+  q:'نقل من الباطن ناقل خارجي مقاول نقل تاجير شاحنه برحلتها شاحنات خارجيه وسيط نقل وساطه نقل سمسره نقل subcontract carrier',
+  std:['IFRS 15','VAT-KSA'],
+  tr:'إذا كانت المنشأة مسؤولة أمام العميل عن تنفيذ النقل وتحدد السعر وتتحمل مخاطر الخدمة فهي «أصيل»: تُثبت الإيراد بالإجمالي وأجرة الناقل الخارجي تكلفة إيرادات. إذا كانت تربط العميل بالناقل فقط والناقل هو المسؤول فهي «وكيل»: إيرادها صافي العمولة (IFRS 15.B34-B38).',
+  inp:[{k:'role',l:'دور المنشأة',type:'sel',opts:[['pr','أصيل — مسؤولة عن النقل أمام العميل'],['ag','وكيل — وسيط بين العميل والناقل']],d:'pr'},{k:'cost',l:'أجرة الناقل الخارجي (قبل الضريبة)',d:0}],amtL:'السعر للعميل (قبل الضريبة)',
+  je:function(o){ var v=pctOf(o.amt,15), cv=pctOf(o.cost,15);
+    if(o.role==='ag'){ var c=r2(o.amt-o.cost); return [{t:'فوترة العميل لحساب الناقل وإثبات العمولة فقط',lines:[{d:'1201',v:r2(o.amt+v)},{c:'2116',v:r2(o.cost+cv)},{c:'4110',v:c},{c:'2130',v:r2(v-cv)}]}]; }
+    return [{t:'إيراد النقل بالإجمالي',lines:[{d:'1201',v:r2(o.amt+v)},{c:'4107',v:o.amt},{c:'2130',v:v}]},{t:'تكلفة الناقل من الباطن',lines:[{d:'5145',v:o.cost},{d:'1230',v:cv},{c:'2116',v:r2(o.cost+cv)}]}]; },
+  ok:['5145'],vatSkip:1,
+  au:{as:['العرض','الحدوث'],rk:['إثبات الإيراد بالإجمالي رغم أن المنشأة وكيل'],pr:['فحص عقود العملاء والناقلين لتحديد المسؤولية','مطابقة كشوف الناقلين'],isa:['ISA 500','ISA 505']}},
+ {id:'log_driver_pay',n:'رواتب السائقين وبدلات الرحلات والمبيت',cat:'نقل ولوجستيات',fam:'log',ord:3,nx:['log_driver_adv'],
+  q:'رواتب السائقين اجور السائقين بدل رحله بدل مبيت بدل سفر السائق مساعد سائق مسير السائقين حوافز الرحلات driver wages trip allowance',
+  std:['IAS 19','IAS 2'],
+  tr:'أجور السائقين وبدلات رحلاتهم تكلفة مباشرة لتقديم خدمة النقل فتُعرض ضمن تكلفة الإيرادات لا المصروفات الإدارية. البدل المرتبط بالرحلات يُستحق بعدد الرحلات المنفذة في الشهر حتى لو صُرف لاحقاً. حصة التأمينات تُحتسب على الأجر الأساسي وبدل السكن للسائقين السعوديين (والأخطار المهنية لغير السعوديين). تُخصم سلف السائقين وعهدهم غير المسواة من المسير.',
+  inp:[{k:'trips',l:'عدد الرحلات في الشهر',d:20},{k:'tr',l:'بدل الرحلة الواحدة',d:150},{k:'adv',l:'استرداد عهد/سلف من المسير',d:0}],amtL:'إجمالي رواتب السائقين للشهر',
+  je:function(o){ var t=r2((+o.trips||0)*(+o.tr||0)), a=Math.min(+o.adv||0,o.amt); return [{t:'استحقاق رواتب السائقين',lines:[{d:'5140',v:o.amt},{c:'2112',v:r2(o.amt-a)},{c:'1112',v:a}]},{t:'استحقاق بدلات الرحلات',lines:[{d:'5141',v:t},{c:'2117',v:t}]}]; },
+  ok:['5140','5141'],
+  au:{as:['الحدوث','الدقة'],rk:['بدلات عن رحلات لم تُنفذ'],pr:['مطابقة البدلات مع سجل الرحلات ونظام التتبع','مطابقة الرواتب مع حماية الأجور'],isa:['ISA 500','ISA 240']}},
+ {id:'log_driver_adv',n:'عهدة السائق لمصروفات الطريق (وقود، رسوم، وجبات) وتسويتها',cat:'نقل ولوجستيات',fam:'log',ord:4,
+  q:'عهده السائق مصروفات الطريق مصاريف الرحله تسويه عهده السائق وقود الطريق رسوم الطريق ميزان driver advance road expenses',
+  std:['IAS 7','VAT-KSA'],
+  tr:'العهدة المسلّمة للسائق أصل (ذمة عليه) لا مصروف، وتُسوى بالمستندات: الوقود ورسوم الطرق والموازين تكلفة رحلة، وضريبة المدخلات تُخصم فقط بفاتورة ضريبية صحيحة باسم المنشأة، والمتبقي يُرد أو يُخصم من الراتب.',
+  inp:[{k:'fuel',l:'وقود بالمستندات (قبل الضريبة)',d:0},{k:'tolls',l:'رسوم طرق وموانئ وموازين',d:0},{k:'vat',l:'فواتير الوقود ضريبية صحيحة',type:'chk',d:true}],amtL:'مبلغ العهدة المسلّمة',
+  je:function(o){ var fv=vatIn(o,o.fuel), used=r2(o.fuel+fv+o.tolls), back=Math.max(0,r2(o.amt-used)); return [{t:'تسليم العهدة',lines:[{d:'1112',v:o.amt},{c:'1102',v:o.amt}]},{t:'تسوية العهدة بالمستندات',lines:[{d:'5142',v:o.fuel},{d:'1230',v:fv},{d:'5146',v:o.tolls},{d:'1101',v:back},{c:'1112',v:r2(used+back)}]}]; },
+  ok:['5142','5146'],vatBase:function(o){ return o.fuel; },
+  au:{as:['الحدوث','الاكتمال'],rk:['عهد قديمة غير مسواة','مستندات غير ضريبية'],pr:['تحليل أعمار عهد السائقين','فحص عينة مستندات التسوية'],isa:['ISA 500']}},
+ {id:'log_fleet_buy',n:'شراء شاحنة بمكوناتها (إهلاك الهيكل والإطارات كل على عمره)',cat:'نقل ولوجستيات',fam:'log',ord:5,nx:['log_maint'],
+  q:'شراء شاحنه شراء تريله شراء راس شاحنه مقطوره صهريج اسطول اهلاك الشاحنه مكونات الشاحنه اطارات الشاحنه truck fleet component depreciation',
+  std:['IAS 16','VAT-KSA'],
+  tr:'كل جزء جوهري من الأصل له عمر مختلف يُهلك منفصلاً (IAS 16.43-44): هيكل الشاحنة على عمره، والإطارات أو المكونات الرئيسية على عمرها الأقصر. عند الاستبدال يُستبعد المكوّن القديم ويُرسمل الجديد. يبدأ الإهلاك عند الجاهزية للتشغيل (بعد اللوحات والتراخيص والتجهيز). ضريبة المدخلات قابلة للخصم.',
+  inp:[{k:'tire',l:'منها قيمة الإطارات/المكونات الرئيسية',d:0},{k:'lifeB',l:'عمر الهيكل (أشهر)',d:96},{k:'lifeT',l:'عمر الإطارات/المكونات (أشهر)',d:24},{k:'res',l:'القيمة المتبقية للهيكل',d:0},VAT_INP,PAY_INP],amtL:'تكلفة الشاحنة الكاملة (قبل الضريبة)',
+  xcalc:function(o){ var t=Math.min(+o.tire||0,o.amt), b=r2(o.amt-t), mb=+o.lifeB>0?r2((b-(+o.res||0))/o.lifeB):0, mt=+o.lifeT>0?r2(t/o.lifeT):0;
+    return xTable([['الهيكل',b],['الإطارات/المكونات',t],['إهلاك الهيكل شهرياً',mb],['إهلاك المكونات شهرياً',mt],['إجمالي الإهلاك الشهري',r2(mb+mt),1],['إجمالي إهلاك أول 12 شهراً',r2((mb+mt)*12),1]],'إهلاك المكوّنات'); },
+  je:function(o){ var t=Math.min(+o.tire||0,o.amt), b=r2(o.amt-t), v=vatIn(o,o.amt), mb=+o.lifeB>0?r2((b-(+o.res||0))/o.lifeB):0, mt=+o.lifeT>0?r2(t/o.lifeT):0;
+    return [{t:'شراء الشاحنة موزعة على مكوناتها',lines:[{d:'1505',v:b},{d:'1507',v:t},{d:'1230',v:v},{c:payAcc(o),v:r2(o.amt+v)}]},{t:'الإهلاك الشهري للمكونات',lines:[{d:'5148',v:r2(mb+mt)},{c:'1502',v:r2(mb+mt)}]}]; },
+  ok:['5148'],vatBase:function(o){ return o.amt; },
+  au:{as:['التقييم','الوجود'],rk:['عمر واحد لكل الشاحنة فيُضخّم إهلاك أو يُقلل'],pr:['مطابقة سجل الأسطول مع الاستمارات','فحص سياسة أعمار المكونات'],isa:['ISA 540','ISA 501']}},
+ {id:'log_maint',n:'صيانة الأسطول: دورية، إطارات، عمرة محرك، أو إصلاح حادث',cat:'نقل ولوجستيات',fam:'log',ord:6,
+  q:'صيانه الشاحنات صيانه الاسطول تغيير زيت تغيير اطارات عمره محرك اصلاح حادث شاحنه ورشه قطع غيار الشاحنات fleet maintenance overhaul',
+  std:['IAS 16','IAS 37','VAT-KSA'],
+  tr:'الصيانة الدورية اليومية (زيوت، فلاتر، إصلاحات بسيطة) مصروف عند حدوثها (IAS 16.12). العمرة الجوهرية أو المكوّن البديل الذي يطيل العمر أو يعيد القدرة يُرسمل ويُستبعد المكوّن القديم بقيمته الدفترية (IAS 16.13-14). إصلاح الحادث مصروف، وتعويض التأمين أصل مستقل عند تأكده. قطع الغيار المخزنة مخزون حتى تُستخدم.',
+  inp:[{k:'kind',l:'نوع الصيانة',type:'sel',opts:[['rout','صيانة دورية (مصروف)'],['tire','إطارات أو قطع مستهلكة (مصروف)'],['ovh','عمرة جوهرية أو مكوّن بديل (رسملة)'],['acc','إصلاح حادث (مصروف + مطالبة تأمين)']],d:'rout'},{k:'old',l:'القيمة الدفترية للمكوّن المستبدَل (للعمرة)',d:0},{k:'cl',l:'تعويض تأمين مؤكد (للحادث)',d:0},VAT_INP,PAY_INP],amtL:'تكلفة الصيانة (قبل الضريبة)',
+  je:function(o){ var v=vatIn(o,o.amt), A={rout:'5143',tire:'5144',ovh:'1507',acc:'5143'}[o.kind]||'5143', L=[{t:'تكلفة الصيانة',lines:[{d:A,v:o.amt},{d:'1230',v:v},{c:payAcc(o),v:r2(o.amt+v)}]}];
+    if(o.kind==='ovh'&&+o.old>0) L.push({t:'استبعاد المكوّن القديم بقيمته الدفترية',lines:[{d:'5242',v:o.old},{c:'1507',v:o.old}]});
+    if(o.kind==='acc'&&+o.cl>0) L.push({t:'تعويض التأمين عند تأكده',lines:[{d:'1270',v:o.cl},{c:'4210',v:o.cl}]}); return L; },
+  ok:['5143','5144','5242'],
+  au:{as:['التصنيف','التقييم'],rk:['رسملة صيانة دورية لتحسين الربح','عدم استبعاد المكوّن المستبدَل'],pr:['فحص أوامر الورشة وطبيعة الإصلاح','مطابقة المكونات المرسملة مع سجل الأسطول'],isa:['ISA 500','ISA 540']}},
+ {id:'log_fines',n:'مخالفات مرورية على مركبات المنشأة (تتحملها المنشأة أو تُسترد من السائق)',cat:'نقل ولوجستيات',fam:'log',ord:7,
+  q:'مخالفات مروريه مخالفه ساهر مخالفه سرعه مخالفات الشاحنات مخالفات السائقين خصم المخالفه من السائق غرامه مروريه traffic fines',
+  std:['IAS 1','INCOME-TAX'],
+  tr:'المخالفة غرامة نظامية تُسدد للجهة المختصة. إذا نص عقد العمل أو لائحة المنشأة على تحميلها للسائق المتسبب فهي ذمة على السائق تُسترد (بالخصم من الراتب في حدود ما يجيزه نظام العمل)، وإلا فهي مصروف «مخالفات وغرامات» يُفصح عنه — والغرامات لا تُقبل مصروفاً لأغراض ضريبة الدخل.',
+  inp:[{k:'who',l:'من يتحمل المخالفة',type:'sel',opts:[['drv','السائق المتسبب (تُسترد)'],['co','المنشأة (مصروف)']],d:'drv'}],amtL:'قيمة المخالفة',
+  je:function(o){ if(o.who==='co') return [{t:'سداد المخالفة على المنشأة',lines:[{d:'5293',v:o.amt},{c:'1102',v:o.amt}]}];
+    return [{t:'سداد المخالفة وتحميلها على السائق',lines:[{d:'1274',v:o.amt},{c:'1102',v:o.amt}]},{t:'خصمها من راتب السائق',lines:[{d:'2112',v:o.amt},{c:'1274',v:o.amt}]}]; },
+  ok:['5293'],
+  au:{as:['التصنيف','الاكتمال'],rk:['مخالفات غير مسددة تتراكم','خصومات تتجاوز النظام'],pr:['مطابقة المخالفات المسجلة مع منصة المرور','فحص الخصومات من الرواتب'],isa:['ISA 250']}},
+ {id:'log_cargo_claim',n:'تلف أو فقد بضاعة عميل أثناء النقل — مخصص المطالبة وتعويض التأمين',cat:'نقل ولوجستيات',fam:'log',ord:8,
+  q:'تلف بضاعه العميل فقد شحنه اثناء النقل مطالبه عميل تعويض عميل مسؤوليه الناقل تامين البضائع cargo damage claim',
+  std:['IAS 37','IFRS 15'],
+  tr:'إذا كانت المنشأة مسؤولة على الأرجح عن التلف وأمكن تقدير المبلغ يُكوَّن مخصص بأفضل تقدير (IAS 37.14). تعويض التأمين يُثبت أصلاً منفصلاً فقط عند التأكد شبه التام من استلامه ولا يُقاص مع المخصص (IAS 37.53-54). الخصم من فاتورة العميل نفسها تخفيض للإيراد.',
+  inp:[{k:'ins',l:'تعويض التأمين المؤكد',d:0}],amtL:'أفضل تقدير للمطالبة',
+  je:function(o){ return [{t:'تكوين مخصص المطالبة',lines:[{d:'5294',v:o.amt},{c:'2163',v:o.amt}]},{t:'تعويض التأمين عند تأكده',lines:[{d:'1270',v:+o.ins||0},{c:'4210',v:+o.ins||0}]},{t:'تسوية المطالبة مع العميل',lines:[{d:'2163',v:o.amt},{c:'1102',v:o.amt}]}]; },
+  ok:['5294'],
+  au:{as:['الاكتمال','التقييم'],rk:['مطالبات غير مسجلة','مقاصة التعويض مع المخصص'],pr:['فحص سجل المطالبات والمراسلات','مصادقة شركة التأمين'],isa:['ISA 501','ISA 540']}},
+ {id:'log_fuelcard',n:'بطاقات الوقود المسبقة الدفع للأسطول',cat:'نقل ولوجستيات',fam:'log',ord:9,
+  q:'بطاقات الوقود شحن بطاقه الوقود رصيد الوقود كشف الوقود استهلاك الوقود للاسطول fuel card',
+  std:['IAS 1','VAT-KSA'],
+  tr:'شحن بطاقة الوقود دفعة مقدمة (أصل) لا مصروف؛ يُحمّل الوقود مصروفاً بحسب الاستهلاك الفعلي في كشف الشهر، وتُخصم ضريبة المدخلات بالفاتورة الضريبية الشهرية من مزوّد الوقود.',
+  inp:[{k:'used',l:'استهلاك الشهر حسب الكشف (قبل الضريبة)',d:0}],amtL:'مبلغ شحن البطاقات',
+  je:function(o){ var u=+o.used||0, v=pctOf(u,15); return [{t:'شحن بطاقات الوقود',lines:[{d:'1275',v:o.amt},{c:'1102',v:o.amt}]},{t:'استهلاك الشهر حسب الكشف',lines:[{d:'5142',v:u},{d:'1230',v:v},{c:'1275',v:r2(u+v)}]}]; },
+  ok:['5142'],
+  au:{as:['الحدوث','الاكتمال'],rk:['استهلاك وقود غير طبيعي لمركبة'],pr:['تحليل الاستهلاك لكل مركبة مقابل المسافات','مطابقة رصيد البطاقات مع كشف المزوّد'],isa:['ISA 520']}},
+ {id:'log_licenses',n:'رسوم سنوية للأسطول: بطاقات تشغيل واستمارات وتأمين وتتبع (توزيع شهري)',cat:'نقل ولوجستيات',fam:'log',ord:10,compactMonthly:1,
+  q:'بطاقه تشغيل تجديد استماره تامين الشاحنات تامين الاسطول اشتراك تتبع gps رخص النقل رسوم سنويه للاسطول',
+  std:['IAS 1','VAT-KSA'],
+  tr:'الرسوم والاشتراكات والتأمين التي تغطي سنة قادمة مدفوعات مقدمة تُحمّل على أشهر سريانها وتظهر ضمن تكلفة الإيرادات لأنها تخص تشغيل الأسطول. الرسوم الحكومية خارج نطاق ضريبة القيمة المضافة، والتأمين والتتبع خاضعان لها.',
+  inp:[CAL_INP,FROM_INP,TO_INP,{k:'kind',l:'النوع',type:'sel',opts:[['lic','بطاقات تشغيل واستمارات ورخص (رسوم حكومية)'],['ins','تأمين الأسطول والبضائع'],['gps','اشتراك تتبع GPS']],d:'lic'},PAY_INP,HFROM,HTO],amtL:'المبلغ السنوي (قبل الضريبة)',
+  je:function(o){ applyCal(o); var x={lic:'5146',ins:'5147',gps:'5149'}[o.kind]||'5146', v=o.kind==='lic'?0:pctOf(o.amt,15), R=monRows(o.amt,o.from,o.to), L=[{t:'السداد مقدماً — '+fDar(o.from||today()),lines:[{d:'1220',v:o.amt},{d:'1230',v:v},{c:payAcc(o),v:r2(o.amt+v)}]}];
+    R.forEach(function(r){ L.push({t:MON+r.label+' ('+r.days+' يوماً)',lines:[{d:x,v:r.amt},{c:'1220',v:r.amt}]}); }); return L; },
+  ok:['5146','5147','5149'],
+  au:{as:['القطع'],rk:['تحميل الرسوم السنوية في شهر الدفع'],pr:['إعادة احتساب المدفوع مقدماً في نهاية السنة'],isa:['ISA 500']}},
+ {id:'log_storage',n:'إيراد خدمات لوجستية (تخزين، مناولة، تخليص) شهرياً',cat:'نقل ولوجستيات',fam:'log',ord:11,
+  q:'ايراد تخزين بضائع العملاء رسوم تخزين خدمات لوجستيه مناوله تخليص لحساب العملاء storage logistics revenue',
+  std:['IFRS 15','IFRS 16','VAT-KSA'],
+  tr:'خدمة التخزين والمناولة تُستوفى على مدى زمني فيُثبت إيراد كل شهر بما قُدّم فيه. إذا منح العقد العميل حق استخدام مساحة محددة يسيطر عليها فقد يتضمن عقد إيجار (IFRS 16). الرسوم الحكومية المدفوعة نيابة عن العميل (جمارك العميل) ليست إيراداً بل ذمة تُسترد منه.',
+  inp:[{k:'reimb',l:'رسوم دُفعت نيابة عن العميل (تُسترد)',d:0}],amtL:'رسوم الخدمة للشهر (قبل الضريبة)',
+  je:function(o){ var v=pctOf(o.amt,15), r=+o.reimb||0; return [{t:'إيراد خدمات الشهر',lines:[{d:'1201',v:r2(o.amt+v)},{c:'4109',v:o.amt},{c:'2130',v:v}]},{t:'رسوم مدفوعة نيابة عن العميل (ليست إيراداً)',lines:[{d:'1201',v:r},{c:'1102',v:r}]}]; },
+  au:{as:['الحدوث','العرض'],rk:['إثبات المبالغ المستردة إيراداً'],pr:['فحص عقود التخزين','مطابقة الفواتير بسجل المستودع'],isa:['ISA 500']}}
+];
+TREATS9.forEach(function(t){ TREATS.push(t); TREAT_BY_ID[t.id]=t; t._k=toks(t.q+' '+t.n); });
+(function(){
+  var steps=[['الأسطول',['log_fleet_buy','log_maint','lease','log_licenses']],['التشغيل',['log_driver_pay','log_driver_adv','log_fuelcard','log_fines']],['الإيراد',['log_trip_rev','log_subcontract','log_storage']],['المخاطر',['log_cargo_claim']]];
+  var t={id:'log_map',n:'🚚 النقل والخدمات اللوجستية — دورة العمل والحسابات',cat:'نقل ولوجستيات',fam:'log',ord:0,noje:1,std:['IFRS 15','IAS 16','IAS 37','IFRS 16'],nx:['log_trip_rev','log_subcontract','log_maint'],
+    q:'شركه نقل شركات النقل لوجستيات خدمات لوجستيه نقل بضائع اسطول شاحنات دوره عمل النقل',inp:[],amtL:'مبلغ توضيحي',
+    tr:BIZ_ACTS.filter(function(a){ return a.id==='log'; })[0].d,
+    xcalc:function(){ var n=0; return '<div class="je"><div style="padding:8px 12px;font-weight:800;font-size:13px;background:var(--surface-2);border-bottom:1px solid var(--line-soft)">🧭 خطوات دورة العمل — اضغط أي خطوة</div><table><tbody>'
+      +steps.map(function(s){ return '<tr><td colspan="2" style="background:var(--surface-2);font-weight:800">'+esc(s[0])+'</td></tr>'+s[1].map(function(id){ var x=TREAT_BY_ID[id]; if(!x) return ''; n++; return '<tr><td class="num" style="width:28px"><b>'+n+'</b></td><td><a class="acc" href="javascript:void 0" onclick="pickTreat(\''+id+'\')">'+esc(x.n)+'</a><div class="mini">'+esc(x.std.join(' • '))+'</div></td></tr>'; }).join(''); }).join('')+'</tbody></table></div>'; },
+    je:function(){ return []; }};
+  TREATS.push(t); TREAT_BY_ID[t.id]=t; t._k=toks(t.q+' '+t.n);
+  var M={log_trip_rev:[['إثبات كامل أجرة رحلة لم تكتمل في نهاية الفترة',null],['فرض ضريبة 15% على نقل دولي صفري أو العكس','2130']],log_subcontract:[['إثبات الإيراد بالإجمالي رغم أن المنشأة مجرد وسيط','4107']],
+    log_driver_pay:[['تحميل أجور السائقين على المصروفات الإدارية بدل تكلفة الإيرادات','5201']],log_driver_adv:[['تحميل العهدة مصروفاً عند تسليمها للسائق','5142']],
+    log_fleet_buy:[['إهلاك الشاحنة كلها بعمر واحد رغم اختلاف أعمار مكوناتها',null]],log_maint:[['رسملة الصيانة الدورية أصلاً','1507'],['تحميل العمرة الجوهرية مصروفاً بالكامل','5143']],
+    log_fines:[['تحميل مخالفات يتحملها السائق نظاماً على مصروفات المنشأة','5293']],log_cargo_claim:[['مقاصة تعويض التأمين مع المخصص في رقم واحد',null]],log_fuelcard:[['تحميل شحن بطاقة الوقود مصروفاً عند الشحن','5142']],
+    log_licenses:[['تحميل بطاقات التشغيل والتأمين السنوي في شهر الدفع','5146']],log_storage:[['إثبات الرسوم المدفوعة نيابة عن العميل إيراداً','4109']]};
+  for(var k in M) MIST[k]=M[k];
+  WHY_ACC['1112']=['مبلغ سُلّم للسائق ليُصرف على الرحلة — ذمة عليه حتى التسوية','سوّى السائق العهدة بالمستندات أو ردّها'];
+  WHY_ACC['1203']=['خدمة نُفذت ولم تُفوتر بعد — حق مشروط على العميل','فُوترت فتحولت إلى ذمة مدينة'];
+})();
+caseDefaults=(function(f){ return function(t,amt){ var o=f(t,amt); if(t.id==='log_licenses'){ o.from=o.from||defFrom(); o.to=o.to||defTo(o.from,12); } return o; }; })(caseDefaults);
+pickTreat=(function(f){ return function(id,silent){ f(id,silent); if(id==='log_licenses'&&G.o){ if(!G.o.from) G.o.from=defFrom(); if(!G.o.to) G.o.to=defTo(G.o.from,12); if(!silent) $('gRes').innerHTML=guideResults(); } }; })(pickTreat);
+
+/* ===== صلاحية الموظف: الأنشطة ونوع الشركة ===== */
+function userActs(){ if(!ME) return null; var a=null;
+  if(ME.role==='learner'){ var p=ME.lperms||{}; a=BIZ_ACTS.filter(function(x){ return x.id!=='all'&&p['act_'+x.id]; }).map(function(x){ return x.id; }); }
+  else if(ME.acts&&ME.acts.length) a=ME.acts.slice();
+  return a&&a.length?a:null; }
+function userCo(){ if(!ME) return null; if(ME.role==='learner'){ var p=ME.lperms||{}; return p.co_sa&&!p.co_inv?'sa':p.co_inv&&!p.co_sa?'inv':null; } return ME.co&&ME.co!=='all'?ME.co:null; }
+function effSel(){ var al=userActs(); var s=ACT_SEL.filter(function(a){ return !al||al.indexOf(a)>=0; }); return s.length?s:(al||[]); }
+actOk=function(c){ var s=effSel(); return !s.length||s.some(function(a){ return actFits(c,a); }); };
+caseVisible=function(t){ if(!t||t.id==='generic') return true; var s=effSel(), a=caseActs(t);
+  if(a&&s.length&&!a.some(function(x){ return s.indexOf(x)>=0; })) return false;
+  var c=CO_ONLY[t.id], ct=userCo()||CO_TYPE; if(c&&ct!=='all'&&c!==ct) return false; return true; };
+filterOn=function(){ return ACT_SEL.length>0||CO_TYPE!=='all'||!!userActs()||!!userCo(); };
+var _actChips=actChips;
+actChips=function(click){ var al=userActs(); if(!al) return _actChips(click);
+  return BIZ_ACTS.filter(function(x){ return x.id==='all'||al.indexOf(x.id)>=0; }).map(function(x){ var on=x.id==='all'?!ACT_SEL.filter(function(a){ return al.indexOf(a)>=0; }).length:ACT_SEL.indexOf(x.id)>=0;
+    return '<button class="'+(on?'active':'')+'" onclick="'+click+'(\''+x.id+'\')">'+(x.id!=='all'?(on?'✓ ':'＋ '):'')+x.ic+' '+(x.id==='all'?'كل أنشطتي':x.n)+'</button>'; }).join(''); };
+guideFilterBar=(function(f){ return function(){ var h=f(), uc=userCo(); if(uc) h=h.replace(/<div class="mini" style="margin-bottom:4px">نوع الشركة<\/div><div class="seg">[\s\S]*?<\/div>/,'<div class="mini" style="margin-bottom:4px">نوع الشركة: <b>'+(uc==='sa'?'🇸🇦 شركة سعودية':'🤝 شركة استثمار')+'</b> (محدد في صلاحياتك)</div>');
+  if(userActs()) h=h.replace('🎯 فلترة الدليل','🎯 فلترة الدليل <span class="pill pill-info">أنشطتك المسموحة فقط</span>'); return h; }; })(guideFilterBar);
+/* نموذج المستخدم: الأنشطة المسموحة ونوع الشركة */
+openUser=(function(f){ return function(id){ f(id); var u=id?DB.users.filter(function(x){ return x.id===id; })[0]:null, acts=(u&&u.acts)||[], co=(u&&u.co)||'all', g=$('permGrid'); if(!g) return;
+  var d=document.createElement('div'); d.innerHTML='<div style="font-weight:800;margin:14px 0 6px">الأنشطة التي يراها في المنصة <span class="mini">(بدون اختيار = كل الأنشطة)</span></div><div class="tags">'
+    +BIZ_ACTS.filter(function(a){ return a.id!=='all'; }).map(function(a){ return '<label class="tag" style="cursor:pointer;display:inline-flex;gap:6px;align-items:center"><input type="checkbox" class="us_act" value="'+a.id+'"'+(acts.indexOf(a.id)>=0?' checked':'')+'>'+a.ic+' '+esc(a.n)+'</label>'; }).join('')+'</div>'
+    +'<div class="field" style="margin-top:10px"><label>نوع الشركة الذي يراه</label><select id="us_co">'+CO_TYPES.map(function(c){ return '<option value="'+c[0]+'"'+(co===c[0]?' selected':'')+'>'+c[1]+' '+c[2]+'</option>'; }).join('')+'</select></div>';
+  g.parentNode.insertBefore(d,g); }; })(openUser);
+saveUser=(function(f){ return function(id){ var acts=[].slice.call(document.querySelectorAll('.us_act:checked')).map(function(c){ return c.value; }), co=($('us_co')||{}).value||'all', un=($('us_user')||{}).value;
+  f(id); var tries=0, apply=function(){ var u=DB.users.filter(function(x){ return x.username===un; })[0]; if(!u){ if(tries++<20) setTimeout(apply,100); return; }
+    u.acts=acts; u.co=co; u.u=Date.now(); save(); if(ME&&u.id===ME.id){ ME.acts=acts; ME.co=co; render(); } }; setTimeout(apply,50); }; })(saveUser);
+/* المتدرب: خيارات إضافية في صلاحياته (تُحفظ مع باقي الصلاحيات) */
+openLearner=(function(f){ return function(uid){ f(uid); var u=uid&&LRN.list?LRN.list.filter(function(x){ return x.uid===uid; })[0]:null, p=u?(u.perms||{}):{}, last=[].slice.call(document.querySelectorAll('.lnp')).pop(); if(!last) return;
+  var d=document.createElement('div'); d.innerHTML='<div style="font-weight:800;margin:10px 0 6px">الأنشطة التي يراها <span class="mini">(بدون اختيار = كلها)</span></div>'
+    +BIZ_ACTS.filter(function(a){ return a.id!=='all'; }).map(function(a){ return '<label style="display:flex;gap:8px;align-items:center;min-height:36px;font-weight:700"><input type="checkbox" class="lnp" value="act_'+a.id+'"'+(p['act_'+a.id]?' checked':'')+'>'+a.ic+' '+esc(a.n)+'</label>'; }).join('')
+    +'<div style="font-weight:800;margin:10px 0 6px">نوع الشركة <span class="mini">(اختيار واحد يقصره عليه)</span></div>'
+    +[['co_sa','🇸🇦 شركة سعودية'],['co_inv','🤝 شركة استثمار']].map(function(c){ return '<label style="display:flex;gap:8px;align-items:center;min-height:36px;font-weight:700"><input type="checkbox" class="lnp" value="'+c[0]+'"'+(p[c[0]]?' checked':'')+'>'+c[1]+'</label>'; }).join('');
+  last.closest('label').parentNode.appendChild(d); }; })(openLearner);
+
+/* تنبيه مدخلات غير صالحة + توضيح الاستثناء قصير الأجل */
+(function(){ var t=TREATS.filter(function(x){ return x.id==='lease'; })[0]; if(!t) return; var xc=t.xcalc;
+  t.xcalc=function(o){ var w='', f=+o.fye; if(o.fye!==undefined&&(!(f>=1&&f<=12)||Math.round(f)!==f)) w+='<div class="login-err" style="display:block;margin-bottom:8px">⚠️ «شهر نهاية السنة المالية» يجب أن يكون رقم شهر من 1 إلى 12 (مثلاً 12 = ديسمبر) — أدخلت '+esc(String(o.fye))+' فاعتُبر 12.</div>';
+    var P=leasePlan(o); if(P&&P.stub){ var hs=P.stub.skip&&o.cal==='h'?gToH(P.stub.end):'';
+      w+=P.stub.skip?'<div class="login-err" style="display:block;margin-bottom:8px">⚠️ تاريخ النهاية يتجاوز آخر فترة دفع بـ '+P.stub.days+' يوم فقط — غالباً المقصود أن ينتهي العقد في '+fDar(P.stub.end)+(hs?' ('+hs+' هـ)':'')+'. لم تُحتسب دفعة عن هذه الأيام؛ صحّح تاريخ النهاية إن كان خطأً.</div>'
+        :'<div class="sum">✂️ الفترة الأخيرة جزئية ('+P.stub.days+' من '+P.stub.full+' يوماً) فاحتُسبت دفعتها بالتناسب: '+fmt(P.stub.amt)+' — تأكد أن هذا ما ينص عليه العقد.</div>'; }
+    if(P&&P.short&&!o.low) w+='<div class="sum">ℹ️ مدة العقد '+P.days+' يوماً (12 شهراً فأقل) فطُبّق استثناء العقد قصير الأجل (IFRS 16.6): الإيجار'+(+o.idc>0?' والتكاليف المباشرة الأولية':'')+' مصروف بالقسط الثابت على المدة. الاستثناء اختياري لكل فئة أصول — ألغِ اختياره من «عدم تطبيق استثناء العقد قصير الأجل» لرسملة أصل حق الاستخدام.</div>';
+    return w+xc.call(t,o); }; })();
 /* ===== التشغيل ===== */
 boot();
 </script>
