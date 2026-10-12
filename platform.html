@@ -874,7 +874,7 @@ var TREAT_BY_ID={}; TREATS.forEach(function(t){ TREAT_BY_ID[t.id]=t; });
 /* ==========================================================================
    النواة: أدوات عامة + قاعدة البيانات + الصلاحيات + الدخول + المزامنة السحابية
    ========================================================================== */
-var APP_BUILD='2026-10-12-p17';
+var APP_BUILD='2026-10-12-p18';
 var LS_DB='mfp_db_v1', LS_SES='mfp_session_v1';
 
 function $(id){ return document.getElementById(id); }
@@ -4640,6 +4640,117 @@ function repAcc(o){ return o.emp==='ext'?{x:'5229',p:'2115'}:{x:'5291',p:'2114'}
   MIST.furn_sales_room=(MIST.furn_sales_room||[]).concat([['شطب عمولة الغرفة المرتجعة مصروفاً بدل استردادها من المندوب',null]]);
 })();
 
+/* ==========================================================================
+   v18 — مراجعة شاملة: كل مبلغ يغطي فترة يُحمّل على أشهرها
+   الإيجار شهرياً • القرض بجدول سداد • عمولة خطاب الضمان • المنح عن فترة قادمة • الاستبعاد بعد إهلاك الفترة
+   ========================================================================== */
+var MON='🗓️ ';
+/* عرض مضغوط: القيود الشهرية في جدول واحد بدل عشرات الجداول */
+function monthlyTable(list){ if(!list.length) return '';
+  var cell=function(ls,side){ return ls.filter(function(l){ return side==='d'?l.dr:l.cr; }).map(function(l){ return '<div>'+accLink(l.a,side==='d'?'dr':'cr')+' <b class="num">'+fmt(l.dr||l.cr)+'</b></div>'; }).join(''); };
+  return '<div class="je"><div style="padding:8px 12px;font-weight:800;font-size:13px;background:var(--surface-2);border-bottom:1px solid var(--line-soft)">🗓️ القيود الشهرية — كل شهر يتحمل نصيبه</div><div class="tbl-wrap"><table><thead><tr><th>الشهر</th><th>من ح/ (مدين)</th><th>إلى ح/ (دائن)</th></tr></thead><tbody>'
+    +list.map(function(e){ return '<tr><td><b>'+esc(e.t.replace(MON,''))+'</b></td><td>'+cell(e.lines,'d')+'</td><td>'+cell(e.lines,'c')+'</td></tr>'; }).join('')+'</tbody></table></div></div>'; }
+jeBoxHTML=(function(prev){ return function(t){ if(!t.compactMonthly) return prev(t); applyCal(G.o);
+  var x=''; try{ x=t.xcalc?t.xcalc.call(t,G.o||{}):''; }catch(e){}
+  var L=buildJE(t), main=L.filter(function(e){ return e.t.indexOf(MON)!==0; }), mon=L.filter(function(e){ return e.t.indexOf(MON)===0; });
+  return calNote(G.o)+x+main.map(function(e){ return jeTable(e.lines,e.t); }).join('')+monthlyTable(mon); }; })(jeBoxHTML);
+function monRows(amount,from,to){ return allocSchedule(amount,from,to,'months'); }
+
+/* ===== (1) الإيجار: كل شهر يتحمل نصيبه ===== */
+(function(){ var t=TREAT_BY_ID.lease; if(!t) return; t.compactMonthly=1;
+  var runSafe=function(P,until){ return until<P.T0?{bal:P.PV,interest:0,paid:0}:leaseRun(P,until); };
+  t.monthly=function(o,P){ var rou=r2(P.PV+(+o.idc||0)), rows=monRows(P.short?P.total:rou,o.from,fD(P.T1-DAY));
+    rows.forEach(function(r){ var a=pD(r.from), b=pD(r.to); r.pay=r2(P.pays.filter(function(p){ return p.t>=a&&p.t<=b; }).reduce(function(s,p){ return s+p.amt; },0));
+      if(!P.short){ var e=runSafe(P,b), s=runSafe(P,a-DAY); r.int=r2(e.interest-s.interest); r.bal=e.bal; } });
+    return rows; };
+  var xc=t.xcalc; t.xcalc=function(o){ var h=xc.call(t,o), P=leasePlan(o); if(!P) return h; var R=t.monthly(o,P), c=function(v){ return '<td class="r num">'+fmt(v||0)+'</td>'; };
+    return h+'<details class="je" style="padding:0"><summary style="padding:8px 12px;font-weight:800;font-size:13px;background:var(--surface-2);cursor:pointer">📆 الجدول الشهري الكامل ('+R.length+' شهراً)</summary><div class="tbl-wrap"><table><thead><tr><th>الشهر</th><th class="r">الأيام</th>'
+      +(P.short?'<th class="r">مصروف الإيجار</th>':'<th class="r">الفائدة</th><th class="r">الاستهلاك</th><th class="r">الالتزام آخر الشهر</th>')+'<th class="r">المدفوع</th></tr></thead><tbody>'
+      +R.map(function(r){ return '<tr><td>'+r.label+'</td><td class="r num">'+r.days+(r.days<r.dim?'/'+r.dim:'')+'</td>'+(P.short?c(r.amt):c(r.int)+c(r.amt)+c(r.bal))+c(r.pay)+'</tr>'; }).join('')+'</tbody></table></div></details>'; };
+  t.je=function(o){ applyCal(o); var P=leasePlan(o); if(!P) return []; var R=t.monthly(o,P), vat=function(v){ return vatIn(o,v); }, L=[];
+    if(P.short){ P.pays.forEach(function(p,i){ L.push({t:'سداد دفعة الإيجار '+(i+1)+' — '+fDar(fD(p.t))+' (مدفوعة مقدماً)',lines:[{d:'1220',v:p.amt},{d:'1230',v:vat(p.amt)},{c:'1102',v:r2(p.amt+vat(p.amt))}]}); });
+      R.forEach(function(r){ L.push({t:MON+r.label+' ('+r.days+' يوماً)',lines:[{d:'5210',v:r.amt},{c:'1220',v:r.amt}]}); }); return L; }
+    var Y=leaseYears(o,P), fyEnd=Y.yrs[0]?pD(Y.yrs[0].to):P.T1;
+    L.push({t:'الاعتراف الأولي — '+fDar(o.from),lines:[{d:'1510',v:Y.rou},{c:'2170',v:P.PV},{c:'1102',v:+o.idc||0}]});
+    R.filter(function(r){ return pD(r.to)<=fyEnd; }).forEach(function(r){
+      if(r.pay) L.push({t:MON+r.label+' — سداد دفعة',lines:[{d:'2170',v:r.pay},{d:'1230',v:vat(r.pay)},{c:'1102',v:r2(r.pay+vat(r.pay))}]});
+      L.push({t:MON+r.label+' — فائدة واستهلاك',lines:[{d:'5240',v:r.int},{d:'5221',v:r.amt},{c:'2170',v:r.int},{c:'1511',v:r.amt}]}); });
+    return L; };
+  t.tr+=' كل شهر يتحمل نصيبه: في العقد قصير الأجل يُسجل المدفوع مقدماً أصلاً ثم يُحمّل مصروف كل شهر بنسبة أيامه، وفي العقد طويل الأجل تُحتسب فائدة كل شهر واستهلاكه.';
+})();
+
+/* ===== (2) القرض: جدول سداد شهري بالتكلفة المطفأة ===== */
+(function(){ var t=TREAT_BY_ID.loan; if(!t) return; t.compactMonthly=1;
+  t.inp=[FROM_INP,{k:'n',l:'مدة التمويل (أشهر)',d:36},{k:'rate',l:'معدل التمويل السنوي %',d:6},{k:'type',l:'طريقة السداد',type:'sel',opts:[['ann','أقساط شهرية متساوية (أصل + ربح)'],['bul','ربح شهري والأصل دفعة واحدة في النهاية']],d:'ann'},{k:'fye',l:'شهر نهاية السنة المالية (1-12)',d:12}];
+  t.tr='يُثبت التمويل بالقيمة العادلة (المبلغ المستلم ناقص تكاليف المعاملة) ثم بالتكلفة المطفأة بطريقة معدل العائد الفعلي (IFRS 9.5.1.1، 4.2.1): تُحمّل تكلفة التمويل على كل شهر بحسب الرصيد القائم فيه — لا تُحمّل مقدماً ولا عند السداد فقط. ربح المرابحة المؤجل في عقد البنك ليس مصروفاً عند التوقيع بل يُستحق بمرور الزمن. في نهاية كل سنة مالية يُفصل الأصل المستحق خلال 12 شهراً «متداولاً» والباقي «غير متداول» (IAS 1.69). تُرسمل تكلفة التمويل على الأصول المؤهلة (IAS 23).';
+  t.amtL='مبلغ التمويل المستلم';
+  t.plan=function(o){ var n=Math.max(1,Math.round(+o.n||1)), r=(+o.rate||0)/1200, P=+o.amt||0, pmt=o.type==='bul'?0:(r?P*r/(1-Math.pow(1+r,-n)):P/n), bal=P, rows=[];
+    for(var k=1;k<=n;k++){ var d=fD(pD(addMonths(o.from||defFrom(),k))-0), i=r2(bal*r), pr=o.type==='bul'?(k===n?bal:0):(k===n?bal:r2(pmt-i)); bal=r2(bal-pr); rows.push({k:k,d:d,i:i,pr:r2(pr),pay:r2(i+pr),bal:Math.max(0,bal)}); }
+    return rows; };
+  t.years=function(o,rows){ var fye=Math.min(12,Math.max(1,Math.round(+o.fye||12))), by={}, Y=[];
+    rows.forEach(function(r){ var y=fyOf(r.d,fye); if(!by[y]){ by[y]={y:y,i:0,pr:0,last:r}; Y.push(by[y]); } by[y].i=r2(by[y].i+r.i); by[y].pr=r2(by[y].pr+r.pr); by[y].last=r; });
+    Y.forEach(function(b){ var end=pD(fD(Date.UTC(b.y,fye,0))); b.bal=b.last.bal; b.curr=r2(rows.filter(function(r){ var t2=pD(r.d); return t2>end&&t2<=pD(addMonths(fD(end),12)); }).reduce(function(s,r){ return s+r.pr; },0)); b.end=fD(end); });
+    return {fye:fye,Y:Y}; };
+  t.xcalc=function(o){ var rows=t.plan(o), Z=t.years(o,rows), c=function(v){ return '<td class="r num">'+fmt(v)+'</td>'; };
+    return '<div class="je"><div style="padding:8px 12px;font-weight:800;font-size:13px;background:var(--surface-2);border-bottom:1px solid var(--line-soft)">📅 أثر التمويل على كل سنة مالية — القسط الشهري '+fmt(rows[0]?rows[0].pay:0)+'</div><div class="tbl-wrap"><table><thead><tr><th>السنة المالية</th><th class="r">تكلفة التمويل</th><th class="r">الأصل المسدد</th><th class="r">الرصيد آخر السنة</th><th class="r">منه متداول</th><th class="r">غير متداول</th></tr></thead><tbody>'
+      +Z.Y.map(function(b){ return '<tr><td><b>'+esc(fyLabel(b.y,Z.fye))+'</b></td>'+c(b.i)+c(b.pr)+c(b.bal)+c(b.curr)+c(r2(b.bal-b.curr))+'</tr>'; }).join('')+'</tbody></table></div></div>'
+      +'<details class="je" style="padding:0"><summary style="padding:8px 12px;font-weight:800;font-size:13px;background:var(--surface-2);cursor:pointer">📆 جدول السداد الشهري ('+rows.length+' قسطاً)</summary><div class="tbl-wrap"><table><thead><tr><th>#</th><th>التاريخ</th><th class="r">الربح/الفائدة</th><th class="r">الأصل</th><th class="r">القسط</th><th class="r">الرصيد</th></tr></thead><tbody>'
+      +rows.map(function(r){ return '<tr><td class="num">'+r.k+'</td><td>'+fDar(r.d)+'</td>'+c(r.i)+c(r.pr)+c(r.pay)+c(r.bal)+'</tr>'; }).join('')+'</tbody></table></div></details>'; };
+  t.je=function(o){ var rows=t.plan(o), Z=t.years(o,rows), y1=Z.Y[0], L=[{t:'استلام التمويل — '+fDar(o.from||defFrom()),lines:[{d:'1102',v:o.amt},{c:'2201',v:o.amt}]}];
+    rows.filter(function(r){ return y1&&fyOf(r.d,Z.fye)===y1.y; }).forEach(function(r){ L.push({t:MON+fDar(r.d)+' — القسط '+r.k,lines:[{d:'5240',v:r.i},{d:'2201',v:r.pr},{c:'1102',v:r.pay}]}); });
+    if(y1&&y1.curr>0) L.push({t:'إعادة تصنيف الجزء المتداول في '+fDar(y1.end),lines:[{d:'2201',v:y1.curr},{c:'2180',v:y1.curr}]});
+    return L; };
+  t.ok=['5240'];
+  MIST.loan=[['تحميل كامل ربح المرابحة مصروفاً عند توقيع العقد','5240'],['تحميل تكلفة التمويل عند السداد فقط لا بمرور الزمن',null],['عرض كامل القرض غير متداول دون فصل أقساط السنة القادمة','2201']];
+})();
+caseDefaults=(function(f){ return function(t,amt){ var o=f(t,amt); if(t.id==='loan'&&!o.from) o.from=defFrom(); return o; }; })(caseDefaults);
+
+/* ===== (3) عمولة خطاب الضمان: تُدفع مقدماً وتُوزّع على مدة الخطاب ===== */
+(function(){ var t=TREAT_BY_ID.lgmargin; if(!t) return; t.compactMonthly=1;
+  t.inp=[CAL_INP,FROM_INP,TO_INP,{k:'margin',l:'الغطاء النقدي المحجوز',d:0},PAY_INP,CENTER_INP,PJ_INP,HFROM,HTO];
+  t.tr='خطاب الضمان نفسه التزام محتمل خارج الميزانية يُفصح عنه (IAS 37.86). الغطاء النقدي المحجوز نقد مقيّد يُعرض منفصلاً عن النقد وما في حكمه (IAS 7.48). عمولة الخطاب تُدفع عادة مقدماً عن مدة سريانه فهي مصروف مدفوع مقدماً يُحمّل على كل شهر من مدة الخطاب (أو على تكلفة المشروع إن كان خطاب المشروع)، ويُفرج عن الغطاء عند انتهاء الخطاب.';
+  t.je=function(o){ applyCal(o); var R=monRows(o.amt,o.from,o.to), x=expAcc(o,'5226'), L=[{t:'سداد عمولة الخطاب مقدماً وحجز الغطاء — '+fDar(o.from||today()),lines:[{d:'1220',v:o.amt},{d:'1251',v:+o.margin||0},{c:payAcc(o),v:r2(o.amt+(+o.margin||0))}]}];
+    R.forEach(function(r){ L.push({t:MON+r.label+' ('+r.days+' يوماً)',lines:[{d:x,v:r.amt},{c:'1220',v:r.amt}]}); });
+    if(+o.margin>0) L.push({t:'الإفراج عن الغطاء عند انتهاء الخطاب — '+fDar(o.to),lines:[{d:'1102',v:o.margin},{c:'1251',v:o.margin}]});
+    return L; };
+  MIST.lgmargin=[['تحميل عمولة الخطاب كاملة مصروفاً عند الدفع رغم أنها تغطي مدة السريان','5226'],['عرض الغطاء النقدي ضمن النقد وما في حكمه','1102']];
+})();
+caseDefaults=(function(f){ return function(t,amt){ var o=f(t,amt); if(t.id==='lgmargin'){ o.from=o.from||defFrom(); o.to=o.to||defTo(o.from,12); } return o; }; })(caseDefaults);
+
+/* ===== (4) المنح الحكومية: الحالية والمقبوضة عن فترة قادمة ===== */
+(function(){ var g=TREAT_BY_ID.grant; if(g){ g.n='منحة أو دعم حكومي عن تكاليف تحمّلتها المنشأة فعلاً (مثل دعم هدف عن رواتب مدفوعة)';
+    g.tr='منحة تعوّض تكاليف أُثبتت فعلاً في الربح أو الخسارة تُثبت دخلاً عند توفر تأكيد معقول باستيفاء الشروط وبالاستلام (IAS 20.7، 20.20). يجوز عرضها دخلاً مستقلاً أو خصمها من المصروف المرتبط (IAS 20.29). إذا قُبضت عن رواتب أو تكاليف أشهر قادمة فاستخدم حالة «منحة مقبوضة مقدماً عن فترة قادمة».';
+    g.nx=['grant_future']; }
+  var t={id:'grant_future',n:'منحة أو دعم حكومي مقبوض مقدماً عن فترة قادمة (يُؤجل ويوزع شهرياً)',cat:'إيرادات',
+    q:'منحه مقدما دعم حكومي مقدم دعم هدف مقدم دعم رواتب لعده اشهر منحه مؤجله ايراد منحه مؤجل grant deferred',std:['IAS 20'],
+    tr:'المنحة لا تُثبت دخلاً عند القبض بل على أساس منتظم في الفترات التي تُثبت فيها التكاليف التي تعوّضها (IAS 20.12). المقبوض عن أشهر قادمة التزام «منح حكومية مؤجلة» يُحمّل منه كل شهر نصيبه. إذا لم تُستوفَ الشروط لاحقاً تُرد ويُعالج الرد تغييراً في التقدير (IAS 20.32).',
+    inp:[CAL_INP,FROM_INP,TO_INP,{k:'pres',l:'طريقة العرض',type:'sel',opts:[['inc','دخل منح مستقل'],['ded','خصم من مصروف الرواتب المرتبط']],d:'inc'},HFROM,HTO],amtL:'مبلغ الدعم المقبوض',compactMonthly:1,
+    je:function(o){ applyCal(o); var R=monRows(o.amt,o.from,o.to), cr=o.pres==='ded'?'5201':'4203', L=[{t:'قبض الدعم مقدماً — '+fDar(o.from||today()),lines:[{d:'1102',v:o.amt},{c:'2220',v:o.amt}]}];
+      R.forEach(function(r){ L.push({t:MON+r.label+' ('+r.days+' يوماً)',lines:[{d:'2220',v:r.amt},{c:cr,v:r.amt}]}); }); return L; },
+    revOK:['5201'],
+    au:{as:['القطع','الحدوث'],rk:['إثبات الدعم كاملاً دخلاً عند القبض','دعم مشروط لم تُستوفَ شروطه'],pr:['فحص اتفاقية الدعم وفتراته','مطابقة الدعم مع رواتب الموظفين المدعومين'],isa:['ISA 500','ISA 250']}};
+  TREATS.push(t); TREAT_BY_ID[t.id]=t; t._k=toks(t.q+' '+t.n);
+  MIST.grant_future=[['إثبات الدعم المقبوض عن أشهر قادمة دخلاً كاملاً عند القبض','4203']];
+  WHY_ACC['2220']=['دعم قُبض عن فترة لم تحل بعد — التزام مؤجل','حلّ الشهر فانتقل نصيبه للدخل'];
+})();
+caseDefaults=(function(f){ return function(t,amt){ var o=f(t,amt); if(t.id==='grant_future'){ o.from=o.from||defFrom(); o.to=o.to||defTo(o.from,6); } return o; }; })(caseDefaults);
+
+/* ===== (5) الاستبعاد: إهلاك الفترة حتى تاريخ البيع أولاً ===== */
+(function(){ var t=TREAT_BY_ID.dispose; if(!t) return;
+  t.inp=[{k:'cost',l:'تكلفة الأصل الأصلية',d:100000},{k:'acc',l:'مجمع الإهلاك المسجل حتى آخر قيد',d:60000},{k:'dep',l:'إهلاك الفترة من آخر قيد حتى تاريخ البيع (لم يُسجل بعد)',d:0},VAT_INP,PAY_INP];
+  t.tr='قبل الاستبعاد يُسجل إهلاك الفترة الجارية حتى تاريخ البيع (IAS 16.55: يتوقف الإهلاك في تاريخ الاستبعاد أو التصنيف محتفظاً به للبيع)، ثم يُستبعد الأصل ومجمع إهلاكه، ويُثبت الفرق بين صافي المتحصلات والقيمة الدفترية ربحاً أو خسارة (IAS 16.68، 71) — لا يُصنف إيراداً. بيع الأصل المستخدم في النشاط الخاضع يخضع لضريبة القيمة المضافة.';
+  t.je=function(o){ var acc=r2((+o.acc||0)+(+o.dep||0)), nbv=r2(o.cost-acc), g=r2(o.amt-nbv), v=vatIn(o,o.amt);
+    return [{t:'إهلاك الفترة حتى تاريخ البيع',lines:[{d:'5220',v:+o.dep||0},{c:'1502',v:+o.dep||0}]},{t:'استبعاد الأصل وإثبات '+(g>=0?'الربح':'الخسارة'),lines:[{d:rcvAcc(o),v:r2(o.amt+v)},{d:'1502',v:acc},g<0?{d:'5242',v:-g}:null,{c:'1501',v:o.cost},v?{c:'2130',v:v}:null,g>0?{c:'4202',v:g}:null]}]; };
+  t.ok=['5220','5242'];
+  MIST.dispose=(MIST.dispose||[]).concat([['استبعاد الأصل دون تسجيل إهلاك الأشهر من بداية السنة حتى تاريخ البيع','5242']]);
+})();
+
+/* تواريخ افتراضية من نص البحث للحالات الموزعة الجديدة */
+pickTreat=(function(f){ return function(id,silent){ f(id,silent); if(['loan','lgmargin','grant_future'].indexOf(id)<0||!G.o) return;
+  var q=String(G.q||'').replace(/[٠-٩]/g,function(d){ return '٠١٢٣٤٥٦٧٨٩'.indexOf(d); }), mm=/(\d+)\s*(شهر|شهور|اشهر|أشهر)/.exec(q), yy=/(\d+)\s*(سنه|سنة|سنوات)/.exec(q), n=mm?+mm[1]:yy?+yy[1]*12:0;
+  if(!G.o.from) G.o.from=defFrom();
+  if(id==='loan'){ if(n) G.o.n=n; } else if(!G.o.to||n) G.o.to=defTo(G.o.from,n||(id==='grant_future'?6:12));
+  if(!silent) $('gRes').innerHTML=guideResults(); }; })(pickTreat);
 /* ===== التشغيل ===== */
 boot();
 </script>
