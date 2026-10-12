@@ -1932,7 +1932,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-10-11-l';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-10-12-a';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -2587,17 +2587,26 @@ function buildLedger(){
   function take(w,i,units){
     var s=cell(w,i);
     if(s.units<=0.0000001||units<=0) return {cost:0,weight:0,taken:0};
+    /* علاج انفجار متوسط التكلفة: إن تجاوز متوسط تكلفة الوحدة أعلى سعر شراء فعلي (خلل ناتج عن
+       البيع على المكشوف أو اختلاط وحدات الصنف) صحّحه للسعر الواقعي قبل السحب — فلا تظهر خسارة وهمية. */
+    var cap=capCost(i);
+    if(isFinite(cap)&&s.units>0&&(s.cost/s.units)>cap){ s.cost=s.units*fbCost(i); }
     var q=Math.min(units,s.units), r=q/s.units, c=s.cost*r, wt=s.weight*r;
     s.units-=q; s.cost-=c; s.weight-=wt;
     if(s.units<0.0001){ s.units=0; s.cost=0; s.weight=0; }
     return {cost:c,weight:wt,taken:q};
   }
-  var hist={};
-  db.purchases.forEach(function(p){ (p.lines||[]).forEach(function(l){
-    if(!hist[l.itemId]) hist[l.itemId]={u:0,c:0}; hist[l.itemId].u+=+l.units||0; hist[l.itemId].c+=+l.total||0; }); });
-  db.openingStock.forEach(function(o){
-    if(!hist[o.itemId]) hist[o.itemId]={u:0,c:0}; hist[o.itemId].u+=+o.units||0; hist[o.itemId].c+=+o.total||0; });
-  function fbCost(i){ var h=hist[i]; return (h&&h.u>0)?h.c/h.u:0; }
+  /* تكلفة الرجوع fbCost = متوسط سعر الشراء الفعلي: يُحسب من المشتريات بعد آخر جرد مخزون (إن وُجد)
+     فيعكس السعر الحالي ويتجاهل بيانات ما قبل الجرد المختلطة الوحدات؛ وإلا من كل التاريخ. */
+  var lastCount=''; (db.settings&&db.settings.stockCountLog||[]).forEach(function(x){ if(x&&x.when&&String(x.when)>lastCount) lastCount=String(x.when); });
+  var histAll={}, histPost={};
+  function addHist(h,i,u,c){ if(!h[i]) h[i]={u:0,c:0,mx:0}; h[i].u+=u; h[i].c+=c; if(u>=1){ var pu=c/u; if(pu>h[i].mx) h[i].mx=pu; } }
+  db.purchases.forEach(function(p){ (p.lines||[]).forEach(function(l){ var u=+l.units||0,c=+l.total||0; addHist(histAll,l.itemId,u,c); if(lastCount&&p.date>=lastCount) addHist(histPost,l.itemId,u,c); }); });
+  db.openingStock.forEach(function(o){ var u=+o.units||0,c=+o.total||0; addHist(histAll,o.itemId,u,c); if(lastCount&&o.date>=lastCount) addHist(histPost,o.itemId,u,c); });
+  function hpick(i){ var h=histPost[i]; return (h&&h.u>0)?h:histAll[i]; }
+  function fbCost(i){ var h=hpick(i); return (h&&h.u>0)?h.c/h.u:0; }
+  /* سقف واقعي لتكلفة الوحدة = أعلى سعر شراء فعلي (أو المتوسط) ×1.6 — حدّ أمان ضد انفجار المتوسط */
+  function capCost(i){ var h=hpick(i); if(!h||h.u<=0) return Infinity; var avg=h.c/h.u; return Math.max(h.mx,avg)*1.6; }
   /* يسحب كمية بيع من مستودعها (ثم من المستودعات العامة عند العجز) ويُرجع التكلفة مع
      تفصيل ما سُحب من كل مستودع فعلياً (parts) — كي تُسجَّل حركة لكل مستودع فيتطابق
      دفتر الحركات (moves) مع الرصيد الفعلي (stock)، فلا يختلف stockAsOf عن الرصيد. */
