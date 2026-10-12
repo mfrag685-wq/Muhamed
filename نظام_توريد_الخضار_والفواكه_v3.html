@@ -1699,6 +1699,10 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
       <div class="field"><label>مقدمة رسالة المصروفات <span class="hint">{name} = الاسم</span></label><input type="text" id="en_expIntro" placeholder="تحية طيبة أستاذ {name} 📋"></div>
       <div class="field"><label>حساب مسؤول المبيعات <span class="hint">من يُقِرّ بأرصدة المبيعات</span></label><select id="en_salesUid"></select></div>
       <div class="field"><label>حساب مسؤول المشتريات <span class="hint">من يُقِرّ بأرصدة المشتريات</span></label><select id="en_purchUid"></select></div>
+      <div class="field"><label>ساعة استحقاق تنبيه اليوم <span class="hint">صباحاً 0–23 (الافتراضي 10)</span></label><input type="number" id="en_alertHour" min="0" max="23" placeholder="10"></div>
+      <div class="field"><label>بدء تنبيه المبيعات</label><select id="en_salesGrace"><option value="0">نفس اليوم</option><option value="1">بعد يوم</option></select></div>
+      <div class="field"><label>بدء تنبيه المشتريات</label><select id="en_purchGrace"><option value="0">نفس اليوم</option><option value="1">بعد يوم</option></select></div>
+      <div class="field"><label>بدء تنبيه المصروفات</label><select id="en_expGrace"><option value="0">نفس اليوم</option><option value="1">بعد يوم</option></select></div>
     </div>
     <div class="form-foot"><button class="btn-main" onclick="saveEntryCfg()">حفظ أسماء المتابعة</button>
       <button class="btn" onclick="resetEntryCfg()">استعادة الافتراضي</button>
@@ -1934,7 +1938,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-10-12-b';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-10-12-c';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -5164,11 +5168,11 @@ function financialAdvice(from,to){
 }
 /* تنبيهات تأخّر الإدخالات (متدرّجة) — تُعرض في بانر علوي عالمي أعلى تنبيهات المخزون ليراها الجميع عند فتح النظام.
    مهلة سماح اختيارية (grace) + شدّة تتصاعد: يوم = تذكير هادئ · يومان = متابعة · 3+ = تأخّر عاجل. */
-var ENTRY_TODAY_HOUR=10;   /* تُعتبر إدخالات «اليوم» مستحقّة بدءاً من هذه الساعة صباحاً، لا من بداية اليوم */
 function entryDelayAlerts(){
   var cfg=entryCfg(), realTd=today();
-  /* «اليوم الفعّال»: قبل الساعة 10ص لا يُطالَب بإدخال اليوم بعد (يُعتبر المرجع هو الأمس) */
-  var td=(new Date().getHours()<ENTRY_TODAY_HOUR)?ivAddDays(realTd,-1):realTd;
+  /* «اليوم الفعّال»: قبل ساعة الاستحقاق (قابلة للتعديل) لا يُطالَب بإدخال اليوم بعد (المرجع هو الأمس) */
+  var hr=+cfg.alertHour; if(!(hr>=0&&hr<=23)) hr=10;
+  var td=(new Date().getHours()<hr)?ivAddDays(realTd,-1):realTd;
   function followUp(arr,name,introTpl,kindDef,kindBare,grace){
     grace=grace||0;
     var intro=entryIntro(introTpl,name), days=[];
@@ -5187,9 +5191,9 @@ function entryDelayAlerts(){
       msg:'آخر يوم تم فيه إدخال '+kindDef+' هو '+last+' — مضى '+gap+' أيام بلا إدخال. يُرجى استدراك الأيام الفائتة بدءاً من '+nd+'.'};
   }
   var raw=[
-    followUp(db.sales,cfg.salesName,cfg.salesIntro,'المبيعات','مبيعات',1),   /* المبيعات: مهلة يوم */
-    followUp(db.purchases,cfg.purchName,cfg.purchIntro,'المشتريات','مشتريات',0),
-    followUp(db.expenses,cfg.expName,cfg.expIntro,'المصروفات','مصروفات',0)
+    followUp(db.sales,cfg.salesName,cfg.salesIntro,'المبيعات','مبيعات',+cfg.salesGrace||0),   /* مهلة البدء قابلة للتعديل */
+    followUp(db.purchases,cfg.purchName,cfg.purchIntro,'المشتريات','مشتريات',+cfg.purchGrace||0),
+    followUp(db.expenses,cfg.expName,cfg.expIntro,'المصروفات','مصروفات',+cfg.expGrace||0)
   ].filter(function(x){ return x; });
   /* تجميع حسب الموظّف: بطاقة واحدة لكل اسم (بلا تكرار الاسم متداخلاً) */
   var order=[], byName={};
@@ -6924,12 +6928,13 @@ function renderSettingsForm(){
   try{ renderNotesAdmin(); }catch(e){}
 }
 /* ===== مسؤولو الإدخال ورسائل المتابعة ===== */
-var ENTRY_DEFAULTS={salesName:'عبد الناصر',purchName:'عمرو',expName:'عبد الناصر',salesIntro:'تحية طيبة أستاذ {name} 🌿',purchIntro:'تحية طيبة أستاذ {name} 🚚',expIntro:'تحية طيبة أستاذ {name} 📋'};
+var ENTRY_DEFAULTS={salesName:'عبد الناصر',purchName:'عمرو',expName:'عبد الناصر',salesIntro:'تحية طيبة أستاذ {name} 🌿',purchIntro:'تحية طيبة أستاذ {name} 🚚',expIntro:'تحية طيبة أستاذ {name} 📋',alertHour:10,salesGrace:1,purchGrace:0,expGrace:0};
 function entryCfg(){ var s=(db.settings&&db.settings.entry)||{};
   var pick=function(k){ return (s[k]!=null&&s[k]!=='')?s[k]:ENTRY_DEFAULTS[k]; };
   return { salesName:pick('salesName'), purchName:pick('purchName'), expName:pick('expName'),
     salesIntro:pick('salesIntro'), purchIntro:pick('purchIntro'), expIntro:pick('expIntro'),
-    salesUid:(s.salesUid||null), purchUid:(s.purchUid||null) }; }
+    salesUid:(s.salesUid||null), purchUid:(s.purchUid||null),
+    alertHour:pick('alertHour'), salesGrace:pick('salesGrace'), purchGrace:pick('purchGrace'), expGrace:pick('expGrace') }; }
 function entryIntro(tpl,name){ return String(tpl||'').replace(/\{name\}/g,name); }
 function renderEntryCfg(){
   var c=entryCfg();
@@ -6938,6 +6943,7 @@ function renderEntryCfg(){
   var uopts='<option value="">— غير محدَّد (المدير + مطابقة اسم الدخول الافتراضي) —</option>'+(db.users||[]).filter(function(u){return u.active!==0;}).map(function(u){ return '<option value="'+u.id+'">'+esc(u.name)+' ('+esc(u.username||'—')+')</option>'; }).join('');
   var ss=document.getElementById('en_salesUid'); if(ss){ ss.innerHTML=uopts; ss.value=c.salesUid?String(c.salesUid):''; }
   var ps=document.getElementById('en_purchUid'); if(ps){ ps.innerHTML=uopts; ps.value=c.purchUid?String(c.purchUid):''; }
+  setVal('en_alertHour',c.alertHour); setVal('en_salesGrace',String(+c.salesGrace||0)); setVal('en_purchGrace',String(+c.purchGrace||0)); setVal('en_expGrace',String(+c.expGrace||0));
   var pv=document.getElementById('en_preview');
   if(pv) pv.innerHTML='<b>معاينة:</b> '+esc(entryIntro(c.salesIntro,c.salesName))+' آخر يوم تم فيه إدخال المبيعات هو 2026-10-09، الرجاء إدخال مبيعات يوم 2026-10-10.';
 }
@@ -6945,7 +6951,9 @@ function saveEntryCfg(){
   if(!guard('settings')) return;
   db.settings.entry={ salesName:(val('en_salesName')||'').trim(), purchName:(val('en_purchName')||'').trim(), expName:(val('en_expName')||'').trim(),
     salesIntro:(val('en_salesIntro')||'').trim(), purchIntro:(val('en_purchIntro')||'').trim(), expIntro:(val('en_expIntro')||'').trim(),
-    salesUid:(+val('en_salesUid')||null), purchUid:(+val('en_purchUid')||null) };
+    salesUid:(+val('en_salesUid')||null), purchUid:(+val('en_purchUid')||null),
+    alertHour:(val('en_alertHour')!==''?Math.min(23,Math.max(0,+val('en_alertHour')||0)):10),
+    salesGrace:(+val('en_salesGrace')||0), purchGrace:(+val('en_purchGrace')||0), expGrace:(+val('en_expGrace')||0) };
   var n=document.getElementById('en_status'); if(n) n.textContent='تم الحفظ ✅';
   log('data','الإعدادات','تحديث مسؤولي الإدخال ورسائل المتابعة');
   commit('تم حفظ أسماء المتابعة'); renderEntryCfg();
