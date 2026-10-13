@@ -874,7 +874,7 @@ var TREAT_BY_ID={}; TREATS.forEach(function(t){ TREAT_BY_ID[t.id]=t; });
 /* ==========================================================================
    النواة: أدوات عامة + قاعدة البيانات + الصلاحيات + الدخول + المزامنة السحابية
    ========================================================================== */
-var APP_BUILD='2026-10-12-p20';
+var APP_BUILD='2026-10-13-p21';
 var LS_DB='mfp_db_v1', LS_SES='mfp_session_v1';
 
 function $(id){ return document.getElementById(id); }
@@ -5028,6 +5028,61 @@ analyze=(function(f){ return function(q){ var r=f(q), qt=toks(q).map(function(w)
 guideResults=(function(f){ return function(){ var h=f(); if(!G.q||(G.sel&&G.sel.id!=='generic')) return h;
   var r=accSmart(G.q,6).filter(function(x){ return actOk(x.c); }); if(!r.length) return h;
   return h+'<div class="panel"><h3>📒 حسابات ذات صلة في الدليل المحاسبي</h3><div class="match-list">'+r.map(function(x){ var g=CG_BY[x.c]||accGroup(x.c); return '<button onclick="accInfo(\''+x.c+'\')"><b><span class="num">'+x.c+'</span> '+esc(COA[x.c])+'</b><span>'+esc((g[1]||[]).join(' › '))+'</span></button>'; }).join('')+'</div></div>'; }; })(guideResults);
+/* ==========================================================================
+   v21 — سجل حركات المتدربين: يُسجّل في السحابة (إضافة فقط) ويقرؤه المدير وحده
+   ========================================================================== */
+function actRef(p){ return firebase.database().ref('workspaces/'+LEARN_WID+'/activity'+(p?'/'+p:'')); }
+var LTRK={last:'',at:0,fail:0,sess:false};
+function isLearner(){ return LEARN&&ME&&ME.role==='learner'&&!ME.learnAdmin&&String(ME.id||'').indexOf('L-')===0; }
+function learnTrack(act,mod,msg){ if(!isLearner()||!cloudEnabled()) return; try{
+  msg=String(msg||'').slice(0,390); var key=act+'|'+msg, now=Date.now(); if(key===LTRK.last&&now-LTRK.at<5000) return; LTRK.last=key; LTRK.at=now;
+  actRef(ME.id.slice(2)).push({ts:firebase.database.ServerValue.TIMESTAMP,act:String(act).slice(0,20),mod:String(mod||'').slice(0,60),msg:msg,u:String(ME.username||'').slice(0,60),n:String(ME.name||'').slice(0,80)})
+    .catch(function(){ LTRK.fail++; }); }catch(e){ LTRK.fail++; } }
+log=(function(f){ return function(act,mod,msg){ f(act,mod,msg); learnTrack(act,mod,msg); }; })(log);
+if(LEARN){
+  buildNav=(function(f){ return function(){ f(); if(isLearner()&&!LTRK.sess){ LTRK.sess=true; learnTrack('login','الدخول','دخول المنصة التعليمية — '+(navigator.userAgent.match(/iPhone|Android|iPad|Windows|Mac/)||['جهاز'])[0]); } }; })(buildNav);
+  logout=(function(f){ return function(){ if(isLearner()) learnTrack('logout','الخروج','تسجيل الخروج'); var a=arguments, self=this; setTimeout(function(){ f.apply(self,a); },250); }; })(logout);
+  go=(function(f){ return function(v,arg){ var prev=CUR; f(v,arg); if(isLearner()&&CUR!==prev){ var n=NAV.filter(function(x){ return x.id===CUR; })[0]; learnTrack('nav','التنقل','فتح «'+(n?n.n:CUR)+'»'); } }; })(go);
+  pickTreat=(function(f){ return function(id,silent){ f(id,silent); var t=TREAT_BY_ID[id]; if(t&&isLearner()&&id!=='generic') learnTrack('case','دليل المعايير','فتح حالة: '+t.n); }; })(pickTreat);
+}
+
+/* ===== شاشة السجل (للمدير) ===== */
+var LLOG={rows:null,err:'',who:'',type:'',days:'7',q:''};
+var LTYPES=[['login','🔑 دخول'],['logout','🚪 خروج'],['nav','🧭 تنقل'],['search','🔎 بحث'],['case','📚 فتح حالة'],['quiz','🎯 اختبار'],['other','• أخرى']];
+function ltype(r){ if(r.act==='login'||r.act==='logout'||r.act==='nav'||r.act==='case') return r.act; if(/^بحث:/.test(r.msg)) return 'search'; if(/اختبر نفسك/.test(r.msg)) return 'quiz'; return 'other'; }
+function loadLearnLog(){ LLOG.rows=null; LLOG.err=''; if(!cloudEnabled()){ LLOG.err='يتطلب الاتصال بالسحابة'; render(); return; }
+  actRef().once('value').then(function(s){ var v=s.val()||{}, rows=[]; Object.keys(v).forEach(function(uid){ var u=v[uid]||{}; Object.keys(u).forEach(function(k){ var r=u[k]; if(r&&r.ts) rows.push(Object.assign({uid:uid,k:k},r)); }); });
+    rows.sort(function(a,b){ return b.ts-a.ts; }); LLOG.rows=rows; render(); })
+  .catch(function(e){ LLOG.err=String(e&&(e.code||e.message)||e); render(); }); }
+function llogFiltered(){ var since=LLOG.days==='all'?0:Date.now()-(+LLOG.days)*864e5, q=norm(LLOG.q);
+  return (LLOG.rows||[]).filter(function(r){ return r.ts>=since&&(!LLOG.who||r.uid===LLOG.who)&&(!LLOG.type||ltype(r)===LLOG.type)&&(!q||norm(r.msg+' '+r.n+' '+r.u).indexOf(q)>=0); }); }
+function tsStr(ts){ var d=new Date(ts); return d.toLocaleDateString('ar-SA-u-ca-gregory-nu-latn')+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'); }
+VIEWS.lrnlog=function(){
+  if(!LLOG.rows&&!LLOG.err){ setTimeout(loadLearnLog,0); return '<div class="page-head"><div><h2>📜 سجل حركات المتدربين</h2></div></div><div class="panel"><div class="mini">جارٍ التحميل…</div></div>'; }
+  var h='<div class="page-head"><div><h2>📜 سجل حركات المتدربين</h2><p>كل دخول وبحث وحالة واختبار في المنصة التعليمية — يُسجّل في السحابة ولا يستطيع المتدرب تعديله أو حذفه</p></div><div class="btn-row"><button class="btn" onclick="loadLearnLog()">🔄 تحديث</button>'
+    +(LLOG.rows&&LLOG.rows.length?'<button class="btn" onclick="llogCsv()">⬇️ تصدير</button><button class="btn" onclick="llogPrint()">🖨️ طباعة</button>':'')+'</div></div>';
+  if(LLOG.err) return h+'<div class="login-err" style="display:block">تعذّر تحميل السجل: '+esc(LLOG.err)+(/permission/i.test(LLOG.err)?'<br>حدّث قواعد Firebase: انسخ محتوى ملف database.rules.accounts.json إلى Realtime Database ← Rules ← Publish.':'')+'</div>';
+  var all=LLOG.rows, who={}; all.forEach(function(r){ who[r.uid]=r.n||r.u||r.uid; });
+  var rows=llogFiltered();
+  h+='<div class="toolbar" style="flex-wrap:wrap;gap:8px"><select onchange="LLOG.who=this.value;render()"><option value="">كل المتدربين</option>'+Object.keys(who).map(function(u){ return '<option value="'+u+'"'+(LLOG.who===u?' selected':'')+'>'+esc(who[u])+'</option>'; }).join('')+'</select>'
+    +'<select onchange="LLOG.type=this.value;render()"><option value="">كل الحركات</option>'+LTYPES.map(function(t){ return '<option value="'+t[0]+'"'+(LLOG.type===t[0]?' selected':'')+'>'+t[1]+'</option>'; }).join('')+'</select>'
+    +'<select onchange="LLOG.days=this.value;render()">'+[['1','اليوم'],['7','آخر 7 أيام'],['30','آخر 30 يوماً'],['all','الكل']].map(function(d){ return '<option value="'+d[0]+'"'+(LLOG.days===d[0]?' selected':'')+'>'+d[1]+'</option>'; }).join('')+'</select>'
+    +'<input type="search" placeholder="بحث في التفاصيل…" value="'+esc(LLOG.q)+'" oninput="LLOG.q=this.value;clearTimeout(window._lt);window._lt=setTimeout(function(){render();var i=document.querySelector(\'#view .toolbar input\');i.focus();i.setSelectionRange(i.value.length,i.value.length);},300)"></div>';
+  /* ملخص لكل متدرب */
+  var sum={}; rows.forEach(function(r){ var s=sum[r.uid]||(sum[r.uid]={n:who[r.uid],last:0,login:0,search:0,cs:0,qz:0,qs:0,qt:0}); s.last=Math.max(s.last,r.ts); var t=ltype(r);
+    if(t==='login') s.login++; else if(t==='search') s.search++; else if(t==='case') s.cs++; else if(t==='quiz'){ s.qz++; var m=/(\d+)\/(\d+)/.exec(r.msg); if(m){ s.qs+=+m[1]; s.qt+=+m[2]; } } });
+  h+='<div class="panel"><h3>👥 ملخص المتدربين في الفترة</h3>'+(Object.keys(sum).length?'<div class="tbl-wrap"><table><thead><tr><th>المتدرب</th><th>آخر نشاط</th><th class="r">دخول</th><th class="r">بحث</th><th class="r">حالات</th><th class="r">اختبارات</th><th class="r">متوسط الدرجة</th></tr></thead><tbody>'
+    +Object.keys(sum).map(function(u){ var s=sum[u]; return '<tr><td><a class="acc" href="javascript:void 0" onclick="LLOG.who=\''+u+'\';render()">'+esc(s.n)+'</a></td><td class="mini">'+tsStr(s.last)+'</td><td class="r num">'+s.login+'</td><td class="r num">'+s.search+'</td><td class="r num">'+s.cs+'</td><td class="r num">'+s.qz+'</td><td class="r num">'+(s.qt?Math.round(s.qs/s.qt*100)+'%':'—')+'</td></tr>'; }).join('')+'</tbody></table></div>':'<div class="mini">لا توجد حركات في هذه الفترة.</div>')+'</div>';
+  h+='<div class="panel"><h3>🕒 الحركات <span class="pill pill-info num">'+rows.length+'</span></h3>'+(rows.length?'<div>'
+    +rows.slice(0,500).map(function(r){ var t=ltype(r), tl=(LTYPES.filter(function(x){ return x[0]===t; })[0]||['',''])[1]; return '<div style="padding:10px 0;border-bottom:1px solid var(--line-soft)"><div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><b>'+esc(r.n||r.u)+' <span class="pill pill-mute">'+tl+'</span></b><span class="mini num">'+tsStr(r.ts)+'</span></div><div style="margin-top:4px">'+esc(r.msg)+'</div></div>'; }).join('')+'</div>'+(rows.length>500?'<div class="mini">يُعرض أحدث 500 حركة — استخدم الفلاتر أو التصدير.</div>':''):'<div class="empty" style="padding:12px">لا توجد حركات مطابقة.</div>')+'</div>';
+  return h; };
+function llogCsv(){ csvDownload('سجل حركات المتدربين',[['الوقت','المتدرب','اسم المستخدم','الحركة','التفاصيل']].concat(llogFiltered().map(function(r){ return [tsStr(r.ts),r.n||'',r.u||'',ltype(r),r.msg]; }))); }
+function llogPrint(){ printHTML('سجل حركات المتدربين',null,today(),[],'<table><thead><tr><th>الوقت</th><th>المتدرب</th><th>الحركة</th><th>التفاصيل</th></tr></thead><tbody>'+llogFiltered().slice(0,2000).map(function(r){ return '<tr><td>'+tsStr(r.ts)+'</td><td>'+esc(r.n||r.u)+'</td><td>'+ltype(r)+'</td><td>'+esc(r.msg)+'</td></tr>'; }).join('')+'</tbody></table>'); }
+/* الوصول للشاشة: من قسم المتدربين في المنصة، ومن قائمة المدير في الرابط التعليمي */
+NAV.push({id:'lrnlog',ic:'📜',n:'سجل حركات المتدربين',mod:'users',g:'الإدارة',lrn:1});
+navOk=(function(f){ return function(n){ if(n&&n.id==='lrnlog') return LEARN?!!(ME&&ME.learnAdmin):(ME&&(ME.role==='manager'||can('users'))); return f(n); }; })(navOk);
+learnersPanel=(function(f){ return function(){ var h=f(); return h.replace('<div class="btn-row" style="margin:12px 0"><button class="btn-main" onclick="openLearner()">＋ متدرّب جديد</button></div>','<div class="btn-row" style="margin:12px 0"><button class="btn-main" onclick="openLearner()">＋ متدرّب جديد</button><button class="btn" onclick="go(\'lrnlog\')">📜 سجل حركات المتدربين</button></div>'); }; })(learnersPanel);
+
 /* ===== التشغيل ===== */
 boot();
 </script>
