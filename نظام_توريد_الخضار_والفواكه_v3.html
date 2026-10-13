@@ -1938,7 +1938,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-10-13-a';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-10-13-b';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -2187,6 +2187,10 @@ function ensureDbShape(){
       keys.forEach(function(dk){ var d=db.departments[dk]; if(Array.isArray(d.stockCountLog)) d.stockCountLog.sort(function(a,b){ return (b.id||0)-(a.id||0); }); });
     }
     if(db.settings) db.settings.stockCountLog=null;
+    /* إعدادات تنبيهات الإدخال العامة → نسخة مستقلة لكل قسم قائم، ثم تفريغ العام */
+    var gen=db.settings&&db.settings.entry;
+    if(gen&&typeof gen==='object') keys.forEach(function(dk){ var d=db.departments[dk]; if(!d.entry){ d.entry=JSON.parse(JSON.stringify(gen)); } });
+    if(db.settings) db.settings.entry=null;
   })();
   dedupeDeptRefs();          /* أمان: لا يتشارك قسمان أبداً نفس مصفوفة (مرجع) */
   loadDept(desiredDept());   /* يحترم اختيار هذا الجهاز إن وُجد */
@@ -5205,11 +5209,14 @@ function financialAdvice(from,to){
 /* تنبيهات تأخّر الإدخالات (متدرّجة) — تُعرض في بانر علوي عالمي أعلى تنبيهات المخزون ليراها الجميع عند فتح النظام.
    مهلة سماح اختيارية (grace) + شدّة تتصاعد: يوم = تذكير هادئ · يومان = متابعة · 3+ = تأخّر عاجل. */
 function entryDelayAlerts(){
+  /* قسم جديد فارغ تماماً (بلا أي مبيعات/مشتريات/مصروفات) لا يُطالَب بإدخالات — صفحة بيضاء */
+  if(!((db.sales&&db.sales.length)||(db.purchases&&db.purchases.length)||(db.expenses&&db.expenses.length))) return [];
   var cfg=entryCfg(), realTd=today();
   /* «اليوم الفعّال»: قبل ساعة الاستحقاق (قابلة للتعديل) لا يُطالَب بإدخال اليوم بعد (المرجع هو الأمس) */
   var hr=+cfg.alertHour; if(!(hr>=0&&hr<=23)) hr=10;
   var td=(new Date().getHours()<hr)?ivAddDays(realTd,-1):realTd;
   function followUp(arr,name,introTpl,kindDef,kindBare,grace){
+    if(!name||!String(name).trim()) return null;   /* لا مسؤول محدَّد لهذا النوع في هذا القسم ⇒ لا تنبيه */
     grace=grace||0;
     var intro=entryIntro(introTpl,name), days=[];
     (arr||[]).forEach(function(x){ if(x.date&&x.date<=realTd) days.push(x.date); });
@@ -6965,9 +6972,11 @@ function renderSettingsForm(){
 }
 /* ===== مسؤولو الإدخال ورسائل المتابعة ===== */
 var ENTRY_DEFAULTS={salesName:'عبد الناصر',purchName:'عمرو',expName:'عبد الناصر',salesIntro:'تحية طيبة أستاذ {name} 🌿',purchIntro:'تحية طيبة أستاذ {name} 🚚',expIntro:'تحية طيبة أستاذ {name} 📋',alertHour:10,salesGrace:1,purchGrace:0,expGrace:0};
-function entryCfg(){ var s=(db.settings&&db.settings.entry)||{};
+function entryCfg(){ var s=(dcur().entry)||{};   /* إعدادات تنبيهات الإدخال خاصة بكل قسم */
   var pick=function(k){ return (s[k]!=null&&s[k]!=='')?s[k]:ENTRY_DEFAULTS[k]; };
-  return { salesName:pick('salesName'), purchName:pick('purchName'), expName:pick('expName'),
+  /* الأسماء: المفتاح الغائب ⇒ الافتراضي؛ لكن الاسم المُفرَّغ عمداً ('') يبقى فارغاً = لا مسؤول (لا تنبيه) */
+  var pickN=function(k){ return (s[k]!=null)?s[k]:ENTRY_DEFAULTS[k]; };
+  return { salesName:pickN('salesName'), purchName:pickN('purchName'), expName:pickN('expName'),
     salesIntro:pick('salesIntro'), purchIntro:pick('purchIntro'), expIntro:pick('expIntro'),
     salesUid:(s.salesUid||null), purchUid:(s.purchUid||null),
     alertHour:pick('alertHour'), salesGrace:pick('salesGrace'), purchGrace:pick('purchGrace'), expGrace:pick('expGrace') }; }
@@ -6981,20 +6990,20 @@ function renderEntryCfg(){
   var ps=document.getElementById('en_purchUid'); if(ps){ ps.innerHTML=uopts; ps.value=c.purchUid?String(c.purchUid):''; }
   setVal('en_alertHour',c.alertHour); setVal('en_salesGrace',String(+c.salesGrace||0)); setVal('en_purchGrace',String(+c.purchGrace||0)); setVal('en_expGrace',String(+c.expGrace||0));
   var pv=document.getElementById('en_preview');
-  if(pv) pv.innerHTML='<b>معاينة:</b> '+esc(entryIntro(c.salesIntro,c.salesName))+' آخر يوم تم فيه إدخال المبيعات هو 2026-10-09، الرجاء إدخال مبيعات يوم 2026-10-10.';
+  if(pv) pv.innerHTML='<b>هذه الإعدادات خاصة بقسم «'+esc(deptName(db.activeDept))+'» فقط</b> — لكل قسم مسؤولوه ورسائله وساعته ومهله المستقلة.<br><b>معاينة:</b> '+esc(entryIntro(c.salesIntro,c.salesName))+' آخر يوم تم فيه إدخال المبيعات هو 2026-10-09، الرجاء إدخال مبيعات يوم 2026-10-10.';
 }
 function saveEntryCfg(){
   if(!guard('settings')) return;
-  db.settings.entry={ salesName:(val('en_salesName')||'').trim(), purchName:(val('en_purchName')||'').trim(), expName:(val('en_expName')||'').trim(),
+  dcur().entry={ salesName:(val('en_salesName')||'').trim(), purchName:(val('en_purchName')||'').trim(), expName:(val('en_expName')||'').trim(),
     salesIntro:(val('en_salesIntro')||'').trim(), purchIntro:(val('en_purchIntro')||'').trim(), expIntro:(val('en_expIntro')||'').trim(),
     salesUid:(+val('en_salesUid')||null), purchUid:(+val('en_purchUid')||null),
     alertHour:(val('en_alertHour')!==''?Math.min(23,Math.max(0,+val('en_alertHour')||0)):10),
     salesGrace:(+val('en_salesGrace')||0), purchGrace:(+val('en_purchGrace')||0), expGrace:(+val('en_expGrace')||0) };
-  var n=document.getElementById('en_status'); if(n) n.textContent='تم الحفظ ✅';
-  log('data','الإعدادات','تحديث مسؤولي الإدخال ورسائل المتابعة');
+  var n=document.getElementById('en_status'); if(n) n.textContent='تم الحفظ ✅ (خاص بقسم '+esc(deptName(db.activeDept))+')';
+  log('data','الإعدادات','تحديث مسؤولي الإدخال ورسائل المتابعة — قسم '+deptName(db.activeDept));
   commit('تم حفظ أسماء المتابعة'); renderEntryCfg();
 }
-function resetEntryCfg(){ if(!guard('settings')) return; if(db.settings) db.settings.entry=null; renderEntryCfg();
+function resetEntryCfg(){ if(!guard('settings')) return; dcur().entry=null; renderEntryCfg();
   var n=document.getElementById('en_status'); if(n) n.textContent='أُعيدت الافتراضية — اضغط حفظ للتثبيت'; }
 /* ===== ملاحظات موجّهة للمستخدمين ===== */
 function noteTargetName(toUid){ return (+toUid===0)?'الكل':userName(+toUid); }
@@ -10061,6 +10070,7 @@ function mergeCloud(localDb,remote){
       rd.notes=alive(unionById(rd.notes, ld.notes));
       rd.stockCountLog=alive(unionById(rd.stockCountLog, ld.stockCountLog));
       if(ld.periodLock&&(!rd.periodLock||String(ld.periodLock.until||'')>String(rd.periodLock.until||''))) rd.periodLock=ld.periodLock;
+      if(ld.entry&&!rd.entry) rd.entry=ld.entry;   /* إعدادات تنبيهات الإدخال خاصة بالقسم */
     });
   }
   /* استبعاد المحذوف من كل الأقسام (حتى ما لم يوجد محلياً) */
