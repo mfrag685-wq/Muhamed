@@ -36,6 +36,16 @@
         "reloadReqs": {
           ".read": "auth != null && root.child('workspaces').child($wid).child('members').child(auth.uid).exists()",
           ".write": "auth != null && root.child('workspaces').child($wid).child('members').child(auth.uid).exists()"
+        },
+        "activity": {
+          ".read": "auth != null && ( root.child('workspaces').child($wid).child('members').child(auth.uid).child('role').val() === 'admin' || ( $wid === 'learn' && root.child('workspaces').child('main').child('members').child(auth.uid).child('role').val() === 'admin' ) )",
+          ".write": "auth != null && ( root.child('workspaces').child($wid).child('members').child(auth.uid).child('role').val() === 'admin' || ( $wid === 'learn' && root.child('workspaces').child('main').child('members').child(auth.uid).child('role').val() === 'admin' ) )",
+          "$uid": {
+            "$eid": {
+              ".write": "auth != null && auth.uid === $uid && !data.exists() && newData.exists() && root.child('workspaces').child($wid).child('members').child(auth.uid).exists()",
+              ".validate": "newData.hasChildren(['ts','act','msg']) && newData.child('ts').isNumber() && newData.child('ts').val() <= now && newData.child('act').isString() && newData.child('act').val().length <= 20 && newData.child('msg').isString() && newData.child('msg').val().length <= 400"
+            }
+          }
         }
       }
     }
