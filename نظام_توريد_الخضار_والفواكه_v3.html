@@ -1938,7 +1938,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-10-12-c';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-10-13-a';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -2092,20 +2092,26 @@ function syncActiveDept(){
     DEPT_BOOKS.forEach(function(k){ if(Array.isArray(db[k])) d[k]=db[k]; });
   }
 }
+/* دفاتر خاصة بكل قسم (غير مشتركة): الملاحظات · قفل الفترة · سجل الجرد — كل قسم مستقل تماماً */
+function dcur(){ if(!db.departments) db.departments={}; var k=db.activeDept; if(!k||!db.departments[k]) k=Object.keys(db.departments)[0]; if(!k){ k='fruits'; } if(!db.departments[k]) db.departments[k]={name:k}; db.activeDept=k; return db.departments[k]; }
+function deptNotes(){ var d=dcur(); if(!Array.isArray(d.notes)) d.notes=[]; return d.notes; }
+function deptLock(){ var d=dcur(); if(!d.periodLock||typeof d.periodLock!=='object') d.periodLock={until:'',pass:''}; return d.periodLock; }
+function deptCountLog(){ var d=dcur(); if(!Array.isArray(d.stockCountLog)) d.stockCountLog=[]; return d.stockCountLog; }
 /* الشكل المحفوظ: بيانات مشتركة + أقسام (دون تكرار مصفوفات العمل) */
 function serializeDB(){
   syncActiveDept();
   return {meta:db.meta,settings:db.settings,users:db.users,audit:db.audit,units:db.units,
-    interTransfers:db.interTransfers,notes:db.notes||[],activeDept:db.activeDept,departments:db.departments,tombstones:db.tombstones||{}};
+    interTransfers:db.interTransfers,activeDept:db.activeDept,departments:db.departments,tombstones:db.tombstones||{}};
 }
 /* ===== شواهد الحذف (tombstones): معرّفات السجلّات المحذوفة كي لا يعيدها الدمج =====
    تُجمع معرّفات كل دفاتر الحركات (وكل الأقسام) وتُقارَن قبل/بعد كل حفظ لاكتشاف المحذوف تلقائياً */
 function collectMergeIds(){
   var s={};
   if(db.departments) Object.keys(db.departments).forEach(function(dk){ var d=db.departments[dk]; if(!d||typeof d!=='object') return;
-    DEPT_BOOKS.forEach(function(bk){ (d[bk]||[]).forEach(function(r){ if(r&&r.id!=null) s[r.id]=1; }); }); });
+    DEPT_BOOKS.forEach(function(bk){ (d[bk]||[]).forEach(function(r){ if(r&&r.id!=null) s[r.id]=1; }); });
+    (d.notes||[]).forEach(function(r){ if(r&&r.id!=null) s[r.id]=1; });           /* الملاحظات خاصة بالقسم */
+    (d.stockCountLog||[]).forEach(function(r){ if(r&&r.id!=null) s[r.id]=1; }); });  /* سجل الجرد خاص بالقسم */
   (db.interTransfers||[]).forEach(function(r){ if(r&&r.id!=null) s[r.id]=1; });
-  (db.notes||[]).forEach(function(r){ if(r&&r.id!=null) s[r.id]=1; });
   return s;
 }
 var _knownIds=null;
@@ -2117,14 +2123,13 @@ function markDeletions(){
 }
 function resetKnownIds(){ _knownIds=collectMergeIds(); }
 function ensureDbShape(){
-  ['users','audit','units','interTransfers','notes'].forEach(function(k){ if(!Array.isArray(db[k])) db[k]=[]; });   /* مشترك */
+  ['users','audit','units','interTransfers'].forEach(function(k){ if(!Array.isArray(db[k])) db[k]=[]; });   /* مشترك */
   db.audit.forEach(function(a){ if(a&&a.id==null) a.id=uid(); });   /* معرّف لكل حركة كي تكون قابلة للحذف الدائم */
   if(!db.tombstones||typeof db.tombstones!=='object') db.tombstones={};   /* شواهد الحذف */
   if(!db.settings) db.settings=emptyDB().settings;
   if(db.settings.vatRate===undefined||db.settings.vatRate===null||db.settings.vatRate==='') db.settings.vatRate=15;
   if(!db.settings.welcomeMsgs||typeof db.settings.welcomeMsgs!=='object') db.settings.welcomeMsgs={};
   if(!Array.isArray(db.settings.weightFixLog)) db.settings.weightFixLog=[];
-  if(!Array.isArray(db.settings.stockCountLog)) db.settings.stockCountLog=[];
   if(!db.meta) db.meta={author:AUTHOR,version:APP_VERSION};
   db.meta.author=AUTHOR;
   if(!db.users.length) db.users=emptyDB().users;
@@ -2151,7 +2156,38 @@ function ensureDbShape(){
     d.suppliers.forEach(function(s){ if(s.opening===undefined) s.opening=0; if(s.openingDate===undefined) s.openingDate=''; });
     d.clients.forEach(function(c){ if(c.opening===undefined) c.opening=0; if(c.openingDate===undefined) c.openingDate=''; });
     d.items.forEach(function(i){ if(i.active===undefined) i.active=1; });
+    if(!Array.isArray(d.notes)) d.notes=[];                               /* الملاحظات خاصة بالقسم */
+    if(!Array.isArray(d.stockCountLog)) d.stockCountLog=[];               /* سجل الجرد خاص بالقسم */
+    if(!d.periodLock||typeof d.periodLock!=='object') d.periodLock={until:'',pass:''};   /* قفل الفترة خاص بالقسم */
   });
+  /* ترحيل لمرة واحدة: نقل المشترك العام (ملاحظات/قفل/سجل جرد) إلى القسم الخاص ثم تفريغ العام */
+  (function migrateDeptScoped(){
+    var keys=Object.keys(db.departments);
+    if(Array.isArray(db.notes)&&db.notes.length){
+      var tgt=db.departments['fruits']||db.departments[keys[0]];   /* قسم ثابت لكل الأجهزة لتفادي التكرار عند المزامنة */
+      if(tgt){ if(!Array.isArray(tgt.notes)) tgt.notes=[]; var have={}; tgt.notes.forEach(function(n){ if(n&&n.id!=null) have[n.id]=1; });
+        db.notes.forEach(function(n){ if(n&&!have[n.id]){ tgt.notes.push(n); have[n.id]=1; } }); }
+    }
+    db.notes=[];
+    var gpl=db.settings&&db.settings.periodLock;
+    if(gpl&&(gpl.until||gpl.pass)) keys.forEach(function(dk){ var d=db.departments[dk];
+      if(!d.periodLock||(!d.periodLock.until&&!d.periodLock.pass)) d.periodLock={until:gpl.until||'',pass:gpl.pass||''}; });
+    if(db.settings) db.settings.periodLock=null;
+    var gcl=db.settings&&db.settings.stockCountLog;
+    if(Array.isArray(gcl)&&gcl.length){
+      gcl.forEach(function(op){ if(!op) return;
+        var ids=(op.wasteIds||[]).concat(op.openIds||[]).map(String), owner=null;
+        for(var i=0;i<keys.length&&!owner;i++){ var d=db.departments[keys[i]], pool={};
+          (d.waste||[]).forEach(function(w){ pool[String(w.id)]=1; }); (d.openingStock||[]).forEach(function(o){ pool[String(o.id)]=1; });
+          if(ids.some(function(x){ return pool[x]; })) owner=d; }
+        if(!owner) owner=db.departments[keys[0]];
+        if(!Array.isArray(owner.stockCountLog)) owner.stockCountLog=[];
+        if(!owner.stockCountLog.some(function(o){ return o&&String(o.id)===String(op.id); })) owner.stockCountLog.push(op);
+      });
+      keys.forEach(function(dk){ var d=db.departments[dk]; if(Array.isArray(d.stockCountLog)) d.stockCountLog.sort(function(a,b){ return (b.id||0)-(a.id||0); }); });
+    }
+    if(db.settings) db.settings.stockCountLog=null;
+  })();
   dedupeDeptRefs();          /* أمان: لا يتشارك قسمان أبداً نفس مصفوفة (مرجع) */
   loadDept(desiredDept());   /* يحترم اختيار هذا الجهاز إن وُجد */
   /* الوحدات مشتركة: ترحيل الأوزان + اشتقاقها من أصناف كل الأقسام */
@@ -2604,7 +2640,7 @@ function buildLedger(){
   }
   /* تكلفة الرجوع fbCost = متوسط سعر الشراء الفعلي: يُحسب من المشتريات بعد آخر جرد مخزون (إن وُجد)
      فيعكس السعر الحالي ويتجاهل بيانات ما قبل الجرد المختلطة الوحدات؛ وإلا من كل التاريخ. */
-  var lastCount=''; (db.settings&&db.settings.stockCountLog||[]).forEach(function(x){ if(x&&x.when&&String(x.when)>lastCount) lastCount=String(x.when); });
+  var lastCount=''; (deptCountLog()).forEach(function(x){ if(x&&x.when&&String(x.when)>lastCount) lastCount=String(x.when); });
   var histAll={}, histPost={};
   function addHist(h,i,u,c){ if(!h[i]) h[i]={u:0,c:0,mx:0}; h[i].u+=u; h[i].c+=c; if(u>=1){ var pu=c/u; if(pu>h[i].mx) h[i].mx=pu; } }
   db.purchases.forEach(function(p){ (p.lines||[]).forEach(function(l){ var u=+l.units||0,c=+l.total||0; addHist(histAll,l.itemId,u,c); if(lastCount&&p.date>=lastCount) addHist(histPost,l.itemId,u,c); }); });
@@ -6972,7 +7008,7 @@ function noteTargetsLabel(n){
 /* الملاحظات المنشورة التي تخص المستخدم الحالي ولم يطّلع عليها بعد */
 function notesForMe(){
   if(!ME) return [];
-  return (db.notes||[]).filter(function(n){
+  return (deptNotes()).filter(function(n){
     if(!n||!n.published) return false;
     if((n.readBy||[]).indexOf(ME.id)>=0) return false;
     if(n.all) return true;
@@ -6998,7 +7034,7 @@ function renderUserNotes(){
   }).join('')+'</div>';
 }
 function ackNote(id){
-  var n=byId(db.notes,id); if(!n||!ME) return;
+  var n=byId(deptNotes(),id); if(!n||!ME) return;
   if(!Array.isArray(n.readBy)) n.readBy=[];
   if(n.readBy.indexOf(ME.id)<0) n.readBy.push(ME.id);
   commit('تم الاطلاع على الملاحظة'); renderUserNotes();
@@ -7010,9 +7046,8 @@ function saveNote(){
   var chks=document.querySelectorAll?document.querySelectorAll('#nt_toBox .nt-u'):[];
   for(var i=0;i<chks.length;i++){ if(chks[i].checked) uids.push(+chks[i].value); }
   if(!all && !uids.length){ toast('اختر «الكل» أو مستخدماً واحداً على الأقل'); return; }
-  if(!Array.isArray(db.notes)) db.notes=[];
   var tgt={all:all,toUids:(all?[]:uids)};
-  db.notes.push({id:uid(),text:txt,all:all,toUids:tgt.toUids,toUid:(all?0:(uids.length===1?uids[0]:0)),fromUid:ME.id,date:today(),ts:nowTs(),published:true,readBy:[]});
+  deptNotes().push({id:uid(),text:txt,all:all,toUids:tgt.toUids,toUid:(all?0:(uids.length===1?uids[0]:0)),fromUid:ME.id,date:today(),ts:nowTs(),published:true,readBy:[]});
   log('add','الإعدادات','نشر ملاحظة لـ '+noteTargetsLabel(tgt));
   setVal('nt_text','');
   if(allEl) allEl.checked=false; for(var j=0;j<chks.length;j++){ chks[j].checked=false; chks[j].disabled=false; }
@@ -7020,9 +7055,9 @@ function saveNote(){
   commit('نُشرت الملاحظة'); renderNotesAdmin(); renderUserNotes();
 }
 function delNote(id){ if(!guard('settings')) return; if(!confirm('حذف هذه الملاحظة نهائياً؟')) return;
-  db.notes=(db.notes||[]).filter(function(n){return n.id!==id;});
+  var d=dcur(); d.notes=(d.notes||[]).filter(function(n){return n.id!==id;});
   log('delete','الإعدادات','حذف ملاحظة'); commit('حُذفت الملاحظة'); renderNotesAdmin(); renderUserNotes(); }
-function toggleNotePub(id){ if(!guard('settings')) return; var n=byId(db.notes,id); if(!n) return;
+function toggleNotePub(id){ if(!guard('settings')) return; var n=byId(deptNotes(),id); if(!n) return;
   n.published=!n.published; commit(n.published?'أُعيد نشر الملاحظة':'أُلغي نشر الملاحظة'); renderNotesAdmin(); renderUserNotes(); }
 function renderNotesAdmin(){
   var box=document.getElementById('nt_toBox');
@@ -7032,8 +7067,8 @@ function renderNotesAdmin(){
     box.setAttribute('data-filled','1');
   }
   var wrap=document.getElementById('nt_listWrap'); if(!wrap) return;
-  var notes=(db.notes||[]).slice().sort(function(a,b){ return (b.ts||0)-(a.ts||0); });
-  if(!notes.length){ wrap.innerHTML='<div class="mini muted">لا توجد ملاحظات بعد — اكتب أول ملاحظة وانشرها.</div>'; return; }
+  var notes=(deptNotes()).slice().sort(function(a,b){ return (b.ts||0)-(a.ts||0); });
+  if(!notes.length){ wrap.innerHTML='<div class="mini muted">لا توجد ملاحظات بعد في هذا القسم — اكتب أول ملاحظة وانشرها.</div>'; return; }
   wrap.innerHTML='<div class="table-scroll"><table><thead><tr><th class="name">الملاحظة</th><th>تظهر لـ</th><th>بتاريخ</th><th>الحالة</th><th>إجراء</th></tr></thead><tbody>'
     +notes.map(function(n){
       var readN=(n.readBy||[]).length;
@@ -7044,13 +7079,13 @@ function renderNotesAdmin(){
 }
 /* ===== قفل الفترات (إغلاق الشهور) ===== */
 var _periodUnlocked=false;
-function periodLockUntil(){ var p=db.settings&&db.settings.periodLock; return (p&&p.until)||''; }
+function periodLockUntil(){ var p=deptLock(); return (p&&p.until)||''; }
 function periodLocked(date){ var u=periodLockUntil(); return !!(u&&date&&String(date)<=String(u)); }
 /* بوابة الفترة: تسمح إن لم تكن مقفلة، أو بعد إدخال كلمة مرور القفل الصحيحة (لهذه الجلسة) */
 function periodGuard(date,msg){
   if(!periodLocked(date)) return true;
   if(_periodUnlocked) return true;
-  var pl=db.settings.periodLock;
+  var pl=deptLock();
   if(!pl||!pl.pass) return true;   /* لا كلمة مرور ⇒ لا منع فعلي */
   if(!isAdmin()){ toast('🔒 تاريخ العملية ('+date+') داخل فترة مالية مقفلة حتى '+pl.until+' — تحقّق من تاريخ الفاتورة، أو اطلب من المدير فتح الفترة.'); return false; }
   var p=prompt('🔒 تاريخ العملية ('+date+') داخل فترة مالية مقفلة حتى '+pl.until+'.\n'+(msg||'أنت المدير — أدخل كلمة مرور القفل لفتح الفترة للتعديل (لهذه الجلسة):'));
@@ -7061,7 +7096,7 @@ function periodGuard(date,msg){
 /* المدير يفتح الفترة المقفلة للتعديل (لهذه الجلسة فقط) */
 function reopenPeriod(){
   if(!isAdmin()){ alert('فتح الفترة لمدير النظام فقط.'); return; }
-  var pl=db.settings.periodLock; if(!pl||!pl.until){ toast('لا توجد فترة مقفلة'); return; }
+  var pl=deptLock(); if(!pl||!pl.until){ toast('لا توجد فترة مقفلة'); return; }
   if(_periodUnlocked){ toast('الفترة مفتوحة للتعديل بالفعل'); return; }
   if(pl.pass){ var p=prompt('أدخل كلمة مرور القفل لفتح الفترة للتعديل:'); if(p==null) return; if(hash(p)!==pl.pass){ toast('كلمة المرور غير صحيحة'); return; } }
   _periodUnlocked=true; renderPeriodLock();
@@ -7085,7 +7120,7 @@ function showCarriedBalances(){
 }
 function renderPeriodLock(){
   var s=document.getElementById('pl_status'); setVal('pl_until',periodLockUntil());
-  var pl=db.settings&&db.settings.periodLock;
+  var pl=deptLock();
   var box=document.getElementById('periodLockBox'); if(box) box.classList.toggle('hidden',!isAdmin());
   if(!s) return;
   if(periodLockUntil()) s.innerHTML='🔒 مقفل حتى <b>'+esc(periodLockUntil())+'</b>'+(pl&&pl.pass?' — محميّ بكلمة مرور':' — <span class="neg">بلا كلمة مرور (غير مفعّل)</span>')+(_periodUnlocked?' · <span class="pos">مفتوح لهذه الجلسة</span>':'');
@@ -7094,20 +7129,20 @@ function renderPeriodLock(){
 function savePeriodLock(){
   if(!isAdmin()){ alert('قفل الفترات لمدير النظام فقط.'); return; }
   var until=val('pl_until'), pass=val('pl_pass');
-  if(!db.settings.periodLock) db.settings.periodLock={until:'',pass:''};
-  if(pass) db.settings.periodLock.pass=hash(pass);
-  if(until&&!db.settings.periodLock.pass){ toast('حدّد كلمة مرور للقفل أولاً'); return; }
-  db.settings.periodLock.until=until||'';
+  var pl=deptLock();
+  if(pass) pl.pass=hash(pass);
+  if(until&&!pl.pass){ toast('حدّد كلمة مرور للقفل أولاً'); return; }
+  pl.until=until||'';
   _periodUnlocked=false; setVal('pl_pass','');
-  log('data','الإعدادات','قفل الفترات حتى '+(until||'—'));
+  log('data','الإعدادات','قفل فترة قسم '+deptName(db.activeDept)+' حتى '+(until||'—'));
   commit('تم حفظ قفل الفترة'); renderSettingsForm();
 }
 function clearPeriodLock(){
   if(!isAdmin()){ alert('قفل الفترات لمدير النظام فقط.'); return; }
-  var pl=db.settings.periodLock;
+  var pl=deptLock();
   if(!pl||!pl.until){ toast('لا يوجد قفل مفعّل'); return; }
   if(pl.pass){ var p=prompt('أدخل كلمة مرور القفل لإلغائه:'); if(p==null) return; if(hash(p)!==pl.pass){ toast('كلمة المرور غير صحيحة'); return; } }
-  db.settings.periodLock.until=''; _periodUnlocked=true;
+  pl.until=''; _periodUnlocked=true;
   log('data','الإعدادات','إلغاء قفل الفترات');
   commit('تم إلغاء قفل الفترة'); renderSettingsForm();
 }
@@ -7346,7 +7381,7 @@ function diagDayBefore(d){ try{ var x=new Date(d+'T00:00:00'); x.setDate(x.getDa
 function diagRangeThisMonth(silent){ var t=today(); setVal('di_from',t.slice(0,8)+'01'); setVal('di_to',t); if(!silent) renderItemDiag(); }
 /* من اليوم التالي لآخر جرد فعلي مسجَّل (أو أول الشهر إن لم يوجد) */
 function diagRangeSinceCount(){
-  var last=''; (db.settings&&db.settings.stockCountLog||[]).forEach(function(op){ if(op.when&&op.when>last) last=op.when; });
+  var last=''; (deptCountLog()).forEach(function(op){ if(op.when&&op.when>last) last=op.when; });
   if(!last){ (db.waste||[]).forEach(function(w){ if(/جرد|تصفير/.test(w.reason||'')&&w.date>last) last=w.date; });
              (db.openingStock||[]).forEach(function(o){ if(/جرد|تصحيح|زيادة/.test(o.reason||'')&&o.date>last) last=o.date; }); }
   setVal('di_from', last?diagDayAfter(last):(today().slice(0,8)+'01')); setVal('di_to',today()); renderItemDiag();
@@ -7618,7 +7653,7 @@ function applyStockCount(){
   var shortV=0,surV=0; d.forEach(function(x){ if(x.diff<0) shortV+=x.val; else surV+=x.val; });
   /* حماية من الازدواج: تسوية مطابقة (نفس التاريخ والعدد والقيم) مطبّقة سابقاً */
   var sigNew=date+'|'+d.length+'|'+Math.round(_wcR3(shortV)*100)+'|'+Math.round(_wcR3(surV)*100);
-  if((db.settings.stockCountLog||[]).some(function(o){ return stockCountSig(o)===sigNew; })){
+  if((deptCountLog()).some(function(o){ return stockCountSig(o)===sigNew; })){
     if(!confirm('⚠ تنبيه ازدواج: توجد تسوية جرد مطابقة تماماً مطبّقة سابقاً بنفس التاريخ والقيم ('+date+').\nتطبيقها مجدداً سيضاعف الأثر على المخزون. هل أنت متأكد؟')) return;
   }
   if(!confirm('تطبيق تسوية الجرد بتاريخ '+date+':\n\n• عجز (خسارة): '+num(shortV)+'\n• زيادة (تصحيح رصيد): '+num(surV)+'\n• صافي الأثر على الربح: '+num(surV-shortV)+'\n\n⚠ نزّل نسخة احتياطية أولاً. متابعة؟')) return;
@@ -7627,8 +7662,8 @@ function applyStockCount(){
     if(x.diff<0){ var wid=uid(); db.waste.push({id:wid,date:date,whId:x.whId,itemId:x.itemId,units:_wcR3(-x.diff),reason:'عجز جرد',uid:ME.id,ts:nowTs()}); op.wasteIds.push(wid); }
     else { var oid=uid(); db.openingStock.push({id:oid,date:date,whId:x.whId,itemId:x.itemId,units:_wcR3(x.diff),uw:(x.bk?1:_wcR3(x.wPerU)),basis:(x.bk?'kg':'unit'),price:_wcR3(x.perU),total:_wcR3(x.diff*x.perU),reason:'زيادة جرد (تصحيح رصيد)',uid:ME.id,ts:nowTs()}); op.openIds.push(oid); }
   });
-  db.settings.stockCountLog=db.settings.stockCountLog||[]; db.settings.stockCountLog.unshift(op);
-  if(db.settings.stockCountLog.length>10) db.settings.stockCountLog=db.settings.stockCountLog.slice(0,10);
+  var _lg=deptCountLog(); _lg.unshift(op);
+  if(_lg.length>10) dcur().stockCountLog=_lg.slice(0,10);
   scExtraRows=[];
   log('data','المخزون','تسوية جرد فعلي بتاريخ '+date+' — عجز '+num(shortV)+' وزيادة '+num(surV)+' ('+d.length+' صنف)');
   refreshLedger(); commit('تمت تسوية الجرد — المخزون والتقارير محدّثة');
@@ -7636,7 +7671,7 @@ function applyStockCount(){
   renderStockCountUI();
 }
 function dupStockCountOps(){
-  var lg=db.settings.stockCountLog||[], seen={}, dups=[];
+  var lg=deptCountLog(), seen={}, dups=[];
   lg.forEach(function(op){ var s=stockCountSig(op); if(seen[s]) dups.push(op); else seen[s]=1; });
   return dups;
 }
@@ -7644,7 +7679,7 @@ function dupStockCountOps(){
    (المعرّفات غير المشتركة مع النسخة المُبقاة) — فلا تتأثر البيانات الصحيحة */
 function removeDupStockCounts(){
   if(!guard('canEdit')) return;
-  var lg=db.settings.stockCountLog||[], keep={}, removeOps=[];
+  var lg=deptCountLog(), keep={}, removeOps=[];
   lg.forEach(function(op){ var s=stockCountSig(op); if(!keep[s]) keep[s]=op; else removeOps.push(op); });
   if(!removeOps.length){ toast('لا توجد تسويات مكررة'); return; }
   if(!confirm('سيُزال '+removeOps.length+' سجل جرد مكرّر وتُحذف الحركات الزائدة الناتجة عنه فقط (مع الإبقاء على نسخة واحدة صحيحة). متابعة؟')) return;
@@ -7660,14 +7695,14 @@ function removeDupStockCounts(){
   db.openingStock=db.openingStock.filter(function(o){ return !oi[String(o.id)]; });
   var removedRecs=(wB-db.waste.length)+(oB-db.openingStock.length);
   var rm={}; removeOps.forEach(function(op){ rm[String(op.id)]=1; });
-  db.settings.stockCountLog=lg.filter(function(op){ return !rm[String(op.id)]; });
+  dcur().stockCountLog=lg.filter(function(op){ return !rm[String(op.id)]; });
   log('data','المخزون','إزالة '+removeOps.length+' تسوية جرد مكررة — حُذف '+removedRecs+' حركة زائدة');
   refreshLedger(); commit('تمت إزالة التسويات المكررة ('+removedRecs+' حركة زائدة)');
   renderStockCountUI();
 }
 function renderStockCountLog(){
   var box=document.getElementById('sc_log'); if(!box) return;
-  var lg=db.settings.stockCountLog||[];
+  var lg=deptCountLog();
   if(!lg.length){ box.innerHTML=''; return; }
   var dups=dupStockCountOps();
   var warn=dups.length?('<div class="note" style="border-right-color:var(--tomato);background:#fef2f2;margin-bottom:8px">⚠ <b>تنبيه: يوجد '+dups.length+' تسوية جرد مكررة</b> (نفس التاريخ والقيم) — قد تكون ضاعفت أثر المخزون. '
@@ -7681,7 +7716,7 @@ function renderStockCountLog(){
 function restoreStockCount(opId){
   if(!guard('canEdit')) return;
   var S=String(opId);   /* المعرّف يأتي نصّاً من onclick بينما op.id رقم — نوحّد المقارنة */
-  var lg=db.settings.stockCountLog||[], op=lg.filter(function(o){return String(o.id)===S;})[0];
+  var lg=deptCountLog(), op=lg.filter(function(o){return String(o.id)===S;})[0];
   if(!op){ toast('التسوية غير موجودة'); return; }
   if(!periodGuard(op.when,'تسوية الجرد تقع في فترة مقفلة — أدخل كلمة مرور القفل:')) return;
   if(!confirm('التراجع عن تسوية الجرد بتاريخ '+op.when+'؟ ستُحذف حركات العجز/الزيادة الناتجة عنها.')) return;
@@ -7691,7 +7726,7 @@ function restoreStockCount(opId){
   db.waste=db.waste.filter(function(w){ return !wi[String(w.id)]; });
   db.openingStock=db.openingStock.filter(function(o){ return !oi[String(o.id)]; });
   var removed=(wBefore-db.waste.length)+(oBefore-db.openingStock.length);
-  db.settings.stockCountLog=lg.filter(function(o){ return String(o.id)!==S; });
+  dcur().stockCountLog=lg.filter(function(o){ return String(o.id)!==S; });
   log('data','المخزون','تراجع عن تسوية جرد بتاريخ '+op.when+(removed?(' — حُذف '+removed+' حركة'):' — سجل قديم بلا حركات حيّة (تنظيف)'));
   refreshLedger(); commit('تم التراجع عن تسوية الجرد');
   renderStockCountUI(); renderSettingsForm();
@@ -7798,8 +7833,8 @@ function deleteAdjBatch(i){
   var ids={}; g.ids.forEach(function(x){ ids[x]=1; });
   if(g.kind==='waste') db.waste=db.waste.filter(function(w){ return !ids[w.id]; });
   else db.openingStock=db.openingStock.filter(function(o){ return !ids[o.id]; });
-  /* نظّف أي إشارة في سجل الجرد */
-  if(Array.isArray(db.settings.stockCountLog)) db.settings.stockCountLog.forEach(function(op){
+  /* نظّف أي إشارة في سجل الجرد (الخاص بالقسم) */
+  (deptCountLog()).forEach(function(op){
     op.wasteIds=(op.wasteIds||[]).filter(function(x){return !ids[x];}); op.openIds=(op.openIds||[]).filter(function(x){return !ids[x];}); });
   log('delete','المخزون','حذف دفعة تسوية «'+g.reason+'» بتاريخ '+g.date+' ('+g.n+' حركة، '+num(g.val)+')');
   refreshLedger(); commit('تم حذف دفعة التسوية'); renderSettingsForm();
@@ -10022,13 +10057,18 @@ function mergeCloud(localDb,remote){
       var rd=remote.departments[dk];
       if(!rd){ remote.departments[dk]=ld; rd=ld; }   /* قسم موجود محلياً فقط → انقله */
       DEPT_BOOKS.forEach(function(bk){ rd[bk]=alive(unionById(rd[bk], ld[bk])); });
+      /* دفاتر القسم الخاصة: الملاحظات وسجل الجرد (دمج) والقفل (الأحدث حسب تاريخ القفل) */
+      rd.notes=alive(unionById(rd.notes, ld.notes));
+      rd.stockCountLog=alive(unionById(rd.stockCountLog, ld.stockCountLog));
+      if(ld.periodLock&&(!rd.periodLock||String(ld.periodLock.until||'')>String(rd.periodLock.until||''))) rd.periodLock=ld.periodLock;
     });
   }
   /* استبعاد المحذوف من كل الأقسام (حتى ما لم يوجد محلياً) */
   if(remote.departments) Object.keys(remote.departments).forEach(function(dk){ var rd=remote.departments[dk]; if(!rd) return;
-    DEPT_BOOKS.forEach(function(bk){ if(Array.isArray(rd[bk])) rd[bk]=alive(rd[bk]); }); });
+    DEPT_BOOKS.forEach(function(bk){ if(Array.isArray(rd[bk])) rd[bk]=alive(rd[bk]); });
+    if(Array.isArray(rd.notes)) rd.notes=alive(rd.notes);
+    if(Array.isArray(rd.stockCountLog)) rd.stockCountLog=alive(rd.stockCountLog); });
   remote.interTransfers=alive(unionById(remote.interTransfers, localDb.interTransfers));
-  remote.notes=alive(unionById(remote.notes, localDb.notes));   /* الملاحظات الموجّهة للمستخدمين — مشتركة */
   /* سجل الحركات مشترك وتراكمي: وحّده بدل استبداله كي لا تختفي حركات الدخول/الإدخال،
      مع احترام شواهد الحذف (حركة حذفها المدير لا تعود) */
   remote.audit=unionAudit(remote.audit, localDb.audit, tomb);
