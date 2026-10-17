@@ -236,7 +236,7 @@ tr:hover td{background:#f8fafc}
    ============================================================ */
 const KEY="inv_system_v2";
 /* رقم إصدار التطبيق — يُزاد مع كل تحديث؛ يُقارَن بالنسخة المنشورة لإظهار زر التحديث */
-const APP_VERSION="2026-10-10-01";
+const APP_VERSION="2026-10-17-01";
 let DB,ME;
 /* التحقق من توفّر نسخة أحدث بجلب الملف نفسه (بدون كاش) ومقارنة رقم الإصدار */
 function checkForUpdate(){
@@ -1694,11 +1694,14 @@ function printReceipt(id){
   if(m.invGid&&m.type==="outbound"){printInvoice(m.invGid);return;}
   const it=DB.items.find(i=>i.id===m.itemId)||{};const sup=DB.suppliers.find(x=>x.id===m.supplierId);
   const bal=balAfterMap()[m.id];
+  const priceLbl=m.type==="inbound"?"سعر التكلفة":"السعر";
+  const tot=(m.qty||0)*(m.price||0);
   showPrint(`${brandHead()}<h2>📦 سند ${typeAr(m.type)}</h2>
     <div>التاريخ: <b>${esc(m.date)}</b> · الموظف: <b>${esc(m.userName)}</b></div>
-    <table><tr><th>الموديل / الصنف</th><th>الكمية</th><th>الرصيد بعدها</th>${m.type==="inbound"?"<th>المورد</th><th>رقم الفسح</th>":""}</tr>
-    <tr><td>${esc(m.model||itemModel(it))}</td><td>${(isIn(m.type)?"+":"−")+m.qty}</td><td>${bal??m.balAfter??"—"}</td>
-    ${m.type==="inbound"?`<td>${esc(sup?sup.name:"—")}</td><td>${esc(m.customs||"—")}</td>`:""}</tr></table>
+    <table><tr><th>الموديل / الصنف</th><th>الكمية</th><th>${priceLbl}</th><th>الإجمالي</th><th>الرصيد بعدها</th>${m.type==="inbound"?"<th>المورد</th><th>رقم الفسح</th>":""}</tr>
+    <tr><td>${esc(m.model||itemModel(it))}</td><td>${(isIn(m.type)?"+":"−")+m.qty}</td><td>${money(m.price||0)}</td><td>${money(tot)}</td><td>${bal??m.balAfter??"—"}</td>
+    ${m.type==="inbound"?`<td>${esc(sup?sup.name:"—")}</td><td>${esc(m.customs||"—")}</td>`:""}</tr>
+    <tr style="background:#f1f5f9;font-weight:800"><td colspan="3">الإجمالي</td><td colspan="${m.type==="inbound"?4:2}">${money(tot)} ﷼</td></tr></table>
     ${m.note?`<div style="margin-top:8px">ملاحظات: ${esc(m.note)}</div>`:""}`);
 }
 function printInvoice(gid,withCancel){
