@@ -1,0 +1,1920 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>نظام نقل السيارات</title>
+  <!-- نظام نقل السيارات: مدمج في رابط نظام التوريد (زر في الشريط العلوي) وله رابط خارجي مستقل /fleet
+       يعمل على نفس مشروع Firebase ونفس حسابات نظام التوريد؛ بياناته في workspaces/<wid>/platform/fleet ولا يمسّ بيانات التوريد -->
+  <meta name="theme-color" content="#084D36">
+  <link rel="manifest" href="manifest.fleet.json">
+  <link rel="icon" href="fleet-icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icon-fleet-180.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="نقل السيارات">
+  <meta name="mobile-web-app-capable" content="yes">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Readex+Pro:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Readex Pro"', 'Tahoma', 'system-ui', 'sans-serif'],
+            mono: ['"IBM Plex Mono"', 'ui-monospace', 'Consolas', 'monospace'],
+          },
+          colors: {
+            road: { 50: '#ECF5F1', 100: '#D3E9DF', 200: '#A8D3C0', 500: '#0B6B4A', 600: '#095C40', 700: '#084D36', 800: '#063D2B', 900: '#042A1E' },
+            paper: '#F3F5F4',
+            ink: '#15201B',
+            signal: '#E8A317',
+          },
+        },
+      },
+    };
+  </script>
+  <style type="text/tailwindcss">
+    @layer components {
+      .card { @apply bg-white rounded-xl border border-slate-200/80; }
+      .input { @apply w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-[15px] text-ink placeholder:text-slate-400 focus:border-road-500 focus:outline-none focus:ring-2 focus:ring-road-500/20; }
+      .label { @apply block text-sm font-medium text-slate-600 mb-1.5; }
+      .btn { @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-road-500 focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap; }
+      .btn-primary { @apply bg-road-500 text-white hover:bg-road-600; }
+      .btn-ghost { @apply bg-white text-slate-700 border border-slate-300 hover:bg-slate-50; }
+      .btn-danger { @apply bg-white text-rose-700 border border-rose-200 hover:bg-rose-50; }
+      .btn-signal { @apply bg-signal text-ink hover:brightness-95; }
+      .btn-lg { @apply px-6 py-3 text-base; }
+      .badge { @apply inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium whitespace-nowrap; }
+      .th { @apply px-4 py-3 text-start text-xs font-semibold text-slate-500 bg-slate-50 border-b border-slate-200 whitespace-nowrap; }
+      .td { @apply px-4 py-3 border-b border-slate-100 text-sm align-middle; }
+      .section-title { @apply text-base font-semibold text-ink mb-4; }
+      .vin { @apply font-mono tracking-[0.12em]; }
+      .nav-link { @apply flex items-center gap-3 rounded-lg px-3 py-2.5 text-[15px] text-road-100/80 hover:bg-white/10 hover:text-white; }
+      .nav-link.active { @apply bg-white/15 text-white; }
+      .cond-btn { @apply flex-1 rounded-lg border px-2 py-2 text-xs sm:text-sm font-medium transition-colors border-slate-300 bg-white text-slate-600 hover:bg-slate-50; }
+    }
+    html, body { -webkit-tap-highlight-color: transparent; }
+    /* لوحة الشاسيه في البحث: العنصر المميز في الواجهة */
+    .vin-plate { background: #fff; border: 2px solid #15201B; border-radius: 8px; box-shadow: inset 0 0 0 3px #fff, inset 0 0 0 4px #15201B; }
+    /* مؤشر الاتصال بالسحابة */
+    .cloud-dot { width: 10px; height: 10px; border-radius: 999px; background: #0B6B4A; box-shadow: 0 0 0 3px #D3E9DF; flex-shrink: 0; }
+    .cloud-dot[data-state="offline"] { background: #E8A317; box-shadow: 0 0 0 3px #fdecc8; }
+    .cloud-dot[data-state="err"] { background: #be123c; box-shadow: 0 0 0 3px #fecdd3; }
+    @media print {
+      .no-print { display: none !important; }
+      body { background: #fff !important; }
+      main { padding: 0 !important; max-width: none !important; }
+      .card { border-color: #ccc !important; }
+    }
+    @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+  </style>
+</head>
+<body class="bg-paper text-ink font-sans antialiased">
+  <div id="app"></div>
+  <div id="modal-root"></div>
+  <div id="toast" class="no-print fixed z-[60] bottom-24 md:bottom-6 inset-x-0 flex justify-center pointer-events-none"></div>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
+<script>
+/* الترجمة: العربية / English */
+const I18N = {
+  ar: {
+    login_shared: 'ادخل بنفس اسم المستخدم وكلمة المرور الخاصة بك في نظام التوريد.', back_supply: 'نظام التوريد',
+    cloud_ok: 'متصل', cloud_offline: 'دون اتصال — يُزامن عند عودة الإنترنت', cloud_err: 'تعذّر الحفظ في السحابة',
+    users_intro: 'الحسابات هي نفس حسابات نظام التوريد. حدّد صلاحية كل موظف في نظام النقل، ومدير نظام التوريد مدير هنا تلقائياً.',
+    ws_role: 'الدور في نظام التوريد', fleet_role: 'الصلاحية في نظام النقل', role_none: 'بلا وصول', ws_admin_fixed: 'مدير النظام (تلقائي)',
+    users_members_unavailable: 'قائمة كل حسابات نظام التوريد تظهر لمدير نظام التوريد فقط؛ يظهر هنا من أُضيف سابقاً.',
+    pw_shared_note: 'كلمة المرور هي نفسها في نظام التوريد، وتُغيَّر من هناك.', account: 'الحساب', external_link: 'الرابط الخارجي للنظام',
+    copy_link: 'نسخ الرابط', link_copied: 'تم نسخ الرابط', live_sync: 'كل التعديلات تُحفظ في السحابة وتظهر لحظياً على كل الأجهزة.',
+    err_not_member: 'حسابك غير معتمد في مساحة العمل — تواصل مع المدير.', err_not_fleet: 'لم يُضف حسابك إلى نظام النقل بعد — اطلب من المدير إضافتك من «المستخدمون».',
+    err_inactive: 'هذا الحساب موقوف.',
+    nav_reconcile: 'مطابقة ساب', rc_intro: 'اسحب تقريراً من ساب (Excel أو CSV أو TXT) لنفس الفترة، واربط أعمدته، وسيقارنه النظام بإدخالاتك اليدوية ويحدد المطابق والمختلف والناقص في كل طرف.',
+    rc_step1: '1. ملف ساب والفترة', rc_step2: '2. ربط أعمدة الملف', rc_step3: '3. نتيجة المطابقة',
+    rc_mode: 'نوع المطابقة', rc_mode_vin: 'برقم الشاسيه', rc_mode_vin_desc: 'سطر لكل سيارة في ملف ساب', rc_mode_shipment: 'برقم الشحنة / المستند', rc_mode_shipment_desc: 'سطر لكل شحنة أو فاتورة',
+    rc_from: 'من تاريخ', rc_to: 'إلى تاريخ', rc_file: 'ملف ساب', rc_file_hint: 'من ساب: تصدير التقرير إلى جدول بيانات (Spreadsheet) أو ملف محلي (Local File). يُقرأ الملف على جهازك فقط ولا يُرفع كاملاً.',
+    rc_tolerance: 'سماحية فرق التاريخ (أيام)', rc_sheet: 'ورقة العمل', rc_header_row: 'رقم صف العناوين', rc_column: 'عمود',
+    rc_rows_found: '{n} صف بيانات', rc_not_in_file: '— غير موجود في الملف —', rc_preview: 'معاينة أول 5 صفوف',
+    rc_f_vin: 'رقم الشاسيه', rc_f_shipkey: 'رقم الشحنة أو مستند ساب', rc_f_date: 'التاريخ', rc_f_customer: 'كود العميل', rc_f_vendor: 'كود المورد (السائق)',
+    rc_f_doc: 'رقم مستند ساب', rc_f_qty: 'الكمية (عدد السيارات)', rc_f_period: 'خارج الفترة',
+    rc_run: 'ابدأ المطابقة', rc_need_key: 'حدد عمود المفتاح الإلزامي أولاً.', rc_empty_file: 'الملف فارغ أو بتنسيق غير مدعوم.',
+    rc_history: 'مطابقات سابقة', rc_no_history: 'لا توجد مطابقات بعد.', rc_issues: 'ملاحظة',
+    rc_totals: 'في ملف ساب {sap} سطر، وفي النظام {sys} سجل خلال الفترة.',
+    rc_s_matched: 'مطابق', rc_s_mismatch: 'بيانات مختلفة', rc_s_missing_in_system: 'في ساب وغير مسجل عندي', rc_s_missing_in_sap: 'مسجل عندي وغير موجود في ساب', rc_s_duplicate_in_sap: 'مكرر في ملف ساب',
+    rc_show_issues: 'الملاحظات فقط', rc_apply_docs: 'تعبئة أرقام مستندات ساب ({n})', rc_apply_confirm: 'سيتم تسجيل رقم مستند ساب في {n} شحنة ليس لها رقم. متابعة؟', rc_applied: 'تم تحديث {n} شحنة',
+    rc_export: 'تصدير النتيجة', rc_result: 'النتيجة', rc_file_row: 'صف الملف', rc_sap_data: 'بيانات ساب', rc_system_data: 'بيانات النظام', rc_details: 'التفاصيل',
+    rc_in_sap: 'ساب:', rc_in_system: 'النظام:', rc_note_missing_in_system: 'غير مسجل في النظام. أضفه أو راجع الرقم.', rc_note_missing_in_sap: 'غير موجود في ملف ساب لهذه الفترة.',
+    rc_note_duplicate: 'مكرر مع الصف {row}', rc_all_good: 'لا توجد ملاحظات. كل السجلات مطابقة.', rc_truncated: 'يُعرض أول {n} من {total}. صدّر النتيجة لرؤية الكل.',
+    err_xlsx_load: 'تعذر تحميل قارئ ملفات Excel. تحقق من الإنترنت أو احفظ الملف بصيغة CSV.',
+    app_name: 'نظام نقل السيارات', app_tagline: 'إدارة الشحنات والسائقين',
+    login_title: 'تسجيل الدخول', login: 'دخول', username: 'اسم المستخدم', password: 'كلمة المرور', logout: 'تسجيل الخروج', menu: 'القائمة',
+    login_hero: 'كل سيارة برقم شاسيهها، من التحميل حتى التسليم.',
+    login_sub: 'سجّل الشحنات وحالة كل سيارة، وتابع أداء السائقين وحوافزهم من الجوال أو المكتب.',
+    nav_dashboard: 'لوحة التحكم', nav_search: 'بحث بالشاسيه', nav_new_shipment: 'شحنة جديدة', nav_shipments: 'الشحنات',
+    nav_drivers: 'السائقون', nav_clients: 'العملاء', nav_users: 'المستخدمون', nav_settings: 'الإعدادات',
+    role_admin: 'مدير النظام', role_supervisor: 'مشرف', role_operator: 'موظف عمليات', role: 'الصلاحية',
+    cond_pending: 'لم تُفحص', cond_ok: 'سليمة', cond_dent: 'دمج', cond_scratch: 'خدش', cond_dent_scratch: 'دمج وخدش',
+    status_pending: 'بانتظار التحميل', status_in_transit: 'في الطريق', status_delivered: 'تم التسليم', status_cancelled: 'ملغاة',
+    act_start: 'بدء الرحلة', act_deliver: 'تأكيد التسليم', act_cancel: 'إلغاء الشحنة',
+    month: 'الشهر', export_incentives: 'تصدير الحوافز', export_shipments: 'تصدير الشحنات (رأس المستند)', export_vehicles: 'تصدير السيارات (بنود المستند)',
+    kpi_trips: 'رحلات الشهر', kpi_vehicles: 'سيارات الشهر', kpi_inspected: 'تم فحصها', kpi_damage_rate: 'نسبة الأضرار', kpi_damaged_cars: 'سيارة متضررة', kpi_active: 'شحنات في الطريق',
+    drivers_report: 'أداء السائقين والحوافز', incentive_rule: 'يستحق الحافز ({amount} ريال) من نقل {min} سيارة على الأقل بنسبة أضرار لا تتجاوز {rate}%',
+    driver: 'السائق', total_trips: 'إجمالي الرحلات', total_vehicles: 'إجمالي السيارات', month_trips: 'رحلات الشهر', month_vehicles: 'سيارات الشهر',
+    damaged: 'متضررة', damage_rate_month: 'نسبة الأضرار (الشهر)', incentive: 'الحافز',
+    inc_eligible: 'مستحق', inc_not_eligible: 'غير مستحق', inc_incomplete: 'فحص ناقص', inc_insufficient: 'عدد غير كافٍ', sar: 'ريال',
+    recent_damage: 'آخر السيارات المتضررة هذا الشهر', no_damage: 'لا توجد أضرار مسجلة هذا الشهر.', no_drivers: 'لا يوجد سائقون بعد.',
+    search_vin_label: 'رقم الشاسيه (VIN)', search_vin_ph: 'اكتب الرقم كاملاً أو آخر 6 خانات', search_hint: 'تظهر النتائج تلقائياً بعد كتابة 4 خانات. يمكن البحث بجزء من الرقم.',
+    no_results: 'لا توجد سيارة بهذا الرقم. تأكد من الخانات أو ابحث بآخر 6 أرقام.', trips_for_vin: 'سجل النقل: {n}', condition: 'الحالة', condition_history: 'سجل تعديل الحالة',
+    client: 'العميل', model: 'الموديل', truck_plate: 'لوحة الشاحنة', departure_at: 'وقت الانطلاق', arrival_at: 'وقت الوصول',
+    search: 'بحث', shipments_search_ph: 'رقم الشحنة، السائق، المدينة، أو الشاسيه', status: 'الحالة', all: 'الكل',
+    ref_no: 'رقم الشحنة', trip_date: 'تاريخ الرحلة', route: 'المسار', cars: 'سيارة', not_inspected: 'لم تُفحص', no_shipments: 'لا توجد شحنات مطابقة.',
+    shipment_info: 'بيانات الشحنة', choose_driver: 'اختر السائق', choose_client: 'بدون عميل محدد', origin: 'نقطة الانطلاق', destination: 'الوجهة',
+    vehicle_type: 'نوع السيارات', notes: 'ملاحظات', vehicles_vins: 'السيارات وأرقام الشاسيه', vehicle_count: 'عدد السيارات', valid: 'صحيحة',
+    paste_vins: 'لصق مجموعة أرقام (رقم في كل سطر)', add_from_list: 'إضافة من القائمة', add_rows: 'إضافة صفوف فارغة', add: 'إضافة',
+    vin_rule: 'رقم الشاسيه 17 خانة من حروف إنجليزية وأرقام، ولا يحتوي الحروف I و O و Q. الخانات الحمراء غير صحيحة أو مكررة.',
+    vin_17: 'رقم الشاسيه (17 خانة)', model_optional: 'الموديل (اختياري)', color: 'اللون', delete: 'حذف', save_shipment: 'حفظ الشحنة',
+    confirm_active_vins: 'هذه السيارات مسجلة في شحنة أخرى لم تُسلَّم بعد. هل تريد المتابعة؟', shipment_saved: 'تم حفظ الشحنة',
+    need_driver_first: 'أضف سائقاً واحداً على الأقل قبل إنشاء شحنة.',
+    back_to_list: 'الشحنات', print: 'طباعة', created_by: 'أنشأها', sap_document_no: 'رقم المستند في ساب', vehicles: 'السيارات',
+    mark_rest_ok: 'تحديد الباقي كسليمة', condition_notes_ph: 'ملاحظات الحالة (مكان الضرر...)', add_vehicle: 'إضافة سيارة',
+    confirm_cancel: 'إلغاء هذه الشحنة؟', confirm_deliver_pending: 'يوجد {n} سيارة لم تُفحص. تأكيد التسليم على أي حال؟',
+    confirm_delete_shipment: 'حذف الشحنة وكل سياراتها نهائياً؟', confirm_remove_vehicle: 'حذف هذه السيارة من الشحنة؟',
+    saved: 'تم الحفظ', deleted: 'تم الحذف', save: 'حفظ', cancel: 'إلغاء', close: 'إغلاق', edit: 'تعديل',
+    active: 'نشط', inactive: 'موقوف', no_records: 'لا توجد سجلات.',
+    add_driver: 'إضافة سائق', add_client: 'إضافة عميل', add_user: 'إضافة مستخدم',
+    name: 'الاسم', phone: 'الجوال', national_id: 'رقم الهوية / الإقامة', license_no: 'رقم الرخصة', sap_vendor_code: 'كود المورد في ساب',
+    contact_person: 'الشخص المسؤول', email: 'البريد الإلكتروني', sap_customer_code: 'كود العميل في ساب', full_name: 'الاسم الكامل',
+    new_password_optional: 'كلمة مرور جديدة (اتركها فارغة للإبقاء)',
+    incentive_settings: 'قواعد الحوافز', company_name: 'اسم الشركة', incentive_max_damage_rate: 'أقصى نسبة أضرار %', incentive_min_vehicles: 'أقل عدد سيارات شهرياً',
+    incentive_amount: 'قيمة الحافز (ريال)', admin_only: 'التعديل متاح لمدير النظام فقط.',
+    sap_export: 'التصدير إلى ساب', sap_export_desc: 'ملفات CSV جاهزة للاستيراد في ساب (عبر LSMW أو Data Import Workbench أو Migration Cockpit). تحتوي على أكواد العملاء والموردين المسجلة هنا لربط الفواتير ومستحقات السائقين.',
+    change_password: 'تغيير كلمة المرور', current_password: 'كلمة المرور الحالية', new_password: 'كلمة المرور الجديدة', password_changed: 'تم تغيير كلمة المرور',
+    err_network: 'تعذر الاتصال بالسحابة. تحقق من الإنترنت.', err_unauthorized: 'انتهت الجلسة، سجّل الدخول مجدداً.',
+    err_invalid_credentials: 'اسم المستخدم أو كلمة المرور غير صحيحة.', err_required_fields: 'أكمل الحقول الإلزامية.',
+    err_vin_invalid: 'رقم شاسيه غير صحيح', err_vin_duplicate: 'رقم شاسيه مكرر في نفس الشحنة', err_vin_active: 'السيارة موجودة في شحنة أخرى نشطة',
+    err_not_found: 'السجل غير موجود.', err_forbidden: 'ليست لديك صلاحية لهذا الإجراء.', err_server_error: 'حدث خطأ في الخادم.',
+    err_wrong_password: 'كلمة المرور الحالية غير صحيحة.', err_password_short: 'كلمة المرور 6 خانات على الأقل.', err_cannot_disable_self: 'لا يمكنك إيقاف حسابك.',
+    err_shipment_closed: 'الشحنة مغلقة (مسلّمة أو ملغاة).', err_duplicate: 'القيمة مسجلة مسبقاً.', err_no_vehicles: 'أضف رقم شاسيه واحداً على الأقل.',
+  },
+  en: {
+    login_shared: 'Sign in with the same username and password you use in the supply system.', back_supply: 'Supply system',
+    cloud_ok: 'Online', cloud_offline: 'Offline — will sync when back online', cloud_err: 'Could not save to the cloud',
+    users_intro: 'Accounts are the supply system accounts. Set each employee’s role in the logistics system; supply system admins are admins here automatically.',
+    ws_role: 'Supply system role', fleet_role: 'Logistics role', role_none: 'No access', ws_admin_fixed: 'Administrator (automatic)',
+    users_members_unavailable: 'The full list of supply accounts is visible to supply system admins only; previously added users are shown.',
+    pw_shared_note: 'Your password is the same as in the supply system and is changed there.', account: 'Account', external_link: 'External link to this system',
+    copy_link: 'Copy link', link_copied: 'Link copied', live_sync: 'Every change is saved to the cloud and appears instantly on all devices.',
+    err_not_member: 'Your account is not approved in the workspace — contact the administrator.', err_not_fleet: 'Your account has not been added to the logistics system yet — ask an administrator to add you under Users.',
+    err_inactive: 'This account is suspended.',
+    nav_reconcile: 'SAP reconciliation', rc_intro: 'Pull a report from SAP (Excel, CSV or TXT) for the same period, map its columns, and the system compares it with your manual entries: what matches, what differs, and what is missing on either side.',
+    rc_step1: '1. SAP file and period', rc_step2: '2. Map file columns', rc_step3: '3. Reconciliation result',
+    rc_mode: 'Match by', rc_mode_vin: 'VIN', rc_mode_vin_desc: 'One SAP line per car', rc_mode_shipment: 'Shipment / document no.', rc_mode_shipment_desc: 'One SAP line per shipment or invoice',
+    rc_from: 'From', rc_to: 'To', rc_file: 'SAP file', rc_file_hint: 'In SAP: export the report to Spreadsheet or Local File. The file is read on your device; only the mapped columns are sent.',
+    rc_tolerance: 'Date tolerance (days)', rc_sheet: 'Worksheet', rc_header_row: 'Header row number', rc_column: 'Column',
+    rc_rows_found: '{n} data rows', rc_not_in_file: '— Not in file —', rc_preview: 'Preview of the first 5 rows',
+    rc_f_vin: 'VIN', rc_f_shipkey: 'Shipment no. or SAP document', rc_f_date: 'Date', rc_f_customer: 'Customer code', rc_f_vendor: 'Vendor code (driver)',
+    rc_f_doc: 'SAP document no.', rc_f_qty: 'Quantity (cars)', rc_f_period: 'Outside period',
+    rc_run: 'Run reconciliation', rc_need_key: 'Select the required key column first.', rc_empty_file: 'The file is empty or in an unsupported format.',
+    rc_history: 'Previous reconciliations', rc_no_history: 'No reconciliations yet.', rc_issues: 'issues',
+    rc_totals: 'SAP file has {sap} lines; the system has {sys} records in the period.',
+    rc_s_matched: 'Matched', rc_s_mismatch: 'Data differs', rc_s_missing_in_system: 'In SAP, not recorded here', rc_s_missing_in_sap: 'Recorded here, not in SAP', rc_s_duplicate_in_sap: 'Duplicate in SAP file',
+    rc_show_issues: 'Issues only', rc_apply_docs: 'Fill SAP document numbers ({n})', rc_apply_confirm: 'Record the SAP document number on {n} shipments that have none?', rc_applied: '{n} shipments updated',
+    rc_export: 'Export result', rc_result: 'Result', rc_file_row: 'File row', rc_sap_data: 'SAP data', rc_system_data: 'System data', rc_details: 'Details',
+    rc_in_sap: 'SAP:', rc_in_system: 'System:', rc_note_missing_in_system: 'Not recorded in the system. Add it or check the number.', rc_note_missing_in_sap: 'Not in the SAP file for this period.',
+    rc_note_duplicate: 'Duplicate of row {row}', rc_all_good: 'No issues. Every record matches.', rc_truncated: 'Showing the first {n} of {total}. Export the result to see all.',
+    err_xlsx_load: 'Could not load the Excel reader. Check your connection or save the file as CSV.',
+    app_name: 'Car Logistics System', app_tagline: 'Shipments & drivers',
+    login_title: 'Sign in', login: 'Sign in', username: 'Username', password: 'Password', logout: 'Sign out', menu: 'Menu',
+    login_hero: 'Every car by its VIN, from loading to delivery.',
+    login_sub: 'Record shipments and each car’s condition, and track driver performance and incentives from phone or office.',
+    nav_dashboard: 'Dashboard', nav_search: 'VIN search', nav_new_shipment: 'New shipment', nav_shipments: 'Shipments',
+    nav_drivers: 'Drivers', nav_clients: 'Clients', nav_users: 'Users', nav_settings: 'Settings',
+    role_admin: 'Administrator', role_supervisor: 'Supervisor', role_operator: 'Operator', role: 'Role',
+    cond_pending: 'Not inspected', cond_ok: 'Intact', cond_dent: 'Dent', cond_scratch: 'Scratch', cond_dent_scratch: 'Dent & scratch',
+    status_pending: 'Awaiting loading', status_in_transit: 'In transit', status_delivered: 'Delivered', status_cancelled: 'Cancelled',
+    act_start: 'Start trip', act_deliver: 'Confirm delivery', act_cancel: 'Cancel shipment',
+    month: 'Month', export_incentives: 'Export incentives', export_shipments: 'Export shipments (header)', export_vehicles: 'Export vehicles (line items)',
+    kpi_trips: 'Trips this month', kpi_vehicles: 'Cars this month', kpi_inspected: 'Inspected', kpi_damage_rate: 'Damage rate', kpi_damaged_cars: 'damaged cars', kpi_active: 'Shipments in transit',
+    drivers_report: 'Driver performance & incentives', incentive_rule: 'Incentive ({amount} SAR) requires at least {min} cars with a damage rate of {rate}% or less',
+    driver: 'Driver', total_trips: 'Total trips', total_vehicles: 'Total cars', month_trips: 'Trips (month)', month_vehicles: 'Cars (month)',
+    damaged: 'Damaged', damage_rate_month: 'Damage rate (month)', incentive: 'Incentive',
+    inc_eligible: 'Eligible', inc_not_eligible: 'Not eligible', inc_incomplete: 'Inspection pending', inc_insufficient: 'Below minimum', sar: 'SAR',
+    recent_damage: 'Latest damaged cars this month', no_damage: 'No damage recorded this month.', no_drivers: 'No drivers yet.',
+    search_vin_label: 'Chassis number (VIN)', search_vin_ph: 'Full VIN or last 6 characters', search_hint: 'Results appear after 4 characters. Partial numbers work.',
+    no_results: 'No car matches this VIN. Check the characters or search the last 6.', trips_for_vin: 'Transport history: {n}', condition: 'Condition', condition_history: 'Condition change log',
+    client: 'Client', model: 'Model', truck_plate: 'Truck plate', departure_at: 'Departed', arrival_at: 'Arrived',
+    search: 'Search', shipments_search_ph: 'Shipment no., driver, city, or VIN', status: 'Status', all: 'All',
+    ref_no: 'Shipment no.', trip_date: 'Trip date', route: 'Route', cars: 'cars', not_inspected: 'Not inspected', no_shipments: 'No matching shipments.',
+    shipment_info: 'Shipment details', choose_driver: 'Select driver', choose_client: 'No specific client', origin: 'Origin', destination: 'Destination',
+    vehicle_type: 'Vehicle type', notes: 'Notes', vehicles_vins: 'Cars & VINs', vehicle_count: 'Car count', valid: 'Valid',
+    paste_vins: 'Paste VINs (one per line)', add_from_list: 'Add from list', add_rows: 'Add empty rows', add: 'Add',
+    vin_rule: 'A VIN has 17 letters and digits and never contains I, O or Q. Red fields are invalid or duplicated.',
+    vin_17: 'VIN (17 characters)', model_optional: 'Model (optional)', color: 'Color', delete: 'Delete', save_shipment: 'Save shipment',
+    confirm_active_vins: 'These cars are already on another undelivered shipment. Continue anyway?', shipment_saved: 'Shipment saved',
+    need_driver_first: 'Add at least one driver before creating a shipment.',
+    back_to_list: 'Shipments', print: 'Print', created_by: 'Created by', sap_document_no: 'SAP document no.', vehicles: 'Cars',
+    mark_rest_ok: 'Mark the rest intact', condition_notes_ph: 'Condition notes (damage location...)', add_vehicle: 'Add car',
+    confirm_cancel: 'Cancel this shipment?', confirm_deliver_pending: '{n} cars are not inspected. Confirm delivery anyway?',
+    confirm_delete_shipment: 'Delete this shipment and all its cars permanently?', confirm_remove_vehicle: 'Remove this car from the shipment?',
+    saved: 'Saved', deleted: 'Deleted', save: 'Save', cancel: 'Cancel', close: 'Close', edit: 'Edit',
+    active: 'Active', inactive: 'Suspended', no_records: 'No records.',
+    add_driver: 'Add driver', add_client: 'Add client', add_user: 'Add user',
+    name: 'Name', phone: 'Mobile', national_id: 'National / Iqama ID', license_no: 'License no.', sap_vendor_code: 'SAP vendor code',
+    contact_person: 'Contact person', email: 'Email', sap_customer_code: 'SAP customer code', full_name: 'Full name',
+    new_password_optional: 'New password (leave blank to keep)',
+    incentive_settings: 'Incentive rules', company_name: 'Company name', incentive_max_damage_rate: 'Max damage rate %', incentive_min_vehicles: 'Min cars per month',
+    incentive_amount: 'Incentive amount (SAR)', admin_only: 'Only administrators can edit these.',
+    sap_export: 'Export to SAP', sap_export_desc: 'CSV files ready for SAP import (LSMW, Data Import Workbench, or Migration Cockpit). They carry the customer and vendor codes recorded here to link invoices and driver payables.',
+    change_password: 'Change password', current_password: 'Current password', new_password: 'New password', password_changed: 'Password changed',
+    err_network: 'Cannot reach the cloud. Check your connection.', err_unauthorized: 'Session expired. Sign in again.',
+    err_invalid_credentials: 'Wrong username or password.', err_required_fields: 'Fill in the required fields.',
+    err_vin_invalid: 'Invalid VIN', err_vin_duplicate: 'Duplicate VIN in the same shipment', err_vin_active: 'Car is on another active shipment',
+    err_not_found: 'Record not found.', err_forbidden: 'You don’t have permission for this action.', err_server_error: 'Server error.',
+    err_wrong_password: 'Current password is wrong.', err_password_short: 'Password must be at least 6 characters.', err_cannot_disable_self: 'You can’t suspend your own account.',
+    err_shipment_closed: 'Shipment is closed (delivered or cancelled).', err_duplicate: 'This value already exists.', err_no_vehicles: 'Add at least one VIN.',
+  },
+};
+
+let LANG = (() => { try { return localStorage.getItem('fleet_lang') || 'ar'; } catch { return 'ar'; } })();
+function t(k) { return (I18N[LANG] && I18N[LANG][k]) ?? I18N.ar[k] ?? k; }
+function setLang(l) {
+  LANG = l; try { localStorage.setItem('fleet_lang', l); } catch {}
+  document.documentElement.lang = l;
+  document.documentElement.dir = l === 'ar' ? 'rtl' : 'ltr';
+}
+setLang(LANG);
+</script>
+<script>
+/* =====================================================================
+   طبقة البيانات: بديل خادم Node/SQLite داخل المتصفح
+   نفس مشروع Firebase ونفس حسابات نظام التوريد. البيانات في
+   workspaces/<wid>/platform/fleet — كل سجل في عقدة مستقلة فيُحفظ كل تعديل
+   فوراً ويظهر لحظياً على كل الأجهزة، دون أن يمسّ بيانات التوريد أو المنصة.
+   ===================================================================== */
+'use strict';
+const APP_BUILD = '2026-10-21-f1';
+const CLOUD_CONFIG = {
+  apiKey: 'AIzaSyDMZoozjFw9PTF-pluoALw3NKqeGDjbdtI',
+  authDomain: 'mohamed-farag-fruits.firebaseapp.com',
+  databaseURL: 'https://mohamed-farag-fruits-default-rtdb.europe-west1.firebasedatabase.app',
+  projectId: 'mohamed-farag-fruits',
+  storageBucket: 'mohamed-farag-fruits.firebasestorage.app',
+  messagingSenderId: '493790542156',
+  appId: '1:493790542156:web:fc80dccb52c699d67e77e9',
+  workspaceId: 'main',
+};
+const WID = CLOUD_CONFIG.workspaceId;
+try { firebase.initializeApp(CLOUD_CONFIG); } catch {}
+const fdb = () => firebase.database();
+const memberRef = (uid) => fdb().ref(`workspaces/${WID}/members${uid ? '/' + uid : ''}`);
+
+/* نفس اشتقاق البريد في نظام التوريد والمنصة: اسم المستخدم ← حساب Firebase */
+function hash(s) { let h = 5381; s = String(s) + '::mfarag'; for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) >>> 0; return 'h' + h.toString(36); }
+function synthEmail(username) { username = String(username || '').trim(); return username.indexOf('@') > 0 ? username : 'u' + hash(username.toLowerCase()) + '@' + WID + '.vegerp.app'; }
+
+const S_KEYS = ['drivers', 'clients', 'shipments', 'users', 'settings', 'reconIdx'];
+const S = {};
+const LS_CACHE = 'fleet_cache_' + WID;
+const DEFAULT_SETTINGS = { company_name: '', incentive_max_damage_rate: '2', incentive_min_vehicles: '20', incentive_amount: '500' };
+const FB = { root: null, listening: false };
+
+function cacheLoad() { let c = {}; try { c = JSON.parse(localStorage.getItem(LS_CACHE) || '{}'); } catch {} S_KEYS.forEach((k) => (S[k] = c[k] || {})); }
+function cacheSave() { clearTimeout(cacheSave.t); cacheSave.t = setTimeout(() => { try { localStorage.setItem(LS_CACHE, JSON.stringify(S)); } catch {} }, 400); }
+function cacheClear() { S_KEYS.forEach((k) => (S[k] = {})); try { localStorage.removeItem(LS_CACHE); } catch {} }
+cacheLoad();
+
+function setCloud(state) {
+  const el = document.getElementById('cloud-dot'); if (!el) return;
+  el.dataset.state = state; el.title = t('cloud_' + state);
+}
+
+/* التحميل الأول ثم الاستماع للتغييرات من الأجهزة الأخرى */
+async function fleetAttach() {
+  FB.root = fdb().ref(`workspaces/${WID}/platform/fleet`);
+  const once = Promise.all(S_KEYS.map((k) => FB.root.child(k).once('value').then((s) => (S[k] = s.val() || {}))));
+  await Promise.race([once, new Promise((r) => setTimeout(r, 8000))]);   // دون اتصال: نكمل من النسخة المحفوظة على الجهاز
+  cacheSave();
+  if (FB.listening) return; FB.listening = true;
+  S_KEYS.forEach((k) => FB.root.child(k).on('value', (s) => { S[k] = s.val() || {}; cacheSave(); onRemoteChange(k); },
+    () => setCloud('err')));
+  fdb().ref('.info/connected').on('value', (s) => setCloud(s.val() ? 'ok' : 'offline'));
+}
+
+function setPath(obj, path, value) {
+  const parts = path.split('/'); let o = obj;
+  for (let i = 0; i < parts.length - 1; i++) { if (o[parts[i]] === null || typeof o[parts[i]] !== 'object') { if (value === null) return; o[parts[i]] = {}; } o = o[parts[i]]; }
+  if (value === null) delete o[parts[parts.length - 1]]; else o[parts[parts.length - 1]] = value;
+}
+/* تطبيق محلي فوري + إرسال للسحابة (يُطابَق تلقائياً عند عودة الإنترنت) */
+function write(updates) {
+  Object.keys(updates).forEach((p) => setPath(S, p, updates[p]));
+  cacheSave();
+  FB.root.update(updates).catch((e) => { setCloud('err'); toast(t('cloud_err') + ': ' + (e.code || e.message), 'err'); });
+}
+const newKey = () => FB.root.push().key;
+
+/* ---------- أدوات مشتركة ---------- */
+const nowStr = () => { const d = new Date(); return new Date(d - d.getTimezoneOffset() * 60000).toISOString().slice(0, 19).replace('T', ' '); };
+const clean = (v) => (v === '' || v === undefined || v === null ? null : typeof v === 'string' ? v.trim() || null : v);
+const isYmd = (s) => /^\d{4}-\d{2}-\d{2}$/.test(s || '');
+const DAMAGED = ['dent', 'scratch', 'dent_scratch'];
+const CONDITIONS = ['pending', 'ok', 'dent', 'scratch', 'dent_scratch'];
+const STATUSES = ['pending', 'in_transit', 'delivered', 'cancelled'];
+function apiErr(code, data = {}) {
+  const k = 'err_' + code, e = new Error(t(k) !== k ? t(k) : t('err_server_error'));
+  e.code = code; e.data = data; return e;
+}
+function need(...roles) { if (!window.ME || !roles.includes(window.ME.role)) throw apiErr('forbidden'); }
+const rows = (k) => Object.keys(S[k] || {}).map((id) => ({ ...S[k][id], id }));
+const cond = (v) => v.condition || 'pending';
+const vehiclesOf = (s) => Object.keys(s.vehicles || {}).map((id) => ({ ...s.vehicles[id], id, condition: cond(s.vehicles[id]) }))
+  .sort((a, b) => (a.o || 0) - (b.o || 0) || a.id.localeCompare(b.id));
+const settings = () => ({ ...DEFAULT_SETTINGS, ...S.settings });
+const userName = () => window.ME.full_name || window.ME.username;
+
+function shipView(id) {
+  const s = S.shipments[id]; if (!s) return null;
+  const d = S.drivers[s.driver_id] || {}, c = S.clients[s.client_id] || {}, vs = vehiclesOf(s);
+  return { ...s, id, vehicles: vs, driver_name: d.name || '—', driver_phone: d.phone || null, truck_plate: d.truck_plate || null,
+    sap_vendor_code: d.sap_vendor_code || null, client_name: c.name || null, sap_customer_code: c.sap_customer_code || null,
+    vehicle_count: vs.length, damaged_count: vs.filter((v) => DAMAGED.includes(v.condition)).length, pending_count: vs.filter((v) => v.condition === 'pending').length };
+}
+const allShips = () => Object.keys(S.shipments || {}).map(shipView);
+
+/* سيارات موجودة حالياً في شحنة لم تُسلَّم بعد (لمنع التكرار بالخطأ) */
+function activeConflicts(vins, excludeId = '') {
+  const set = new Set(vins), out = [];
+  allShips().forEach((s) => { if (s.id === excludeId || !['pending', 'in_transit'].includes(s.status)) return;
+    s.vehicles.forEach((v) => set.has(v.vin) && out.push({ vin: v.vin, ref_no: s.ref_no })); });
+  return out;
+}
+
+/* رقم الشحنة SH-YYYYMM-0001 بعدّاد سحابي ذري، فلا يتكرر الرقم بين جهازين */
+async function nextRef(tripDate) {
+  const ym = tripDate.slice(0, 4) + tripDate.slice(5, 7), prefix = `SH-${ym}-`;
+  const localMax = allShips().filter((s) => String(s.ref_no || '').startsWith(prefix)).reduce((m, s) => Math.max(m, parseInt(s.ref_no.slice(prefix.length), 10) || 0), 0);
+  const tx = FB.root.child('seq/' + ym).transaction((cur) => Math.max(cur || 0, localMax) + 1);
+  const r = await Promise.race([tx, new Promise((_, rej) => setTimeout(() => rej(apiErr('network')), 12000))]);
+  if (!r.committed) throw apiErr('server_error');
+  return prefix + String(r.snapshot.val()).padStart(4, '0');
+}
+
+/* ---------- البيانات الأساسية: السائقون والعملاء ---------- */
+const MASTER = {
+  drivers: { fields: ['name', 'phone', 'national_id', 'license_no', 'truck_plate', 'sap_vendor_code'], required: ['name'] },
+  clients: { fields: ['name', 'contact_person', 'phone', 'email', 'sap_customer_code'], required: ['name'] },
+};
+function masterList(table, all) {
+  return rows(table).map((r) => ({ ...r, active: r.active === 0 ? 0 : 1 })).filter((r) => all || r.active)
+    .sort((a, b) => b.active - a.active || String(a.name || '').localeCompare(String(b.name || ''), 'ar'));
+}
+function masterSave(table, id, b) {
+  need('admin', 'supervisor');
+  const cfg = MASTER[table], d = {};
+  cfg.fields.forEach((f) => { if (!id || f in b) d[f] = clean(b[f]); });
+  if (!id || 'active' in b) d.active = b.active === undefined ? 1 : Number(b.active) ? 1 : 0;
+  if (cfg.required.some((r) => r in d && !d[r])) throw apiErr('required_fields');
+  if (id && !S[table][id]) throw apiErr('not_found');
+  if (!id) { id = newKey(); d.created_at = nowStr(); write({ [`${table}/${id}`]: d }); }
+  else { const up = {}; Object.keys(d).forEach((k) => (up[`${table}/${id}/${k}`] = d[k])); write(up); }
+  return { ...S[table][id], id };
+}
+
+/* ---------- تسجيل حالة السيارة مع سجل التدقيق ---------- */
+function conditionUpdates(sid, vid, condition, notes) {
+  const v = S.shipments[sid] && S.shipments[sid].vehicles && S.shipments[sid].vehicles[vid];
+  if (!v) throw apiErr('not_found');
+  const base = `shipments/${sid}/vehicles/${vid}/`, up = {}, old = cond(v);
+  up[base + 'condition'] = condition; up[base + 'condition_notes'] = notes;
+  up[base + 'inspected_at'] = condition === 'pending' ? null : nowStr();
+  up[base + 'inspected_by_name'] = condition === 'pending' ? null : userName();
+  if (old !== condition || (v.condition_notes || null) !== notes)
+    up[base + 'log/' + newKey()] = { old_condition: old, new_condition: condition, notes, user_name: userName(), created_at: nowStr() };
+  return up;
+}
+
+/* ---------- إحصائيات السائقين والحوافز ---------- */
+function driverStats(month) {
+  const st = settings(), maxRate = Number(st.incentive_max_damage_rate), minVehicles = Number(st.incentive_min_vehicles), amount = Number(st.incentive_amount);
+  const ships = allShips().filter((s) => s.status !== 'cancelled');
+  return masterList('drivers', false).map((d) => {
+    const mine = ships.filter((s) => s.driver_id === d.id), inMonth = mine.filter((s) => String(s.trip_date || '').slice(0, 7) === month);
+    const mv = inMonth.flatMap((s) => s.vehicles);
+    const r = { id: d.id, name: d.name, phone: d.phone, truck_plate: d.truck_plate, sap_vendor_code: d.sap_vendor_code,
+      total_trips: mine.length, total_vehicles: mine.reduce((n, s) => n + s.vehicle_count, 0), month_trips: inMonth.length, month_vehicles: mv.length,
+      month_inspected: mv.filter((v) => v.condition !== 'pending').length, month_damaged: mv.filter((v) => DAMAGED.includes(v.condition)).length,
+      month_pending: mv.filter((v) => v.condition === 'pending').length };
+    r.damage_rate = r.month_inspected ? Math.round((r.month_damaged / r.month_inspected) * 1000) / 10 : null;
+    if (r.month_vehicles < minVehicles) r.incentive = 'insufficient';
+    else if (r.month_pending > 0) r.incentive = 'incomplete';
+    else r.incentive = r.damage_rate <= maxRate ? 'eligible' : 'not_eligible';
+    r.incentive_amount = r.incentive === 'eligible' ? amount : 0;
+    return r;
+  });
+}
+const monthOf = (q) => (/^\d{4}-\d{2}$/.test(q || '') ? q : thisMonth());
+
+/* ---------- التصدير CSV (يُنشأ على الجهاز) ---------- */
+function downloadCsv(filename, headers, data) {
+  const e = (v) => { const s = v === null || v === undefined ? '' : String(v); return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
+  const blob = new Blob(['﻿' + [headers.join(','), ...data.map((r) => r.map(e).join(','))].join('\r\n')], { type: 'text/csv;charset=utf-8' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+function exportCsv(kind, month) {
+  if (!can('admin', 'supervisor')) return toast(t('err_forbidden'), 'err');
+  const m = monthOf(month);
+  const ships = allShips().filter((s) => String(s.trip_date || '').slice(0, 7) === m).sort((a, b) => (a.trip_date + a.ref_no).localeCompare(b.trip_date + b.ref_no));
+  if (kind === 'shipments') downloadCsv(`SAP_Shipments_${m}.csv`, ['RefNo', 'TripDate', 'Status', 'CustomerCode', 'CustomerName', 'VendorCode', 'DriverName', 'TruckPlate',
+    'Origin', 'Destination', 'VehicleType', 'VehicleQty', 'DamagedQty', 'DepartureAt', 'ArrivalAt', 'SAPDocNo'],
+    ships.map((s) => [s.ref_no, s.trip_date, s.status, s.sap_customer_code, s.client_name, s.sap_vendor_code, s.driver_name, s.truck_plate,
+      s.origin, s.destination, s.vehicle_type, s.vehicle_count, s.damaged_count, s.departure_at, s.arrival_at, s.sap_document_no]));
+  if (kind === 'vehicles') downloadCsv(`SAP_Vehicles_${m}.csv`, ['RefNo', 'TripDate', 'VIN', 'Model', 'Color', 'Condition', 'ConditionNotes', 'InspectedAt',
+    'VendorCode', 'DriverName', 'CustomerCode', 'CustomerName', 'Origin', 'Destination'],
+    ships.flatMap((s) => s.vehicles.map((v) => [s.ref_no, s.trip_date, v.vin, v.model, v.color, v.condition, v.condition_notes, v.inspected_at,
+      s.sap_vendor_code, s.driver_name, s.sap_customer_code, s.client_name, s.origin, s.destination])));
+  if (kind === 'incentives') downloadCsv(`SAP_Driver_Incentives_${m}.csv`, ['Month', 'VendorCode', 'DriverName', 'TruckPlate', 'Trips', 'Vehicles', 'Inspected',
+    'Damaged', 'DamageRatePct', 'IncentiveStatus', 'IncentiveAmountSAR'],
+    driverStats(m).map((r) => [m, r.sap_vendor_code, r.name, r.truck_plate, r.month_trips, r.month_vehicles, r.month_inspected, r.month_damaged, r.damage_rate ?? '', r.incentive, r.incentive_amount]));
+}
+
+/* ---------- المطابقة مع ملفات ساب ---------- */
+const normCode = (v) => String(v ?? '').trim().toUpperCase().replace(/\s+/g, '').replace(/^0+(?=.)/, '');
+const dayDiff = (a, b) => Math.round(Math.abs(Date.parse(a) - Date.parse(b)) / 864e5);
+function parseQty(v) {
+  const s = String(v ?? '').trim(); if (!s) return null;
+  if (/^\d+([.,]0+)?$/.test(s)) return parseInt(s, 10);
+  const n = parseFloat(s.replace(/,/g, '')); return Number.isFinite(n) ? n : null;
+}
+const sysView = (x) => x && ({ shipment_id: x.shipment_id, ref_no: x.ref_no, trip_date: x.trip_date, status: x.status, sap_document_no: x.sap_document_no || null,
+  driver_name: x.driver_name, vendor: x.sap_vendor_code, client_name: x.client_name, customer: x.sap_customer_code, vin: x.vin, condition: x.condition, qty: x.vehicle_count });
+
+async function reconcile(b) {
+  need('admin', 'supervisor');
+  const { mode, from, to, file_name } = b;
+  const tol = Math.max(0, Number(b.tolerance_days ?? 2));
+  const input = Array.isArray(b.rows) ? b.rows : [];
+  if (!['vin', 'shipment'].includes(mode) || !isYmd(from) || !isYmd(to) || !input.length) throw apiErr('required_fields');
+  const inPeriod = (d) => d >= from && d <= to;
+  const ships = allShips().filter((s) => s.status !== 'cancelled').map((s) => ({ ...s, shipment_id: s.id }));
+  let all;
+  if (mode === 'vin') all = ships.flatMap((s) => s.vehicles.map((v) => ({ ...s, vehicle_id: s.id + '/' + v.id, vin: v.vin, condition: v.condition })));
+  else all = ships;
+  const periodList = all.filter((x) => inPeriod(x.trip_date));
+  const lookup = new Map();
+  const add = (k, x) => { if (!k) return; if (!lookup.has(k)) lookup.set(k, []); if (!lookup.get(k).includes(x)) lookup.get(k).push(x); };
+  if (mode === 'vin') all.forEach((x) => add(x.vin, x));
+  else all.forEach((x) => { add(normCode(x.ref_no), x); add(normCode(x.sap_document_no), x); });
+
+  const items = [], seen = new Map(), matchedIds = new Set(), suggestions = new Map();
+  let skipped = 0;
+  for (const r of input) {
+    const key = mode === 'vin' ? normVin(r.key) : normCode(r.key);
+    if (!key) { skipped++; continue; }
+    const sap = { date: isYmd(r.date) ? r.date : null, customer: r.customer || null, vendor: r.vendor || null, doc: r.doc || null, qty: parseQty(r.qty) };
+    const item = { key, row: r.row, sap, sys: null, diffs: [] };
+    if (seen.has(key)) { item.status = 'duplicate_in_sap'; item.first_row = seen.get(key); items.push(item); continue; }
+    seen.set(key, r.row);
+    const cands = lookup.get(key) || [];
+    if (!cands.length) { item.status = 'missing_in_system'; items.push(item); continue; }
+    const pick = [...cands].sort((a, c) => {
+      if (sap.date) return dayDiff(a.trip_date, sap.date) - dayDiff(c.trip_date, sap.date);
+      return (inPeriod(c.trip_date) - inPeriod(a.trip_date)) || String(c.trip_date).localeCompare(a.trip_date);
+    })[0];
+    item.sys = sysView(pick);
+    matchedIds.add(mode === 'vin' ? pick.vehicle_id : pick.shipment_id);
+    const d = item.diffs;
+    if (sap.customer && normCode(sap.customer) !== normCode(pick.sap_customer_code)) d.push({ field: 'customer', sap: sap.customer, sys: pick.sap_customer_code || '' });
+    if (sap.vendor && normCode(sap.vendor) !== normCode(pick.sap_vendor_code)) d.push({ field: 'vendor', sap: sap.vendor, sys: pick.sap_vendor_code || '' });
+    if (sap.date && dayDiff(sap.date, pick.trip_date) > tol) d.push({ field: 'date', sap: sap.date, sys: pick.trip_date });
+    if (!sap.date && !inPeriod(pick.trip_date)) d.push({ field: 'period', sap: `${from} / ${to}`, sys: pick.trip_date });
+    if (mode === 'shipment' && sap.qty !== null && sap.qty !== pick.vehicle_count) d.push({ field: 'qty', sap: sap.qty, sys: pick.vehicle_count });
+    if (sap.doc) {
+      if (pick.sap_document_no && normCode(sap.doc) !== normCode(pick.sap_document_no)) d.push({ field: 'doc', sap: sap.doc, sys: pick.sap_document_no });
+      if (!pick.sap_document_no && !suggestions.has(pick.shipment_id)) suggestions.set(pick.shipment_id, { shipment_id: pick.shipment_id, ref_no: pick.ref_no, doc: String(sap.doc).trim() });
+    }
+    item.status = d.length ? 'mismatch' : 'matched';
+    items.push(item);
+  }
+  for (const x of periodList) {
+    const id = mode === 'vin' ? x.vehicle_id : x.shipment_id;
+    if (!matchedIds.has(id)) items.push({ status: 'missing_in_sap', key: mode === 'vin' ? x.vin : x.ref_no, row: null, sap: null, sys: sysView(x), diffs: [] });
+  }
+  const count = (s) => items.filter((i) => i.status === s).length;
+  const summary = { sap_rows: input.length, skipped, system_rows: periodList.length, matched: count('matched'), mismatch: count('mismatch'),
+    missing_in_system: count('missing_in_system'), missing_in_sap: count('missing_in_sap'), duplicate_in_sap: count('duplicate_in_sap') };
+  const result = { mode, from, to, tolerance_days: tol, file_name: file_name || null, summary, items, doc_suggestions: [...suggestions.values()] };
+
+  /* الحفظ: فهرس خفيف يُزامَن دائماً، والنتيجة الكاملة تُجلب عند فتحها فقط؛ نحتفظ بآخر 30 مطابقة */
+  const id = newKey(), created_at = nowStr();
+  const up = { [`reconIdx/${id}`]: { mode, period_from: from, period_to: to, file_name: file_name || null, summary, created_at, user_name: userName() },
+    [`reconData/${id}`]: JSON.stringify({ ...result, created_at }) };
+  Object.keys(S.reconIdx || {}).map((k) => [k, S.reconIdx[k].created_at || '']).sort((a, c) => c[1].localeCompare(a[1])).slice(29)
+    .forEach(([k]) => { up[`reconIdx/${k}`] = null; up[`reconData/${k}`] = null; });
+  write(up);
+  return { id, ...result };
+}
+
+/* ---------- المستخدمون: حسابات نظام التوريد + صلاحية نظام النقل ---------- */
+async function usersList() {
+  need('admin');
+  let members = null;
+  try { members = (await memberRef().once('value')).val() || {}; } catch {}
+  const ids = new Set([...Object.keys(S.users || {}), ...Object.keys(members || {})]);
+  const out = [...ids].map((uid) => {
+    const m = (members || {})[uid] || {}, u = S.users[uid] || {};
+    return { id: uid, username: u.username || m.username || '—', full_name: u.full_name || '', ws_role: m.role || '', ws_admin: m.role === 'admin',
+      role: m.role === 'admin' ? 'admin' : u.active === 0 ? '' : u.role || '', active: m.active === 0 ? 0 : 1 };
+  }).sort((a, b) => b.ws_admin - a.ws_admin || String(a.username).localeCompare(String(b.username)));
+  return { rows: out, membersVisible: members !== null };
+}
+function userSave(uid, b) {
+  need('admin');
+  if (uid === window.ME.id) throw apiErr('cannot_disable_self');
+  const role = ['operator', 'supervisor', 'admin'].includes(b.role) ? b.role : '';
+  write({ [`users/${uid}`]: { role: role || null, active: role ? 1 : 0, username: clean(b.username), full_name: clean(b.full_name), by: userName(), at: nowStr() } });
+  return { ok: true };
+}
+
+/* ---------- موجّه الطلبات: نفس واجهة API القديمة ---------- */
+const API_ROUTES = [
+  ['GET', /^\/drivers$/, ({ q }) => masterList('drivers', q.get('all') === '1')],
+  ['POST', /^\/drivers$/, ({ body }) => masterSave('drivers', null, body)],
+  ['PUT', /^\/drivers\/([\w-]+)$/, ({ p, body }) => masterSave('drivers', p[0], body)],
+  ['GET', /^\/clients$/, ({ q }) => masterList('clients', q.get('all') === '1')],
+  ['POST', /^\/clients$/, ({ body }) => masterSave('clients', null, body)],
+  ['PUT', /^\/clients\/([\w-]+)$/, ({ p, body }) => masterSave('clients', p[0], body)],
+
+  ['GET', /^\/shipments$/, ({ q }) => {
+    const st = q.get('status'), month = q.get('month'), drv = q.get('driver_id'), qq = String(q.get('q') || '').trim().toLowerCase(), vq = normVin(qq);
+    return allShips().filter((s) => (!STATUSES.includes(st) || s.status === st) && (!drv || s.driver_id === drv)
+      && (!/^\d{4}-\d{2}$/.test(month || '') || String(s.trip_date || '').slice(0, 7) === month)
+      && (!qq || [s.ref_no, s.driver_name, s.client_name, s.origin, s.destination].some((x) => String(x || '').toLowerCase().includes(qq)) || (vq && s.vehicles.some((v) => v.vin.includes(vq)))))
+      .sort((a, b) => String(b.trip_date).localeCompare(a.trip_date) || String(b.created_at || '').localeCompare(a.created_at || '')).slice(0, 300);
+  }],
+  ['GET', /^\/shipments\/([\w-]+)$/, ({ p }) => { const s = shipView(p[0]); if (!s) throw apiErr('not_found'); return s; }],
+  ['POST', /^\/shipments$/, async ({ body: b }) => {
+    if (!b.driver_id || !clean(b.origin) || !clean(b.destination) || !Array.isArray(b.vehicles) || !b.vehicles.length) throw apiErr('required_fields');
+    if (!S.drivers[b.driver_id]) throw apiErr('required_fields');
+    const vehicles = b.vehicles.map((v) => ({ vin: normVin(v.vin), model: clean(v.model), color: clean(v.color) }));
+    const invalid = vehicles.filter((v) => !VIN_RE.test(v.vin)).map((v) => v.vin);
+    if (invalid.length) throw apiErr('vin_invalid', { vins: invalid });
+    const seen = new Set(), dups = [];
+    vehicles.forEach((v) => (seen.has(v.vin) ? dups.push(v.vin) : seen.add(v.vin)));
+    if (dups.length) throw apiErr('vin_duplicate', { vins: dups });
+    const conflicts = activeConflicts([...seen]);
+    if (conflicts.length && !b.force) throw apiErr('vin_active', { conflicts });
+    const tripDate = isYmd(b.trip_date) ? b.trip_date : today();
+    const status = ['pending', 'in_transit'].includes(b.status) ? b.status : 'pending';
+    const ref_no = await nextRef(tripDate);
+    const id = newKey(), vs = {};
+    vehicles.forEach((v, i) => (vs[newKey()] = { vin: v.vin, model: v.model || clean(b.vehicle_type), color: v.color, condition: 'pending', o: i + 1 }));
+    write({ [`shipments/${id}`]: { ref_no, driver_id: b.driver_id, client_id: b.client_id || null, origin: clean(b.origin), destination: clean(b.destination),
+      vehicle_type: clean(b.vehicle_type), trip_date: tripDate, status, departure_at: status === 'in_transit' ? nowStr() : null, arrival_at: null,
+      notes: clean(b.notes), sap_document_no: null, created_by_name: userName(), created_at: nowStr(), vehicles: vs } });
+    return { id };
+  }],
+  ['PUT', /^\/shipments\/([\w-]+)$/, ({ p, body: b }) => {
+    const id = p[0], s = S.shipments[id]; if (!s) throw apiErr('not_found');
+    const d = {};
+    ['origin', 'destination', 'vehicle_type', 'notes', 'sap_document_no'].forEach((f) => { if (f in b) d[f] = clean(b[f]); });
+    if ('driver_id' in b) { if (!S.drivers[b.driver_id]) throw apiErr('required_fields'); d.driver_id = b.driver_id; }
+    if ('client_id' in b) d.client_id = b.client_id || null;
+    if ('trip_date' in b && isYmd(b.trip_date)) d.trip_date = b.trip_date;
+    if ('status' in b) {
+      if (!STATUSES.includes(b.status)) throw apiErr('required_fields');
+      d.status = b.status;
+      if (b.status === 'in_transit' && !s.departure_at) d.departure_at = nowStr();
+      if (b.status === 'delivered' && !s.arrival_at) d.arrival_at = nowStr();
+    }
+    if (('origin' in d && !d.origin) || ('destination' in d && !d.destination)) throw apiErr('required_fields');
+    const up = {}; Object.keys(d).forEach((k) => (up[`shipments/${id}/${k}`] = d[k])); write(up);
+    return { ok: true };
+  }],
+  ['DELETE', /^\/shipments\/([\w-]+)$/, ({ p }) => { need('admin', 'supervisor'); write({ [`shipments/${p[0]}`]: null }); return { ok: true }; }],
+  ['POST', /^\/shipments\/([\w-]+)\/vehicles$/, ({ p, body: b }) => {
+    const id = p[0], s = S.shipments[id]; if (!s) throw apiErr('not_found');
+    if (['delivered', 'cancelled'].includes(s.status)) throw apiErr('shipment_closed');
+    const vin = normVin(b.vin);
+    if (!VIN_RE.test(vin)) throw apiErr('vin_invalid', { vins: [vin] });
+    if (vehiclesOf(s).some((v) => v.vin === vin)) throw apiErr('vin_duplicate', { vins: [vin] });
+    const conflicts = activeConflicts([vin], id);
+    if (conflicts.length && !b.force) throw apiErr('vin_active', { conflicts });
+    const o = vehiclesOf(s).reduce((m, v) => Math.max(m, v.o || 0), 0) + 1;
+    write({ [`shipments/${id}/vehicles/${newKey()}`]: { vin, model: clean(b.model) || s.vehicle_type || null, color: clean(b.color), condition: 'pending', o } });
+    return { ok: true };
+  }],
+  ['DELETE', /^\/shipments\/([\w-]+)\/vehicles\/([\w-]+)$/, ({ p }) => {
+    const s = S.shipments[p[0]]; if (!s || !(s.vehicles || {})[p[1]]) throw apiErr('not_found');
+    if (['delivered', 'cancelled'].includes(s.status)) throw apiErr('shipment_closed');
+    write({ [`shipments/${p[0]}/vehicles/${p[1]}`]: null }); return { ok: true };
+  }],
+  ['PATCH', /^\/shipments\/([\w-]+)\/vehicles\/([\w-]+)\/condition$/, ({ p, body }) => {
+    if (!CONDITIONS.includes(body.condition)) throw apiErr('required_fields');
+    write(conditionUpdates(p[0], p[1], body.condition, clean(body.notes))); return { ok: true };
+  }],
+  ['POST', /^\/shipments\/([\w-]+)\/mark-ok$/, ({ p }) => {
+    const s = S.shipments[p[0]]; if (!s) throw apiErr('not_found');
+    const pend = vehiclesOf(s).filter((v) => v.condition === 'pending'), up = {};
+    pend.forEach((v) => Object.assign(up, conditionUpdates(p[0], v.id, 'ok', null)));
+    if (pend.length) write(up);
+    return { updated: pend.length };
+  }],
+  ['GET', /^\/vehicles\/search$/, ({ q }) => {
+    const qq = normVin(q.get('q')); if (qq.length < 4) return { results: [] };
+    const out = [];
+    allShips().forEach((s) => s.vehicles.forEach((v) => { if (!v.vin.includes(qq)) return;
+      out.push({ ...v, shipment_id: s.id, ref_no: s.ref_no, trip_date: s.trip_date, origin: s.origin, destination: s.destination, status: s.status,
+        vehicle_type: s.vehicle_type, departure_at: s.departure_at, arrival_at: s.arrival_at, driver_name: s.driver_name, driver_phone: s.driver_phone,
+        truck_plate: s.truck_plate, client_name: s.client_name, log: Object.values(v.log || {}).sort((a, b) => String(b.created_at).localeCompare(a.created_at)) }); }));
+    out.sort((a, b) => (b.vin === qq) - (a.vin === qq) || a.vin.localeCompare(b.vin) || String(b.trip_date).localeCompare(a.trip_date));
+    return { results: out.slice(0, 100) };
+  }],
+  ['GET', /^\/dashboard$/, ({ q }) => {
+    const m = monthOf(q.get('month')), st = settings();
+    const ships = allShips().filter((s) => s.status !== 'cancelled'), inM = ships.filter((s) => String(s.trip_date || '').slice(0, 7) === m);
+    const mv = inM.flatMap((s) => s.vehicles.map((v) => ({ ...v, shipment_id: s.id, ref_no: s.ref_no, trip_date: s.trip_date, driver_name: s.driver_name })));
+    return { month: m,
+      kpis: { trips: inM.length, vehicles: mv.length, inspected: mv.filter((v) => v.condition !== 'pending').length, damaged: mv.filter((v) => DAMAGED.includes(v.condition)).length,
+        in_transit: ships.filter((s) => s.status === 'in_transit').length, pending: ships.filter((s) => s.status === 'pending').length },
+      drivers: driverStats(m),
+      recentDamage: mv.filter((v) => DAMAGED.includes(v.condition)).sort((a, b) => String(b.inspected_at || '').localeCompare(a.inspected_at || '')).slice(0, 8),
+      rules: { max_rate: Number(st.incentive_max_damage_rate), min_vehicles: Number(st.incentive_min_vehicles), amount: Number(st.incentive_amount) } };
+  }],
+  ['GET', /^\/settings$/, () => settings()],
+  ['PUT', /^\/settings$/, ({ body }) => {
+    need('admin'); const up = {};
+    ['company_name', 'incentive_max_damage_rate', 'incentive_min_vehicles', 'incentive_amount'].forEach((k) => { if (k in body) up['settings/' + k] = String(body[k]).trim(); });
+    write(up); return settings();
+  }],
+  ['POST', /^\/reconcile$/, ({ body }) => reconcile(body)],
+  ['GET', /^\/reconciliations$/, () => { need('admin', 'supervisor');
+    return rows('reconIdx').sort((a, b) => String(b.created_at).localeCompare(a.created_at)).slice(0, 30); }],
+  ['GET', /^\/reconciliations\/([\w-]+)$/, async ({ p }) => { need('admin', 'supervisor');
+    const v = (await Promise.race([FB.root.child('reconData/' + p[0]).once('value'), new Promise((_, rej) => setTimeout(() => rej(apiErr('network')), 12000))])).val();
+    if (!v) throw apiErr('not_found'); return { id: p[0], ...JSON.parse(v) }; }],
+  ['POST', /^\/reconcile\/apply-docs$/, ({ body }) => {
+    need('admin', 'supervisor'); const up = {}; let updated = 0;
+    (Array.isArray(body.items) ? body.items : []).forEach((i) => { const s = S.shipments[i.shipment_id];
+      if (i.doc && s && !s.sap_document_no && !up[`shipments/${i.shipment_id}/sap_document_no`]) { up[`shipments/${i.shipment_id}/sap_document_no`] = String(i.doc).trim(); updated++; } });
+    if (updated) write(up); return { updated };
+  }],
+  ['GET', /^\/users$/, () => usersList()],
+  ['PUT', /^\/users\/([\w-]+)$/, ({ p, body }) => userSave(p[0], body)],
+];
+
+const API = {
+  async req(method, url, body) {
+    if (!FB.root) throw apiErr('unauthorized');
+    const [path, qs] = url.split('?');
+    for (const [m, re, fn] of API_ROUTES) {
+      if (m !== method) continue;
+      const mm = path.match(re);
+      if (mm) return fn({ p: mm.slice(1), q: new URLSearchParams(qs || ''), body: body || {} });
+    }
+    throw apiErr('not_found');
+  },
+  get(u) { return this.req('GET', u); },
+  post(u, b) { return this.req('POST', u, b || {}); },
+  put(u, b) { return this.req('PUT', u, b || {}); },
+  patch(u, b) { return this.req('PATCH', u, b || {}); },
+  del(u) { return this.req('DELETE', u); },
+};
+
+/* ---------- الدخول بحسابات نظام التوريد ---------- */
+async function resolveMe(fu) {
+  let mem;
+  try { mem = (await memberRef(fu.uid).once('value')).val(); }
+  catch (e) { throw apiErr(/network|disconnect/i.test(String(e && (e.code || e.message))) ? 'network' : 'not_member'); }
+  if (!mem) throw apiErr('not_member');
+  if (mem.active === 0) throw apiErr('inactive');
+  await fleetAttach();
+  const u = S.users[fu.uid] || {};
+  const role = mem.role === 'admin' ? 'admin' : u.active === 0 ? '' : u.role || '';
+  if (!role) throw apiErr('not_fleet');
+  window.ME = { id: fu.uid, username: mem.username || u.username || '', full_name: u.full_name || mem.name || mem.username || '', role, ws_admin: mem.role === 'admin' };
+  /* اسم المستخدم يُحفظ ليعرضه المدير في «المستخدمون» */
+  if (mem.role !== 'admin' && u.username !== window.ME.username) write({ [`users/${fu.uid}/username`]: window.ME.username });
+}
+async function fleetLogin(username, password) {
+  let cred;
+  try { cred = await firebase.auth().signInWithEmailAndPassword(synthEmail(username), password); }
+  catch (e) { throw apiErr(/network/i.test(String(e && e.code)) ? 'network' : 'invalid_credentials'); }
+  try { await resolveMe(cred.user); }
+  catch (e) { try { await firebase.auth().signOut(); } catch {} throw e; }
+}
+function fleetLogout() {
+  try { firebase.auth().signOut(); } catch {}
+  cacheClear(); window.ME = null; location.hash = '#/dashboard'; location.reload();
+}
+/* تغيّر صلاحيتي من جهاز المدير يُطبَّق فوراً */
+function refreshMyRole() {
+  if (!window.ME || window.ME.ws_admin) return;
+  const u = S.users[window.ME.id] || {}, role = u.active === 0 ? '' : u.role || '';
+  if (!role) { toast(t('err_not_fleet'), 'err'); setTimeout(fleetLogout, 2500); return; }
+  if (role !== window.ME.role || (u.full_name && u.full_name !== window.ME.full_name)) { window.ME.role = role; window.ME.full_name = u.full_name || window.ME.full_name; return true; }
+}
+
+/* إعادة رسم الصفحة الحالية عند وصول تعديل من جهاز آخر — دون مقاطعة كتابة أو نافذة مفتوحة */
+let rrTimer;
+function onRemoteChange(k) {
+  if (k === 'users' && refreshMyRole()) { clearTimeout(rrTimer); rrTimer = setTimeout(() => router(true), 300); return; }
+  clearTimeout(rrTimer); rrTimer = setTimeout(liveRerender, 350);
+}
+function liveRerender() {
+  if (!window.ME) return;
+  const path = (location.hash || '#/dashboard').split('?')[0];
+  if (!/^#\/(dashboard|shipments|shipments\/(?!new$)[\w-]+|drivers|clients)$/.test(path)) return;
+  const ae = document.activeElement;
+  if ($('#modal-root').children.length || (ae && ae.closest && ae.closest('#view') && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName))) {
+    rrTimer = setTimeout(liveRerender, 2000); return;
+  }
+  router(true);
+}
+
+/* فحص وجود إصدار جديد (تطبيق صفحة واحدة لا يُعاد تحميله تلقائياً) */
+(function () {
+  let busy = false, shown = false;
+  function check(auto) {
+    if (busy || !window.fetch) return; busy = true;
+    fetch(location.pathname + '?_v=' + Date.now(), { cache: 'no-store' }).then((r) => (r.ok ? r.text() : '')).then((txt) => {
+      busy = false; const m = /APP_BUILD = '([^']+)'/.exec(txt || ''); if (!m || m[1] === APP_BUILD) return;
+      if (auto && !document.querySelector('#modal-root > *')) { location.reload(); return; }
+      if (shown) return; shown = true;
+      const b = document.createElement('div');
+      b.className = 'no-print fixed z-[70] inset-x-3 bottom-24 md:bottom-6 md:inset-x-auto md:end-6 rounded-xl bg-ink text-white px-4 py-3 flex items-center gap-3 shadow-xl';
+      b.innerHTML = `<span class="text-sm">🔄 ${LANG === 'ar' ? 'يتوفر تحديث جديد للنظام' : 'A new version is available'}</span><button class="btn btn-signal py-1.5" onclick="location.reload()">${LANG === 'ar' ? 'تحديث الآن' : 'Update'}</button>`;
+      document.body.appendChild(b);
+    }).catch(() => { busy = false; });
+  }
+  setInterval(() => check(false), 180000);
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') check(true); });
+  setTimeout(() => check(false), 15000);
+})();
+</script>
+<script>
+/* =====================================================================
+   مطابقة الإدخالات اليدوية مع ملفات مسحوبة من ساب
+   يقرأ Excel (xlsx/xls) أو CSV أو TXT (بما فيها تنسيق ساب "غير المحوّل" بالخط |)
+   ===================================================================== */
+'use strict';
+const RC = { sheets: null, sheetName: '', headerRow: 1, fileName: '', result: null, filter: 'issues' };
+const RC_FIELDS = {
+  vin: [['key', 'rc_f_vin', true], ['date', 'rc_f_date'], ['customer', 'rc_f_customer'], ['vendor', 'rc_f_vendor'], ['doc', 'rc_f_doc']],
+  shipment: [['key', 'rc_f_shipkey', true], ['date', 'rc_f_date'], ['customer', 'rc_f_customer'], ['vendor', 'rc_f_vendor'], ['qty', 'rc_f_qty'], ['doc', 'rc_f_doc']],
+};
+// أسماء أعمدة شائعة في تقارير ساب (إنجليزي / ألماني / عربي / أسماء الحقول التقنية)
+const RC_GUESS = {
+  key_vin: ['vin', 'chassis', 'شاسيه', 'شاصي', 'هيكل', 'serial', 'sernr', 'fahrgest', 'vhvin'],
+  key_shipment: ['reference', 'xblnr', 'مرجع', 'shipment', 'شحنة', 'ref'],
+  date: ['posting date', 'billing date', 'document date', 'date', 'datum', 'budat', 'fkdat', 'bldat', 'تاريخ'],
+  customer: ['customer', 'sold-to', 'payer', 'kunnr', 'kunag', 'عميل'],
+  vendor: ['vendor', 'supplier', 'lifnr', 'مورد', 'سائق'],
+  doc: ['billing doc', 'document', 'invoice', 'vbeln', 'belnr', 'مستند', 'فاتورة'],
+  qty: ['quantity', 'qty', 'fkimg', 'menge', 'كمية', 'عدد'],
+};
+
+async function loadXLSX() {
+  if (window.XLSX) return;
+  await new Promise((res, rej) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+    s.onload = res; s.onerror = () => rej(new Error(t('err_xlsx_load')));
+    document.head.appendChild(s);
+  });
+}
+
+function splitCsvLine(line, d) {
+  const out = []; let cur = '', q = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (q) { if (c === '"' && line[i + 1] === '"') { cur += '"'; i++; } else if (c === '"') q = false; else cur += c; }
+    else if (c === '"') q = true; else if (c === d) { out.push(cur); cur = ''; } else cur += c;
+  }
+  out.push(cur); return out;
+}
+
+function parseDelimited(text) {
+  const lines = text.replace(/^\uFEFF/, '').split(/\r?\n/).filter((l) => l.trim() && !/^[\s\-=|+_]+$/.test(l));
+  const sample = lines.slice(0, 30).join('\n');
+  const delim = ['\t', ';', '|', ','].map((d) => [d, sample.split(d).length]).sort((a, b) => b[1] - a[1])[0][0];
+  return lines.map((l) => (delim === '|' ? l.replace(/^\s*\|/, '').replace(/\|\s*$/, '').split('|') : splitCsvLine(l, delim)).map((c) => c.trim()));
+}
+
+async function readSapFile(file) {
+  const ext = file.name.split('.').pop().toLowerCase();
+  if (['xlsx', 'xls', 'xlsm', 'xlsb'].includes(ext)) {
+    await loadXLSX();
+    const wb = XLSX.read(await file.arrayBuffer(), { type: 'array', cellDates: true });
+    const sheets = {};
+    wb.SheetNames.forEach((n) => (sheets[n] = XLSX.utils.sheet_to_json(wb.Sheets[n], { header: 1, raw: true, defval: '' })));
+    return sheets;
+  }
+  const buf = await file.arrayBuffer();
+  let text = new TextDecoder('utf-8').decode(buf);
+  if (text.includes('\uFFFD')) text = new TextDecoder('windows-1256').decode(buf); // ملفات ويندوز العربية القديمة
+  return { [file.name]: parseDelimited(text) };
+}
+
+function toISODate(v) {
+  if (v === null || v === undefined || v === '') return null;
+  const ymd = (y, m, d) => { const s = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`; return +m >= 1 && +m <= 12 && +d >= 1 && +d <= 31 ? s : null; };
+  if (v instanceof Date && !isNaN(v)) { const d = new Date(v.getTime() + 60000); return ymd(d.getFullYear(), d.getMonth() + 1, d.getDate()); }
+  if (typeof v === 'number' && v > 20000 && v < 80000) { const d = new Date(Date.UTC(1899, 11, 30) + Math.round(v) * 864e5); return ymd(d.getUTCFullYear(), d.getUTCMonth() + 1, d.getUTCDate()); }
+  const s = String(v).trim(); let m;
+  if ((m = s.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/))) return ymd(m[1], m[2], m[3]);
+  if ((m = s.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})/))) return ymd(m[3], m[2], m[1]); // يوم/شهر/سنة كما في ساب السعودية
+  if ((m = s.match(/^(\d{4})(\d{2})(\d{2})$/))) return ymd(m[1], m[2], m[3]);
+  return null;
+}
+
+const cellText = (v) => (v instanceof Date ? toISODate(v) : String(v ?? '').trim());
+
+function detectHeaderRow(rows) {
+  const counts = rows.slice(0, 30).map((r) => r.filter((c) => cellText(c)).length);
+  const max = Math.max(0, ...counts);
+  const i = counts.findIndex((c) => c >= Math.max(2, max * 0.6));
+  return i < 0 ? 1 : i + 1;
+}
+
+function rcHeaders() {
+  const rows = RC.sheets?.[RC.sheetName] || [];
+  const h = rows[RC.headerRow - 1] || [];
+  const width = Math.max(h.length, ...rows.slice(RC.headerRow, RC.headerRow + 50).map((r) => r.length));
+  return Array.from({ length: width }, (_, i) => cellText(h[i]) || `${t('rc_column')} ${i + 1}`);
+}
+
+function rcGuessMapping(mode, headers) {
+  let saved = {}; try { saved = JSON.parse(localStorage.getItem('fleet_rc_map_' + mode) || '{}'); } catch {}
+  const map = {}, used = new Set();
+  for (const [f] of RC_FIELDS[mode]) {
+    if (saved[f] && headers.includes(saved[f])) { map[f] = headers.indexOf(saved[f]); used.add(map[f]); continue; }
+    const syn = RC_GUESS[f === 'key' ? 'key_' + mode : f] || [];
+    const idx = headers.findIndex((h, i) => !used.has(i) && syn.some((s) => h.toLowerCase().includes(s)));
+    map[f] = idx; if (idx >= 0) used.add(idx);
+  }
+  return map;
+}
+
+/* ---------- الصفحة ---------- */
+async function pageReconcile(view, m, qs) {
+  setTitle(t('nav_reconcile'));
+  const first = today().slice(0, 8) + '01';
+  view.innerHTML = `
+  <p class="text-sm text-slate-600 mb-5 max-w-3xl leading-relaxed">${t('rc_intro')}</p>
+  <div class="grid xl:grid-cols-[minmax(0,1fr)_320px] gap-5 items-start">
+    <div class="space-y-5 min-w-0">
+      <section class="card p-4 md:p-6">
+        <h2 class="section-title">${t('rc_step1')}</h2>
+        <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div class="sm:col-span-2"><label class="label">${t('rc_mode')}</label>
+            <div class="grid grid-cols-2 gap-2" role="radiogroup">
+              ${['vin', 'shipment'].map((md, i) => `<label class="flex items-start gap-2 rounded-lg border border-slate-300 p-3 cursor-pointer has-[:checked]:border-road-500 has-[:checked]:bg-road-50">
+                <input type="radio" name="rc-mode" value="${md}" ${i === 0 ? 'checked' : ''} class="mt-1 accent-road-500">
+                <span><span class="block text-sm font-medium">${t('rc_mode_' + md)}</span><span class="block text-xs text-slate-500">${t('rc_mode_' + md + '_desc')}</span></span></label>`).join('')}
+            </div></div>
+          <div><label class="label" for="rc-from">${t('rc_from')}</label><input id="rc-from" type="date" class="input" value="${first}"></div>
+          <div><label class="label" for="rc-to">${t('rc_to')}</label><input id="rc-to" type="date" class="input" value="${today()}"></div>
+          <div class="sm:col-span-2"><label class="label" for="rc-file">${t('rc_file')}</label>
+            <input id="rc-file" type="file" accept=".xlsx,.xls,.xlsm,.csv,.txt,.tsv" class="block w-full text-sm file:me-3 file:rounded-lg file:border-0 file:bg-road-500 file:px-4 file:py-2.5 file:text-white file:font-medium hover:file:bg-road-600 file:cursor-pointer">
+            <p class="text-xs text-slate-500 mt-2">${t('rc_file_hint')}</p></div>
+          <div><label class="label" for="rc-tol">${t('rc_tolerance')}</label><input id="rc-tol" type="number" min="0" max="30" value="2" class="input"></div>
+          <div id="rc-sheet-wrap"></div>
+        </div>
+      </section>
+      <section id="rc-map" class="card p-4 md:p-6 hidden"></section>
+      <section id="rc-result"></section>
+    </div>
+    <aside class="card overflow-hidden">
+      <div class="p-4 border-b border-slate-200 font-semibold">${t('rc_history')}</div>
+      <ul id="rc-history" class="divide-y divide-slate-100 text-sm max-h-[70vh] overflow-y-auto">${loading()}</ul>
+    </aside>
+  </div>`;
+
+  const mode = () => $('input[name=rc-mode]:checked').value;
+  $$('input[name=rc-mode]').forEach((r) => (r.onchange = () => RC.sheets && rcRenderMapping(mode())));
+
+  $('#rc-file').onchange = async (e) => {
+    const file = e.target.files[0]; if (!file) return;
+    $('#rc-map').classList.remove('hidden'); $('#rc-map').innerHTML = loading();
+    try {
+      RC.sheets = await readSapFile(file); RC.fileName = file.name;
+      const names = Object.keys(RC.sheets).filter((n) => RC.sheets[n].length);
+      if (!names.length) throw new Error(t('rc_empty_file'));
+      RC.sheetName = names[0]; RC.headerRow = detectHeaderRow(RC.sheets[RC.sheetName]);
+      $('#rc-sheet-wrap').innerHTML = names.length > 1 ? `<label class="label" for="rc-sheet">${t('rc_sheet')}</label><select id="rc-sheet" class="input">${names.map((n) => `<option>${esc(n)}</option>`).join('')}</select>` : '';
+      if ($('#rc-sheet')) $('#rc-sheet').onchange = (ev) => { RC.sheetName = ev.target.value; RC.headerRow = detectHeaderRow(RC.sheets[RC.sheetName]); rcRenderMapping(mode()); };
+      rcRenderMapping(mode());
+    } catch (err) { $('#rc-map').innerHTML = errorBox(err.message); }
+  };
+  rcLoadHistory();
+  if (qs.get('id')) rcOpen(qs.get('id'));
+}
+
+function rcRenderMapping(mode) {
+  const rows = RC.sheets[RC.sheetName];
+  const headers = rcHeaders();
+  const map = rcGuessMapping(mode, headers);
+  const dataRows = rows.slice(RC.headerRow).filter((r) => r.some((c) => cellText(c)));
+  const box = $('#rc-map');
+  box.innerHTML = `
+    <div class="flex flex-wrap items-baseline justify-between gap-2 mb-4">
+      <h2 class="section-title mb-0">${t('rc_step2')}</h2>
+      <span class="text-sm text-slate-500">${esc(RC.fileName)} · ${t('rc_rows_found').replace('{n}', num(dataRows.length))}</span>
+    </div>
+    <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-5">
+      <div><label class="label" for="rc-hrow">${t('rc_header_row')}</label><input id="rc-hrow" type="number" min="1" max="50" class="input" value="${RC.headerRow}"></div>
+      ${RC_FIELDS[mode].map(([f, label, req]) => `<div><label class="label">${t(label)}${req ? ' <span class="text-rose-500">*</span>' : ''}</label>
+        <select class="input rc-col" data-f="${f}"><option value="-1">${t('rc_not_in_file')}</option>
+        ${headers.map((h, i) => `<option value="${i}" ${map[f] === i ? 'selected' : ''}>${esc(h)}</option>`).join('')}</select></div>`).join('')}
+    </div>
+    <div class="text-xs text-slate-500 mb-2">${t('rc_preview')}</div>
+    <div class="overflow-x-auto rounded-lg border border-slate-200 mb-5"><table class="w-full text-xs">
+      <thead><tr>${headers.map((h) => `<th class="th py-2">${esc(h)}</th>`).join('')}</tr></thead>
+      <tbody>${dataRows.slice(0, 5).map((r) => `<tr>${headers.map((_, i) => `<td class="px-4 py-2 border-b border-slate-100 whitespace-nowrap" dir="auto">${esc(cellText(r[i]))}</td>`).join('')}</tr>`).join('')}</tbody>
+    </table></div>
+    <button id="rc-run" class="btn btn-primary btn-lg">${icon('swap')} ${t('rc_run')}</button>`;
+  $('#rc-hrow').onchange = (e) => { RC.headerRow = Math.max(1, +e.target.value || 1); rcRenderMapping(mode); };
+  $('#rc-run').onclick = () => rcRun(mode, headers, dataRows);
+}
+
+async function rcRun(mode, headers, dataRows) {
+  const map = {};
+  $$('.rc-col').forEach((s) => (map[s.dataset.f] = +s.value));
+  if (map.key < 0) return toast(t('rc_need_key'), 'err');
+  const saved = {}; Object.entries(map).forEach(([f, i]) => i >= 0 && (saved[f] = headers[i]));
+  try { localStorage.setItem('fleet_rc_map_' + mode, JSON.stringify(saved)); } catch {}
+  const firstData = RC.headerRow + 1;
+  const allRows = RC.sheets[RC.sheetName].slice(RC.headerRow);
+  const rows = [];
+  allRows.forEach((r, i) => {
+    if (!r.some((c) => cellText(c))) return;
+    const get = (f) => (map[f] >= 0 ? r[map[f]] : '');
+    rows.push({ row: firstData + i, key: cellText(get('key')), date: toISODate(get('date')), customer: cellText(get('customer')), vendor: cellText(get('vendor')), doc: cellText(get('doc')), qty: cellText(get('qty')) });
+  });
+  const btn = $('#rc-run'); btn.disabled = true;
+  $('#rc-result').innerHTML = loading();
+  try {
+    const r = await API.post('/reconcile', { mode, rows, from: $('#rc-from').value, to: $('#rc-to').value, tolerance_days: +$('#rc-tol').value, file_name: RC.fileName });
+    RC.result = r; RC.filter = 'issues';
+    rcRenderResult(); rcLoadHistory();
+    $('#rc-result').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  } catch (e) { $('#rc-result').innerHTML = errorBox(e.message); }
+  btn.disabled = false;
+}
+
+async function rcLoadHistory() {
+  try {
+    const list = await API.get('/reconciliations');
+    $('#rc-history').innerHTML = list.length ? list.map((h) => {
+      const issues = h.summary.mismatch + h.summary.missing_in_system + h.summary.missing_in_sap + h.summary.duplicate_in_sap;
+      return `<li><button class="w-full text-start p-4 hover:bg-slate-50" data-rc="${h.id}">
+        <div class="font-medium truncate" dir="auto">${esc(h.file_name || '—')}</div>
+        <div class="text-xs text-slate-500 mt-0.5">${t('rc_mode_' + h.mode)} · ${esc(h.period_from)} / ${esc(h.period_to)}</div>
+        <div class="text-xs mt-1"><span class="text-road-700">${num(h.summary.matched)} ${t('rc_s_matched')}</span> · <span class="${issues ? 'text-rose-700' : 'text-slate-500'}">${num(issues)} ${t('rc_issues')}</span></div>
+        <div class="text-[11px] text-slate-400 mt-1">${dt(h.created_at)} · ${val(h.user_name)}</div></button></li>`;
+    }).join('') : `<li class="p-4 text-slate-500">${t('rc_no_history')}</li>`;
+    $$('[data-rc]').forEach((b) => (b.onclick = () => rcOpen(b.dataset.rc)));
+  } catch (e) { $('#rc-history').innerHTML = `<li class="p-4">${errorBox(e.message)}</li>`; }
+}
+
+async function rcOpen(id) {
+  $('#rc-result').innerHTML = loading();
+  try { RC.result = await API.get('/reconciliations/' + id); RC.filter = 'issues'; rcRenderResult(); $('#rc-result').scrollIntoView({ behavior: 'smooth' }); }
+  catch (e) { $('#rc-result').innerHTML = errorBox(e.message); }
+}
+
+const RC_STATUS = {
+  matched: 'bg-road-50 text-road-700 ring-1 ring-road-200', mismatch: 'bg-amber-50 text-amber-800 ring-1 ring-amber-200',
+  missing_in_system: 'bg-rose-50 text-rose-700 ring-1 ring-rose-200', missing_in_sap: 'bg-sky-50 text-sky-800 ring-1 ring-sky-200',
+  duplicate_in_sap: 'bg-slate-100 text-slate-700 ring-1 ring-slate-300',
+};
+
+function rcRenderResult() {
+  const R = RC.result, S = R.summary;
+  const issues = R.items.filter((i) => i.status !== 'matched');
+  const list = RC.filter === 'all' ? R.items : RC.filter === 'issues' ? issues : R.items.filter((i) => i.status === RC.filter);
+  const shown = list.slice(0, 500);
+  const chip = (key, n, label, cls) => `<button data-filter="${key}" class="rounded-lg border p-3 text-start transition-colors ${RC.filter === key ? 'border-ink bg-white ring-1 ring-ink' : 'border-slate-200 bg-white hover:border-slate-400'}">
+    <div class="text-2xl font-semibold tabular-nums ${cls}">${num(n)}</div><div class="text-xs text-slate-600 mt-0.5">${label}</div></button>`;
+  const diffText = (d) => `<div><span class="text-slate-500">${t('rc_f_' + d.field)}:</span> <span class="font-medium">${t('rc_in_sap')} ${esc(d.sap)}</span> · <span class="font-medium">${t('rc_in_system')} ${esc(d.sys || '—')}</span></div>`;
+  const keyCell = (i) => R.mode === 'vin' ? `<a class="vin font-semibold text-road-700 hover:underline" dir="ltr" href="#/search?vin=${esc(i.key)}">${esc(i.key)}</a>` : `<span class="font-semibold" dir="ltr">${esc(i.key)}</span>`;
+  const note = (i) => ({
+    missing_in_system: t('rc_note_missing_in_system'),
+    missing_in_sap: t('rc_note_missing_in_sap'),
+    duplicate_in_sap: t('rc_note_duplicate').replace('{row}', i.first_row),
+  }[i.status] || '');
+
+  $('#rc-result').innerHTML = `
+  <section class="card p-4 md:p-6">
+    <div class="flex flex-wrap items-baseline justify-between gap-2 mb-4">
+      <h2 class="section-title mb-0">${t('rc_step3')}</h2>
+      <span class="text-sm text-slate-500" dir="auto">${esc(R.file_name || '')} · ${esc(R.from)} / ${esc(R.to)} · ${t('rc_mode_' + R.mode)}</span>
+    </div>
+    <p class="text-sm text-slate-600 mb-4">${t('rc_totals').replace('{sap}', num(S.sap_rows - S.skipped)).replace('{sys}', num(S.system_rows))}</p>
+    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 mb-5">
+      ${chip('matched', S.matched, t('rc_s_matched'), 'text-road-700')}
+      ${chip('mismatch', S.mismatch, t('rc_s_mismatch'), 'text-amber-700')}
+      ${chip('missing_in_system', S.missing_in_system, t('rc_s_missing_in_system'), 'text-rose-700')}
+      ${chip('missing_in_sap', S.missing_in_sap, t('rc_s_missing_in_sap'), 'text-sky-700')}
+      ${chip('duplicate_in_sap', S.duplicate_in_sap, t('rc_s_duplicate_in_sap'), 'text-slate-700')}
+    </div>
+    <div class="flex flex-wrap gap-2 mb-4">
+      <button data-filter="issues" class="btn ${RC.filter === 'issues' ? 'btn-primary' : 'btn-ghost'}">${t('rc_show_issues')} (${num(issues.length)})</button>
+      <button data-filter="all" class="btn ${RC.filter === 'all' ? 'btn-primary' : 'btn-ghost'}">${t('all')} (${num(R.items.length)})</button>
+      <div class="flex-1"></div>
+      ${R.doc_suggestions.length ? `<button id="rc-apply" class="btn btn-signal">${t('rc_apply_docs').replace('{n}', R.doc_suggestions.length)}</button>` : ''}
+      <button id="rc-export" class="btn btn-ghost">${icon('download', 'w-4 h-4')} ${t('rc_export')}</button>
+    </div>
+    ${shown.length ? `<div class="overflow-x-auto rounded-lg border border-slate-200"><table class="w-full">
+      <thead><tr><th class="th">${t('rc_result')}</th><th class="th">${R.mode === 'vin' ? t('rc_f_vin') : t('rc_f_shipkey')}</th><th class="th">${t('rc_file_row')}</th>
+        <th class="th">${t('rc_sap_data')}</th><th class="th">${t('rc_system_data')}</th><th class="th">${t('rc_details')}</th></tr></thead>
+      <tbody>${shown.map((i) => `<tr class="align-top">
+        <td class="td"><span class="badge ${RC_STATUS[i.status]}">${t('rc_s_' + i.status)}</span></td>
+        <td class="td">${keyCell(i)}</td>
+        <td class="td tabular-nums text-slate-500">${i.row ?? '—'}</td>
+        <td class="td text-xs leading-relaxed">${i.sap ? [i.sap.date, i.sap.customer && t('rc_f_customer') + ': ' + i.sap.customer, i.sap.vendor && t('rc_f_vendor') + ': ' + i.sap.vendor, i.sap.qty !== null && i.sap.qty !== undefined && t('rc_f_qty') + ': ' + i.sap.qty, i.sap.doc && t('rc_f_doc') + ': ' + i.sap.doc].filter(Boolean).map(esc).join('<br>') : '—'}</td>
+        <td class="td text-xs leading-relaxed">${i.sys ? `<a href="#/shipments/${i.sys.shipment_id}" class="font-medium text-road-700 hover:underline">${esc(i.sys.ref_no)}</a> · ${esc(i.sys.trip_date)}<br>${esc(i.sys.driver_name || '')}${i.sys.vendor ? ' (' + esc(i.sys.vendor) + ')' : ''}<br>${esc(i.sys.client_name || '')}${i.sys.customer ? ' (' + esc(i.sys.customer) + ')' : ''}${R.mode === 'shipment' ? '<br>' + t('rc_f_qty') + ': ' + num(i.sys.qty) : ''}` : '—'}</td>
+        <td class="td text-xs leading-relaxed">${i.diffs.map(diffText).join('')}${note(i) ? `<div class="text-slate-600">${note(i)}</div>` : ''}</td>
+      </tr>`).join('')}</tbody></table></div>
+      ${list.length > shown.length ? `<p class="text-xs text-slate-500 mt-2">${t('rc_truncated').replace('{n}', num(shown.length)).replace('{total}', num(list.length))}</p>` : ''}`
+      : `<div class="p-8 text-center text-slate-500">${RC.filter === 'issues' ? t('rc_all_good') : t('no_records')}</div>`}
+  </section>`;
+
+  $$('#rc-result [data-filter]').forEach((b) => (b.onclick = () => { RC.filter = b.dataset.filter; rcRenderResult(); }));
+  $('#rc-export').onclick = rcExport;
+  if ($('#rc-apply')) $('#rc-apply').onclick = async () => {
+    if (!confirm(t('rc_apply_confirm').replace('{n}', R.doc_suggestions.length))) return;
+    try { const r = await API.post('/reconcile/apply-docs', { items: R.doc_suggestions }); toast(t('rc_applied').replace('{n}', r.updated)); R.doc_suggestions = []; rcRenderResult(); }
+    catch (e) { toast(e.message, 'err'); }
+  };
+}
+
+function rcExport() {
+  const R = RC.result;
+  const head = ['Result', R.mode === 'vin' ? 'VIN' : 'Key', 'FileRow', 'SAP_Date', 'SAP_Customer', 'SAP_Vendor', 'SAP_Qty', 'SAP_Doc',
+    'Sys_RefNo', 'Sys_TripDate', 'Sys_Driver', 'Sys_VendorCode', 'Sys_Client', 'Sys_CustomerCode', 'Sys_Qty', 'Sys_SAPDoc', 'Differences'];
+  const e = (v) => { const s = v === null || v === undefined ? '' : String(v); return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
+  const lines = R.items.map((i) => [t('rc_s_' + i.status), i.key, i.row, i.sap?.date, i.sap?.customer, i.sap?.vendor, i.sap?.qty, i.sap?.doc,
+    i.sys?.ref_no, i.sys?.trip_date, i.sys?.driver_name, i.sys?.vendor, i.sys?.client_name, i.sys?.customer, R.mode === 'shipment' ? i.sys?.qty : '', i.sys?.sap_document_no,
+    i.diffs.map((d) => `${t('rc_f_' + d.field)}: SAP=${d.sap} / SYS=${d.sys}`).join(' | ')].map(e).join(','));
+  const blob = new Blob(['\uFEFF' + [head.join(','), ...lines].join('\r\n')], { type: 'text/csv;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = `Reconciliation_${R.mode}_${R.from}_${R.to}.csv`;
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+</script>
+<script>
+/* =====================================================================
+   Car Transport Logistics - Frontend SPA
+   ===================================================================== */
+'use strict';
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const VIN_RE = /^[A-HJ-NPR-Z0-9]{17}$/;
+const normVin = (v) => String(v || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+const today = () => { const d = new Date(); return new Date(d - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10); };
+const thisMonth = () => today().slice(0, 7);
+const num = (n) => Number(n || 0).toLocaleString('en-US');
+const dt = (s) => (s ? esc(String(s).slice(0, 16)) : '—');
+const val = (s) => (s === null || s === undefined || s === '' ? '—' : esc(s));
+window.ME = null;
+const can = (...roles) => window.ME && roles.includes(window.ME.role);
+
+const CITIES = ['الرياض', 'جدة', 'الدمام', 'مكة المكرمة', 'المدينة المنورة', 'الخبر', 'الجبيل', 'ينبع', 'تبوك', 'أبها', 'خميس مشيط', 'جازان', 'نجران', 'حائل', 'بريدة', 'الطائف', 'الأحساء', 'ميناء جدة الإسلامي', 'ميناء الملك عبدالعزيز - الدمام', 'ميناء الملك عبدالله - رابغ'];
+const VEHICLE_TYPES = ['تويوتا كامري', 'تويوتا لاندكروزر', 'تويوتا هايلكس', 'هيونداي إلنترا', 'هيونداي أكسنت', 'نيسان باترول', 'كيا سبورتاج', 'فورد F-150', 'شيفروليه تاهو', 'لكزس LX', 'Sedan', 'SUV', 'Pickup'];
+
+/* ---------- أيقونات ---------- */
+const ICONS = {
+  chart: 'M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z',
+  search: 'm21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z',
+  truck: 'M8.25 18.75a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 0 1-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 0 0-3.213-9.193 2.056 2.056 0 0 0-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 0 0-10.026 0 1.106 1.106 0 0 0-.987 1.106v7.635m12-6.677v6.677m0 4.5v-4.5m0 0h-12',
+  plus: 'M12 4.5v15m7.5-7.5h-15',
+  user: 'M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z',
+  building: 'M3.75 21h16.5M4.5 3h15M5.25 3v18m13.5-18v18M9 6.75h1.5m-1.5 3h1.5m-1.5 3h1.5m3-6H15m-1.5 3H15m-1.5 3H15M9 21v-3.375c0-.621.504-1.125 1.125-1.125h3.75c.621 0 1.125.504 1.125 1.125V21',
+  users: 'M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z',
+  cog: 'M10.5 6h9.75M10.5 6a1.5 1.5 0 1 1-3 0m3 0a1.5 1.5 0 1 0-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-9.75 0h9.75',
+  logout: 'M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m3 0 3-3m0 0-3-3m3 3H9',
+  menu: 'M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5',
+  print: 'M6.72 13.829c-.24.03-.48.062-.72.096m.72-.096a42.415 42.415 0 0 1 10.56 0m-10.56 0L6.34 18m10.94-4.171c.24.03.48.062.72.096m-.72-.096L17.66 18m0 0 .229 2.523a1.125 1.125 0 0 1-1.12 1.227H7.231c-.662 0-1.18-.568-1.12-1.227L6.34 18m11.318 0h1.091A2.25 2.25 0 0 0 21 15.75V9.456c0-1.081-.768-2.015-1.837-2.175a48.055 48.055 0 0 0-1.913-.247M6.34 18H5.25A2.25 2.25 0 0 1 3 15.75V9.456c0-1.081.768-2.015 1.837-2.175a48.041 48.041 0 0 1 1.913-.247m10.5 0a48.536 48.536 0 0 0-10.5 0m10.5 0V3.375c0-.621-.504-1.125-1.125-1.125h-8.25c-.621 0-1.125.504-1.125 1.125v3.659',
+  download: 'M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3',
+  x: 'M6 18 18 6M6 6l12 12',
+  trash: 'm14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0',
+  check: 'm4.5 12.75 6 6 9-13.5',
+  swap: 'M7.5 21 3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5',
+  alert: 'M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z',
+};
+const icon = (n, cls = 'w-5 h-5') => `<svg class="${cls} shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="${ICONS[n]}"/></svg>`;
+
+/* ---------- شارات الحالة ---------- */
+const COND_CLS = {
+  pending: 'bg-slate-100 text-slate-600', ok: 'bg-road-50 text-road-700 ring-1 ring-road-200',
+  dent: 'bg-rose-50 text-rose-700 ring-1 ring-rose-200', scratch: 'bg-amber-50 text-amber-800 ring-1 ring-amber-200',
+  dent_scratch: 'bg-rose-100 text-rose-800 ring-1 ring-rose-300',
+};
+const COND_ACTIVE = { ok: 'bg-road-500 border-road-500 text-white hover:bg-road-600', dent: 'bg-rose-600 border-rose-600 text-white hover:bg-rose-700', scratch: 'bg-amber-500 border-amber-500 text-white hover:bg-amber-600', dent_scratch: 'bg-rose-800 border-rose-800 text-white hover:bg-rose-900' };
+const STATUS_CLS = { pending: 'bg-slate-100 text-slate-700', in_transit: 'bg-amber-100 text-amber-900', delivered: 'bg-road-100 text-road-800', cancelled: 'bg-rose-50 text-rose-700 line-through' };
+const condBadge = (c) => `<span class="badge ${COND_CLS[c] || ''}">${t('cond_' + c)}</span>`;
+const statusBadge = (s) => `<span class="badge ${STATUS_CLS[s] || ''}">${t('status_' + s)}</span>`;
+const route = (a, b) => `<span>${esc(a)}</span> <span class="inline-block text-slate-400 rtl:rotate-180">→</span> <span>${esc(b)}</span>`;
+
+/* ---------- أدوات واجهة ---------- */
+const loading = () => `<div class="py-16 flex justify-center"><div class="h-8 w-8 rounded-full border-[3px] border-road-100 border-t-road-500 animate-spin"></div></div>`;
+const errorBox = (m) => `<div class="card p-5 text-rose-700 bg-rose-50 border-rose-200 flex gap-3 items-start">${icon('alert')}<div>${esc(m)}</div></div>`;
+const emptyBox = (m, action = '') => `<div class="card p-10 text-center text-slate-500"><p class="mb-4">${esc(m)}</p>${action}</div>`;
+
+function toast(msg, type = 'ok') {
+  const el = document.createElement('div');
+  el.className = `pointer-events-auto mx-4 rounded-lg px-4 py-3 text-sm shadow-lg ${type === 'err' ? 'bg-rose-700 text-white' : 'bg-ink text-white'}`;
+  el.textContent = msg;
+  $('#toast').replaceChildren(el);
+  setTimeout(() => el.remove(), 3500);
+}
+
+function setTitle(text) { const h = $('#page-title'); if (h) h.textContent = text; document.title = text + ' · ' + t('app_name'); }
+
+function fieldHtml(f, value) {
+  const v = value ?? f.default ?? '';
+  const req = f.required ? 'required' : '';
+  const label = `<label class="label" for="f-${f.name}">${esc(t(f.label || f.name))}${f.required ? ' <span class="text-rose-500">*</span>' : ''}</label>`;
+  const wrap = (inner) => `<div class="${f.full ? 'sm:col-span-2' : ''}">${label}${inner}</div>`;
+  if (f.type === 'select')
+    return wrap(`<select id="f-${f.name}" name="${f.name}" class="input" ${req}>${f.options.map((o) => `<option value="${esc(o.value)}" ${String(o.value) === String(v) ? 'selected' : ''}>${esc(o.label)}</option>`).join('')}</select>`);
+  if (f.type === 'textarea') return wrap(`<textarea id="f-${f.name}" name="${f.name}" rows="3" class="input" ${req}>${esc(v)}</textarea>`);
+  return wrap(`<input id="f-${f.name}" name="${f.name}" type="${f.type || 'text'}" class="input" value="${esc(v)}" ${req} ${f.attrs || ''}>`);
+}
+
+function openModal(title, bodyHtml, onSubmit, submitLabel) {
+  const root = $('#modal-root');
+  root.innerHTML = `
+  <div class="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-ink/50 sm:p-4" data-backdrop>
+    <div class="bg-white w-full sm:max-w-2xl rounded-t-2xl sm:rounded-2xl shadow-2xl max-h-[92vh] flex flex-col" role="dialog" aria-modal="true">
+      <div class="flex items-center justify-between px-5 py-4 border-b border-slate-200">
+        <h3 class="font-semibold text-lg">${esc(title)}</h3>
+        <button type="button" class="p-1 text-slate-400 hover:text-ink" data-close aria-label="${t('close')}">${icon('x')}</button>
+      </div>
+      <form id="modal-form" class="p-5 overflow-y-auto" novalidate>
+        <div class="grid sm:grid-cols-2 gap-4">${bodyHtml}</div>
+        <div class="flex gap-2 pt-6 pb-[env(safe-area-inset-bottom)]">
+          <button class="btn btn-primary flex-1 sm:flex-none" type="submit">${esc(submitLabel || t('save'))}</button>
+          <button type="button" class="btn btn-ghost" data-close>${t('cancel')}</button>
+        </div>
+      </form>
+    </div>
+  </div>`;
+  const close = () => (root.innerHTML = '');
+  $$('[data-close]', root).forEach((b) => (b.onclick = close));
+  $('[data-backdrop]', root).onclick = (e) => { if (e.target.dataset.backdrop !== undefined) close(); };
+  const form = $('#modal-form');
+  form.onsubmit = async (e) => {
+    e.preventDefault();
+    if (!form.reportValidity()) return;
+    const btn = form.querySelector('[type=submit]'); btn.disabled = true;
+    try { await onSubmit(Object.fromEntries(new FormData(form)), form); close(); }
+    catch (err) { toast(err.message, 'err'); btn.disabled = false; }
+  };
+  setTimeout(() => form.querySelector('input,select,textarea')?.focus(), 50);
+}
+
+/* ---------- الهيكل العام ---------- */
+const NAV = [
+  { hash: '#/dashboard', key: 'nav_dashboard', icon: 'chart' },
+  { hash: '#/search', key: 'nav_search', icon: 'search' },
+  { hash: '#/shipments/new', key: 'nav_new_shipment', icon: 'plus' },
+  { hash: '#/shipments', key: 'nav_shipments', icon: 'truck' },
+  { hash: '#/reconcile', key: 'nav_reconcile', icon: 'swap', roles: ['admin', 'supervisor'] },
+  { hash: '#/drivers', key: 'nav_drivers', icon: 'user' },
+  { hash: '#/clients', key: 'nav_clients', icon: 'building' },
+  { hash: '#/users', key: 'nav_users', icon: 'users', roles: ['admin'] },
+  { hash: '#/settings', key: 'nav_settings', icon: 'cog' },
+];
+const BOTTOM_NAV = ['#/dashboard', '#/search', '#/shipments/new', '#/shipments'];
+
+function langButton(cls = '') {
+  return `<button type="button" data-lang class="${cls} inline-flex items-center rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium hover:bg-slate-50">${LANG === 'ar' ? 'English' : 'العربية'}</button>`;
+}
+function bindLang() { $$('[data-lang]').forEach((b) => (b.onclick = () => { setLang(LANG === 'ar' ? 'en' : 'ar'); router(); })); }
+
+function renderShell(path) {
+  const items = NAV.filter((n) => !n.roles || can(...n.roles));
+  const isActive = (h) => path === h;
+  $('#app').innerHTML = `
+  <div class="min-h-screen md:flex">
+    <div id="sb-backdrop" class="no-print fixed inset-0 z-40 bg-ink/40 hidden md:hidden"></div>
+    <aside id="sidebar" class="no-print hidden md:flex fixed md:sticky top-0 start-0 z-50 h-screen w-72 md:w-64 flex-col bg-road-700 text-white">
+      <div class="px-5 pt-6 pb-5 border-b border-white/10">
+        <div class="flex items-center gap-3">
+          <img src="fleet-icon.svg" alt="" class="w-10 h-10 rounded-lg">
+          <div class="min-w-0">
+            <div class="font-semibold leading-tight truncate">${esc(window.SETTINGS?.company_name || t('app_name'))}</div>
+            <div class="text-xs text-road-100/70">${t('app_tagline')}</div>
+          </div>
+        </div>
+      </div>
+      <nav class="flex-1 overflow-y-auto p-3 space-y-1">
+        ${items.map((n) => `<a href="${n.hash}" class="nav-link ${isActive(n.hash) ? 'active' : ''}">${icon(n.icon)}<span>${t(n.key)}</span></a>`).join('')}
+        <a href="./" class="nav-link mt-3 border-t border-white/10 pt-4">${icon('swap')}<span>${t('back_supply')}</span></a>
+      </nav>
+      <div class="p-4 border-t border-white/10 text-sm">
+        <div class="font-medium truncate">${esc(window.ME.full_name || window.ME.username)}</div>
+        <div class="text-road-100/70 text-xs mb-3">${t('role_' + window.ME.role)}</div>
+        <button id="logout" class="flex items-center gap-2 text-road-100/80 hover:text-white">${icon('logout', 'w-4 h-4')} ${t('logout')}</button>
+      </div>
+    </aside>
+    <div class="flex-1 min-w-0 flex flex-col">
+      <header class="no-print sticky top-0 z-30 bg-paper/90 backdrop-blur border-b border-slate-200 pt-[env(safe-area-inset-top)]">
+        <div class="h-14 px-4 md:px-6 flex items-center gap-3">
+          <button id="menu-btn" class="md:hidden -ms-1 p-2 rounded-lg hover:bg-slate-200/60" aria-label="${t('menu')}">${icon('menu')}</button>
+          <h1 id="page-title" class="flex-1 truncate text-lg font-semibold"></h1>
+          <span id="cloud-dot" class="cloud-dot" data-state="ok" title="${t('cloud_ok')}"></span>
+          <a href="./" class="hidden sm:inline-flex btn btn-ghost py-1.5">${t('back_supply')}</a>
+          ${langButton()}
+        </div>
+      </header>
+      <main id="view" class="flex-1 w-full max-w-7xl mx-auto p-4 md:p-6 pb-28 md:pb-8"></main>
+    </div>
+    <nav class="no-print md:hidden fixed bottom-0 inset-x-0 z-30 bg-white border-t border-slate-200 grid grid-cols-4 pb-[env(safe-area-inset-bottom)]">
+      ${BOTTOM_NAV.map((h) => { const n = NAV.find((x) => x.hash === h); const on = isActive(h);
+        return `<a href="${h}" class="flex flex-col items-center gap-1 py-2 text-[11px] ${on ? 'text-road-600 font-semibold' : 'text-slate-500'}">${h === '#/shipments/new' ? `<span class="-mt-5 mb-0.5 flex h-11 w-11 items-center justify-center rounded-full bg-signal text-ink shadow-md">${icon('plus')}</span>` : icon(n.icon)}<span>${t(n.key)}</span></a>`; }).join('')}
+    </nav>
+  </div>`;
+  const sb = $('#sidebar'), bd = $('#sb-backdrop');
+  const toggle = (open) => { sb.classList.toggle('hidden', !open); sb.classList.toggle('flex', open); bd.classList.toggle('hidden', !open); };
+  $('#menu-btn').onclick = () => toggle(true);
+  bd.onclick = () => toggle(false);
+  $('#logout').onclick = fleetLogout;
+  fdb().ref('.info/connected').once('value', (sn) => setCloud(sn.val() ? 'ok' : 'offline'));
+  bindLang();
+}
+
+/* ---------- تسجيل الدخول ---------- */
+function renderLogin() {
+  document.title = t('app_name');
+  $('#app').innerHTML = `
+  <div class="min-h-screen grid lg:grid-cols-2">
+    <div class="hidden lg:flex flex-col justify-between bg-road-700 text-white p-12">
+      <img src="fleet-icon.svg" alt="" class="w-14 h-14 rounded-xl">
+      <div>
+        <h2 class="text-4xl font-semibold leading-snug mb-4 max-w-md">${t('login_hero')}</h2>
+        <p class="text-road-100/80 max-w-md leading-relaxed">${t('login_sub')}</p>
+      </div>
+      <div class="vin text-road-100/50 text-sm" dir="ltr">JTDBR32E720•••••• · SH-${thisMonth().replace('-', '')}-0001</div>
+    </div>
+    <div class="flex flex-col p-6 sm:p-12">
+      <div class="flex justify-end">${langButton()}</div>
+      <div class="flex-1 flex items-center justify-center">
+        <form id="login-form" class="w-full max-w-sm space-y-5">
+          <div>
+            <img src="fleet-icon.svg" alt="" class="w-12 h-12 rounded-xl mb-6 lg:hidden">
+            <h1 class="text-2xl font-semibold mb-1">${t('login_title')}</h1>
+            <p class="text-slate-500 text-sm">${t('app_name')}</p>
+            <p class="text-sm text-road-700 bg-road-50 rounded-lg px-3 py-2 mt-3">${t('login_shared')}</p>
+          </div>
+          <div><label class="label" for="u">${t('username')}</label><input id="u" name="username" class="input" autocomplete="username" required dir="ltr"></div>
+          <div><label class="label" for="p">${t('password')}</label><input id="p" name="password" type="password" class="input" autocomplete="current-password" required dir="ltr"></div>
+          <button class="btn btn-primary btn-lg w-full" type="submit">${t('login')}</button>
+          <a href="./" class="block text-center text-sm text-slate-500 hover:text-ink">${t('back_supply')}</a>
+        </form>
+      </div>
+    </div>
+  </div>`;
+  bindLang();
+  $('#login-form').onsubmit = async (e) => {
+    e.preventDefault();
+    const btn = e.target.querySelector('button[type=submit]'); btn.disabled = true;
+    try {
+      const f = Object.fromEntries(new FormData(e.target));
+      await fleetLogin(f.username, f.password);
+      if (location.hash === '#/login' || !location.hash) location.hash = '#/dashboard';
+      router();
+    } catch (err) { toast(err.message, 'err'); btn.disabled = false; }
+  };
+}
+
+/* ---------- لوحة التحكم ---------- */
+async function pageDashboard(view, m, qs) {
+  setTitle(t('nav_dashboard'));
+  const month = qs.get('month') || thisMonth();
+  const d = await API.get('/dashboard?month=' + month);
+  const k = d.kpis, R = d.rules;
+  const rate = k.inspected ? (k.damaged / k.inspected) * 100 : null;
+  const kpi = (label, value, sub, accent = '') => `
+    <div class="card p-4 md:p-5 ${accent}">
+      <div class="text-sm text-slate-500 mb-2">${label}</div>
+      <div class="text-2xl md:text-3xl font-semibold tabular-nums">${value}</div>
+      ${sub ? `<div class="text-xs text-slate-500 mt-1">${sub}</div>` : ''}
+    </div>`;
+  const incBadge = (r) => ({
+    eligible: `<span class="badge bg-road-500 text-white">${t('inc_eligible')} · ${num(r.incentive_amount)} ${t('sar')}</span>`,
+    not_eligible: `<span class="badge bg-rose-50 text-rose-700 ring-1 ring-rose-200">${t('inc_not_eligible')}</span>`,
+    incomplete: `<span class="badge bg-amber-50 text-amber-800 ring-1 ring-amber-200">${t('inc_incomplete')} (${r.month_pending})</span>`,
+    insufficient: `<span class="badge bg-slate-100 text-slate-600">${t('inc_insufficient')}</span>`,
+  }[r.incentive]);
+  const rateBar = (r) => {
+    if (r.damage_rate === null) return '<span class="text-slate-400">—</span>';
+    const good = r.damage_rate <= R.max_rate;
+    const w = Math.min(100, (r.damage_rate / Math.max(R.max_rate * 2, 1)) * 100);
+    return `<div class="flex items-center gap-2 min-w-[120px]"><span class="tabular-nums font-medium w-12 ${good ? 'text-road-700' : 'text-rose-700'}">${r.damage_rate}%</span>
+      <div class="relative h-1.5 flex-1 rounded-full bg-slate-100"><div class="absolute inset-y-0 start-0 rounded-full ${good ? 'bg-road-500' : 'bg-rose-500'}" style="width:${w}%"></div><div class="absolute -top-1 -bottom-1 w-px bg-ink/40" style="inset-inline-start:50%"></div></div></div>`;
+  };
+
+  view.innerHTML = `
+  <div class="flex flex-wrap items-end gap-3 mb-5">
+    <div><label class="label" for="month">${t('month')}</label><input type="month" id="month" class="input w-44" value="${month}"></div>
+    ${can('admin', 'supervisor') ? `<button type="button" class="btn btn-ghost" onclick="exportCsv('incentives','${month}')">${icon('download', 'w-4 h-4')} ${t('export_incentives')}</button>` : ''}
+  </div>
+  <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-6">
+    ${kpi(t('kpi_trips'), num(k.trips))}
+    ${kpi(t('kpi_vehicles'), num(k.vehicles), `${t('kpi_inspected')}: ${num(k.inspected)}`)}
+    ${kpi(t('kpi_damage_rate'), rate === null ? '—' : rate.toFixed(1) + '%', `${num(k.damaged)} ${t('kpi_damaged_cars')}`, rate !== null && rate > R.max_rate ? 'border-rose-300' : '')}
+    ${kpi(t('kpi_active'), num(k.in_transit), `${t('status_pending')}: ${num(k.pending)}`, 'bg-signal/10 border-signal/40')}
+  </div>
+
+  <section class="card mb-6 overflow-hidden">
+    <div class="p-4 md:p-5 border-b border-slate-200 flex flex-wrap gap-2 items-baseline justify-between">
+      <h2 class="font-semibold">${t('drivers_report')}</h2>
+      <p class="text-xs text-slate-500">${t('incentive_rule').replace('{rate}', R.max_rate).replace('{min}', R.min_vehicles).replace('{amount}', num(R.amount))}</p>
+    </div>
+    ${d.drivers.length ? `<div class="overflow-x-auto"><table class="w-full">
+      <thead><tr>
+        <th class="th">${t('driver')}</th><th class="th">${t('total_trips')}</th><th class="th">${t('total_vehicles')}</th>
+        <th class="th">${t('month_trips')}</th><th class="th">${t('month_vehicles')}</th><th class="th">${t('damaged')}</th>
+        <th class="th">${t('damage_rate_month')}</th><th class="th">${t('incentive')}</th>
+      </tr></thead>
+      <tbody>${d.drivers.map((r) => `<tr class="hover:bg-slate-50">
+        <td class="td"><div class="font-medium">${esc(r.name)}</div><div class="text-xs text-slate-500">${val(r.truck_plate)}</div></td>
+        <td class="td tabular-nums">${num(r.total_trips)}</td><td class="td tabular-nums">${num(r.total_vehicles)}</td>
+        <td class="td tabular-nums">${num(r.month_trips)}</td><td class="td tabular-nums">${num(r.month_vehicles)}</td>
+        <td class="td tabular-nums ${r.month_damaged ? 'text-rose-700 font-medium' : ''}">${num(r.month_damaged)}</td>
+        <td class="td">${rateBar(r)}</td><td class="td">${incBadge(r)}</td></tr>`).join('')}</tbody>
+    </table></div>` : `<div class="p-8 text-center text-slate-500">${t('no_drivers')} <a class="text-road-600 underline" href="#/drivers">${t('add_driver')}</a></div>`}
+  </section>
+
+  <section class="card overflow-hidden">
+    <div class="p-4 md:p-5 border-b border-slate-200"><h2 class="font-semibold">${t('recent_damage')}</h2></div>
+    ${d.recentDamage.length ? `<ul class="divide-y divide-slate-100">${d.recentDamage.map((v) => `
+      <li class="p-4 md:px-5 flex flex-wrap items-center gap-x-4 gap-y-1">
+        <a href="#/search?vin=${esc(v.vin)}" class="vin text-sm font-semibold text-road-700 hover:underline" dir="ltr">${esc(v.vin)}</a>
+        ${condBadge(v.condition)}
+        <span class="text-sm text-slate-600">${esc(v.driver_name)}</span>
+        <a href="#/shipments/${v.shipment_id}" class="text-sm text-slate-500 hover:underline">${esc(v.ref_no)}</a>
+        ${v.condition_notes ? `<span class="text-sm text-slate-500 basis-full">${esc(v.condition_notes)}</span>` : ''}
+      </li>`).join('')}</ul>` : `<div class="p-8 text-center text-slate-500">${t('no_damage')}</div>`}
+  </section>`;
+  $('#month').onchange = (e) => (location.hash = '#/dashboard?month=' + e.target.value);
+}
+
+/* ---------- البحث برقم الشاسيه ---------- */
+async function pageSearch(view, m, qs) {
+  setTitle(t('nav_search'));
+  const initial = qs.get('vin') || '';
+  view.innerHTML = `
+  <div class="max-w-3xl mx-auto">
+    <div class="mb-6">
+      <label class="block text-sm font-medium text-slate-600 mb-2" for="vin-q">${t('search_vin_label')}</label>
+      <div class="vin-plate flex items-center gap-3 px-4 py-3 md:py-4">
+        <span class="text-slate-400">${icon('search', 'w-6 h-6')}</span>
+        <input id="vin-q" class="vin w-full bg-transparent text-xl md:text-2xl font-semibold uppercase outline-none placeholder:text-slate-300 placeholder:font-normal" dir="ltr"
+          placeholder="${t('search_vin_ph')}" value="${esc(initial)}" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="20">
+        <span id="vin-len" class="vin text-xs text-slate-400 tabular-nums" dir="ltr">0/17</span>
+      </div>
+      <p class="text-xs text-slate-500 mt-2">${t('search_hint')}</p>
+    </div>
+    <div id="results"></div>
+  </div>`;
+  const inp = $('#vin-q'); let timer, seq = 0;
+  const run = async () => {
+    const q = normVin(inp.value), box = $('#results'), my = ++seq;
+    $('#vin-len').textContent = `${q.length}/17`;
+    if (q.length < 4) { box.innerHTML = ''; return; }
+    box.innerHTML = loading();
+    try {
+      const r = await API.get('/vehicles/search?q=' + encodeURIComponent(q));
+      if (my === seq) box.innerHTML = renderSearchResults(r.results, q);
+    } catch (e) { if (my === seq) box.innerHTML = errorBox(e.message); }
+  };
+  inp.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(run, 250); });
+  inp.focus();
+  if (initial) run();
+}
+
+function renderSearchResults(list, q) {
+  if (!list.length) return emptyBox(t('no_results'));
+  const groups = new Map();
+  list.forEach((r) => { if (!groups.has(r.vin)) groups.set(r.vin, []); groups.get(r.vin).push(r); });
+  const dl = (label, value) => `<div><dt class="text-xs text-slate-500">${label}</dt><dd class="text-sm font-medium mt-0.5">${value}</dd></div>`;
+  return [...groups].map(([vin, recs]) => {
+    const latest = recs[0];
+    const hl = esc(vin).replace(q, `<mark class="bg-signal/40 text-ink rounded-sm">${q}</mark>`);
+    return `
+    <article class="card mb-5 overflow-hidden">
+      <header class="p-4 md:p-5 border-b border-slate-200 flex flex-wrap items-center gap-3">
+        <div class="vin text-lg md:text-xl font-semibold" dir="ltr">${hl}</div>
+        ${condBadge(latest.condition)}
+        <span class="text-sm text-slate-500 ms-auto">${t('trips_for_vin').replace('{n}', recs.length)}</span>
+      </header>
+      <ol class="relative">
+        ${recs.map((r, i) => `
+        <li class="p-4 md:p-5 ${i ? 'border-t border-slate-100' : ''}">
+          <div class="flex flex-wrap items-center gap-2 mb-3">
+            <a href="#/shipments/${r.shipment_id}" class="font-semibold text-road-700 hover:underline">${esc(r.ref_no)}</a>
+            ${statusBadge(r.status)}
+            <span class="text-sm text-slate-500">${esc(r.trip_date)}</span>
+          </div>
+          <div class="text-base mb-4">${route(r.origin, r.destination)}</div>
+          <dl class="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-3 mb-4">
+            ${dl(t('driver'), esc(r.driver_name) + (r.driver_phone ? `<div class="text-xs text-slate-500 font-normal" dir="ltr">${esc(r.driver_phone)}</div>` : ''))}
+            ${dl(t('truck_plate'), val(r.truck_plate))}
+            ${dl(t('client'), val(r.client_name))}
+            ${dl(t('model'), val(r.model || r.vehicle_type))}
+            ${dl(t('departure_at'), dt(r.departure_at))}
+            ${dl(t('arrival_at'), dt(r.arrival_at))}
+          </dl>
+          <div class="rounded-lg bg-slate-50 p-3">
+            <div class="flex flex-wrap items-center gap-2"><span class="text-sm text-slate-600">${t('condition')}:</span>${condBadge(r.condition)}
+              ${r.inspected_at ? `<span class="text-xs text-slate-500">${dt(r.inspected_at)} · ${val(r.inspected_by_name)}</span>` : ''}</div>
+            ${r.condition_notes ? `<p class="text-sm mt-2">${esc(r.condition_notes)}</p>` : ''}
+            ${r.log.length > 1 ? `<details class="mt-2"><summary class="text-xs text-road-700 cursor-pointer">${t('condition_history')} (${r.log.length})</summary>
+              <ul class="mt-2 space-y-1 text-xs text-slate-600">${r.log.map((l) => `<li>${dt(l.created_at)} · ${val(l.user_name)}: ${t('cond_' + l.old_condition)} <span class="inline-block rtl:rotate-180">→</span> ${t('cond_' + l.new_condition)}${l.notes ? ' — ' + esc(l.notes) : ''}</li>`).join('')}</ul></details>` : ''}
+          </div>
+        </li>`).join('')}
+      </ol>
+    </article>`;
+  }).join('');
+}
+
+/* ---------- قائمة الشحنات ---------- */
+async function pageShipments(view, m, qs) {
+  setTitle(t('nav_shipments'));
+  const f = { status: qs.get('status') || '', q: qs.get('q') || '', month: qs.get('month') || '' };
+  view.innerHTML = `
+  <div class="flex flex-wrap gap-3 items-end mb-5">
+    <div class="flex-1 min-w-[200px]"><label class="label" for="s-q">${t('search')}</label><input id="s-q" class="input" value="${esc(f.q)}" placeholder="${t('shipments_search_ph')}"></div>
+    <div><label class="label" for="s-status">${t('status')}</label><select id="s-status" class="input w-40"><option value="">${t('all')}</option>
+      ${['pending', 'in_transit', 'delivered', 'cancelled'].map((s) => `<option value="${s}" ${f.status === s ? 'selected' : ''}>${t('status_' + s)}</option>`).join('')}</select></div>
+    <div><label class="label" for="s-month">${t('month')}</label><input id="s-month" type="month" class="input w-44" value="${f.month}"></div>
+    <a href="#/shipments/new" class="btn btn-primary">${icon('plus', 'w-4 h-4')} ${t('nav_new_shipment')}</a>
+  </div>
+  <div id="list">${loading()}</div>`;
+  const load = async () => {
+    const p = new URLSearchParams();
+    ['q', 'status', 'month'].forEach((k) => { const v = $('#s-' + k).value.trim(); if (v) p.set(k, v); });
+    history.replaceState(null, '', '#/shipments' + (p.toString() ? '?' + p : ''));
+    try {
+      const rows = await API.get('/shipments?' + p);
+      $('#list').innerHTML = rows.length ? `
+      <div class="md:hidden space-y-3">${rows.map((s) => `
+        <a href="#/shipments/${s.id}" class="card block p-4 active:bg-slate-50">
+          <div class="flex items-center justify-between mb-2"><span class="font-semibold">${esc(s.ref_no)}</span>${statusBadge(s.status)}</div>
+          <div class="text-sm mb-2">${route(s.origin, s.destination)}</div>
+          <div class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500"><span>${esc(s.trip_date)}</span><span>${esc(s.driver_name)}</span>
+            <span>${num(s.vehicle_count)} ${t('cars')}</span>${s.damaged_count ? `<span class="text-rose-700">${num(s.damaged_count)} ${t('damaged')}</span>` : ''}
+            ${s.pending_count ? `<span class="text-amber-700">${num(s.pending_count)} ${t('not_inspected')}</span>` : ''}</div>
+        </a>`).join('')}</div>
+      <div class="hidden md:block card overflow-x-auto"><table class="w-full">
+        <thead><tr><th class="th">${t('ref_no')}</th><th class="th">${t('trip_date')}</th><th class="th">${t('driver')}</th><th class="th">${t('route')}</th>
+          <th class="th">${t('client')}</th><th class="th">${t('cars')}</th><th class="th">${t('damaged')}</th><th class="th">${t('not_inspected')}</th><th class="th">${t('status')}</th></tr></thead>
+        <tbody>${rows.map((s) => `<tr class="hover:bg-slate-50 cursor-pointer" onclick="location.hash='#/shipments/${s.id}'">
+          <td class="td font-medium text-road-700">${esc(s.ref_no)}</td><td class="td">${esc(s.trip_date)}</td><td class="td">${esc(s.driver_name)}</td>
+          <td class="td">${route(s.origin, s.destination)}</td><td class="td">${val(s.client_name)}</td><td class="td tabular-nums">${num(s.vehicle_count)}</td>
+          <td class="td tabular-nums ${s.damaged_count ? 'text-rose-700 font-medium' : ''}">${num(s.damaged_count)}</td>
+          <td class="td tabular-nums ${s.pending_count ? 'text-amber-700' : ''}">${num(s.pending_count)}</td><td class="td">${statusBadge(s.status)}</td></tr>`).join('')}</tbody>
+      </table></div>` : emptyBox(t('no_shipments'), `<a href="#/shipments/new" class="btn btn-primary">${t('nav_new_shipment')}</a>`);
+    } catch (e) { $('#list').innerHTML = errorBox(e.message); }
+  };
+  let timer;
+  $('#s-q').oninput = () => { clearTimeout(timer); timer = setTimeout(load, 300); };
+  $('#s-status').onchange = load; $('#s-month').onchange = load;
+  load();
+}
+
+/* ---------- شحنة جديدة ---------- */
+async function pageNewShipment(view) {
+  setTitle(t('nav_new_shipment'));
+  const [drivers, clients] = await Promise.all([API.get('/drivers'), API.get('/clients')]);
+  if (!drivers.length) { view.innerHTML = emptyBox(t('need_driver_first'), `<a href="#/drivers" class="btn btn-primary">${t('add_driver')}</a>`); return; }
+  const opt = (rows, ph) => `<option value="">${ph}</option>` + rows.map((r) => `<option value="${r.id}">${esc(r.name)}${r.truck_plate ? ' — ' + esc(r.truck_plate) : ''}</option>`).join('');
+  view.innerHTML = `
+  <datalist id="cities">${CITIES.map((c) => `<option value="${esc(c)}">`).join('')}</datalist>
+  <datalist id="vtypes">${VEHICLE_TYPES.map((c) => `<option value="${esc(c)}">`).join('')}</datalist>
+  <form id="ship-form" class="space-y-5 max-w-5xl" novalidate>
+    <section class="card p-4 md:p-6">
+      <h2 class="section-title">${t('shipment_info')}</h2>
+      <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div><label class="label">${t('driver')} <span class="text-rose-500">*</span></label><select name="driver_id" class="input" required>${opt(drivers, t('choose_driver'))}</select></div>
+        <div><label class="label">${t('client')}</label><select name="client_id" class="input">${opt(clients, t('choose_client'))}</select></div>
+        <div><label class="label">${t('trip_date')} <span class="text-rose-500">*</span></label><input type="date" name="trip_date" class="input" value="${today()}" required></div>
+        <div><label class="label">${t('origin')} <span class="text-rose-500">*</span></label><input name="origin" list="cities" class="input" required></div>
+        <div><label class="label">${t('destination')} <span class="text-rose-500">*</span></label><input name="destination" list="cities" class="input" required></div>
+        <div><label class="label">${t('vehicle_type')}</label><input name="vehicle_type" id="vtype" list="vtypes" class="input"></div>
+        <div><label class="label">${t('status')}</label><select name="status" class="input"><option value="pending">${t('status_pending')}</option><option value="in_transit">${t('status_in_transit')}</option></select></div>
+        <div class="sm:col-span-2"><label class="label">${t('notes')}</label><input name="notes" class="input"></div>
+      </div>
+    </section>
+
+    <section class="card p-4 md:p-6">
+      <div class="flex flex-wrap items-baseline justify-between gap-2 mb-4">
+        <h2 class="section-title mb-0">${t('vehicles_vins')}</h2>
+        <div class="text-sm text-slate-600">${t('vehicle_count')}: <b id="v-count" class="tabular-nums text-ink">0</b> · ${t('valid')}: <b id="v-valid" class="tabular-nums text-road-600">0</b></div>
+      </div>
+      <div class="grid md:grid-cols-2 gap-4 mb-5 p-4 rounded-lg bg-slate-50">
+        <div>
+          <label class="label" for="bulk">${t('paste_vins')}</label>
+          <textarea id="bulk" rows="3" class="input vin text-sm" dir="ltr" placeholder="JTDKB20U793456789&#10;KMHCT41DAEU123456"></textarea>
+          <button type="button" id="bulk-add" class="btn btn-ghost mt-2">${t('add_from_list')}</button>
+        </div>
+        <div>
+          <label class="label" for="n-rows">${t('add_rows')}</label>
+          <div class="flex gap-2"><input id="n-rows" type="number" min="1" max="60" value="1" class="input w-24"><button type="button" id="rows-add" class="btn btn-ghost">${t('add')}</button></div>
+          <p class="text-xs text-slate-500 mt-3 leading-relaxed">${t('vin_rule')}</p>
+        </div>
+      </div>
+      <div id="v-rows" class="space-y-2"></div>
+    </section>
+
+    <div class="flex gap-2 sticky bottom-20 md:bottom-4 z-20">
+      <button class="btn btn-primary btn-lg shadow-lg" type="submit">${icon('check')} ${t('save_shipment')}</button>
+      <a href="#/shipments" class="btn btn-ghost btn-lg">${t('cancel')}</a>
+    </div>
+  </form>`;
+
+  const rowsBox = $('#v-rows');
+  const addRow = (vin = '') => {
+    const div = document.createElement('div');
+    div.className = 'v-row grid grid-cols-12 gap-2 items-center';
+    div.innerHTML = `
+      <span class="v-idx col-span-1 text-xs text-slate-400 text-center tabular-nums"></span>
+      <input class="input v-vin vin col-span-11 sm:col-span-5 uppercase" dir="ltr" maxlength="20" placeholder="${t('vin_17')}" value="${esc(vin)}" autocapitalize="characters" spellcheck="false">
+      <input class="input v-model col-span-6 sm:col-span-3" placeholder="${t('model_optional')}">
+      <input class="input v-color col-span-5 sm:col-span-2" placeholder="${t('color')}">
+      <button type="button" class="v-del col-span-1 flex justify-center text-slate-400 hover:text-rose-600" aria-label="${t('delete')}">${icon('x')}</button>`;
+    div.querySelector('.v-del').onclick = () => { div.remove(); update(); };
+    div.querySelector('.v-vin').oninput = update;
+    rowsBox.appendChild(div);
+  };
+  const update = () => {
+    const rows = $$('.v-row', rowsBox); const counts = {};
+    rows.forEach((r) => { const v = normVin($('.v-vin', r).value); if (v) counts[v] = (counts[v] || 0) + 1; });
+    let filled = 0, valid = 0;
+    rows.forEach((r, i) => {
+      $('.v-idx', r).textContent = i + 1;
+      const inp = $('.v-vin', r), v = normVin(inp.value);
+      inp.classList.remove('border-road-500', 'border-rose-400', 'bg-rose-50');
+      if (!v) return;
+      filled++;
+      if (VIN_RE.test(v) && counts[v] === 1) { valid++; inp.classList.add('border-road-500'); }
+      else inp.classList.add('border-rose-400', 'bg-rose-50');
+    });
+    $('#v-count').textContent = filled; $('#v-valid').textContent = valid;
+  };
+  $('#rows-add').onclick = () => { const n = Math.min(60, Math.max(1, +$('#n-rows').value || 1)); for (let i = 0; i < n; i++) addRow(); update(); };
+  $('#bulk-add').onclick = () => {
+    const vins = $('#bulk').value.split(/[\s,;]+/).map(normVin).filter(Boolean);
+    if (!vins.length) return;
+    $$('.v-row', rowsBox).forEach((r) => { if (!normVin($('.v-vin', r).value)) r.remove(); });
+    vins.forEach((v) => addRow(v)); $('#bulk').value = ''; update();
+  };
+  addRow(); update();
+
+  const form = $('#ship-form');
+  form.onsubmit = async (e) => {
+    e.preventDefault();
+    if (!form.reportValidity()) return;
+    const vehicles = $$('.v-row', rowsBox).map((r) => ({ vin: normVin($('.v-vin', r).value), model: $('.v-model', r).value.trim(), color: $('.v-color', r).value.trim() })).filter((v) => v.vin);
+    if (!vehicles.length) return toast(t('err_no_vehicles'), 'err');
+    const bad = vehicles.filter((v) => !VIN_RE.test(v.vin));
+    if (bad.length) return toast(t('err_vin_invalid') + ': ' + bad.map((v) => v.vin).join(', '), 'err');
+    const payload = { ...Object.fromEntries(new FormData(form)), vehicles };
+    const btn = form.querySelector('[type=submit]'); btn.disabled = true;
+    try {
+      let r;
+      try { r = await API.post('/shipments', payload); }
+      catch (err) {
+        if (err.code !== 'vin_active') throw err;
+        const list = err.data.conflicts.map((c) => `${c.vin} (${c.ref_no})`).join('\n');
+        if (!confirm(t('confirm_active_vins') + '\n\n' + list)) { btn.disabled = false; return; }
+        r = await API.post('/shipments', { ...payload, force: true });
+      }
+      toast(t('shipment_saved')); location.hash = '#/shipments/' + r.id;
+    } catch (err) {
+      const extra = err.data?.vins ? ': ' + err.data.vins.join(', ') : '';
+      toast(err.message + extra, 'err'); btn.disabled = false;
+    }
+  };
+}
+
+/* ---------- تفاصيل الشحنة وتسجيل حالة السيارات ---------- */
+async function pageShipment(view, m) {
+  const id = m[1];
+  const s = await API.get('/shipments/' + id);
+  setTitle(s.ref_no);
+  const open = !['delivered', 'cancelled'].includes(s.status);
+  const counts = { ok: 0, damaged: 0, pending: 0 };
+  s.vehicles.forEach((v) => (v.condition === 'pending' ? counts.pending++ : v.condition === 'ok' ? counts.ok++ : counts.damaged++));
+  const info = (label, value) => `<div><dt class="text-xs text-slate-500">${label}</dt><dd class="font-medium mt-0.5">${value}</dd></div>`;
+  const nextActions = {
+    pending: [['in_transit', 'act_start', 'btn-signal'], ['cancelled', 'act_cancel', 'btn-danger']],
+    in_transit: [['delivered', 'act_deliver', 'btn-primary']],
+  }[s.status] || [];
+
+  view.innerHTML = `
+  <div class="flex flex-wrap items-center gap-3 mb-5">
+    <a href="#/shipments" class="text-sm text-slate-500 hover:text-ink no-print">${t('back_to_list')}</a>
+    <div class="flex-1"></div>
+    ${nextActions.map(([st, key, cls]) => `<button class="btn ${cls} no-print" data-status="${st}">${t(key)}</button>`).join('')}
+    <button class="btn btn-ghost no-print" onclick="window.print()">${icon('print', 'w-4 h-4')} ${t('print')}</button>
+    ${can('admin', 'supervisor') ? `<button id="del-ship" class="btn btn-danger no-print" aria-label="${t('delete')}">${icon('trash', 'w-4 h-4')}</button>` : ''}
+  </div>
+
+  <section class="card p-4 md:p-6 mb-5">
+    <div class="flex flex-wrap items-center gap-3 mb-4">
+      <h2 class="text-xl font-semibold">${esc(s.ref_no)}</h2>${statusBadge(s.status)}
+    </div>
+    <div class="text-lg mb-5">${route(s.origin, s.destination)}</div>
+    <dl class="grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-4 text-sm">
+      ${info(t('driver'), esc(s.driver_name) + (s.driver_phone ? ` <span class="text-slate-500 font-normal" dir="ltr">${esc(s.driver_phone)}</span>` : ''))}
+      ${info(t('truck_plate'), val(s.truck_plate))}
+      ${info(t('client'), val(s.client_name))}
+      ${info(t('vehicle_type'), val(s.vehicle_type))}
+      ${info(t('trip_date'), esc(s.trip_date))}
+      ${info(t('departure_at'), dt(s.departure_at))}
+      ${info(t('arrival_at'), dt(s.arrival_at))}
+      ${info(t('created_by'), val(s.created_by_name))}
+      ${s.notes ? `<div class="col-span-2 md:col-span-4">${info(t('notes'), esc(s.notes)).replace(/^<div>|<\/div>$/g, '')}</div>` : ''}
+    </dl>
+    <div class="mt-5 pt-5 border-t border-slate-100 flex flex-wrap items-end gap-2 no-print">
+      <div class="w-56"><label class="label" for="sap-no">${t('sap_document_no')}</label><input id="sap-no" class="input" value="${esc(s.sap_document_no || '')}" dir="ltr"></div>
+      <button id="sap-save" class="btn btn-ghost">${t('save')}</button>
+    </div>
+  </section>
+
+  <section class="card overflow-hidden">
+    <div class="p-4 md:p-5 border-b border-slate-200 flex flex-wrap items-center gap-3">
+      <h2 class="font-semibold">${t('vehicles')} <span class="text-slate-500 font-normal tabular-nums">(${s.vehicles.length})</span></h2>
+      <span class="badge ${COND_CLS.ok}">${t('cond_ok')}: ${counts.ok}</span>
+      <span class="badge ${COND_CLS.dent}">${t('damaged')}: ${counts.damaged}</span>
+      <span class="badge ${COND_CLS.pending}">${t('not_inspected')}: ${counts.pending}</span>
+      <div class="flex-1"></div>
+      ${counts.pending ? `<button id="mark-ok" class="btn btn-ghost no-print">${icon('check', 'w-4 h-4')} ${t('mark_rest_ok')}</button>` : ''}
+    </div>
+    <ul class="divide-y divide-slate-100">
+      ${s.vehicles.map((v, i) => `
+      <li class="p-4 md:p-5" data-vid="${v.id}">
+        <div class="flex flex-wrap items-center gap-x-3 gap-y-1 mb-3">
+          <span class="text-xs text-slate-400 tabular-nums w-5">${i + 1}</span>
+          <a href="#/search?vin=${esc(v.vin)}" class="vin font-semibold text-road-700 hover:underline" dir="ltr">${esc(v.vin)}</a>
+          <span class="text-sm text-slate-500">${[v.model, v.color].filter(Boolean).map(esc).join(' / ')}</span>
+          <span class="print:inline hidden">${condBadge(v.condition)}</span>
+          <div class="flex-1"></div>
+          ${v.inspected_at ? `<span class="text-xs text-slate-500">${dt(v.inspected_at)} · ${val(v.inspected_by_name)}</span>` : ''}
+          ${open ? `<button class="v-remove no-print text-slate-400 hover:text-rose-600 p-1" aria-label="${t('delete')}">${icon('trash', 'w-4 h-4')}</button>` : ''}
+        </div>
+        <div class="no-print grid gap-2 md:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
+          <div class="flex gap-1.5" role="group" aria-label="${t('condition')}">
+            ${['ok', 'dent', 'scratch', 'dent_scratch'].map((c) => `<button type="button" class="cond-btn ${v.condition === c ? COND_ACTIVE[c] : ''}" data-cond="${c}" aria-pressed="${v.condition === c}">${t('cond_' + c)}</button>`).join('')}
+          </div>
+          <input class="input v-notes" placeholder="${t('condition_notes_ph')}" value="${esc(v.condition_notes || '')}">
+        </div>
+        ${v.condition_notes ? `<p class="hidden print:block text-sm mt-1">${esc(v.condition_notes)}</p>` : ''}
+      </li>`).join('')}
+    </ul>
+    ${open ? `<div class="p-4 md:p-5 border-t border-slate-200 bg-slate-50 flex flex-wrap gap-2 no-print">
+      <input id="add-vin" class="input vin uppercase flex-1 min-w-[220px]" dir="ltr" maxlength="20" placeholder="${t('vin_17')}">
+      <button id="add-vin-btn" class="btn btn-ghost">${icon('plus', 'w-4 h-4')} ${t('add_vehicle')}</button>
+    </div>` : ''}
+  </section>`;
+
+  const reload = async () => { const y = scrollY; await pageShipment(view, m); scrollTo(0, y); };
+  const act = async (fn, msg) => { try { await fn(); if (msg) toast(msg); await reload(); } catch (e) { toast(e.message, 'err'); } };
+
+  $$('[data-status]').forEach((b) => (b.onclick = () => {
+    if (b.dataset.status === 'cancelled' && !confirm(t('confirm_cancel'))) return;
+    if (b.dataset.status === 'delivered' && counts.pending && !confirm(t('confirm_deliver_pending').replace('{n}', counts.pending))) return;
+    act(() => API.put('/shipments/' + id, { status: b.dataset.status }), t('saved'));
+  }));
+  $('#sap-save').onclick = () => act(() => API.put('/shipments/' + id, { sap_document_no: $('#sap-no').value }), t('saved'));
+  $('#del-ship') && ($('#del-ship').onclick = async () => {
+    if (!confirm(t('confirm_delete_shipment'))) return;
+    try { await API.del('/shipments/' + id); toast(t('deleted')); location.hash = '#/shipments'; } catch (e) { toast(e.message, 'err'); }
+  });
+  $('#mark-ok') && ($('#mark-ok').onclick = () => act(() => API.post(`/shipments/${id}/mark-ok`), t('saved')));
+
+  $$('[data-vid]').forEach((li) => {
+    const vid = li.dataset.vid;
+    const v = s.vehicles.find((x) => String(x.id) === vid);
+    $$('[data-cond]', li).forEach((b) => (b.onclick = () =>
+      act(() => API.patch(`/shipments/${id}/vehicles/${vid}/condition`, { condition: b.dataset.cond, notes: $('.v-notes', li).value }))));
+    /* حفظ الملاحظة دون إعادة رسم الصفحة، كي لا يضيع نقر زر الحالة الذي يلي الكتابة مباشرة */
+    $('.v-notes', li).onchange = (e) => API.patch(`/shipments/${id}/vehicles/${vid}/condition`, { condition: cond(S.shipments[id].vehicles[vid]), notes: e.target.value })
+      .then(() => toast(t('saved'))).catch((err) => toast(err.message, 'err'));
+    const rm = $('.v-remove', li);
+    if (rm) rm.onclick = () => confirm(t('confirm_remove_vehicle')) && act(() => API.del(`/shipments/${id}/vehicles/${vid}`), t('deleted'));
+  });
+
+  const addBtn = $('#add-vin-btn');
+  if (addBtn) {
+    const add = async () => {
+      const vin = normVin($('#add-vin').value);
+      if (!VIN_RE.test(vin)) return toast(t('err_vin_invalid'), 'err');
+      try { await API.post(`/shipments/${id}/vehicles`, { vin }); }
+      catch (e) {
+        if (e.code !== 'vin_active') return toast(e.message + (e.data?.vins ? ': ' + e.data.vins.join(', ') : ''), 'err');
+        if (!confirm(t('confirm_active_vins') + '\n\n' + e.data.conflicts.map((c) => `${c.vin} (${c.ref_no})`).join('\n'))) return;
+        try { await API.post(`/shipments/${id}/vehicles`, { vin, force: true }); } catch (e2) { return toast(e2.message, 'err'); }
+      }
+      toast(t('saved')); reload();
+    };
+    addBtn.onclick = add;
+    $('#add-vin').onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); add(); } };
+  }
+}
+
+/* ---------- صفحات البيانات الأساسية (سائقون / عملاء / مستخدمون) ---------- */
+function crudPage(cfg) {
+  return async (view) => {
+    setTitle(t(cfg.title));
+    const rows = await API.get(cfg.endpoint + '?all=1');
+    const writable = can(...cfg.writeRoles);
+    view.innerHTML = `
+    <div class="flex flex-wrap gap-3 items-center mb-5">
+      <input id="c-q" class="input max-w-xs" placeholder="${t('search')}">
+      <div class="flex-1"></div>
+      ${writable ? `<button id="c-add" class="btn btn-primary">${icon('plus', 'w-4 h-4')} ${t(cfg.addLabel)}</button>` : ''}
+    </div>
+    <div class="card overflow-x-auto"><table class="w-full">
+      <thead><tr>${cfg.columns.map((c) => `<th class="th">${t(c.label || c.name)}</th>`).join('')}<th class="th">${t('status')}</th>${writable ? '<th class="th"></th>' : ''}</tr></thead>
+      <tbody id="c-body"></tbody></table></div>`;
+    const draw = () => {
+      const q = $('#c-q').value.trim().toLowerCase();
+      const list = rows.filter((r) => !q || cfg.columns.some((c) => String(r[c.name] ?? '').toLowerCase().includes(q)));
+      $('#c-body').innerHTML = list.length ? list.map((r) => `<tr class="${r.active ? '' : 'opacity-50'}">
+        ${cfg.columns.map((c) => `<td class="td ${c.cls || ''}" ${c.ltr ? 'dir="ltr"' : ''}>${c.render ? c.render(r) : val(r[c.name])}</td>`).join('')}
+        <td class="td">${r.active ? `<span class="badge bg-road-50 text-road-700">${t('active')}</span>` : `<span class="badge bg-slate-100 text-slate-500">${t('inactive')}</span>`}</td>
+        ${writable ? `<td class="td text-end"><button class="text-road-700 hover:underline text-sm" data-edit="${r.id}">${t('edit')}</button></td>` : ''}</tr>`).join('')
+        : `<tr><td class="td text-center text-slate-500 py-10" colspan="${cfg.columns.length + 2}">${t('no_records')}</td></tr>`;
+      $$('[data-edit]').forEach((b) => (b.onclick = () => form(rows.find((r) => String(r.id) === b.dataset.edit))));
+    };
+    const form = (row) => {
+      const fields = [...cfg.fields(row)];
+      if (row) fields.push({ name: 'active', label: 'status', type: 'select', options: [{ value: 1, label: t('active') }, { value: 0, label: t('inactive') }] });
+      openModal(t(row ? 'edit' : cfg.addLabel), fields.map((f) => fieldHtml(f, row ? row[f.name] : undefined)).join(''), async (data) => {
+        if (row && 'password' in data && !data.password) delete data.password;
+        row ? await API.put(`${cfg.endpoint}/${row.id}`, data) : await API.post(cfg.endpoint, data);
+        toast(t('saved')); router();
+      });
+    };
+    $('#c-q').oninput = draw;
+    if (writable) $('#c-add').onclick = () => form(null);
+    draw();
+  };
+}
+
+const pageDrivers = crudPage({
+  title: 'nav_drivers', endpoint: '/drivers', addLabel: 'add_driver', writeRoles: ['admin', 'supervisor'],
+  columns: [{ name: 'name', cls: 'font-medium' }, { name: 'phone', ltr: true }, { name: 'truck_plate' }, { name: 'license_no' }, { name: 'sap_vendor_code', ltr: true }],
+  fields: () => [
+    { name: 'name', required: true }, { name: 'phone', type: 'tel', attrs: 'dir="ltr"' }, { name: 'national_id', attrs: 'dir="ltr"' },
+    { name: 'license_no', attrs: 'dir="ltr"' }, { name: 'truck_plate' }, { name: 'sap_vendor_code', attrs: 'dir="ltr"' },
+  ],
+});
+const pageClients = crudPage({
+  title: 'nav_clients', endpoint: '/clients', addLabel: 'add_client', writeRoles: ['admin', 'supervisor'],
+  columns: [{ name: 'name', cls: 'font-medium' }, { name: 'contact_person' }, { name: 'phone', ltr: true }, { name: 'email', ltr: true }, { name: 'sap_customer_code', ltr: true }],
+  fields: () => [
+    { name: 'name', required: true }, { name: 'contact_person' }, { name: 'phone', type: 'tel', attrs: 'dir="ltr"' },
+    { name: 'email', type: 'email', attrs: 'dir="ltr"' }, { name: 'sap_customer_code', attrs: 'dir="ltr"' },
+  ],
+});
+/* المستخدمون: نفس حسابات نظام التوريد، والمدير يحدد صلاحية كل حساب هنا */
+async function pageUsers(view) {
+  setTitle(t('nav_users'));
+  const { rows, membersVisible } = await API.get('/users');
+  const roleOpts = (r) => ['', 'operator', 'supervisor', 'admin'].map((x) => `<option value="${x}" ${r.role === x ? 'selected' : ''}>${x ? t('role_' + x) : t('role_none')}</option>`).join('');
+  view.innerHTML = `
+  <p class="text-sm text-slate-600 mb-2 max-w-3xl leading-relaxed">${t('users_intro')}</p>
+  ${membersVisible ? '' : `<p class="text-xs text-amber-800 bg-amber-50 rounded-lg px-3 py-2 mb-3 max-w-3xl">${t('users_members_unavailable')}</p>`}
+  <div class="flex flex-wrap gap-3 items-center my-4"><input id="c-q" class="input max-w-xs" placeholder="${t('search')}"></div>
+  <div class="card overflow-x-auto"><table class="w-full">
+    <thead><tr><th class="th">${t('username')}</th><th class="th">${t('full_name')}</th><th class="th">${t('ws_role')}</th><th class="th">${t('fleet_role')}</th><th class="th"></th></tr></thead>
+    <tbody id="c-body"></tbody></table></div>`;
+  const draw = () => {
+    const q = $('#c-q').value.trim().toLowerCase();
+    const list = rows.filter((r) => !q || [r.username, r.full_name].some((x) => String(x || '').toLowerCase().includes(q)));
+    $('#c-body').innerHTML = list.length ? list.map((r) => `<tr class="${r.active ? '' : 'opacity-50'}" data-uid="${esc(r.id)}">
+      <td class="td font-medium" dir="ltr">${esc(r.username)}</td>
+      <td class="td">${r.ws_admin ? val(r.full_name) : `<input class="input py-1.5 u-name" value="${esc(r.full_name)}">`}</td>
+      <td class="td text-slate-500">${esc(r.ws_role || '—')}${r.active ? '' : ` · ${t('inactive')}`}</td>
+      <td class="td">${r.ws_admin || r.id === window.ME.id ? `<span class="badge bg-road-50 text-road-700">${r.ws_admin ? t('ws_admin_fixed') : t('role_' + r.role)}</span>` : `<select class="input py-1.5 u-role">${roleOpts(r)}</select>`}</td>
+      <td class="td text-end">${r.ws_admin || r.id === window.ME.id ? '' : `<button class="btn btn-ghost py-1.5 u-save">${t('save')}</button>`}</td></tr>`).join('')
+      : `<tr><td class="td text-center text-slate-500 py-10" colspan="5">${t('no_records')}</td></tr>`;
+    $$('.u-save').forEach((b) => (b.onclick = async () => {
+      const tr = b.closest('tr'), r = rows.find((x) => x.id === tr.dataset.uid);
+      try { await API.put('/users/' + r.id, { role: $('.u-role', tr).value, full_name: $('.u-name', tr).value, username: r.username }); r.role = $('.u-role', tr).value; toast(t('saved')); }
+      catch (e) { toast(e.message, 'err'); }
+    }));
+  };
+  $('#c-q').oninput = draw;
+  draw();
+}
+
+/* ---------- الإعدادات والتصدير إلى ساب ---------- */
+async function pageSettings(view) {
+  setTitle(t('nav_settings'));
+  const st = await API.get('/settings');
+  const admin = can('admin');
+  const month = thisMonth();
+  view.innerHTML = `
+  <div class="grid lg:grid-cols-2 gap-5 items-start">
+    <section class="card p-4 md:p-6">
+      <h2 class="section-title">${t('incentive_settings')}</h2>
+      <form id="st-form" class="grid sm:grid-cols-2 gap-4">
+        ${fieldHtml({ name: 'company_name', full: true }, st.company_name)}
+        ${fieldHtml({ name: 'incentive_max_damage_rate', type: 'number', attrs: 'step="0.1" min="0"' }, st.incentive_max_damage_rate)}
+        ${fieldHtml({ name: 'incentive_min_vehicles', type: 'number', attrs: 'min="0"' }, st.incentive_min_vehicles)}
+        ${fieldHtml({ name: 'incentive_amount', type: 'number', attrs: 'min="0"' }, st.incentive_amount)}
+        <div class="sm:col-span-2">${admin ? `<button class="btn btn-primary">${t('save')}</button>` : `<p class="text-sm text-slate-500">${t('admin_only')}</p>`}</div>
+      </form>
+    </section>
+
+    ${can('admin', 'supervisor') ? `<section class="card p-4 md:p-6">
+      <h2 class="section-title">${t('sap_export')}</h2>
+      <p class="text-sm text-slate-600 mb-4 leading-relaxed">${t('sap_export_desc')}</p>
+      <div class="mb-4"><label class="label" for="x-month">${t('month')}</label><input id="x-month" type="month" class="input w-44" value="${month}"></div>
+      <div class="flex flex-col gap-2">
+        ${[['shipments', 'export_shipments'], ['vehicles', 'export_vehicles'], ['incentives', 'export_incentives']].map(([k, l]) =>
+          `<button type="button" class="btn btn-ghost justify-start" data-export="${k}">${icon('download', 'w-4 h-4')} ${t(l)}</button>`).join('')}
+      </div>
+    </section>` : ''}
+
+    <section class="card p-4 md:p-6">
+      <h2 class="section-title">${t('account')}</h2>
+      <p class="text-sm mb-1"><b>${esc(window.ME.full_name || window.ME.username)}</b> <span class="text-slate-500" dir="ltr">(${esc(window.ME.username)})</span> · ${t('role_' + window.ME.role)}</p>
+      <p class="text-sm text-slate-600 mb-4">${t('pw_shared_note')}</p>
+      <p class="text-sm text-slate-600 mb-4">${t('live_sync')}</p>
+      <label class="label">${t('external_link')}</label>
+      <div class="flex gap-2"><input id="ext-link" class="input" readonly dir="ltr" value="${esc(location.origin + location.pathname.replace(/[^/]*$/, '') + 'fleet')}">
+        <button type="button" id="copy-link" class="btn btn-ghost">${t('copy_link')}</button></div>
+    </section>
+  </div>`;
+  if (!admin) $$('#st-form input').forEach((i) => (i.disabled = true));
+  $('#st-form').onsubmit = async (e) => {
+    e.preventDefault();
+    try { window.SETTINGS = await API.put('/settings', Object.fromEntries(new FormData(e.target))); toast(t('saved')); } catch (err) { toast(err.message, 'err'); }
+  };
+  $$('[data-export]').forEach((a) => (a.onclick = () => exportCsv(a.dataset.export, $('#x-month').value)));
+  $('#copy-link').onclick = () => { const i = $('#ext-link'); i.select(); (navigator.clipboard ? navigator.clipboard.writeText(i.value) : Promise.reject()).catch(() => document.execCommand('copy')).finally(() => toast(t('link_copied'))); };
+}
+
+/* ---------- الموجّه ---------- */
+const ROUTES = [
+  [/^#\/dashboard$/, pageDashboard],
+  [/^#\/search$/, pageSearch],
+  [/^#\/shipments$/, pageShipments],
+  [/^#\/shipments\/new$/, pageNewShipment],
+  [/^#\/shipments\/([\w-]+)$/, pageShipment],
+  [/^#\/reconcile$/, pageReconcile, ['admin', 'supervisor']],
+  [/^#\/drivers$/, pageDrivers],
+  [/^#\/clients$/, pageClients],
+  [/^#\/users$/, pageUsers, ['admin']],
+  [/^#\/settings$/, pageSettings],
+];
+
+async function router(keepScroll) {
+  setLang(LANG);
+  if (!keepScroll) $('#modal-root').innerHTML = '';
+  const hash = location.hash || '#/dashboard';
+  if (!window.ME) return renderLogin();
+  if (hash === '#/login') { location.hash = '#/dashboard'; return; }
+  window.SETTINGS = settings();
+  const [path, qs] = hash.split('?');
+  const y = scrollY;
+  for (const [re, fn, roles] of ROUTES) {
+    const m = path.match(re);
+    if (!m) continue;
+    if (roles && !can(...roles)) { location.hash = '#/dashboard'; return; }
+    renderShell(path);
+    const view = $('#view');
+    view.innerHTML = loading();
+    try { await fn(view, m, new URLSearchParams(qs || '')); }
+    catch (e) { view.innerHTML = errorBox(e.message); }
+    window.scrollTo(0, keepScroll ? y : 0);
+    return;
+  }
+  location.hash = '#/dashboard';
+}
+
+window.addEventListener('hashchange', () => router());
+/* الإقلاع: جلسة Firebase المحفوظة (مشتركة مع نظام التوريد على نفس الرابط) تُدخِل مباشرة */
+$('#app').innerHTML = loading();
+const offBoot = firebase.auth().onAuthStateChanged(async (fu) => {
+  offBoot();
+  if (!fu) { cacheClear(); return renderLogin(); }
+  try { await resolveMe(fu); router(); }
+  catch (e) { renderLogin(); if (e.code !== 'not_member') toast(e.message, 'err'); }
+});
+</script>
+</body>
+</html>

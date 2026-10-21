@@ -497,6 +497,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
     <input type="file" id="importFile" accept=".json" class="hidden" onchange="importBackup(event)">
     <button class="btn-ghost" onclick="showTab('settings');document.getElementById('logoFile').scrollIntoView({block:'center'})">الشعار</button>
     <a class="btn-ghost hidden" id="platformBtn" href="platform.html" style="text-decoration:none;display:inline-flex;align-items:center" title="منصة الأعمال المتكاملة — أداة مستقلة لا تقرأ ولا تعدّل بيانات التوريد">📊 منصة الأعمال</a>
+    <a class="btn-ghost hidden" id="fleetBtn" href="fleet.html" style="text-decoration:none;display:inline-flex;align-items:center" title="نظام نقل السيارات — بنفس حسابك، وبياناته مستقلة عن بيانات التوريد (رابطه الخارجي: /fleet)">🚚 نقل السيارات</a>
     <button class="btn-ghost" onclick="window.print()">طباعة</button>
     <button class="btn-ghost" onclick="doLogout()">خروج</button>
   </div>
@@ -1939,7 +1940,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-10-14-a';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-10-21-a';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -1983,12 +1984,13 @@ var PERM_KEYS=[
  ['accSuppliers','اطّلاع: أرصدة الموردين فقط'],['accClients','اطّلاع: أرصدة العملاء فقط'],
  ['seeall','رؤية كل إدخالات المستخدمين (تجاوز العزل)'],
  ['canAdd','إضافة سجلات'],['canEdit','تعديل السجلات'],['canDelete','حذف السجلات'],['canExport','التصدير والطباعة'],
- ['platform','زر «منصة الأعمال المتكاملة» (أداة مستقلة)']
+ ['platform','زر «منصة الأعمال المتكاملة» (أداة مستقلة)'],
+ ['fleet','زر «نظام نقل السيارات» (أداة مستقلة)']
 ];
 function preset(role){
   var p={}; PERM_KEYS.forEach(function(k){p[k[0]]=false;});
   if(role==='admin'){ PERM_KEYS.forEach(function(k){p[k[0]]=true;}); }
-  else if(role==='manager'){ PERM_KEYS.forEach(function(k){p[k[0]]=true;}); p.users=false; p.seeall=false; p.platform=false; }   /* «رؤية الكل» و«منصة الأعمال» تُمنحان يدوياً فقط */
+  else if(role==='manager'){ PERM_KEYS.forEach(function(k){p[k[0]]=true;}); p.users=false; p.seeall=false; p.platform=false; p.fleet=false; }   /* «رؤية الكل» و«منصة الأعمال» و«نقل السيارات» تُمنح يدوياً فقط */
   else if(role==='accountant'){ ['dash','purchases','sales','returns','stock','itemdiag','expenses','accounts','reports','income','master','canAdd','canEdit','canExport'].forEach(function(k){p[k]=true;}); }
   else if(role==='entry'){ ['dash','purchases','sales','returns','stock','reports','canAdd'].forEach(function(k){p[k]=true;}); }
   else if(role==='viewer'){ ['dash','stock','reports','income','canExport'].forEach(function(k){p[k]=true;}); }
@@ -2374,6 +2376,7 @@ function applyPerms(){
   var appEl=document.getElementById('app'); if(appEl){ appEl.classList.toggle('no-balances',!canSeeBalances()); appEl.classList.toggle('no-profit',!canSeeProfit()); }
   /* زر منصة الأعمال: لمدير النظام دائماً، ولغيره فقط بصلاحية «platform» الأساسية (لا تتأثر بصلاحيات الأقسام) */
   var pb=document.getElementById('platformBtn'); if(pb) pb.classList.toggle('hidden',!(ME&&(ME.role==='admin'||(ME.perms&&ME.perms.platform))));
+  var fb=document.getElementById('fleetBtn'); if(fb) fb.classList.toggle('hidden',!(ME&&(ME.role==='admin'||(ME.perms&&ME.perms.fleet))));
   fillReportTypes();
 }
 /* أنواع التقارير — العلامة b تكشف أرصدة الجهات، والعلامة p تكشف الأرباح؛ تُخفى حسب الصلاحية */
@@ -6810,7 +6813,7 @@ function renderDeptPermGrids(user){
   var all=Object.keys(db.departments||{fruits:1}), dp=(user&&user.deptPerms)||{};
   box.innerHTML=all.map(function(dk){
     var has=!!dp[dk], p=dp[dk]||{};
-    var grid=PERM_KEYS.filter(function(k){ return k[0]!=='platform'; }).map(function(k){   /* المنصة ليست خاصة بقسم */
+    var grid=PERM_KEYS.filter(function(k){ return k[0]!=='platform'&&k[0]!=='fleet'; }).map(function(k){   /* المنصة ليست خاصة بقسم */
       return '<label class="perm"><input type="checkbox" data-dp="'+dk+'" data-perm="'+k[0]+'" '+(p[k[0]]?'checked':'')
         +' onchange="document.getElementById(\'u_role\').value=\'custom\'"> '+k[1]+'</label>';
     }).join('');
