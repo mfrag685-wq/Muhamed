@@ -4,8 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>نظام نقل السيارات</title>
-  <!-- نظام نقل السيارات: مدمج في رابط نظام التوريد (زر في الشريط العلوي) وله رابط خارجي مستقل /fleet
-       يعمل على نفس مشروع Firebase ونفس حسابات نظام التوريد؛ بياناته في workspaces/<wid>/platform/fleet ولا يمسّ بيانات التوريد -->
+  <!-- نظام نقل السيارات — رابط خارجي مستقل /fleet؛ بياناته في workspaces/<wid>/platform/fleet -->
   <meta name="theme-color" content="#084D36">
   <link rel="manifest" href="manifest.fleet.json">
   <link rel="icon" href="fleet-icon.svg" type="image/svg+xml">
@@ -82,12 +81,38 @@
 /* الترجمة: العربية / English */
 const I18N = {
   ar: {
-    login_shared: 'ادخل بنفس اسم المستخدم وكلمة المرور الخاصة بك في نظام التوريد.', back_supply: 'نظام التوريد',
+    nav_trucks: 'الشاحنات', nav_expiry: 'الوثائق والانتهاء', nav_billing: 'فوترة العملاء', nav_places: 'الدول والمدن',
+    add_truck: 'إضافة شاحنة', plate: 'رقم اللوحة', truck_type: 'نوع الشاحنة', model_year: 'سنة الصنع', docs_status: 'حالة الوثائق',
+    doc_iqama: 'الإقامة / الهوية', doc_license: 'رخصة القيادة', doc_passport: 'جواز السفر', doc_reg: 'رخصة السير (الاستمارة)',
+    doc_insurance: 'التأمين', doc_op_card: 'كرت التشغيل', doc_inspection: 'الفحص الدوري',
+    exp_since: 'انتهت منذ {n} يوم', exp_in: 'تنتهي خلال {n} يوم', exp_today: 'تنتهي اليوم', docs_missing_short: 'بلا تاريخ',
+    b_alerts: 'تنبيهات (منتهية + خلال 30 يوم)', b_expired: 'منتهية', b_d30: 'تنتهي خلال 30 يوم', b_d60: 'خلال 31–60 يوم', b_d90: 'خلال 61–90 يوم',
+    b_ok: 'سارية (أكثر من 90 يوم)', b_missing: 'لم يُسجَّل تاريخ', b_all: 'الكل',
+    kind: 'النوع', kind_drivers: 'سائق', kind_trucks: 'شاحنة', document: 'الوثيقة', expiry_date: 'تاريخ الانتهاء',
+    expiry_intro: 'كل وثائق السائقين والشاحنات مرتبة حسب أقرب تاريخ انتهاء. سجّل التواريخ من صفحتي «السائقون» و«الشاحنات».',
+    scope: 'النطاق', scope_domestic: 'داخل المملكة', scope_international: 'خارج المملكة', origin_country: 'دولة الانطلاق', destination_country: 'دولة الوجهة',
+    truck: 'الشاحنة', choose_truck: 'بدون تحديد', freight: 'أجرة النقل على العميل',
+    permit: 'تصريح الهيئة', permit_title: 'تصريح هيئة الطرق', permit_ref: 'الرقم المرجعي للتصريح', permit_date: 'تاريخ التصريح', permit_ph: 'من وثيقة التصريح',
+    permit_confirm: 'تأكيد التصريح', permit_confirmed_by: 'أكّده', permit_missing: 'بلا تصريح', permit_none: 'لم يُسجَّل تصريح',
+    permit_hint: 'لم يُؤكَّد إصدار تصريح هيئة الطرق لهذه الشحنة. اكتب الرقم المرجعي المسحوب من التصريح لتأكيد إصداره قبل بدء الرحلة.',
+    permit_hint_short: 'شحنات نشطة لم يُؤكَّد تصريحها', permit_need_ref: 'اكتب الرقم المرجعي للتصريح أولاً.',
+    permit_filter_missing: 'بلا تصريح', permit_filter_ok: 'مؤكَّد التصريح', err_permit_required: 'لا يمكن بدء الرحلة قبل تأكيد تصريح هيئة الطرق برقمه المرجعي.',
+    require_permit: 'منع بدء الرحلة دون تصريح هيئة الطرق', home_country: 'الدولة الأساسية (داخل المملكة)', yes: 'نعم', no: 'لا',
+    costs_title: 'تكاليف الشحنة والفوترة', cost_type: 'البند', cost_desc: 'البيان', amount: 'المبلغ', billable: 'على من؟', billable_yes: 'يُحمَّل على العميل',
+    company_cost: 'على الشركة', add_cost: 'إضافة تكلفة', total_cost: 'إجمالي التكاليف', billable_cost: 'تكاليف محمّلة على العميل', client_total: 'المستحق على العميل',
+    margin: 'صافي الربح', confirm_delete_cost: 'حذف بند التكلفة؟',
+    cost_fuel: 'وقود', cost_driver: 'مصروف / بدل سائق', cost_tolls: 'رسوم طرق', cost_permit: 'رسوم تصريح', cost_port: 'رسوم ميناء / جمارك / منفذ', cost_loading: 'تحميل وتنزيل', cost_other: 'أخرى',
+    kpi_no_permit: 'شحنات بلا تصريح', kpi_expiry: 'وثائق تحتاج تجديد', kpi_expiry_sub: 'منتهية أو تنتهي خلال 30 يوم', kpi_revenue: 'المستحق على العملاء (الشهر)', kpi_international: 'رحلات خارج المملكة',
+    billing_intro: 'المستحق على كل عميل = أجرة النقل + التكاليف المحمّلة عليه، لكل شحنة غير ملغاة في الفترة. اطبع الكشف أو صدّره.',
+    all_clients: 'كل العملاء', totals: 'الإجمالي', export_csv: 'تصدير CSV',
+    places_intro: 'أضف الدول والمدن والمحافظات التي تنقل منها وإليها. المدن الجديدة المكتوبة في أي شحنة تُضاف هنا تلقائياً. الأزرق = مضاف من المستخدمين.',
+    add_country: 'إضافة دولة', add_city: 'إضافة مدينة / محافظة', country: 'الدولة', confirm_delete_place: 'حذف من القائمة؟ (لا يؤثر على الشحنات المسجلة)',
+    login_shared: 'ادخل باسم المستخدم وكلمة المرور الخاصة بك.',
     cloud_ok: 'متصل', cloud_offline: 'دون اتصال — يُزامن عند عودة الإنترنت', cloud_err: 'تعذّر الحفظ في السحابة',
-    users_intro: 'الحسابات هي نفس حسابات نظام التوريد. حدّد صلاحية كل موظف في نظام النقل، ومدير نظام التوريد مدير هنا تلقائياً.',
-    ws_role: 'الدور في نظام التوريد', fleet_role: 'الصلاحية في نظام النقل', role_none: 'بلا وصول', ws_admin_fixed: 'مدير النظام (تلقائي)',
-    users_members_unavailable: 'قائمة كل حسابات نظام التوريد تظهر لمدير نظام التوريد فقط؛ يظهر هنا من أُضيف سابقاً.',
-    pw_shared_note: 'كلمة المرور هي نفسها في نظام التوريد، وتُغيَّر من هناك.', account: 'الحساب', external_link: 'الرابط الخارجي للنظام',
+    users_intro: 'حدّد صلاحية كل حساب في نظام النقل. المدير الرئيسي مدير هنا تلقائياً.',
+    ws_role: 'نوع الحساب', fleet_role: 'الصلاحية في نظام النقل', role_none: 'بلا وصول', ws_admin_fixed: 'مدير النظام (تلقائي)',
+    users_members_unavailable: 'القائمة الكاملة للحسابات تظهر للمدير الرئيسي فقط؛ يظهر هنا من أُضيف سابقاً.',
+    pw_shared_note: 'لتغيير كلمة المرور تواصل مع المدير.', account: 'الحساب', external_link: 'الرابط الخارجي للنظام',
     copy_link: 'نسخ الرابط', link_copied: 'تم نسخ الرابط', live_sync: 'كل التعديلات تُحفظ في السحابة وتظهر لحظياً على كل الأجهزة.',
     err_not_member: 'حسابك غير معتمد في مساحة العمل — تواصل مع المدير.', err_not_fleet: 'لم يُضف حسابك إلى نظام النقل بعد — اطلب من المدير إضافتك من «المستخدمون».',
     err_inactive: 'هذا الحساب موقوف.',
@@ -159,12 +184,38 @@ const I18N = {
     err_shipment_closed: 'الشحنة مغلقة (مسلّمة أو ملغاة).', err_duplicate: 'القيمة مسجلة مسبقاً.', err_no_vehicles: 'أضف رقم شاسيه واحداً على الأقل.',
   },
   en: {
-    login_shared: 'Sign in with the same username and password you use in the supply system.', back_supply: 'Supply system',
+    nav_trucks: 'Trucks', nav_expiry: 'Documents & expiry', nav_billing: 'Client billing', nav_places: 'Countries & cities',
+    add_truck: 'Add truck', plate: 'Plate no.', truck_type: 'Truck type', model_year: 'Model year', docs_status: 'Documents',
+    doc_iqama: 'Iqama / ID', doc_license: 'Driving license', doc_passport: 'Passport', doc_reg: 'Vehicle registration (Istimara)',
+    doc_insurance: 'Insurance', doc_op_card: 'Operating card', doc_inspection: 'Periodic inspection',
+    exp_since: 'Expired {n} days ago', exp_in: 'Expires in {n} days', exp_today: 'Expires today', docs_missing_short: 'no date',
+    b_alerts: 'Alerts (expired + 30 days)', b_expired: 'Expired', b_d30: 'Within 30 days', b_d60: '31–60 days', b_d90: '61–90 days',
+    b_ok: 'Valid (90+ days)', b_missing: 'No date recorded', b_all: 'All',
+    kind: 'Type', kind_drivers: 'Driver', kind_trucks: 'Truck', document: 'Document', expiry_date: 'Expiry date',
+    expiry_intro: 'All driver and truck documents sorted by nearest expiry. Record dates on the Drivers and Trucks pages.',
+    scope: 'Scope', scope_domestic: 'Domestic', scope_international: 'International', origin_country: 'Origin country', destination_country: 'Destination country',
+    truck: 'Truck', choose_truck: 'Not specified', freight: 'Freight charged to client',
+    permit: 'Road permit', permit_title: 'Roads authority permit', permit_ref: 'Permit reference no.', permit_date: 'Permit date', permit_ph: 'From the permit document',
+    permit_confirm: 'Confirm permit', permit_confirmed_by: 'Confirmed by', permit_missing: 'No permit', permit_none: 'No permit recorded',
+    permit_hint: 'The roads authority permit is not confirmed for this shipment. Enter the reference number from the permit to confirm it before the trip starts.',
+    permit_hint_short: 'Active shipments without a confirmed permit', permit_need_ref: 'Enter the permit reference number first.',
+    permit_filter_missing: 'Without permit', permit_filter_ok: 'Permit confirmed', err_permit_required: 'The trip cannot start before the road permit is confirmed with its reference number.',
+    require_permit: 'Block trip start without a road permit', home_country: 'Home country (domestic)', yes: 'Yes', no: 'No',
+    costs_title: 'Shipment costs & billing', cost_type: 'Item', cost_desc: 'Description', amount: 'Amount', billable: 'Charged to', billable_yes: 'Charged to client',
+    company_cost: 'Company cost', add_cost: 'Add cost', total_cost: 'Total costs', billable_cost: 'Costs charged to client', client_total: 'Due from client',
+    margin: 'Net margin', confirm_delete_cost: 'Delete this cost item?',
+    cost_fuel: 'Fuel', cost_driver: 'Driver allowance', cost_tolls: 'Road tolls', cost_permit: 'Permit fees', cost_port: 'Port / customs / border fees', cost_loading: 'Loading & unloading', cost_other: 'Other',
+    kpi_no_permit: 'Shipments without permit', kpi_expiry: 'Documents to renew', kpi_expiry_sub: 'Expired or expiring within 30 days', kpi_revenue: 'Due from clients (month)', kpi_international: 'International trips',
+    billing_intro: 'Due from each client = freight + costs charged to them, for every non-cancelled shipment in the period. Print or export the statement.',
+    all_clients: 'All clients', totals: 'Totals', export_csv: 'Export CSV',
+    places_intro: 'Add the countries, cities and governorates you transport from and to. New cities typed on a shipment are added here automatically. Blue = added by users.',
+    add_country: 'Add country', add_city: 'Add city / governorate', country: 'Country', confirm_delete_place: 'Remove from the list? (Recorded shipments are not affected)',
+    login_shared: 'Sign in with your username and password.',
     cloud_ok: 'Online', cloud_offline: 'Offline — will sync when back online', cloud_err: 'Could not save to the cloud',
-    users_intro: 'Accounts are the supply system accounts. Set each employee’s role in the logistics system; supply system admins are admins here automatically.',
-    ws_role: 'Supply system role', fleet_role: 'Logistics role', role_none: 'No access', ws_admin_fixed: 'Administrator (automatic)',
-    users_members_unavailable: 'The full list of supply accounts is visible to supply system admins only; previously added users are shown.',
-    pw_shared_note: 'Your password is the same as in the supply system and is changed there.', account: 'Account', external_link: 'External link to this system',
+    users_intro: 'Set each account’s role in the logistics system. The main administrator is an administrator here automatically.',
+    ws_role: 'Account type', fleet_role: 'Logistics role', role_none: 'No access', ws_admin_fixed: 'Administrator (automatic)',
+    users_members_unavailable: 'The full account list is visible to the main administrator only; previously added users are shown.',
+    pw_shared_note: 'Contact the administrator to change your password.', account: 'Account', external_link: 'External link to this system',
     copy_link: 'Copy link', link_copied: 'Link copied', live_sync: 'Every change is saved to the cloud and appears instantly on all devices.',
     err_not_member: 'Your account is not approved in the workspace — contact the administrator.', err_not_fleet: 'Your account has not been added to the logistics system yet — ask an administrator to add you under Users.',
     err_inactive: 'This account is suspended.',
@@ -254,7 +305,7 @@ setLang(LANG);
    فوراً ويظهر لحظياً على كل الأجهزة، دون أن يمسّ بيانات التوريد أو المنصة.
    ===================================================================== */
 'use strict';
-const APP_BUILD = '2026-10-21-f1';
+const APP_BUILD = '2026-10-21-f2';
 const CLOUD_CONFIG = {
   apiKey: 'AIzaSyDMZoozjFw9PTF-pluoALw3NKqeGDjbdtI',
   authDomain: 'mohamed-farag-fruits.firebaseapp.com',
@@ -274,10 +325,10 @@ const memberRef = (uid) => fdb().ref(`workspaces/${WID}/members${uid ? '/' + uid
 function hash(s) { let h = 5381; s = String(s) + '::mfarag'; for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) >>> 0; return 'h' + h.toString(36); }
 function synthEmail(username) { username = String(username || '').trim(); return username.indexOf('@') > 0 ? username : 'u' + hash(username.toLowerCase()) + '@' + WID + '.vegerp.app'; }
 
-const S_KEYS = ['drivers', 'clients', 'shipments', 'users', 'settings', 'reconIdx'];
+const S_KEYS = ['drivers', 'trucks', 'clients', 'shipments', 'users', 'settings', 'reconIdx', 'places'];
 const S = {};
 const LS_CACHE = 'fleet_cache_' + WID;
-const DEFAULT_SETTINGS = { company_name: '', incentive_max_damage_rate: '2', incentive_min_vehicles: '20', incentive_amount: '500' };
+const DEFAULT_SETTINGS = { company_name: '', incentive_max_damage_rate: '2', incentive_min_vehicles: '20', incentive_amount: '500', require_permit: '1', home_country: 'السعودية' };
 const FB = { root: null, listening: false };
 
 function cacheLoad() { let c = {}; try { c = JSON.parse(localStorage.getItem(LS_CACHE) || '{}'); } catch {} S_KEYS.forEach((k) => (S[k] = c[k] || {})); }
@@ -322,6 +373,7 @@ const isYmd = (s) => /^\d{4}-\d{2}-\d{2}$/.test(s || '');
 const DAMAGED = ['dent', 'scratch', 'dent_scratch'];
 const CONDITIONS = ['pending', 'ok', 'dent', 'scratch', 'dent_scratch'];
 const STATUSES = ['pending', 'in_transit', 'delivered', 'cancelled'];
+const COST_TYPES = ['fuel', 'driver', 'tolls', 'permit', 'port', 'loading', 'other'];
 function apiErr(code, data = {}) {
   const k = 'err_' + code, e = new Error(t(k) !== k ? t(k) : t('err_server_error'));
   e.code = code; e.data = data; return e;
@@ -336,10 +388,17 @@ const userName = () => window.ME.full_name || window.ME.username;
 
 function shipView(id) {
   const s = S.shipments[id]; if (!s) return null;
-  const d = S.drivers[s.driver_id] || {}, c = S.clients[s.client_id] || {}, vs = vehiclesOf(s);
-  return { ...s, id, vehicles: vs, driver_name: d.name || '—', driver_phone: d.phone || null, truck_plate: d.truck_plate || null,
+  const d = S.drivers[s.driver_id] || {}, c = S.clients[s.client_id] || {}, tr = (S.trucks || {})[s.truck_id] || {}, vs = vehiclesOf(s);
+  const costs = Object.keys(s.costs || {}).map((k) => ({ ...s.costs[k], id: k })).sort((a, b) => String(a.at || '').localeCompare(b.at || ''));
+  const total_cost = round2(costs.reduce((n, x) => n + (Number(x.amount) || 0), 0));
+  const billable_cost = round2(costs.filter((x) => x.billable).reduce((n, x) => n + (Number(x.amount) || 0), 0));
+  const freight = round2(Number(s.freight) || 0), home = homeCountry();
+  const origin_country = s.origin_country || home, destination_country = s.destination_country || home;
+  return { ...s, id, vehicles: vs, driver_name: d.name || '—', driver_phone: d.phone || null, truck_plate: tr.plate || d.truck_plate || null,
     sap_vendor_code: d.sap_vendor_code || null, client_name: c.name || null, sap_customer_code: c.sap_customer_code || null,
-    vehicle_count: vs.length, damaged_count: vs.filter((v) => DAMAGED.includes(v.condition)).length, pending_count: vs.filter((v) => v.condition === 'pending').length };
+    vehicle_count: vs.length, damaged_count: vs.filter((v) => DAMAGED.includes(v.condition)).length, pending_count: vs.filter((v) => v.condition === 'pending').length,
+    origin_country, destination_country, scope: origin_country === home && destination_country === home ? 'domestic' : 'international',
+    costs, freight, total_cost, billable_cost, client_total: round2(freight + billable_cost), margin: round2(freight + billable_cost - total_cost) };
 }
 const allShips = () => Object.keys(S.shipments || {}).map(shipView);
 
@@ -361,15 +420,57 @@ async function nextRef(tripDate) {
   return prefix + String(r.snapshot.val()).padStart(4, '0');
 }
 
-/* ---------- البيانات الأساسية: السائقون والعملاء ---------- */
+/* ---------- الدول والمدن: قائمة أساسية + ما يضيفه المستخدمون ---------- */
+const DEFAULT_COUNTRIES = ['السعودية', 'الإمارات', 'الكويت', 'قطر', 'البحرين', 'عُمان', 'الأردن', 'مصر', 'العراق', 'اليمن', 'لبنان', 'سوريا'];
+const round2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
+const homeCountry = () => settings().home_country || 'السعودية';
+const placeRows = (kind) => Object.keys((S.places || {})[kind] || {}).map((id) => ({ ...S.places[kind][id], id }));
+const countriesList = () => [...new Set([homeCountry(), ...DEFAULT_COUNTRIES, ...placeRows('countries').map((c) => c.name)].filter(Boolean))];
+function citiesOf(country) {
+  const base = country === homeCountry() ? CITIES : [];
+  return [...new Set([...base, ...placeRows('cities').filter((c) => c.country === country).map((c) => c.name)])];
+}
+/* مدينة جديدة كُتبت في الشحنة تُضاف للقائمة تلقائياً */
+function cityUpdates(country, city, up) {
+  if (!country || !city || citiesOf(country).includes(city)) return;
+  if (!countriesList().includes(country)) up[`places/countries/${newKey()}`] = { name: country, by: userName(), at: nowStr() };
+  up[`places/cities/${newKey()}`] = { name: city, country, by: userName(), at: nowStr() };
+}
+
+/* ---------- البيانات الأساسية: السائقون والشاحنات والعملاء ---------- */
 const MASTER = {
-  drivers: { fields: ['name', 'phone', 'national_id', 'license_no', 'truck_plate', 'sap_vendor_code'], required: ['name'] },
+  drivers: { fields: ['name', 'phone', 'national_id', 'license_no', 'truck_plate', 'sap_vendor_code', 'iqama_expiry', 'license_expiry', 'passport_expiry'], required: ['name'] },
+  trucks: { fields: ['plate', 'truck_type', 'model_year', 'reg_expiry', 'insurance_expiry', 'op_card_expiry', 'inspection_expiry', 'notes'], required: ['plate'] },
   clients: { fields: ['name', 'contact_person', 'phone', 'email', 'sap_customer_code'], required: ['name'] },
 };
 function masterList(table, all) {
-  return rows(table).map((r) => ({ ...r, active: r.active === 0 ? 0 : 1 })).filter((r) => all || r.active)
-    .sort((a, b) => b.active - a.active || String(a.name || '').localeCompare(String(b.name || ''), 'ar'));
+  const nm = (r) => String(r.name || r.plate || '');
+  return rows(table).map((r) => ({ ...r, active: r.active === 0 ? 0 : 1, docs: docStatus(table, r) })).filter((r) => all || r.active)
+    .sort((a, b) => b.active - a.active || nm(a).localeCompare(nm(b), 'ar'));
 }
+
+/* ---------- الوثائق وتواريخ الانتهاء (إقامة، رخص، تأمين، كرت تشغيل...) ---------- */
+const DOC_DEFS = {
+  drivers: [['iqama_expiry', 'doc_iqama'], ['license_expiry', 'doc_license'], ['passport_expiry', 'doc_passport']],
+  trucks: [['reg_expiry', 'doc_reg'], ['insurance_expiry', 'doc_insurance'], ['op_card_expiry', 'doc_op_card'], ['inspection_expiry', 'doc_inspection']],
+};
+const BUCKET_ORDER = ['expired', 'd30', 'd60', 'd90', 'ok', 'missing'];
+function daysLeft(date) { return Math.round((Date.parse(date) - Date.parse(today())) / 864e5); }
+function bucketOf(days) { return days === null ? 'missing' : days < 0 ? 'expired' : days <= 30 ? 'd30' : days <= 60 ? 'd60' : days <= 90 ? 'd90' : 'ok'; }
+function docStatus(table, r) {
+  const defs = DOC_DEFS[table]; if (!defs) return null;
+  const list = defs.map(([f, label]) => { const days = isYmd(r[f]) ? daysLeft(r[f]) : null; return { field: f, label, date: r[f] || null, days, bucket: bucketOf(days) }; });
+  const worst = list.filter((x) => x.bucket !== 'missing').sort((a, b) => a.days - b.days)[0];
+  return { list, worst: worst || null, missing: list.filter((x) => x.bucket === 'missing').length };
+}
+function expiryItems() {
+  const out = [];
+  ['drivers', 'trucks'].forEach((table) => masterList(table, false).forEach((r) => r.docs.list.forEach((d) =>
+    out.push({ ...d, kind: table, id: r.id, name: table === 'drivers' ? r.name : r.plate, sub: table === 'drivers' ? r.phone : r.truck_type }))));
+  return out.sort((a, b) => (a.days === null) - (b.days === null) || a.days - b.days);
+}
+const expiryAlerts = () => expiryItems().filter((x) => x.bucket === 'expired' || x.bucket === 'd30').length;
+const needsPermit = (s) => ['pending', 'in_transit'].includes(s.status) && !s.permit_no;
 function masterSave(table, id, b) {
   need('admin', 'supervisor');
   const cfg = MASTER[table], d = {};
@@ -428,9 +529,11 @@ function exportCsv(kind, month) {
   const m = monthOf(month);
   const ships = allShips().filter((s) => String(s.trip_date || '').slice(0, 7) === m).sort((a, b) => (a.trip_date + a.ref_no).localeCompare(b.trip_date + b.ref_no));
   if (kind === 'shipments') downloadCsv(`SAP_Shipments_${m}.csv`, ['RefNo', 'TripDate', 'Status', 'CustomerCode', 'CustomerName', 'VendorCode', 'DriverName', 'TruckPlate',
-    'Origin', 'Destination', 'VehicleType', 'VehicleQty', 'DamagedQty', 'DepartureAt', 'ArrivalAt', 'SAPDocNo'],
+    'Origin', 'Destination', 'VehicleType', 'VehicleQty', 'DamagedQty', 'DepartureAt', 'ArrivalAt', 'SAPDocNo',
+    'OriginCountry', 'DestinationCountry', 'Scope', 'RoadPermitNo', 'Freight', 'BillableCosts', 'ClientTotal', 'TotalCosts', 'Margin'],
     ships.map((s) => [s.ref_no, s.trip_date, s.status, s.sap_customer_code, s.client_name, s.sap_vendor_code, s.driver_name, s.truck_plate,
-      s.origin, s.destination, s.vehicle_type, s.vehicle_count, s.damaged_count, s.departure_at, s.arrival_at, s.sap_document_no]));
+      s.origin, s.destination, s.vehicle_type, s.vehicle_count, s.damaged_count, s.departure_at, s.arrival_at, s.sap_document_no,
+      s.origin_country, s.destination_country, s.scope, s.permit_no, s.freight, s.billable_cost, s.client_total, s.total_cost, s.margin]));
   if (kind === 'vehicles') downloadCsv(`SAP_Vehicles_${m}.csv`, ['RefNo', 'TripDate', 'VIN', 'Model', 'Color', 'Condition', 'ConditionNotes', 'InspectedAt',
     'VendorCode', 'DriverName', 'CustomerCode', 'CustomerName', 'Origin', 'Destination'],
     ships.flatMap((s) => s.vehicles.map((v) => [s.ref_no, s.trip_date, v.vin, v.model, v.color, v.condition, v.condition_notes, v.inspected_at,
@@ -549,9 +652,12 @@ const API_ROUTES = [
 
   ['GET', /^\/shipments$/, ({ q }) => {
     const st = q.get('status'), month = q.get('month'), drv = q.get('driver_id'), qq = String(q.get('q') || '').trim().toLowerCase(), vq = normVin(qq);
+    const scope = q.get('scope'), permit = q.get('permit'), cli = q.get('client_id');
     return allShips().filter((s) => (!STATUSES.includes(st) || s.status === st) && (!drv || s.driver_id === drv)
+      && (!scope || s.scope === scope) && (!cli || s.client_id === cli)
+      && (!permit || (permit === 'missing' ? !s.permit_no && s.status !== 'cancelled' : !!s.permit_no))
       && (!/^\d{4}-\d{2}$/.test(month || '') || String(s.trip_date || '').slice(0, 7) === month)
-      && (!qq || [s.ref_no, s.driver_name, s.client_name, s.origin, s.destination].some((x) => String(x || '').toLowerCase().includes(qq)) || (vq && s.vehicles.some((v) => v.vin.includes(vq)))))
+      && (!qq || [s.ref_no, s.driver_name, s.client_name, s.origin, s.destination, s.origin_country, s.destination_country, s.permit_no, s.truck_plate].some((x) => String(x || '').toLowerCase().includes(qq)) || (vq && s.vehicles.some((v) => v.vin.includes(vq)))))
       .sort((a, b) => String(b.trip_date).localeCompare(a.trip_date) || String(b.created_at || '').localeCompare(a.created_at || '')).slice(0, 300);
   }],
   ['GET', /^\/shipments\/([\w-]+)$/, ({ p }) => { const s = shipView(p[0]); if (!s) throw apiErr('not_found'); return s; }],
@@ -568,30 +674,95 @@ const API_ROUTES = [
     if (conflicts.length && !b.force) throw apiErr('vin_active', { conflicts });
     const tripDate = isYmd(b.trip_date) ? b.trip_date : today();
     const status = ['pending', 'in_transit'].includes(b.status) ? b.status : 'pending';
+    const permit_no = clean(b.permit_no);
+    if (status === 'in_transit' && !permit_no && settings().require_permit === '1') throw apiErr('permit_required');
+    const home = homeCountry(), oc = clean(b.origin_country) || home, dc = clean(b.destination_country) || home;
+    const freight = clean(b.freight) === null ? null : round2(b.freight);
+    if (freight !== null && freight < 0) throw apiErr('required_fields');
     const ref_no = await nextRef(tripDate);
     const id = newKey(), vs = {};
     vehicles.forEach((v, i) => (vs[newKey()] = { vin: v.vin, model: v.model || clean(b.vehicle_type), color: v.color, condition: 'pending', o: i + 1 }));
-    write({ [`shipments/${id}`]: { ref_no, driver_id: b.driver_id, client_id: b.client_id || null, origin: clean(b.origin), destination: clean(b.destination),
+    const up = { [`shipments/${id}`]: { ref_no, driver_id: b.driver_id, client_id: b.client_id || null, truck_id: b.truck_id || null,
+      origin: clean(b.origin), destination: clean(b.destination), origin_country: oc, destination_country: dc,
       vehicle_type: clean(b.vehicle_type), trip_date: tripDate, status, departure_at: status === 'in_transit' ? nowStr() : null, arrival_at: null,
-      notes: clean(b.notes), sap_document_no: null, created_by_name: userName(), created_at: nowStr(), vehicles: vs } });
+      notes: clean(b.notes), sap_document_no: null, freight, created_by_name: userName(), created_at: nowStr(), vehicles: vs,
+      ...(permit_no ? { permit_no, permit_date: isYmd(b.permit_date) ? b.permit_date : today(), permit_by: userName(), permit_at: nowStr() } : {}) } };
+    cityUpdates(oc, clean(b.origin), up); cityUpdates(dc, clean(b.destination), up);
+    write(up);
     return { id };
   }],
   ['PUT', /^\/shipments\/([\w-]+)$/, ({ p, body: b }) => {
     const id = p[0], s = S.shipments[id]; if (!s) throw apiErr('not_found');
     const d = {};
-    ['origin', 'destination', 'vehicle_type', 'notes', 'sap_document_no'].forEach((f) => { if (f in b) d[f] = clean(b[f]); });
+    ['origin', 'destination', 'origin_country', 'destination_country', 'vehicle_type', 'notes', 'sap_document_no'].forEach((f) => { if (f in b) d[f] = clean(b[f]); });
     if ('driver_id' in b) { if (!S.drivers[b.driver_id]) throw apiErr('required_fields'); d.driver_id = b.driver_id; }
+    if ('truck_id' in b) d.truck_id = b.truck_id || null;
+    if ('freight' in b) { need('admin', 'supervisor'); d.freight = clean(b.freight) === null ? null : round2(b.freight); if (d.freight < 0) throw apiErr('required_fields'); }
+    /* تصريح هيئة الطرق: الرقم المرجعي المسحوب من التصريح هو إثبات إصداره */
+    if ('permit_no' in b) {
+      d.permit_no = clean(b.permit_no);
+      if (s.permit_no && d.permit_no !== s.permit_no) need('admin', 'supervisor');
+      d.permit_date = d.permit_no ? (isYmd(b.permit_date) ? b.permit_date : s.permit_date || today()) : null;
+      d.permit_by = d.permit_no ? userName() : null; d.permit_at = d.permit_no ? nowStr() : null;
+    }
     if ('client_id' in b) d.client_id = b.client_id || null;
     if ('trip_date' in b && isYmd(b.trip_date)) d.trip_date = b.trip_date;
     if ('status' in b) {
       if (!STATUSES.includes(b.status)) throw apiErr('required_fields');
       d.status = b.status;
+      const permitAfter = 'permit_no' in d ? d.permit_no : s.permit_no;
+      if (b.status === 'in_transit' && s.status !== 'in_transit' && !permitAfter && settings().require_permit === '1') throw apiErr('permit_required');
       if (b.status === 'in_transit' && !s.departure_at) d.departure_at = nowStr();
       if (b.status === 'delivered' && !s.arrival_at) d.arrival_at = nowStr();
     }
     if (('origin' in d && !d.origin) || ('destination' in d && !d.destination)) throw apiErr('required_fields');
-    const up = {}; Object.keys(d).forEach((k) => (up[`shipments/${id}/${k}`] = d[k])); write(up);
+    const up = {}; Object.keys(d).forEach((k) => (up[`shipments/${id}/${k}`] = d[k]));
+    if ('origin' in d) cityUpdates(d.origin_country || s.origin_country || homeCountry(), d.origin, up);
+    if ('destination' in d) cityUpdates(d.destination_country || s.destination_country || homeCountry(), d.destination, up);
+    write(up);
     return { ok: true };
+  }],
+  /* تكاليف الشحنة: كل بند إما على الشركة أو يُحمَّل على العميل */
+  ['POST', /^\/shipments\/([\w-]+)\/costs$/, ({ p, body: b }) => {
+    const s = S.shipments[p[0]]; if (!s) throw apiErr('not_found');
+    const amount = round2(b.amount);
+    if (!COST_TYPES.includes(b.type) || !(amount > 0)) throw apiErr('required_fields');
+    write({ [`shipments/${p[0]}/costs/${newKey()}`]: { type: b.type, desc: clean(b.desc), amount, billable: b.billable ? 1 : 0, by: userName(), at: nowStr() } });
+    return { ok: true };
+  }],
+  ['PUT', /^\/shipments\/([\w-]+)\/costs\/([\w-]+)$/, ({ p, body: b }) => {
+    const s = S.shipments[p[0]]; if (!s || !(s.costs || {})[p[1]]) throw apiErr('not_found');
+    write({ [`shipments/${p[0]}/costs/${p[1]}/billable`]: b.billable ? 1 : 0 }); return { ok: true };
+  }],
+  ['DELETE', /^\/shipments\/([\w-]+)\/costs\/([\w-]+)$/, ({ p }) => {
+    const s = S.shipments[p[0]]; if (!s || !(s.costs || {})[p[1]]) throw apiErr('not_found');
+    write({ [`shipments/${p[0]}/costs/${p[1]}`]: null }); return { ok: true };
+  }],
+  ['GET', /^\/statement$/, ({ q }) => {
+    need('admin', 'supervisor');
+    const from = q.get('from') || '', to = q.get('to') || '9999', cli = q.get('client_id'), scope = q.get('scope');
+    const list = allShips().filter((s) => s.status !== 'cancelled' && (!cli || s.client_id === cli) && (!scope || s.scope === scope)
+      && String(s.trip_date) >= from && String(s.trip_date) <= to).sort((a, b) => (a.trip_date + a.ref_no).localeCompare(b.trip_date + b.ref_no));
+    const sum = (f) => round2(list.reduce((n, s) => n + s[f], 0));
+    return { rows: list, totals: { freight: sum('freight'), billable_cost: sum('billable_cost'), client_total: sum('client_total'), total_cost: sum('total_cost'), margin: sum('margin'),
+      vehicles: list.reduce((n, s) => n + s.vehicle_count, 0) } };
+  }],
+  ['GET', /^\/expiry$/, () => expiryItems()],
+  ['GET', /^\/trucks$/, ({ q }) => masterList('trucks', q.get('all') === '1')],
+  ['POST', /^\/trucks$/, ({ body }) => masterSave('trucks', null, body)],
+  ['PUT', /^\/trucks\/([\w-]+)$/, ({ p, body }) => masterSave('trucks', p[0], body)],
+  ['GET', /^\/places$/, () => ({ countries: countriesList().map((name) => ({ name, custom: placeRows('countries').find((c) => c.name === name) || null, cities: citiesOf(name).map((c) => ({ name: c, custom: placeRows('cities').find((x) => x.name === c && x.country === name) || null })) })) })],
+  ['POST', /^\/places\/(countries|cities)$/, ({ p, body: b }) => {
+    need('admin', 'supervisor'); const name = clean(b.name); if (!name) throw apiErr('required_fields');
+    if (p[0] === 'countries') { if (countriesList().includes(name)) throw apiErr('duplicate'); write({ [`places/countries/${newKey()}`]: { name, by: userName(), at: nowStr() } }); }
+    else { const country = clean(b.country) || homeCountry(); if (citiesOf(country).includes(name)) throw apiErr('duplicate'); const up = {}; cityUpdates(country, name, up); write(up); }
+    return { ok: true };
+  }],
+  ['DELETE', /^\/places\/(countries|cities)\/([\w-]+)$/, ({ p }) => {
+    need('admin', 'supervisor'); if (!((S.places || {})[p[0]] || {})[p[1]]) throw apiErr('not_found');
+    const up = { [`places/${p[0]}/${p[1]}`]: null };
+    if (p[0] === 'countries') { const nm = S.places.countries[p[1]].name; placeRows('cities').filter((c) => c.country === nm).forEach((c) => (up[`places/cities/${c.id}`] = null)); }
+    write(up); return { ok: true };
   }],
   ['DELETE', /^\/shipments\/([\w-]+)$/, ({ p }) => { need('admin', 'supervisor'); write({ [`shipments/${p[0]}`]: null }); return { ok: true }; }],
   ['POST', /^\/shipments\/([\w-]+)\/vehicles$/, ({ p, body: b }) => {
@@ -628,7 +799,7 @@ const API_ROUTES = [
     allShips().forEach((s) => s.vehicles.forEach((v) => { if (!v.vin.includes(qq)) return;
       out.push({ ...v, shipment_id: s.id, ref_no: s.ref_no, trip_date: s.trip_date, origin: s.origin, destination: s.destination, status: s.status,
         vehicle_type: s.vehicle_type, departure_at: s.departure_at, arrival_at: s.arrival_at, driver_name: s.driver_name, driver_phone: s.driver_phone,
-        truck_plate: s.truck_plate, client_name: s.client_name, log: Object.values(v.log || {}).sort((a, b) => String(b.created_at).localeCompare(a.created_at)) }); }));
+        truck_plate: s.truck_plate, client_name: s.client_name, origin_country: s.origin_country, destination_country: s.destination_country, scope: s.scope, permit_no: s.permit_no, log: Object.values(v.log || {}).sort((a, b) => String(b.created_at).localeCompare(a.created_at)) }); }));
     out.sort((a, b) => (b.vin === qq) - (a.vin === qq) || a.vin.localeCompare(b.vin) || String(b.trip_date).localeCompare(a.trip_date));
     return { results: out.slice(0, 100) };
   }],
@@ -638,7 +809,9 @@ const API_ROUTES = [
     const mv = inM.flatMap((s) => s.vehicles.map((v) => ({ ...v, shipment_id: s.id, ref_no: s.ref_no, trip_date: s.trip_date, driver_name: s.driver_name })));
     return { month: m,
       kpis: { trips: inM.length, vehicles: mv.length, inspected: mv.filter((v) => v.condition !== 'pending').length, damaged: mv.filter((v) => DAMAGED.includes(v.condition)).length,
-        in_transit: ships.filter((s) => s.status === 'in_transit').length, pending: ships.filter((s) => s.status === 'pending').length },
+        in_transit: ships.filter((s) => s.status === 'in_transit').length, pending: ships.filter((s) => s.status === 'pending').length,
+        no_permit: ships.filter(needsPermit).length, expiry_alerts: expiryAlerts(), international: inM.filter((s) => s.scope === 'international').length,
+        revenue: round2(inM.reduce((n, s) => n + s.client_total, 0)), costs: round2(inM.reduce((n, s) => n + s.total_cost, 0)), margin: round2(inM.reduce((n, s) => n + s.margin, 0)) },
       drivers: driverStats(m),
       recentDamage: mv.filter((v) => DAMAGED.includes(v.condition)).sort((a, b) => String(b.inspected_at || '').localeCompare(a.inspected_at || '')).slice(0, 8),
       rules: { max_rate: Number(st.incentive_max_damage_rate), min_vehicles: Number(st.incentive_min_vehicles), amount: Number(st.incentive_amount) } };
@@ -646,7 +819,8 @@ const API_ROUTES = [
   ['GET', /^\/settings$/, () => settings()],
   ['PUT', /^\/settings$/, ({ body }) => {
     need('admin'); const up = {};
-    ['company_name', 'incentive_max_damage_rate', 'incentive_min_vehicles', 'incentive_amount'].forEach((k) => { if (k in body) up['settings/' + k] = String(body[k]).trim(); });
+    ['company_name', 'incentive_max_damage_rate', 'incentive_min_vehicles', 'incentive_amount', 'require_permit', 'home_country'].forEach((k) => { if (k in body) up['settings/' + k] = String(body[k]).trim(); });
+    if ('home_country' in body && !String(body.home_country).trim()) up['settings/home_country'] = 'السعودية';
     write(up); return settings();
   }],
   ['POST', /^\/reconcile$/, ({ body }) => reconcile(body)],
@@ -726,7 +900,7 @@ function onRemoteChange(k) {
 function liveRerender() {
   if (!window.ME) return;
   const path = (location.hash || '#/dashboard').split('?')[0];
-  if (!/^#\/(dashboard|shipments|shipments\/(?!new$)[\w-]+|drivers|clients)$/.test(path)) return;
+  if (!/^#\/(dashboard|shipments|shipments\/(?!new$)[\w-]+|drivers|trucks|clients|expiry|places)$/.test(path)) return;
   const ae = document.activeElement;
   if ($('#modal-root').children.length || (ae && ae.closest && ae.closest('#view') && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName))) {
     rrTimer = setTimeout(liveRerender, 2000); return;
@@ -1105,6 +1279,9 @@ const ICONS = {
   trash: 'm14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0',
   check: 'm4.5 12.75 6 6 9-13.5',
   swap: 'M7.5 21 3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5',
+  globe: 'M12 21a9.004 9.004 0 0 0 8.716-6.747M12 21a9.004 9.004 0 0 1-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 0 1 7.843 4.582M12 3a8.997 8.997 0 0 0-7.843 4.582m15.686 0A11.953 11.953 0 0 1 12 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0 1 21 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0 1 12 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 0 1 3 12c0-1.605.42-3.113 1.157-4.418',
+  money: 'M2.25 18.75a60.07 60.07 0 0 1 15.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 0 1 3 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 0 0-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 0 1-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 0 0 3 15h-.75M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm3 0h.008v.008H18V10.5Zm-12 0h.008v.008H6V10.5Z',
+  clock: 'M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z',
   alert: 'M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z',
 };
 const icon = (n, cls = 'w-5 h-5') => `<svg class="${cls} shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="${ICONS[n]}"/></svg>`;
@@ -1120,6 +1297,23 @@ const STATUS_CLS = { pending: 'bg-slate-100 text-slate-700', in_transit: 'bg-amb
 const condBadge = (c) => `<span class="badge ${COND_CLS[c] || ''}">${t('cond_' + c)}</span>`;
 const statusBadge = (s) => `<span class="badge ${STATUS_CLS[s] || ''}">${t('status_' + s)}</span>`;
 const route = (a, b) => `<span>${esc(a)}</span> <span class="inline-block text-slate-400 rtl:rotate-180">→</span> <span>${esc(b)}</span>`;
+/* المسار مع الدولة إن كانت خارج المملكة + شارة «دولي» */
+const routeS = (s) => {
+  const h = homeCountry(), pl = (c, k) => esc(c) + (k && k !== h ? ` <span class="text-xs text-slate-500">(${esc(k)})</span>` : '');
+  return `<span>${pl(s.origin, s.origin_country)}</span> <span class="inline-block text-slate-400 rtl:rotate-180">→</span> <span>${pl(s.destination, s.destination_country)}</span>`
+    + (s.scope === 'international' ? ` <span class="badge bg-sky-50 text-sky-800 ring-1 ring-sky-200">${t('scope_international')}</span>` : '');
+};
+const permitBadge = (s) => s.permit_no ? `<span class="badge bg-road-50 text-road-700 ring-1 ring-road-200">✓ <span dir="ltr">${esc(s.permit_no)}</span></span>`
+  : ['delivered', 'cancelled'].includes(s.status) ? `<span class="badge bg-slate-100 text-slate-500">${t('permit_none')}</span>`
+  : `<span class="badge bg-rose-50 text-rose-700 ring-1 ring-rose-200">${t('permit_missing')}</span>`;
+const money = (n) => Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const BUCKET_CLS = { expired: 'bg-rose-600 text-white', d30: 'bg-rose-50 text-rose-700 ring-1 ring-rose-200', d60: 'bg-amber-50 text-amber-800 ring-1 ring-amber-200',
+  d90: 'bg-yellow-50 text-yellow-800 ring-1 ring-yellow-200', ok: 'bg-road-50 text-road-700 ring-1 ring-road-200', missing: 'bg-slate-100 text-slate-500' };
+const expText = (x) => x.bucket === 'missing' ? t('b_missing') : x.days < 0 ? t('exp_since').replace('{n}', num(-x.days)) : x.days === 0 ? t('exp_today') : t('exp_in').replace('{n}', num(x.days));
+const expBadge = (x, withLabel) => `<span class="badge ${BUCKET_CLS[x.bucket]}">${withLabel ? t(x.label) + ': ' : ''}${expText(x)}</span>`;
+const docsBadge = (r) => { const d = r.docs; if (!d) return '';
+  if (!d.worst) return `<span class="badge bg-slate-100 text-slate-500">${t('b_missing')}</span>`;
+  return expBadge(d.worst, true) + (d.missing ? ` <span class="text-xs text-slate-400">+${d.missing} ${t('docs_missing_short')}</span>` : ''); };
 
 /* ---------- أدوات واجهة ---------- */
 const loading = () => `<div class="py-16 flex justify-center"><div class="h-8 w-8 rounded-full border-[3px] border-road-100 border-t-road-500 animate-spin"></div></div>`;
@@ -1185,9 +1379,13 @@ const NAV = [
   { hash: '#/search', key: 'nav_search', icon: 'search' },
   { hash: '#/shipments/new', key: 'nav_new_shipment', icon: 'plus' },
   { hash: '#/shipments', key: 'nav_shipments', icon: 'truck' },
+  { hash: '#/billing', key: 'nav_billing', icon: 'money', roles: ['admin', 'supervisor'] },
+  { hash: '#/expiry', key: 'nav_expiry', icon: 'clock' },
   { hash: '#/reconcile', key: 'nav_reconcile', icon: 'swap', roles: ['admin', 'supervisor'] },
   { hash: '#/drivers', key: 'nav_drivers', icon: 'user' },
+  { hash: '#/trucks', key: 'nav_trucks', icon: 'truck' },
   { hash: '#/clients', key: 'nav_clients', icon: 'building' },
+  { hash: '#/places', key: 'nav_places', icon: 'globe' },
   { hash: '#/users', key: 'nav_users', icon: 'users', roles: ['admin'] },
   { hash: '#/settings', key: 'nav_settings', icon: 'cog' },
 ];
@@ -1215,8 +1413,8 @@ function renderShell(path) {
         </div>
       </div>
       <nav class="flex-1 overflow-y-auto p-3 space-y-1">
-        ${items.map((n) => `<a href="${n.hash}" class="nav-link ${isActive(n.hash) ? 'active' : ''}">${icon(n.icon)}<span>${t(n.key)}</span></a>`).join('')}
-        <a href="./" class="nav-link mt-3 border-t border-white/10 pt-4">${icon('swap')}<span>${t('back_supply')}</span></a>
+        ${items.map((n) => { const c = n.hash === '#/expiry' ? expiryAlerts() : 0;
+          return `<a href="${n.hash}" class="nav-link ${isActive(n.hash) ? 'active' : ''}">${icon(n.icon)}<span class="flex-1">${t(n.key)}</span>${c ? `<span class="rounded-full bg-rose-600 text-white text-xs px-2 py-0.5 tabular-nums">${c}</span>` : ''}</a>`; }).join('')}
       </nav>
       <div class="p-4 border-t border-white/10 text-sm">
         <div class="font-medium truncate">${esc(window.ME.full_name || window.ME.username)}</div>
@@ -1230,7 +1428,6 @@ function renderShell(path) {
           <button id="menu-btn" class="md:hidden -ms-1 p-2 rounded-lg hover:bg-slate-200/60" aria-label="${t('menu')}">${icon('menu')}</button>
           <h1 id="page-title" class="flex-1 truncate text-lg font-semibold"></h1>
           <span id="cloud-dot" class="cloud-dot" data-state="ok" title="${t('cloud_ok')}"></span>
-          <a href="./" class="hidden sm:inline-flex btn btn-ghost py-1.5">${t('back_supply')}</a>
           ${langButton()}
         </div>
       </header>
@@ -1276,7 +1473,6 @@ function renderLogin() {
           <div><label class="label" for="u">${t('username')}</label><input id="u" name="username" class="input" autocomplete="username" required dir="ltr"></div>
           <div><label class="label" for="p">${t('password')}</label><input id="p" name="password" type="password" class="input" autocomplete="current-password" required dir="ltr"></div>
           <button class="btn btn-primary btn-lg w-full" type="submit">${t('login')}</button>
-          <a href="./" class="block text-center text-sm text-slate-500 hover:text-ink">${t('back_supply')}</a>
         </form>
       </div>
     </div>
@@ -1331,6 +1527,12 @@ async function pageDashboard(view, m, qs) {
     ${kpi(t('kpi_vehicles'), num(k.vehicles), `${t('kpi_inspected')}: ${num(k.inspected)}`)}
     ${kpi(t('kpi_damage_rate'), rate === null ? '—' : rate.toFixed(1) + '%', `${num(k.damaged)} ${t('kpi_damaged_cars')}`, rate !== null && rate > R.max_rate ? 'border-rose-300' : '')}
     ${kpi(t('kpi_active'), num(k.in_transit), `${t('status_pending')}: ${num(k.pending)}`, 'bg-signal/10 border-signal/40')}
+  </div>
+  <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-6">
+    <a href="#/shipments?permit=missing" class="block">${kpi(t('kpi_no_permit'), num(k.no_permit), t('permit_hint_short'), k.no_permit ? 'border-rose-300 bg-rose-50/40' : '')}</a>
+    <a href="#/expiry" class="block">${kpi(t('kpi_expiry'), num(k.expiry_alerts), t('kpi_expiry_sub'), k.expiry_alerts ? 'border-rose-300 bg-rose-50/40' : '')}</a>
+    ${can('admin', 'supervisor') ? `<a href="#/billing" class="block">${kpi(t('kpi_revenue'), money(k.revenue), `${t('total_cost')}: ${money(k.costs)}`)}</a>
+    ${kpi(t('margin'), money(k.margin), `${t('kpi_international')}: ${num(k.international)}`, k.margin < 0 ? 'border-rose-300' : '')}` : ''}
   </div>
 
   <section class="card mb-6 overflow-hidden">
@@ -1424,7 +1626,7 @@ function renderSearchResults(list, q) {
             ${statusBadge(r.status)}
             <span class="text-sm text-slate-500">${esc(r.trip_date)}</span>
           </div>
-          <div class="text-base mb-4">${route(r.origin, r.destination)}</div>
+          <div class="text-base mb-4">${routeS(r)} ${permitBadge(r)}</div>
           <dl class="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-3 mb-4">
             ${dl(t('driver'), esc(r.driver_name) + (r.driver_phone ? `<div class="text-xs text-slate-500 font-normal" dir="ltr">${esc(r.driver_phone)}</div>` : ''))}
             ${dl(t('truck_plate'), val(r.truck_plate))}
@@ -1449,19 +1651,23 @@ function renderSearchResults(list, q) {
 /* ---------- قائمة الشحنات ---------- */
 async function pageShipments(view, m, qs) {
   setTitle(t('nav_shipments'));
-  const f = { status: qs.get('status') || '', q: qs.get('q') || '', month: qs.get('month') || '' };
+  const f = { status: qs.get('status') || '', q: qs.get('q') || '', month: qs.get('month') || '', scope: qs.get('scope') || '', permit: qs.get('permit') || '' };
   view.innerHTML = `
   <div class="flex flex-wrap gap-3 items-end mb-5">
     <div class="flex-1 min-w-[200px]"><label class="label" for="s-q">${t('search')}</label><input id="s-q" class="input" value="${esc(f.q)}" placeholder="${t('shipments_search_ph')}"></div>
     <div><label class="label" for="s-status">${t('status')}</label><select id="s-status" class="input w-40"><option value="">${t('all')}</option>
       ${['pending', 'in_transit', 'delivered', 'cancelled'].map((s) => `<option value="${s}" ${f.status === s ? 'selected' : ''}>${t('status_' + s)}</option>`).join('')}</select></div>
     <div><label class="label" for="s-month">${t('month')}</label><input id="s-month" type="month" class="input w-44" value="${f.month}"></div>
+    <div><label class="label" for="s-scope">${t('scope')}</label><select id="s-scope" class="input w-44"><option value="">${t('all')}</option>
+      ${['domestic', 'international'].map((x) => `<option value="${x}" ${f.scope === x ? 'selected' : ''}>${t('scope_' + x)}</option>`).join('')}</select></div>
+    <div><label class="label" for="s-permit">${t('permit')}</label><select id="s-permit" class="input w-40"><option value="">${t('all')}</option>
+      ${['missing', 'ok'].map((x) => `<option value="${x}" ${f.permit === x ? 'selected' : ''}>${t('permit_filter_' + x)}</option>`).join('')}</select></div>
     <a href="#/shipments/new" class="btn btn-primary">${icon('plus', 'w-4 h-4')} ${t('nav_new_shipment')}</a>
   </div>
   <div id="list">${loading()}</div>`;
   const load = async () => {
     const p = new URLSearchParams();
-    ['q', 'status', 'month'].forEach((k) => { const v = $('#s-' + k).value.trim(); if (v) p.set(k, v); });
+    ['q', 'status', 'month', 'scope', 'permit'].forEach((k) => { const v = $('#s-' + k).value.trim(); if (v) p.set(k, v); });
     history.replaceState(null, '', '#/shipments' + (p.toString() ? '?' + p : ''));
     try {
       const rows = await API.get('/shipments?' + p);
@@ -1469,36 +1675,36 @@ async function pageShipments(view, m, qs) {
       <div class="md:hidden space-y-3">${rows.map((s) => `
         <a href="#/shipments/${s.id}" class="card block p-4 active:bg-slate-50">
           <div class="flex items-center justify-between mb-2"><span class="font-semibold">${esc(s.ref_no)}</span>${statusBadge(s.status)}</div>
-          <div class="text-sm mb-2">${route(s.origin, s.destination)}</div>
+          <div class="text-sm mb-2">${routeS(s)}</div>
           <div class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500"><span>${esc(s.trip_date)}</span><span>${esc(s.driver_name)}</span>
             <span>${num(s.vehicle_count)} ${t('cars')}</span>${s.damaged_count ? `<span class="text-rose-700">${num(s.damaged_count)} ${t('damaged')}</span>` : ''}
-            ${s.pending_count ? `<span class="text-amber-700">${num(s.pending_count)} ${t('not_inspected')}</span>` : ''}</div>
+            ${s.pending_count ? `<span class="text-amber-700">${num(s.pending_count)} ${t('not_inspected')}</span>` : ''}${permitBadge(s)}</div>
         </a>`).join('')}</div>
       <div class="hidden md:block card overflow-x-auto"><table class="w-full">
         <thead><tr><th class="th">${t('ref_no')}</th><th class="th">${t('trip_date')}</th><th class="th">${t('driver')}</th><th class="th">${t('route')}</th>
-          <th class="th">${t('client')}</th><th class="th">${t('cars')}</th><th class="th">${t('damaged')}</th><th class="th">${t('not_inspected')}</th><th class="th">${t('status')}</th></tr></thead>
+          <th class="th">${t('client')}</th><th class="th">${t('cars')}</th><th class="th">${t('damaged')}</th><th class="th">${t('not_inspected')}</th><th class="th">${t('permit')}</th><th class="th">${t('status')}</th></tr></thead>
         <tbody>${rows.map((s) => `<tr class="hover:bg-slate-50 cursor-pointer" onclick="location.hash='#/shipments/${s.id}'">
           <td class="td font-medium text-road-700">${esc(s.ref_no)}</td><td class="td">${esc(s.trip_date)}</td><td class="td">${esc(s.driver_name)}</td>
-          <td class="td">${route(s.origin, s.destination)}</td><td class="td">${val(s.client_name)}</td><td class="td tabular-nums">${num(s.vehicle_count)}</td>
+          <td class="td">${routeS(s)}</td><td class="td">${val(s.client_name)}</td><td class="td tabular-nums">${num(s.vehicle_count)}</td>
           <td class="td tabular-nums ${s.damaged_count ? 'text-rose-700 font-medium' : ''}">${num(s.damaged_count)}</td>
-          <td class="td tabular-nums ${s.pending_count ? 'text-amber-700' : ''}">${num(s.pending_count)}</td><td class="td">${statusBadge(s.status)}</td></tr>`).join('')}</tbody>
+          <td class="td tabular-nums ${s.pending_count ? 'text-amber-700' : ''}">${num(s.pending_count)}</td><td class="td">${permitBadge(s)}</td><td class="td">${statusBadge(s.status)}</td></tr>`).join('')}</tbody>
       </table></div>` : emptyBox(t('no_shipments'), `<a href="#/shipments/new" class="btn btn-primary">${t('nav_new_shipment')}</a>`);
     } catch (e) { $('#list').innerHTML = errorBox(e.message); }
   };
   let timer;
   $('#s-q').oninput = () => { clearTimeout(timer); timer = setTimeout(load, 300); };
-  $('#s-status').onchange = load; $('#s-month').onchange = load;
+  $('#s-status').onchange = load; $('#s-month').onchange = load; $('#s-scope').onchange = load; $('#s-permit').onchange = load;
   load();
 }
 
 /* ---------- شحنة جديدة ---------- */
 async function pageNewShipment(view) {
   setTitle(t('nav_new_shipment'));
-  const [drivers, clients] = await Promise.all([API.get('/drivers'), API.get('/clients')]);
+  const [drivers, clients, trucks] = await Promise.all([API.get('/drivers'), API.get('/clients'), API.get('/trucks')]);
   if (!drivers.length) { view.innerHTML = emptyBox(t('need_driver_first'), `<a href="#/drivers" class="btn btn-primary">${t('add_driver')}</a>`); return; }
   const opt = (rows, ph) => `<option value="">${ph}</option>` + rows.map((r) => `<option value="${r.id}">${esc(r.name)}${r.truck_plate ? ' — ' + esc(r.truck_plate) : ''}</option>`).join('');
   view.innerHTML = `
-  <datalist id="cities">${CITIES.map((c) => `<option value="${esc(c)}">`).join('')}</datalist>
+  <datalist id="cities-o"></datalist><datalist id="cities-d"></datalist>
   <datalist id="vtypes">${VEHICLE_TYPES.map((c) => `<option value="${esc(c)}">`).join('')}</datalist>
   <form id="ship-form" class="space-y-5 max-w-5xl" novalidate>
     <section class="card p-4 md:p-6">
@@ -1507,8 +1713,15 @@ async function pageNewShipment(view) {
         <div><label class="label">${t('driver')} <span class="text-rose-500">*</span></label><select name="driver_id" class="input" required>${opt(drivers, t('choose_driver'))}</select></div>
         <div><label class="label">${t('client')}</label><select name="client_id" class="input">${opt(clients, t('choose_client'))}</select></div>
         <div><label class="label">${t('trip_date')} <span class="text-rose-500">*</span></label><input type="date" name="trip_date" class="input" value="${today()}" required></div>
-        <div><label class="label">${t('origin')} <span class="text-rose-500">*</span></label><input name="origin" list="cities" class="input" required></div>
-        <div><label class="label">${t('destination')} <span class="text-rose-500">*</span></label><input name="destination" list="cities" class="input" required></div>
+        <div><label class="label">${t('truck')}</label><select name="truck_id" id="truck-sel" class="input"><option value="">${t('choose_truck')}</option>${trucks.map((x) => `<option value="${x.id}">${esc(x.plate)}${x.truck_type ? ' — ' + esc(x.truck_type) : ''}</option>`).join('')}</select></div>
+        <div><label class="label">${t('origin_country')}</label><select name="origin_country" id="oc" class="input">${countryOpts(homeCountry())}</select></div>
+        <div><label class="label">${t('origin')} <span class="text-rose-500">*</span></label><input name="origin" list="cities-o" class="input" required></div>
+        <div class="hidden lg:block"></div>
+        <div><label class="label">${t('destination_country')}</label><select name="destination_country" id="dc" class="input">${countryOpts(homeCountry())}</select></div>
+        <div><label class="label">${t('destination')} <span class="text-rose-500">*</span></label><input name="destination" list="cities-d" class="input" required></div>
+        <div><label class="label">${t('freight')} (${t('sar')})</label><input name="freight" type="number" min="0" step="0.01" class="input" placeholder="0.00"></div>
+        <div><label class="label">${t('permit_ref')}</label><input name="permit_no" class="input" dir="ltr" placeholder="${t('permit_ph')}"></div>
+        <div><label class="label">${t('permit_date')}</label><input name="permit_date" type="date" class="input" value="${today()}"></div>
         <div><label class="label">${t('vehicle_type')}</label><input name="vehicle_type" id="vtype" list="vtypes" class="input"></div>
         <div><label class="label">${t('status')}</label><select name="status" class="input"><option value="pending">${t('status_pending')}</option><option value="in_transit">${t('status_in_transit')}</option></select></div>
         <div class="sm:col-span-2"><label class="label">${t('notes')}</label><input name="notes" class="input"></div>
@@ -1541,6 +1754,12 @@ async function pageNewShipment(view) {
     </div>
   </form>`;
 
+  const fillCities = (sel, dl) => ($('#' + dl).innerHTML = citiesOf($('#' + sel).value).map((c) => `<option value="${esc(c)}">`).join(''));
+  $('#oc').onchange = () => fillCities('oc', 'cities-o'); $('#dc').onchange = () => fillCities('dc', 'cities-d');
+  fillCities('oc', 'cities-o'); fillCities('dc', 'cities-d');
+  /* اختيار السائق يقترح شاحنته المسجلة */
+  $('select[name=driver_id]').addEventListener('change', (e) => { const d = drivers.find((x) => x.id === e.target.value), tr = d && trucks.find((x) => x.plate === d.truck_plate);
+    if (tr && !$('#truck-sel').value) $('#truck-sel').value = tr.id; });
   const rowsBox = $('#v-rows');
   const addRow = (vin = '') => {
     const div = document.createElement('div');
@@ -1633,7 +1852,7 @@ async function pageShipment(view, m) {
     <div class="flex flex-wrap items-center gap-3 mb-4">
       <h2 class="text-xl font-semibold">${esc(s.ref_no)}</h2>${statusBadge(s.status)}
     </div>
-    <div class="text-lg mb-5">${route(s.origin, s.destination)}</div>
+    <div class="text-lg mb-5">${routeS(s)}</div>
     <dl class="grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-4 text-sm">
       ${info(t('driver'), esc(s.driver_name) + (s.driver_phone ? ` <span class="text-slate-500 font-normal" dir="ltr">${esc(s.driver_phone)}</span>` : ''))}
       ${info(t('truck_plate'), val(s.truck_plate))}
@@ -1649,6 +1868,43 @@ async function pageShipment(view, m) {
       <div class="w-56"><label class="label" for="sap-no">${t('sap_document_no')}</label><input id="sap-no" class="input" value="${esc(s.sap_document_no || '')}" dir="ltr"></div>
       <button id="sap-save" class="btn btn-ghost">${t('save')}</button>
     </div>
+  </section>
+
+  <section class="card p-4 md:p-6 mb-5 ${!s.permit_no && open ? 'border-rose-300' : ''}">
+    <div class="flex flex-wrap items-center gap-3 mb-2"><h2 class="font-semibold">${t('permit_title')}</h2>${permitBadge(s)}</div>
+    ${s.permit_no ? `<p class="text-sm text-slate-600">${t('permit_ref')}: <b dir="ltr">${esc(s.permit_no)}</b> · ${t('permit_date')}: ${val(s.permit_date)} · ${t('permit_confirmed_by')}: ${val(s.permit_by)} (${dt(s.permit_at)})</p>`
+      : `<p class="text-sm ${open ? 'text-rose-700' : 'text-slate-500'}">${t('permit_hint')}</p>`}
+    ${s.status !== 'cancelled' && (!s.permit_no || can('admin', 'supervisor')) ? `<div class="mt-3 flex flex-wrap items-end gap-2 no-print">
+      <div class="w-60"><label class="label" for="permit-no">${t('permit_ref')}</label><input id="permit-no" class="input" dir="ltr" value="${esc(s.permit_no || '')}" placeholder="${t('permit_ph')}"></div>
+      <div class="w-44"><label class="label" for="permit-date">${t('permit_date')}</label><input id="permit-date" type="date" class="input" value="${esc(s.permit_date || today())}"></div>
+      <button id="permit-save" class="btn btn-primary">${icon('check', 'w-4 h-4')} ${t('permit_confirm')}</button></div>` : ''}
+  </section>
+
+  <section class="card overflow-hidden mb-5">
+    <div class="p-4 md:p-5 border-b border-slate-200 flex flex-wrap items-center gap-3">
+      <h2 class="font-semibold">${t('costs_title')}</h2>
+      <span class="badge bg-slate-100 text-slate-700">${t('total_cost')}: ${money(s.total_cost)}</span>
+      <span class="badge bg-signal/20 text-ink">${t('client_total')}: ${money(s.client_total)} ${t('sar')}</span>
+    </div>
+    ${s.costs.length ? `<div class="overflow-x-auto"><table class="w-full"><thead><tr><th class="th">${t('cost_type')}</th><th class="th">${t('cost_desc')}</th><th class="th">${t('amount')}</th><th class="th">${t('billable')}</th><th class="th">${t('created_by')}</th><th class="th no-print"></th></tr></thead>
+      <tbody>${s.costs.map((c) => `<tr data-cid="${c.id}"><td class="td">${t('cost_' + c.type)}</td><td class="td">${val(c.desc)}</td><td class="td tabular-nums font-medium">${money(c.amount)}</td>
+        <td class="td"><label class="inline-flex items-center gap-2 text-sm"><input type="checkbox" class="cost-bill accent-road-500 w-4 h-4" ${c.billable ? 'checked' : ''}> ${c.billable ? t('billable_yes') : t('company_cost')}</label></td>
+        <td class="td text-xs text-slate-500">${val(c.by)}<br>${dt(c.at)}</td>
+        <td class="td text-end no-print"><button class="cost-del text-slate-400 hover:text-rose-600 p-1" aria-label="${t('delete')}">${icon('trash', 'w-4 h-4')}</button></td></tr>`).join('')}</tbody></table></div>` : ''}
+    <div class="p-4 md:p-5 grid sm:grid-cols-2 lg:grid-cols-5 gap-3 items-end bg-slate-50 border-t border-slate-200 no-print">
+      <div><label class="label" for="cost-type">${t('cost_type')}</label><select id="cost-type" class="input">${COST_TYPES.map((x) => `<option value="${x}">${t('cost_' + x)}</option>`).join('')}</select></div>
+      <div class="lg:col-span-2"><label class="label" for="cost-desc">${t('cost_desc')}</label><input id="cost-desc" class="input"></div>
+      <div><label class="label" for="cost-amount">${t('amount')} (${t('sar')})</label><input id="cost-amount" type="number" min="0" step="0.01" class="input"></div>
+      <div class="flex items-center gap-3"><label class="inline-flex items-center gap-2 text-sm"><input id="cost-bill" type="checkbox" class="accent-road-500 w-4 h-4" checked> ${t('billable_yes')}</label>
+        <button id="cost-add" class="btn btn-primary">${icon('plus', 'w-4 h-4')} ${t('add_cost')}</button></div>
+    </div>
+    <dl class="p-4 md:p-5 grid grid-cols-2 md:grid-cols-5 gap-4 text-sm border-t border-slate-200">
+      <div><dt class="text-xs text-slate-500">${t('freight')}</dt><dd class="font-semibold mt-0.5 tabular-nums">${can('admin', 'supervisor') ? `<span class="flex gap-1 no-print"><input id="freight" type="number" min="0" step="0.01" class="input py-1.5 w-28" value="${s.freight || ''}"><button id="freight-save" class="btn btn-ghost py-1.5">${t('save')}</button></span><span class="hidden print:inline">${money(s.freight)}</span>` : money(s.freight)}</dd></div>
+      <div><dt class="text-xs text-slate-500">${t('billable_cost')}</dt><dd class="font-semibold mt-0.5 tabular-nums">${money(s.billable_cost)}</dd></div>
+      <div><dt class="text-xs text-slate-500">${t('client_total')}</dt><dd class="font-semibold mt-0.5 tabular-nums text-road-700">${money(s.client_total)} ${t('sar')}</dd></div>
+      ${can('admin', 'supervisor') ? `<div><dt class="text-xs text-slate-500">${t('total_cost')}</dt><dd class="font-semibold mt-0.5 tabular-nums">${money(s.total_cost)}</dd></div>
+      <div><dt class="text-xs text-slate-500">${t('margin')}</dt><dd class="font-semibold mt-0.5 tabular-nums ${s.margin < 0 ? 'text-rose-700' : ''}">${money(s.margin)}</dd></div>` : ''}
+    </dl>
   </section>
 
   <section class="card overflow-hidden">
@@ -1696,6 +1952,21 @@ async function pageShipment(view, m) {
     act(() => API.put('/shipments/' + id, { status: b.dataset.status }), t('saved'));
   }));
   $('#sap-save').onclick = () => act(() => API.put('/shipments/' + id, { sap_document_no: $('#sap-no').value }), t('saved'));
+  $('#permit-save') && ($('#permit-save').onclick = () => {
+    const no = $('#permit-no').value.trim();
+    if (!no && !s.permit_no) return toast(t('permit_need_ref'), 'err');
+    act(() => API.put('/shipments/' + id, { permit_no: no, permit_date: $('#permit-date').value }), t('saved'));
+  });
+  $('#cost-add').onclick = () => {
+    const amount = +$('#cost-amount').value;
+    if (!(amount > 0)) return toast(t('err_required_fields'), 'err');
+    act(() => API.post(`/shipments/${id}/costs`, { type: $('#cost-type').value, desc: $('#cost-desc').value, amount, billable: $('#cost-bill').checked }), t('saved'));
+  };
+  $$('[data-cid]').forEach((tr) => {
+    $('.cost-bill', tr).onchange = (e) => act(() => API.put(`/shipments/${id}/costs/${tr.dataset.cid}`, { billable: e.target.checked }), t('saved'));
+    $('.cost-del', tr).onclick = () => confirm(t('confirm_delete_cost')) && act(() => API.del(`/shipments/${id}/costs/${tr.dataset.cid}`), t('deleted'));
+  });
+  $('#freight-save') && ($('#freight-save').onclick = () => act(() => API.put('/shipments/' + id, { freight: $('#freight').value }), t('saved')));
   $('#del-ship') && ($('#del-ship').onclick = async () => {
     if (!confirm(t('confirm_delete_shipment'))) return;
     try { await API.del('/shipments/' + id); toast(t('deleted')); location.hash = '#/shipments'; } catch (e) { toast(e.message, 'err'); }
@@ -1774,10 +2045,23 @@ function crudPage(cfg) {
 
 const pageDrivers = crudPage({
   title: 'nav_drivers', endpoint: '/drivers', addLabel: 'add_driver', writeRoles: ['admin', 'supervisor'],
-  columns: [{ name: 'name', cls: 'font-medium' }, { name: 'phone', ltr: true }, { name: 'truck_plate' }, { name: 'license_no' }, { name: 'sap_vendor_code', ltr: true }],
+  columns: [{ name: 'name', cls: 'font-medium' }, { name: 'phone', ltr: true }, { name: 'truck_plate' }, { name: 'license_no' }, { name: 'sap_vendor_code', ltr: true },
+    { name: 'docs', label: 'docs_status', render: docsBadge }],
   fields: () => [
     { name: 'name', required: true }, { name: 'phone', type: 'tel', attrs: 'dir="ltr"' }, { name: 'national_id', attrs: 'dir="ltr"' },
     { name: 'license_no', attrs: 'dir="ltr"' }, { name: 'truck_plate' }, { name: 'sap_vendor_code', attrs: 'dir="ltr"' },
+    { name: 'iqama_expiry', label: 'doc_iqama', type: 'date' }, { name: 'license_expiry', label: 'doc_license', type: 'date' },
+    { name: 'passport_expiry', label: 'doc_passport', type: 'date' },
+  ],
+});
+const pageTrucks = crudPage({
+  title: 'nav_trucks', endpoint: '/trucks', addLabel: 'add_truck', writeRoles: ['admin', 'supervisor'],
+  columns: [{ name: 'plate', cls: 'font-medium' }, { name: 'truck_type' }, { name: 'model_year' }, { name: 'docs', label: 'docs_status', render: docsBadge }],
+  fields: () => [
+    { name: 'plate', required: true }, { name: 'truck_type' }, { name: 'model_year', type: 'number', attrs: 'min="1980" max="2100"' },
+    { name: 'reg_expiry', label: 'doc_reg', type: 'date' }, { name: 'insurance_expiry', label: 'doc_insurance', type: 'date' },
+    { name: 'op_card_expiry', label: 'doc_op_card', type: 'date' }, { name: 'inspection_expiry', label: 'doc_inspection', type: 'date' },
+    { name: 'notes', full: true },
   ],
 });
 const pageClients = crudPage({
@@ -1835,6 +2119,8 @@ async function pageSettings(view) {
         ${fieldHtml({ name: 'incentive_max_damage_rate', type: 'number', attrs: 'step="0.1" min="0"' }, st.incentive_max_damage_rate)}
         ${fieldHtml({ name: 'incentive_min_vehicles', type: 'number', attrs: 'min="0"' }, st.incentive_min_vehicles)}
         ${fieldHtml({ name: 'incentive_amount', type: 'number', attrs: 'min="0"' }, st.incentive_amount)}
+        ${fieldHtml({ name: 'require_permit', type: 'select', options: [{ value: '1', label: t('yes') }, { value: '0', label: t('no') }] }, st.require_permit)}
+        ${fieldHtml({ name: 'home_country', type: 'select', options: countriesList().map((c) => ({ value: c, label: c })) }, st.home_country)}
         <div class="sm:col-span-2">${admin ? `<button class="btn btn-primary">${t('save')}</button>` : `<p class="text-sm text-slate-500">${t('admin_only')}</p>`}</div>
       </form>
     </section>
@@ -1868,6 +2154,100 @@ async function pageSettings(view) {
   $('#copy-link').onclick = () => { const i = $('#ext-link'); i.select(); (navigator.clipboard ? navigator.clipboard.writeText(i.value) : Promise.reject()).catch(() => document.execCommand('copy')).finally(() => toast(t('link_copied'))); };
 }
 
+const countryOpts = (sel) => countriesList().map((c) => `<option ${c === sel ? 'selected' : ''}>${esc(c)}</option>`).join('');
+
+/* ---------- الوثائق المنتهية والقريبة من الانتهاء ---------- */
+async function pageExpiry(view, m, qs) {
+  setTitle(t('nav_expiry'));
+  const items = await API.get('/expiry');
+  let filter = qs.get('f') || 'alerts';
+  const inF = (x, f) => f === 'all' || (f === 'alerts' ? ['expired', 'd30'].includes(x.bucket) : x.bucket === f);
+  const draw = () => {
+    const list = items.filter((x) => inF(x, filter));
+    view.innerHTML = `
+    <p class="text-sm text-slate-600 mb-4 max-w-3xl">${t('expiry_intro')}</p>
+    <div class="flex flex-wrap gap-2 mb-5">${['alerts', 'expired', 'd30', 'd60', 'd90', 'ok', 'missing', 'all'].map((f) => `<button data-f="${f}" class="btn ${filter === f ? 'btn-primary' : 'btn-ghost'}">${t('b_' + f)} (${num(items.filter((x) => inF(x, f)).length)})</button>`).join('')}</div>
+    ${list.length ? `<div class="card overflow-x-auto"><table class="w-full"><thead><tr><th class="th">${t('name')}</th><th class="th">${t('kind')}</th><th class="th">${t('document')}</th><th class="th">${t('expiry_date')}</th><th class="th">${t('status')}</th></tr></thead>
+      <tbody>${list.map((x) => `<tr class="hover:bg-slate-50"><td class="td"><a class="font-medium text-road-700 hover:underline" href="#/${x.kind}">${esc(x.name)}</a>${x.sub ? `<div class="text-xs text-slate-500">${esc(x.sub)}</div>` : ''}</td>
+        <td class="td">${t('kind_' + x.kind)}</td><td class="td">${t(x.label)}</td><td class="td tabular-nums">${val(x.date)}</td><td class="td">${expBadge(x)}</td></tr>`).join('')}</tbody></table></div>`
+      : emptyBox(t('no_records'))}`;
+    $$('[data-f]').forEach((b) => (b.onclick = () => { filter = b.dataset.f; history.replaceState(null, '', '#/expiry?f=' + filter); draw(); }));
+  };
+  draw();
+}
+
+/* ---------- فوترة العملاء: أجرة النقل + التكاليف المحمّلة على العميل ---------- */
+async function pageBilling(view, m, qs) {
+  setTitle(t('nav_billing'));
+  const clients = await API.get('/clients?all=1');
+  const f = { client_id: qs.get('client_id') || '', from: qs.get('from') || today().slice(0, 8) + '01', to: qs.get('to') || today(), scope: qs.get('scope') || '' };
+  view.innerHTML = `
+  <p class="text-sm text-slate-600 mb-4 max-w-3xl no-print">${t('billing_intro')}</p>
+  <div class="flex flex-wrap gap-3 items-end mb-5 no-print">
+    <div><label class="label" for="b-client">${t('client')}</label><select id="b-client" class="input w-56"><option value="">${t('all_clients')}</option>${clients.map((c) => `<option value="${c.id}" ${f.client_id === c.id ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</select></div>
+    <div><label class="label" for="b-from">${t('rc_from')}</label><input id="b-from" type="date" class="input" value="${f.from}"></div>
+    <div><label class="label" for="b-to">${t('rc_to')}</label><input id="b-to" type="date" class="input" value="${f.to}"></div>
+    <div><label class="label" for="b-scope">${t('scope')}</label><select id="b-scope" class="input w-44"><option value="">${t('all')}</option>${['domestic', 'international'].map((x) => `<option value="${x}" ${f.scope === x ? 'selected' : ''}>${t('scope_' + x)}</option>`).join('')}</select></div>
+    <button id="b-print" class="btn btn-ghost">${icon('print', 'w-4 h-4')} ${t('print')}</button>
+    <button id="b-export" class="btn btn-ghost">${icon('download', 'w-4 h-4')} ${t('export_csv')}</button>
+  </div>
+  <div id="b-out">${loading()}</div>`;
+  let data;
+  const load = async () => {
+    ['client_id', 'from', 'to', 'scope'].forEach((k) => (f[k] = $('#b-' + (k === 'client_id' ? 'client' : k)).value));
+    history.replaceState(null, '', '#/billing?' + new URLSearchParams(f));
+    data = await API.get('/statement?' + new URLSearchParams(f));
+    const cl = clients.find((c) => c.id === f.client_id), T = data.totals;
+    $('#b-out').innerHTML = `
+    <div class="hidden print:block mb-4"><div class="text-xl font-semibold">${esc(window.SETTINGS.company_name || t('app_name'))}</div>
+      <div>${t('nav_billing')} — ${cl ? esc(cl.name) : t('all_clients')} — ${esc(f.from)} / ${esc(f.to)}</div></div>
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
+      <div class="card p-4"><div class="text-xs text-slate-500">${t('freight')}</div><div class="text-xl font-semibold tabular-nums">${money(T.freight)}</div></div>
+      <div class="card p-4"><div class="text-xs text-slate-500">${t('billable_cost')}</div><div class="text-xl font-semibold tabular-nums">${money(T.billable_cost)}</div></div>
+      <div class="card p-4 bg-signal/10 border-signal/40"><div class="text-xs text-slate-500">${t('client_total')}</div><div class="text-xl font-semibold tabular-nums">${money(T.client_total)} ${t('sar')}</div></div>
+      <div class="card p-4 no-print"><div class="text-xs text-slate-500">${t('margin')}</div><div class="text-xl font-semibold tabular-nums ${T.margin < 0 ? 'text-rose-700' : ''}">${money(T.margin)}</div><div class="text-xs text-slate-500">${t('total_cost')}: ${money(T.total_cost)}</div></div>
+    </div>
+    ${data.rows.length ? `<div class="card overflow-x-auto"><table class="w-full"><thead><tr><th class="th">${t('ref_no')}</th><th class="th">${t('trip_date')}</th>${f.client_id ? '' : `<th class="th">${t('client')}</th>`}<th class="th">${t('route')}</th><th class="th">${t('cars')}</th><th class="th">${t('permit')}</th>
+      <th class="th">${t('freight')}</th><th class="th">${t('billable_cost')}</th><th class="th">${t('client_total')}</th><th class="th no-print">${t('total_cost')}</th><th class="th no-print">${t('margin')}</th></tr></thead>
+      <tbody>${data.rows.map((s) => `<tr class="hover:bg-slate-50"><td class="td"><a class="font-medium text-road-700 hover:underline" href="#/shipments/${s.id}">${esc(s.ref_no)}</a></td><td class="td">${esc(s.trip_date)}</td>
+        ${f.client_id ? '' : `<td class="td">${val(s.client_name)}</td>`}<td class="td">${routeS(s)}</td><td class="td tabular-nums">${num(s.vehicle_count)}</td><td class="td">${permitBadge(s)}</td>
+        <td class="td tabular-nums">${money(s.freight)}</td><td class="td tabular-nums">${money(s.billable_cost)}</td><td class="td tabular-nums font-semibold">${money(s.client_total)}</td>
+        <td class="td tabular-nums no-print">${money(s.total_cost)}</td><td class="td tabular-nums no-print ${s.margin < 0 ? 'text-rose-700' : ''}">${money(s.margin)}</td></tr>`).join('')}
+        <tr class="bg-slate-50 font-semibold"><td class="td" colspan="${f.client_id ? 3 : 4}">${t('totals')}</td><td class="td tabular-nums">${num(T.vehicles)}</td><td class="td"></td><td class="td tabular-nums">${money(T.freight)}</td><td class="td tabular-nums">${money(T.billable_cost)}</td><td class="td tabular-nums">${money(T.client_total)}</td><td class="td tabular-nums no-print">${money(T.total_cost)}</td><td class="td tabular-nums no-print">${money(T.margin)}</td></tr>
+      </tbody></table></div>` : emptyBox(t('no_shipments'))}`;
+  };
+  ['client', 'from', 'to', 'scope'].forEach((k) => ($('#b-' + k).onchange = load));
+  $('#b-print').onclick = () => window.print();
+  $('#b-export').onclick = () => downloadCsv(`Client_Billing_${f.from}_${f.to}.csv`, ['RefNo', 'TripDate', 'CustomerCode', 'CustomerName', 'Origin', 'OriginCountry', 'Destination', 'DestinationCountry', 'Scope', 'Cars', 'RoadPermitNo', 'Freight', 'BillableCosts', 'ClientTotal', 'TotalCosts', 'Margin'],
+    data.rows.map((s) => [s.ref_no, s.trip_date, s.sap_customer_code, s.client_name, s.origin, s.origin_country, s.destination, s.destination_country, s.scope, s.vehicle_count, s.permit_no, s.freight, s.billable_cost, s.client_total, s.total_cost, s.margin]));
+  await load();
+}
+
+/* ---------- الدول والمدن ---------- */
+async function pagePlaces(view) {
+  setTitle(t('nav_places'));
+  const { countries } = await API.get('/places');
+  const w = can('admin', 'supervisor');
+  view.innerHTML = `
+  <p class="text-sm text-slate-600 mb-4 max-w-3xl">${t('places_intro')}</p>
+  ${w ? `<div class="grid md:grid-cols-2 gap-4 mb-5">
+    <form id="add-country" class="card p-4 flex flex-wrap gap-2 items-end"><div class="flex-1 min-w-[160px]"><label class="label">${t('add_country')}</label><input name="name" class="input" required></div><button class="btn btn-primary">${t('add')}</button></form>
+    <form id="add-city" class="card p-4 flex flex-wrap gap-2 items-end"><div><label class="label">${t('country')}</label><select name="country" class="input w-40">${countryOpts(homeCountry())}</select></div>
+      <div class="flex-1 min-w-[140px]"><label class="label">${t('add_city')}</label><input name="name" class="input" required></div><button class="btn btn-primary">${t('add')}</button></form>
+  </div>` : ''}
+  <div class="grid md:grid-cols-2 xl:grid-cols-3 gap-4">${countries.map((c) => `<section class="card p-4">
+    <div class="flex items-center gap-2 mb-3"><h2 class="font-semibold flex-1">${esc(c.name)}${c.name === homeCountry() ? ` <span class="badge bg-road-50 text-road-700">${t('scope_domestic')}</span>` : ''}</h2>
+      ${w && c.custom ? `<button class="text-slate-400 hover:text-rose-600" data-del="countries/${c.custom.id}" aria-label="${t('delete')}">${icon('trash', 'w-4 h-4')}</button>` : ''}</div>
+    <div class="flex flex-wrap gap-1.5">${c.cities.length ? c.cities.map((x) => `<span class="badge ${x.custom ? 'bg-sky-50 text-sky-800 ring-1 ring-sky-200' : 'bg-slate-100 text-slate-700'}">${esc(x.name)}${w && x.custom ? ` <button class="ms-1 text-slate-400 hover:text-rose-600" data-del="cities/${x.custom.id}">×</button>` : ''}</span>`).join('') : `<span class="text-xs text-slate-400">${t('no_records')}</span>`}</div>
+  </section>`).join('')}</div>`;
+  if (!w) return;
+  const submit = (id, kind) => ($('#' + id).onsubmit = async (e) => { e.preventDefault();
+    try { await API.post('/places/' + kind, Object.fromEntries(new FormData(e.target))); toast(t('saved')); router(true); } catch (err) { toast(err.message, 'err'); } });
+  submit('add-country', 'countries'); submit('add-city', 'cities');
+  $$('[data-del]').forEach((b) => (b.onclick = async () => { if (!confirm(t('confirm_delete_place'))) return;
+    try { await API.del('/places/' + b.dataset.del); toast(t('deleted')); router(true); } catch (err) { toast(err.message, 'err'); } }));
+}
+
 /* ---------- الموجّه ---------- */
 const ROUTES = [
   [/^#\/dashboard$/, pageDashboard],
@@ -1877,6 +2257,10 @@ const ROUTES = [
   [/^#\/shipments\/([\w-]+)$/, pageShipment],
   [/^#\/reconcile$/, pageReconcile, ['admin', 'supervisor']],
   [/^#\/drivers$/, pageDrivers],
+  [/^#\/trucks$/, pageTrucks],
+  [/^#\/expiry$/, pageExpiry],
+  [/^#\/billing$/, pageBilling, ['admin', 'supervisor']],
+  [/^#\/places$/, pagePlaces],
   [/^#\/clients$/, pageClients],
   [/^#\/users$/, pageUsers, ['admin']],
   [/^#\/settings$/, pageSettings],
