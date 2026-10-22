@@ -874,7 +874,7 @@ var TREAT_BY_ID={}; TREATS.forEach(function(t){ TREAT_BY_ID[t.id]=t; });
 /* ==========================================================================
    النواة: أدوات عامة + قاعدة البيانات + الصلاحيات + الدخول + المزامنة السحابية
    ========================================================================== */
-var APP_BUILD='2026-10-15-p22';
+var APP_BUILD='2026-10-22-p23';
 var LS_DB='mfp_db_v1', LS_SES='mfp_session_v1';
 
 function $(id){ return document.getElementById(id); }
@@ -5087,6 +5087,165 @@ function llogPrint(){ printHTML('سجل حركات المتدربين',null,toda
 NAV.push({id:'lrnlog',ic:'📜',n:'سجل حركات المتدربين',mod:'users',g:'الإدارة',lrn:1});
 navOk=(function(f){ return function(n){ if(n&&n.id==='lrnlog') return LEARN?!!(ME&&ME.learnAdmin):(ME&&(ME.role==='manager'||can('users'))); return f(n); }; })(navOk);
 learnersPanel=(function(f){ return function(){ var h=f(); return h.replace('<div class="btn-row" style="margin:12px 0"><button class="btn-main" onclick="openLearner()">＋ متدرّب جديد</button></div>','<div class="btn-row" style="margin:12px 0"><button class="btn-main" onclick="openLearner()">＋ متدرّب جديد</button><button class="btn" onclick="go(\'lrnlog\')">📜 سجل حركات المتدربين</button></div>'); }; })(learnersPanel);
+
+/* ==========================================================================
+   v22 — نماذج وخطابات توثيق سداد رأس المال (الشركة الأم ← الشركة السعودية):
+   قالب Word جاهز للتحميل + خطابات معبّأة ببيانات الشركة وكل مبلغ دفعه المديرون
+   ========================================================================== */
+var FRM_DEF={parent:'شركة جنوب الشرق',parentEn:'South East Company',pCountry:'',pReg:'',co:'شركة منارة المنزل',coEn:'Manarat Al-Manzil Company',cr:'',uni:'',cap:'30000000',m1:'',m2:'',m3:'',m4:'',auth:'',due:''};
+var FRM_TPL='templates/capital-forms-manarat-almanzil.docx';
+function frmLoad(k,d){ try{ var v=JSON.parse(localStorage.getItem(k)||'null'); return v==null?d:v; }catch(e){ return d; } }
+function frmSave(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){} }
+function frmCo(){ return Object.assign({},FRM_DEF,frmLoad('frmCo',{})); }
+function frmSetCo(k,v){ var o=frmLoad('frmCo',{}); o[k]=v; frmSave('frmCo',o); }
+function frmRows(){ return frmLoad('frmRows',[]); }
+function frmMgrs(o){ return [o.m1,o.m2,o.m3,o.m4].filter(function(x){ return x&&x.trim(); }); }
+function frmTot(rows){ var t={dep:0,exp:0,vat:0}; rows.forEach(function(r){ var a=+r.amt||0, v=+r.vat||0; if(r.type==='exp'){ t.exp+=a; t.vat+=v; } else t.dep+=a; }); t.paid=t.dep+t.exp+t.vat; return t; }
+var FRM_TYPES={dep:'إيداع بنكي',exp:'مصروف يخص الشركة'};
+
+/* ===== بناء مستند Word (HTML يفتحه Word مباشرة) ===== */
+function fv(v,w){ return v!=null&&String(v).trim()!==''?'<b>'+esc(v)+'</b>':'<span class="bl">'+(w||'……………………')+'</span>'; }
+function fm(v){ return +v?fmt(+v,2):''; }
+var FRM_CSS='@page{size:595.3pt 841.9pt;margin:56pt 50pt 50pt 50pt}@page land{size:841.9pt 595.3pt;mso-page-orientation:landscape;margin:42pt 40pt}div.land{page:land}'
+ +'body{font-family:Arial,"Segoe UI",Tahoma;font-size:12pt;line-height:1.6;direction:rtl;color:#111}p{margin:0 0 8pt;text-align:justify}'
+ +'h1{font-size:17pt;color:#1F3864;text-align:center;border-bottom:1.5pt solid #1F3864;padding-bottom:4pt;margin:0 0 10pt}h2{font-size:13pt;color:#1F3864;margin:14pt 0 6pt}'
+ +'.sub{text-align:center;font-weight:bold;font-size:13pt;margin-bottom:12pt}.hd{text-align:center;color:#7F7F7F;font-size:9pt;border-bottom:.5pt solid #8EA9DB;margin-bottom:14pt;padding-bottom:3pt}'
+ +'table{border-collapse:collapse;width:100%;margin:4pt 0 10pt}td,th{border:.75pt solid #8EA9DB;padding:5pt 6pt;font-size:10.5pt;vertical-align:middle;text-align:right}th{background:#1F3864;color:#fff}'
+ +'td.l{background:#F2F6FB;font-weight:bold;width:34%}td.c,th.c{text-align:center}.bl{color:#595959}.ltr{direction:ltr}.ltr p,.ltr td{text-align:left}.note{font-size:10pt;color:#404040}'
+ +'table.sg td{border:none;padding:4pt 10pt;vertical-align:top}ol{margin:0 0 8pt;padding-right:22pt}.ltr ol{padding-right:0;padding-left:22pt}li{margin-bottom:5pt}';
+var FRM_PB='<br clear="all" style="page-break-before:always">';
+function frmWrap(title,body){ return '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"><title>'+esc(title)+'</title>'
+  +'<!--[if gte mso 9]><xml><w:WordDocument><w:View>Print</w:View><w:Zoom>100</w:Zoom><w:DoNotOptimizeForBrowser/></w:WordDocument></xml><![endif]--><style>'+FRM_CSS+'</style></head><body dir="rtl" lang="AR-SA">'+body+'</body></html>'; }
+function frmHead(o,en){ return '<p class="hd">'+(en?esc(o.coEn)+' — CR No. '+fv(o.cr,'…………'):esc(o.co)+' — سجل تجاري رقم '+fv(o.cr,'…………')+' — الرقم الموحد '+fv(o.uni,'…………'))+'</p>'; }
+function frmSign(cols,labels,en){ return '<table class="sg"><tr>'+cols.map(function(c){ return '<td><p style="text-align:center"><b>'+esc(c[0])+'</b></p>'+labels.map(function(l,i){ return '<p>'+l+': '+fv(c[1]&&i===0?c[1]:'','………………………')+'</p>'; }).join('')+'</td>'; }).join('')+'</tr></table>'; }
+
+function frmF1(o,rows){ var t=frmTot(rows), cap=+o.cap||0, mg=frmMgrs(o), lb=['الاسم','الصفة','التوقيع'];
+  return frmHead(o)+'<h1>النموذج 1: قرار الشركة الأم باعتماد المبالغ سداداً لرأس المال</h1>'
+  +'<p class="sub">قرار الشركاء / مجلس الإدارة في '+esc(o.parent)+'</p>'
+  +'<table><tr><td class="l">رقم القرار</td><td>'+fv('')+'</td><td class="l">تاريخ القرار</td><td>'+fv('')+'</td></tr><tr><td class="l">مكان الاجتماع</td><td>'+fv('')+'</td><td class="l">رقم تسجيل الشركة الأم</td><td>'+fv(o.pReg)+'</td></tr></table>'
+  +'<p>اجتمع الشركاء / مجلس الإدارة في <b>'+esc(o.parent)+'</b>، المسجلة في '+fv(o.pCountry,'…………')+' برقم تسجيل '+fv(o.pReg,'…………')+'، والمالكة لكامل حصص <b>'+esc(o.co)+'</b> (سجل تجاري رقم '+fv(o.cr,'…………')+'، الرقم الموحد '+fv(o.uni,'…………')+') برأس مال قدره <b>'+fmt(cap,0)+' ريال</b> مملوك بالكامل لها بموجب عقد التأسيس، وقرروا ما يلي:</p><ol>'
+  +'<li>تُقرّ '+esc(o.parent)+' بأن المبالغ الواردة في الكشف المرفق (الملحق أ)، وإجماليها '+fv(t.paid?fmt(t.paid,2):'')+' ريال، دفعها السادة '+fv(mg.join('، '),'………………………………')+' <b>نيابةً عنها ولحسابها</b>، إيداعاً في حساب '+esc(o.co)+' البنكي أو سداداً لمصروفاتها.</li>'
+  +'<li>تُعدّ هذه المبالغ <b>سداداً جزئياً لحصة '+esc(o.parent)+' في رأس مال '+esc(o.co)+'</b>، ولا تمثّل قرضاً أو التزاماً على '+esc(o.co)+'.</li>'
+  +'<li>المبالغ المدفوعة لمصروفات الشركة تُعتمد بقيمة فواتيرها الموثقة باسم '+esc(o.co)+' كما في الملحق (أ).</li>'
+  +'<li>الباقي غير المدفوع من رأس المال بعد هذه المبالغ '+fv(t.paid?fmt(cap-t.paid,2):'')+' ريال، يُسدَّد بالتحويل من حساب '+esc(o.parent)+' في موعد أقصاه '+fv(o.due,'…………')+' أو وفق عقد التأسيس.</li>'
+  +'<li>تفويض '+fv(o.auth,'………………')+' بالتوقيع على هذا القرار وتقديمه للجهات ذات العلاقة في المملكة العربية السعودية.</li></ol>'
+  +'<h2>التوقيعات</h2>'+frmSign([['الشريك / العضو 1',o.m1],['الشريك / العضو 2',o.m2]],lb)+frmSign([['الشريك / العضو 3',o.m3],['الشريك / العضو 4',o.m4]],lb)
+  +'<p><b>ختم '+esc(o.parent)+':</b></p>'; }
+function frmF1en(o,rows){ var t=frmTot(rows), cap=+o.cap||0, mg=frmMgrs(o), lb=['Name','Title','Signature'];
+  return '<div class="ltr" dir="ltr">'+frmHead(o,1)+'<h1>Form 1: Parent Company Resolution — Capital Contribution</h1>'
+  +'<p class="sub">Shareholders / Board Resolution of '+esc(o.parentEn)+'</p>'
+  +'<table><tr><td class="l">Resolution No.</td><td>'+fv('')+'</td><td class="l">Date</td><td>'+fv('')+'</td></tr><tr><td class="l">Place of meeting</td><td>'+fv('')+'</td><td class="l">Registration No.</td><td>'+fv(o.pReg)+'</td></tr></table>'
+  +'<p>The Shareholders / Board of <b>'+esc(o.parentEn)+'</b>, registered in '+fv(o.pCountry,'…………')+' under No. '+fv(o.pReg,'…………')+', being the sole owner of <b>'+esc(o.coEn)+'</b> (CR No. '+fv(o.cr,'…………')+', Unified No. '+fv(o.uni,'…………')+') with share capital of <b>SAR '+fmt(cap,0)+'</b> wholly owned by it under the Articles of Association, resolved:</p><ol>'
+  +'<li>The amounts listed in the attached schedule (Annex A), totalling SAR '+fv(t.paid?fmt(t.paid,2):'')+', were paid by Messrs. '+fv(mg.join(', '),'………………………………')+' <b>on behalf of and for the account of</b> '+esc(o.parentEn)+', by deposit into the bank account of '+esc(o.coEn)+' or by settling its expenses.</li>'
+  +'<li>These amounts constitute a <b>partial payment of the capital share of '+esc(o.parentEn)+'</b> in '+esc(o.coEn)+' and are not a loan or any liability of '+esc(o.coEn)+'.</li>'
+  +'<li>Expenses paid are recognised at the value of supporting invoices issued in the name of '+esc(o.coEn)+', as listed in Annex A.</li>'
+  +'<li>The remaining unpaid capital of SAR '+fv(t.paid?fmt(cap-t.paid,2):'')+' shall be paid by transfer from the account of '+esc(o.parentEn)+' by '+fv(o.due,'…………')+' or as per the Articles of Association.</li>'
+  +'<li>'+fv(o.auth,'………………')+' is authorised to sign this resolution and submit it to the relevant authorities in the Kingdom of Saudi Arabia.</li></ol>'
+  +'<h2>Signatures</h2>'+frmSign([['Shareholder / Member 1',o.m1],['Shareholder / Member 2',o.m2]],lb,1)+frmSign([['Shareholder / Member 3',o.m3],['Shareholder / Member 4',o.m4]],lb,1)
+  +'<p><b>Seal of '+esc(o.parentEn)+':</b></p></div>'; }
+function frmF2(o,r,i){ r=r||{}; var dep=r.type!=='exp', exp=r.type==='exp', ck=function(b){ return b?'☒':'☐'; };
+  return frmHead(o)+'<h1>النموذج 2: إقرار سداد نيابة عن '+esc(o.parent)+'</h1><p class="sub">(نسخة لكل مبلغ)</p>'
+  +'<table><tr><td class="l">رقم الإقرار</td><td>'+fv(r.no||(i!=null?String(i+1):''))+'</td><td class="l">تاريخ الإقرار</td><td>'+fv('')+'</td></tr></table>'
+  +'<p>أنا الموقع أدناه: '+fv(r.mgr,'………………………')+'، رقم الهوية/الجواز '+fv('','…………………')+'، بصفتي مديراً في <b>'+esc(o.co)+'</b> وشريكاً في <b>'+esc(o.parent)+'</b>، أقرّ بما يلي:</p>'
+  +'<table><tr><th style="width:34%">البيان</th><th>التفاصيل</th></tr>'
+  +'<tr><td class="l">نوع السداد</td><td>'+(r.type?ck(dep):'☐')+' إيداع في حساب الشركة البنكي &nbsp;&nbsp; '+(r.type?ck(exp):'☐')+' سداد مصروف يخص الشركة</td></tr>'
+  +'<tr><td class="l">المبلغ (ريال)</td><td>رقماً: '+fv(fm(r.amt))+(+r.vat?' + ضريبة القيمة المضافة '+fv(fm(r.vat)):'')+' &nbsp; كتابةً: '+fv('','……………………………………')+'</td></tr>'
+  +'<tr><td class="l">تاريخ الدفع</td><td>'+fv(r.date)+'</td></tr>'
+  +'<tr><td class="l">للإيداع: البنك — رقم الحساب/الآيبان — رقم قسيمة الإيداع</td><td>'+(dep&&r.type?fv(r.ref):fv(''))+'</td></tr>'
+  +'<tr><td class="l">للمصروف: البيان — المورد — رقم الفاتورة وتاريخها</td><td>'+(exp?fv([r.desc,r.ref].filter(Boolean).join(' — ')):fv(''))+'</td></tr>'
+  +'<tr><td class="l">الفاتورة باسم الشركة ورقمها الضريبي؟</td><td>☐ نعم &nbsp; ☐ لا &nbsp;&nbsp; ضريبة القيمة المضافة: '+fv(fm(r.vat),'…………')+' ريال</td></tr>'
+  +'<tr><td class="l">طريقة الدفع ومرجعها</td><td>☐ نقداً &nbsp; ☐ تحويل &nbsp; ☐ بطاقة &nbsp;&nbsp; المرجع: '+fv('','…………')+'</td></tr>'
+  +'<tr><td class="l">المرفقات</td><td>☐ قسيمة الإيداع &nbsp; ☐ الفاتورة &nbsp; ☐ إثبات الدفع &nbsp; ☐ أخرى: ………</td></tr></table>'
+  +'<ol><li>دفعت هذا المبلغ <b>نيابةً عن '+esc(o.parent)+' ولحسابها</b>، سداداً من حصتها في رأس مال '+esc(o.co)+' البالغ '+fmt(+o.cap||0,0)+' ريال.</li>'
+  +'<li><b>لا حق لي في استرداد هذا المبلغ من '+esc(o.co)+'</b>، ولا يمثّل قرضاً أو ديناً لي عليها، وأي تسوية بيني وبين '+esc(o.parent)+' تتم خارج دفاتر '+esc(o.co)+'.</li>'
+  +'<li>المبلغ من أموال مشروعة، وأتحمل المسؤولية عن صحة البيانات والمرفقات.</li></ol>'
+  +frmSign([['المُقِرّ (المدير الدافع)',r.mgr],['اعتماد المحاسب','']],['الاسم','التوقيع','التاريخ'])
+  +'<p class="note">اعتماد المحاسب: المبلغ مطابق للمرفقات ومقيد في الكشف التجميعي (النموذج 3) برقم سطر '+fv(i!=null?String(i+1):'','……')+'.</p>'; }
+function frmF3(o,rows){ var t=frmTot(rows), cap=+o.cap||0, n=Math.max(12,rows.length+3), h='';
+  for(var i=0;i<n;i++){ var r=rows[i]||{}; h+='<tr><td class="c">'+(i+1)+'</td><td class="c">'+esc(r.date||'')+'</td><td>'+esc(r.mgr||'')+'</td><td class="c">'+(r.type?FRM_TYPES[r.type]:'')+'</td><td>'+esc(r.desc||'')+'</td><td>'+esc(r.ref||'')+'</td><td class="c">'+fm(r.amt)+'</td><td class="c">'+fm(r.vat)+'</td><td class="c">'+(rows[i]?(r.no||i+1):'')+'</td></tr>'; }
+  return '<div class="land">'+frmHead(o)+'<h1>النموذج 3: الملحق (أ) — الكشف التجميعي للمبالغ المدفوعة من المديرين نيابة عن '+esc(o.parent)+'</h1>'
+  +'<p class="note">سطر لكل إقرار، ويُرفق بقرار '+esc(o.parent)+'. المبلغ بدون ضريبة القيمة المضافة، والضريبة في عمود مستقل لأنها تُخصم فقط إذا كانت الفاتورة باسم '+esc(o.co)+'.</p>'
+  +'<table><tr><th class="c" style="width:4%">#</th><th class="c" style="width:10%">التاريخ</th><th style="width:14%">المدير الدافع</th><th class="c" style="width:10%">النوع</th><th style="width:20%">البيان</th><th style="width:13%">المرجع (قسيمة/فاتورة)</th><th class="c" style="width:11%">المبلغ (ريال)</th><th class="c" style="width:10%">ضريبة القيمة المضافة</th><th class="c" style="width:8%">رقم الإقرار</th></tr>'+h
+  +'<tr><td colspan="6" class="l" style="text-align:center">الإجمالي</td><td class="c"><b>'+fm(t.dep+t.exp)+'</b></td><td class="c"><b>'+fm(t.vat)+'</b></td><td></td></tr></table>'
+  +'<h2>ملخص رأس المال</h2><table style="width:60%"><tr><th>الملخص</th><th class="c">المبلغ (ريال)</th></tr>'
+  +[['رأس المال المملوك لـ'+o.parent+' بموجب عقد التأسيس',fmt(cap,2)],['(أ) إجمالي الإيداعات البنكية',fm(t.dep)],['(ب) إجمالي المصروفات المعتمدة (بدون الضريبة)',fm(t.exp)],['(ج) ضريبة القيمة المضافة المدفوعة ضمنها',fm(t.vat)],['إجمالي المدفوع من رأس المال (أ + ب + ج)',fm(t.paid)],['الباقي غير المدفوع',rows.length?fmt(cap-t.paid,2):'']]
+    .map(function(x){ return '<tr><td class="l">'+esc(x[0])+'</td><td class="c">'+(x[1]?'<b>'+x[1]+'</b>':'')+'</td></tr>'; }).join('')+'</table>'
+  +'<p class="note">إجمالي المدفوع = الإيداعات + المصروفات بما فيها ضريبتها المدفوعة، لأن المدير دفع الفاتورة كاملة.</p>'
+  +frmSign([['المُعِدّ',''],['المدير المالي / المفوّض',o.auth]],['الاسم','التوقيع','التاريخ'])+'</div>'; }
+function frmRef(o){ return frmHead(o)+'<h1>مرجع: القيود المحاسبية في دفاتر '+esc(o.co)+'</h1>'
+  +'<p>بعد اكتمال الإقرار وقرار '+esc(o.parent)+' يُسجّل المبلغ سداداً لرأس المال؛ وقبلهما يُسجّل مؤقتاً التزاماً للمديرين ثم يُحوّل.</p>'
+  +'<table><tr><th>الحالة</th><th>من ح/ (مدين)</th><th>إلى ح/ (دائن)</th></tr>'
+  +[['الاكتتاب في رأس المال (مرة واحدة)','3104 رأس مال مكتتب غير مدفوع '+fmt(+o.cap||0,0),'3101 رأس المال '+fmt(+o.cap||0,0)],['إيداع بنكي موثّق','1102 البنك','3104 رأس مال مكتتب غير مدفوع'],
+    ['مصروف تأسيس أو تشغيل موثّق','حساب المصروف (أو الأصل) + 1230 ضريبة المدخلات (إن كانت الفاتورة باسم الشركة)','3104 رأس مال مكتتب غير مدفوع (بالمبلغ المدفوع كاملاً)'],
+    ['مبلغ لم يكتمل توثيقه بعد','1102 البنك أو حساب المصروف','2155 مستحق للشركاء والمستثمرين'],['عند صدور القرار لاحقاً','2155 مستحق للشركاء والمستثمرين','3104 رأس مال مكتتب غير مدفوع']]
+    .map(function(x){ return '<tr><td class="l">'+esc(x[0])+'</td><td>'+esc(x[1])+'</td><td>'+esc(x[2])+'</td></tr>'; }).join('')+'</table>'
+  +'<p class="note">مصروفات التأسيس وما قبل التشغيل مصروف ولا تُرسمل (IAS 38.69)، وما يخص أصلاً بعينه يُضاف لتكلفته (IAS 16). المديرون أطراف ذات علاقة يُفصح عن معاملاتهم (IAS 24).</p>'
+  +'<h2>قائمة المرفقات</h2>'+['قسيمة إيداع بنكي أصلية لكل إيداع + كشف الحساب الذي يظهر فيه','فاتورة ضريبية باسم '+o.co+' ورقمها الضريبي لكل مصروف + إثبات الدفع','إقرار موقّع من المدير الدافع لكل مبلغ (النموذج 2)','الكشف التجميعي محدّثاً وموقّعاً (النموذج 3)','قرار '+o.parent+' موقّعاً وموثّقاً ومصدّقاً حسب المتطلبات (النموذج 1)','عرض الملف على مراجع الحسابات قبل إقفال السنة','الدفعات القادمة من رأس المال بتحويل من حساب '+o.parent+' بالخارج']
+    .map(function(x){ return '<p>☐ '+esc(x)+'</p>'; }).join(''); }
+
+function frmBuild(which,idx){ var o=frmCo(), rows=frmRows(), parts=[], name;
+  if(which==='f1'){ parts=[frmF1(o,rows),frmF1en(o,rows)]; name='قرار '+o.parent; }
+  else if(which==='f2'){ if(idx!=null) parts=[frmF2(o,rows[idx],idx)]; else if(rows.length) parts=rows.map(function(r,i){ return frmF2(o,r,i); }); else parts=[frmF2(o,null,null)]; name='إقرار سداد'+(idx!=null?' '+(idx+1):''); }
+  else if(which==='f3'){ parts=[frmF3(o,rows)]; name='الكشف التجميعي — الملحق أ'; }
+  else { parts=[frmF1(o,rows),frmF1en(o,rows)].concat(rows.length?rows.map(function(r,i){ return frmF2(o,r,i); }):[frmF2(o,null,null)]).concat([frmF3(o,rows),frmRef(o)]); name='ملف توثيق رأس المال'; }
+  return {name:name+' — '+o.co,html:frmWrap(name,parts.join(FRM_PB))}; }
+function frmDownload(which,idx){ var d=frmBuild(which,idx), a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob(['﻿'+d.html],{type:'application/msword'})); a.download=d.name+'.doc'; document.body.appendChild(a); a.click(); a.remove();
+  log('export','نماذج رأس المال','تحميل Word: '+d.name); }
+function frmPrint(which,idx){ var d=frmBuild(which,idx), f=document.createElement('iframe'); f.style.cssText='position:fixed;width:0;height:0;border:0;left:0;bottom:0'; document.body.appendChild(f);
+  var w=f.contentWindow; w.document.open(); w.document.write(d.html.replace('<style>','<style>@media print{.land{page-break-before:always}}')); w.document.close();
+  setTimeout(function(){ try{ w.focus(); w.print(); }catch(e){} setTimeout(function(){ f.remove(); },2000); },300); log('print','نماذج رأس المال','طباعة: '+d.name); }
+
+/* ===== إدارة المبالغ ===== */
+var FRMN={type:'dep'};
+function frmAdd(){ var g=function(id){ var e=$(id); return e?e.value.trim():''; }, r={date:g('fr_date'),mgr:g('fr_mgr'),type:g('fr_type')||'dep',desc:g('fr_desc'),ref:g('fr_ref'),amt:g('fr_amt'),vat:g('fr_vat')};
+  if(!(+r.amt>0)){ toast&&toast('أدخل المبلغ'); return; } if(r.type==='dep'){ r.vat=''; if(!r.desc) r.desc='إيداع بحساب الشركة'; }
+  var rows=frmRows(); rows.push(r); frmSave('frmRows',rows); FRMN={type:r.type}; render(); }
+function frmDel(i){ if(!confirm('حذف المبلغ رقم '+(i+1)+'؟')) return; var rows=frmRows(); rows.splice(i,1); frmSave('frmRows',rows); render(); }
+function frmReset(){ if(!confirm('إعادة بيانات الشركتين للقيم الافتراضية (جنوب الشرق / منارة المنزل)؟')) return; frmSave('frmCo',{}); render(); }
+
+VIEWS.capforms=function(){ var o=frmCo(), rows=frmRows(), t=frmTot(rows), cap=+o.cap||0;
+  var inp=function(k,l,ph,ty){ return '<div class="field"><label>'+l+'</label><input'+(/En$/.test(k)?' dir="ltr"':'')+(ty?' type="'+ty+'" inputmode="decimal"':'')+' value="'+esc(o[k])+'" placeholder="'+esc(ph||'')+'" onchange="frmSetCo(\''+k+'\',this.value);'+(k==='cap'?'render()':'')+'"></div>'; };
+  var h='<div class="page-head"><div><h2>📄 نماذج توثيق سداد رأس المال</h2><p>قرار '+esc(o.parent)+'، وإقرار لكل مبلغ دفعه المديرون نيابة عنها، والكشف التجميعي — جاهزة للتحميل Word والطباعة</p></div>'
+   +'<div class="btn-row"><a class="btn" href="'+FRM_TPL+'" download="نماذج توثيق سداد رأس المال — '+esc(FRM_DEF.co)+'.docx" onclick="log(\'export\',\'نماذج رأس المال\',\'تحميل القالب الفارغ\')">⬇️ القالب الفارغ (.docx)</a>'
+   +'<button class="btn-main" onclick="frmDownload(\'all\')">⬇️ الملف كاملاً معبّأً (Word)</button></div></div>';
+  /* بيانات الشركتين */
+  h+='<div class="panel"><h3>🏢 بيانات الشركتين <span class="mini">— تُحفظ على هذا الجهاز وتظهر في كل الخطابات</span></h3><div class="grid g2">'
+   +inp('parent','الشركة الأم (المالكة لرأس المال في عقد التأسيس)')+inp('parentEn','اسمها بالإنجليزية')
+   +inp('pCountry','دولة تسجيل الشركة الأم','مثال: الإمارات')+inp('pReg','رقم تسجيل الشركة الأم')
+   +inp('co','الشركة في المملكة')+inp('coEn','اسمها بالإنجليزية')
+   +inp('cr','السجل التجاري')+inp('uni','الرقم الموحد (700)')
+   +inp('cap','رأس المال في عقد التأسيس (ريال)','','text')+inp('due','موعد سداد الباقي','مثال: 31/12/2027')
+   +'</div><div class="mini" style="margin:4px 0 8px;font-weight:700">المديرون الأربعة (ملاك الشركة الأم)</div><div class="grid g2">'
+   +inp('m1','المدير 1')+inp('m2','المدير 2')+inp('m3','المدير 3')+inp('m4','المدير 4')+inp('auth','المفوَّض بالتوقيع وتقديم القرار','الاسم / الصفة')
+   +'</div><div class="btn-row"><button class="btn" onclick="render()">✔️ تحديث</button><button class="btn" onclick="frmReset()">↺ القيم الافتراضية</button></div></div>';
+  /* المبالغ */
+  var mg=frmMgrs(o);
+  h+='<div class="panel"><h3>💵 المبالغ المدفوعة من المديرين <span class="pill pill-info num">'+rows.length+'</span></h3>'
+   +'<div class="grid g2"><div class="field"><label>النوع</label><select id="fr_type" onchange="FRMN.type=this.value;render()"><option value="dep"'+(FRMN.type!=='exp'?' selected':'')+'>إيداع في بنك الشركة</option><option value="exp"'+(FRMN.type==='exp'?' selected':'')+'>مصروف يخص الشركة دفعه المدير</option></select></div>'
+   +'<div class="field"><label>المدير الدافع</label>'+(mg.length?'<select id="fr_mgr">'+mg.map(function(m){ return '<option>'+esc(m)+'</option>'; }).join('')+'</select>':'<input id="fr_mgr" placeholder="أدخل أسماء المديرين أعلاه أو اكتب الاسم">')+'</div>'
+   +'<div class="field"><label>التاريخ</label><input id="fr_date" type="date" value="'+today()+'"></div>'
+   +'<div class="field"><label>المبلغ (ريال)'+(FRMN.type==='exp'?' — بدون الضريبة':'')+'</label><input id="fr_amt" inputmode="decimal"></div>'
+   +(FRMN.type==='exp'?'<div class="field"><label>البيان والمورد</label><input id="fr_desc" placeholder="مثال: رسوم السجل التجاري — وزارة التجارة"></div><div class="field"><label>ضريبة القيمة المضافة (إن كانت الفاتورة باسم الشركة)</label><input id="fr_vat" inputmode="decimal"></div><div class="field"><label>رقم الفاتورة وتاريخها</label><input id="fr_ref"></div>'
+     :'<div class="field"><label>البنك — الآيبان — رقم قسيمة الإيداع</label><input id="fr_ref"></div>')
+   +'</div><div class="btn-row"><button class="btn-main" onclick="frmAdd()">＋ إضافة المبلغ</button></div>';
+  if(rows.length) h+='<div class="tbl-wrap" style="margin-top:10px"><table><thead><tr><th>#</th><th>التاريخ</th><th>المدير</th><th>النوع</th><th>البيان / المرجع</th><th class="r">المبلغ</th><th class="r">الضريبة</th><th>الإقرار</th><th></th></tr></thead><tbody>'
+   +rows.map(function(r,i){ return '<tr><td class="num">'+(i+1)+'</td><td class="num">'+esc(r.date)+'</td><td>'+esc(r.mgr)+'</td><td>'+FRM_TYPES[r.type]+'</td><td>'+esc([r.desc,r.ref].filter(Boolean).join(' — '))+'</td><td class="r num">'+fmt(+r.amt)+'</td><td class="r num">'+(+r.vat?fmt(+r.vat):'—')+'</td>'
+     +'<td style="white-space:nowrap"><button class="btn" onclick="frmDownload(\'f2\','+i+')" title="تحميل Word">⬇️</button> <button class="btn" onclick="frmPrint(\'f2\','+i+')" title="طباعة">🖨️</button></td><td><button class="btn" onclick="frmDel('+i+')" title="حذف">🗑️</button></td></tr>'; }).join('')
+   +'</tbody></table></div>';
+  h+='<div class="grid g2" style="margin-top:10px;font-size:14px">'+[['رأس المال',fmt(cap)],['المدفوع (إيداعات + مصروفات + ضريبتها)',fmt(t.paid)],['منها إيداعات',fmt(t.dep)],['الباقي غير المدفوع',fmt(cap-t.paid)]].map(function(x){ return '<div><span class="mini">'+x[0]+'</span><div style="font-weight:800" class="num">'+x[1]+'</div></div>'; }).join('')+'</div>'
+   +(t.paid>cap?'<div class="login-err" style="display:block;margin-top:8px">المدفوع يتجاوز رأس المال — الزيادة ليست رأس مال، تُسجّل في 2155 مستحق للشركاء.</div>':'')+'</div>';
+  /* الخطابات */
+  var card=function(ic,tt,ds,w){ return '<div class="panel" style="margin:0"><div style="font-weight:800;margin-bottom:4px">'+ic+' '+tt+'</div><div class="mini" style="margin-bottom:10px">'+ds+'</div><div class="btn-row"><button class="btn-main" onclick="frmDownload(\''+w+'\')">⬇️ Word</button><button class="btn" onclick="frmPrint(\''+w+'\')">🖨️ طباعة</button></div></div>'; };
+  h+='<div class="panel"><h3>✉️ الخطابات الجاهزة</h3><div class="grid g2">'
+   +card('🏛️','النموذج 1: قرار '+esc(o.parent),'عربي + إنجليزي، بإجمالي المبالغ المدفوعة والباقي من رأس المال وأسماء المديرين','f1')
+   +card('✍️','النموذج 2: إقرارات السداد',rows.length?'إقرار مستقل لكل مبلغ ('+rows.length+') في ملف واحد — أو حمّل إقرار مبلغ بعينه من الجدول':'إقرار فارغ للتعبئة اليدوية — أضف المبالغ أعلاه ليُعبّأ تلقائياً','f2')
+   +card('📊','النموذج 3: الملحق (أ) الكشف التجميعي','كل المبالغ بإجماليها وملخص رأس المال — يُرفق بالقرار','f3')
+   +card('📁','الملف كاملاً','القرار + كل الإقرارات + الكشف + مرجع القيود وقائمة المرفقات','all')
+   +'</div><div class="mini" style="margin-top:10px">الملف يُفتح في Microsoft Word أو Google Docs أو Pages ويمكن تعديله قبل الطباعة. الأماكن المنقّطة (……) تُعبّأ يدوياً. النماذج إطار مهني يُراجَع مع المستشار القانوني ومراجع الحسابات، وقد يتطلب القرار توثيقاً وتصديقاً حسب دولة الشركة الأم ومتطلبات وزارة الاستثمار والبنك.</div></div>';
+  return h; };
+/* مكانها: بعد «أدوات المراجع» في المنصة وفي الرابط التعليمي */
+(function(){ var i=-1; NAV.forEach(function(n,k){ if(n.id==='auditor') i=k; }); var it={id:'capforms',ic:'📄',n:'نماذج توثيق رأس المال',sn:'النماذج',mod:'guide',g:LEARN?'المنصة التعليمية':'المحاسبة والمراجعة'}; if(i>=0) NAV.splice(i+1,0,it); else NAV.push(it); })();
 
 /* ===== التشغيل ===== */
 boot();
