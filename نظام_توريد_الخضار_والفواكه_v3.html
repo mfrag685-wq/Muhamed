@@ -1706,6 +1706,9 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
       <div class="field"><label>بدء تنبيه المشتريات</label><select id="en_purchGrace"><option value="0">نفس اليوم</option><option value="1">بعد يوم</option><option value="off">بلا تنبيه (إخفاء)</option></select></div>
       <div class="field"><label>بدء تنبيه المصروفات</label><select id="en_expGrace"><option value="0">نفس اليوم</option><option value="1">بعد يوم</option><option value="off">بلا تنبيه (إخفاء)</option></select></div>
     </div>
+    <div class="field" style="margin-top:10px"><label>عملاء المبيعات اليومية <span class="hint">يُتابَع كل عميل منهم يوماً بيوم — فإن سُجّلت مبيعات عميل ونُسي الآخر يظهر التنبيه باسمه</span></label>
+      <div id="en_dailyClients" style="display:flex;flex-wrap:wrap;gap:6px 14px;max-height:180px;overflow:auto;padding:8px;border:1px solid var(--line,#ddd);border-radius:10px"></div>
+      <div class="mini" id="en_dailyHint" style="margin-top:4px;color:var(--ink-3)"></div></div>
     <div class="form-foot"><button class="btn-main" onclick="saveEntryCfg()">حفظ أسماء المتابعة</button>
       <button class="btn" onclick="resetEntryCfg()">استعادة الافتراضي</button>
       <span class="mini" id="en_status"></span></div>
@@ -1940,7 +1943,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-10-21-a';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-10-25-a';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -5267,11 +5270,14 @@ function entryDelayAlerts(){
       msg:'آخر يوم تم فيه إدخال '+kindDef+' هو '+last+' — مضى '+gap+' أيام بلا إدخال. يُرجى استدراك الأيام الفائتة بدءاً من '+nd+'.'};
   }
   var off=function(g){ return String(g)==='off'; };   /* نوع مُخفى التنبيه لهذا القسم */
+  /* عملاء المبيعات اليومية: كل عميل يُتابَع منفرداً — فلا يُخفي إدخالُ مبيعات عميلٍ نسيانَ مبيعات عميل آخر في نفس اليوم */
+  var dailyCl=(!off(cfg.salesGrace)&&cfg.salesName&&String(cfg.salesName).trim())?dailySalesClients():[];
+  var perClient=dailyCl.length?dailyClientFollowUps(dailyCl,cfg,td,realTd):[];
   var raw=[
-    off(cfg.salesGrace)?null:followUp(db.sales,cfg.salesName,cfg.salesIntro,'المبيعات','مبيعات',+cfg.salesGrace||0),   /* مهلة البدء قابلة للتعديل */
+    (off(cfg.salesGrace)||dailyCl.length)?null:followUp(db.sales,cfg.salesName,cfg.salesIntro,'المبيعات','مبيعات',+cfg.salesGrace||0),   /* مهلة البدء قابلة للتعديل — عند وجود عملاء يوميين تحلّ متابعتهم التفصيلية محل الفحص العام */
     off(cfg.purchGrace)?null:followUp(db.purchases,cfg.purchName,cfg.purchIntro,'المشتريات','مشتريات',+cfg.purchGrace||0),
     off(cfg.expGrace)?null:followUp(db.expenses,cfg.expName,cfg.expIntro,'المصروفات','مصروفات',+cfg.expGrace||0)
-  ].filter(function(x){ return x; });
+  ].filter(function(x){ return x; }).concat(perClient);
   /* تجميع حسب الموظّف: بطاقة واحدة لكل اسم (بلا تكرار الاسم متداخلاً) */
   var order=[], byName={};
   raw.forEach(function(r){ if(!byName[r.name]){ byName[r.name]=[]; order.push(r.name); } byName[r.name].push(r); });
@@ -5279,10 +5285,69 @@ function entryDelayAlerts(){
     var items=byName[name].slice().sort(function(a,b){ return a.sev-b.sev; });   /* الأعجل أولاً داخل الموظّف */
     var top=items[0];
     return {level:'staff', tier:top.tier, sev:top.sev, title:'متابعة الإدخال — '+name, intro:top.intro,
-      lines:items.map(function(it){ return it.kindDef+': '+it.msg; })};
+      lines:items.map(function(it){ return it.ack?{t:it.kindDef+': '+it.msg,ack:it.ack}:(it.kindDef+': '+it.msg); })};
   });
   A.sort(function(a,b){ return (a.sev==null?9:a.sev)-(b.sev==null?9:b.sev); });   /* الموظّف الأعجل أولاً */
   return A;
+}
+/* ===== متابعة مبيعات كل عميل يومي على حدة =====
+   العملاء المحدَّدون في الإعدادات، وإن لم يُحدَّد أحد: اكتشاف تلقائي لمن له مبيعات في أغلب أيام البيع (آخر 4 أسابيع).
+   أيام الإجازة المعتادة للعميل (يوم أسبوع بلا أي مبيعات له خلال 8 أسابيع) لا يُطالَب بها،
+   ويمكن للمسؤول تأكيد «لا مبيعات فعلية» ليوم معيّن فلا يُعاد التنبيه عنه. */
+function autoDailyClients(){
+  var td=today(), from=ivAddDays(td,-27), days={}, per={};
+  (db.sales||[]).forEach(function(x){ if(!x.date||x.date<from||x.date>td||!x.clientId) return; days[x.date]=1; (per[x.clientId]=per[x.clientId]||{})[x.date]=1; });
+  var nDays=Object.keys(days).length; if(nDays<5) return [];
+  return Object.keys(per).filter(function(c){ return Object.keys(per[c]).length/nDays>=0.6 && byId(db.clients,+c); }).map(Number);
+}
+function dailySalesClients(){
+  var s=(dcur().entry)||{};
+  if(Array.isArray(s.dailyClients)) return s.dailyClients.filter(function(c){ return byId(db.clients,+c); }).map(Number);
+  return autoDailyClients();
+}
+function noSalesAcks(){ var d=dcur(); return d.noSalesAck||(d.noSalesAck={}); }
+function clientOffWeekdays(cid,td){
+  var from=ivAddDays(td,-55), seen={}, n=0, wd={};
+  (db.sales||[]).forEach(function(x){ if(+x.clientId!==cid||!x.date||x.date<from||x.date>td||seen[x.date]) return; seen[x.date]=1; n++; wd[(parseDate(x.date)||new Date(x.date)).getDay()]=1; });
+  if(n<12) return {};   /* تاريخ غير كافٍ لاستنتاج أيام الإجازة */
+  var off={}; for(var i=0;i<7;i++) if(!wd[i]) off[i]=1; return off;
+}
+function dailyClientFollowUps(clients,cfg,td,realTd){
+  var grace=+cfg.salesGrace||0, until=ivAddDays(td,-grace), out=[], acks=noSalesAcks();
+  var intro=entryIntro(cfg.salesIntro,cfg.salesName);
+  clients.forEach(function(cid){
+    var has={}, first=null;
+    (db.sales||[]).forEach(function(x){ if(+x.clientId!==cid||!x.date||x.date>realTd) return; has[x.date]=1; if(!first||x.date<first) first=x.date; });
+    if(!first) return;   /* عميل جديد بلا أي مبيعات بعد */
+    var offW=clientOffWeekdays(cid,realTd), ack=acks[cid]||{}, miss=[];
+    var d=ivAddDays(until,-13); if(d<first) d=first;
+    for(var guard=0; d<=until && guard<40; guard++, d=ivAddDays(d,1)){
+      if(has[d]||ack[d]) continue;
+      if(offW[(parseDate(d)||new Date(d)).getDay()]) continue;
+      miss.push(d);
+    }
+    if(!miss.length) return;
+    var name=clientName(cid), age=Math.round((new Date(td)-new Date(miss[0]))/86400000);
+    var tier=age>=3?'urgent':(age>=2?'mid':'soft'), sev=age>=3?0:(age>=2?1:2);
+    var msg=miss.length===1
+      ? 'لم تُسجَّل مبيعات هذا العميل ليوم '+miss[0]+(age>=2?' (متأخّر '+age+' أيام)':'')+'.'
+      : 'أيام بلا مبيعات مسجّلة لهذا العميل ('+miss.length+'): '+miss.map(function(x){ return x.slice(5); }).join('، ')+' — يُرجى استدراكها بدءاً من '+miss[0]+'.';
+    out.push({name:cfg.salesName,intro:intro,kindDef:'مبيعات «'+name+'»',tier:tier,sev:sev,msg:msg,ack:{cid:cid,dates:miss}});
+  });
+  return out;
+}
+/* تأكيد «لا مبيعات فعلية» لعميل في أيام محدّدة — لمدير النظام أو مسؤول المبيعات فقط */
+function ackNoSales(cid,dates){
+  if(!ME) return;
+  if(!canAckStock('high')){ try{toast('التأكيد متاح لمدير النظام أو مسؤول المبيعات فقط');}catch(e){} return; }
+  cid=+cid; dates=String(dates||'').split(',').filter(Boolean);
+  if(!dates.length) return;
+  if(!confirm('تأكيد أن العميل «'+clientName(cid)+'» لم تكن له مبيعات فعلية في:\n'+dates.join('، ')+'\n\nلن يُعاد التنبيه عن هذه الأيام.')) return;
+  var acks=noSalesAcks(), a=acks[cid]||(acks[cid]={}), now=Date.now();
+  dates.forEach(function(d){ a[d]={by:ME.id,byName:(ME.name||''),ts:now}; });
+  try{ log('data','التنبيهات','تأكيد عدم وجود مبيعات للعميل «'+clientName(cid)+'» في '+dates.join('، ')); }catch(e){}
+  try{ commit('تم التأكيد — أُخفي التنبيه عن هذه الأيام'); }catch(e){}
+  try{ renderEntryAlerts(); }catch(e){}
 }
 /* تنبيهات مراجعة/إقرار الأرصدة — النشاط يومي: مع إدخال المبيعات والمشتريات في وقتها لا تبقى أرصدة عالية.
    رصيد مرتفع (يغطي أيام بيع كثيرة) ⇐ غالباً مبيعات غير مُدخَلة ⇒ يُوجَّه لمسؤول المبيعات.
@@ -5400,7 +5465,11 @@ function staffCardHtml(a){
   } else if(a.lines&&a.lines.length){
     /* بطاقة موظّف مجمَّعة: تحية مرة واحدة ثم سطر لكل نوع إدخال (مبيعات/مصروفات…) */
     body='<div class="staff-alert-t">'+esc(a.intro||'')+'</div>'
-      +'<div class="staff-alert-t sd-lines">'+a.lines.map(function(ln){ return '<div class="sd-line">• '+esc(ln)+'</div>'; }).join('')+'</div>';
+      +'<div class="staff-alert-t sd-lines">'+a.lines.map(function(ln){
+        if(ln&&typeof ln==='object'){
+          var ab=canAckStock('high')?(' <button type="button" class="ack-btn" style="padding:2px 9px;font-size:12px" title="تأكيد أن العميل لم تكن له مبيعات فعلية في هذه الأيام" onclick="ackNoSales('+ln.ack.cid+',\''+ln.ack.dates.join(',')+'\')">✔ لا مبيعات فعلية</button>'):'';
+          return '<div class="sd-line">• '+esc(ln.t)+ab+'</div>'; }
+        return '<div class="sd-line">• '+esc(ln)+'</div>'; }).join('')+'</div>';
   } else {
     var ack=a.ackKind?('<div style="margin-top:9px"><button type="button" class="ack-btn" onclick="ackStockReview(\''+a.ackKind+'\')">✔ أقِرّ بصحة الرصيد وأُخفي التنبيه</button></div>'):'';
     body='<div class="staff-alert-t">'+esc(a.text)+'</div>'+ack;
@@ -7023,6 +7092,12 @@ function renderEntryCfg(){
   var ss=document.getElementById('en_salesUid'); if(ss){ ss.innerHTML=uopts; ss.value=c.salesUid?String(c.salesUid):''; }
   var ps=document.getElementById('en_purchUid'); if(ps){ ps.innerHTML=uopts; ps.value=c.purchUid?String(c.purchUid):''; }
   var gval=function(g){ return String(g)==='off'?'off':String(+g||0); };
+  var dc=document.getElementById('en_dailyClients');
+  if(dc){ var s0=(dcur().entry)||{}, manual=Array.isArray(s0.dailyClients), sel=dailySalesClients(), auto=manual?[]:sel;
+    dc.innerHTML=(db.clients||[]).length?(db.clients||[]).slice().sort(function(a,b){ return String(a.name).localeCompare(String(b.name),'ar'); }).map(function(cl){
+      return '<label style="display:inline-flex;gap:6px;align-items:center;font-size:14px"><input type="checkbox" data-dcl="'+cl.id+'" '+(sel.indexOf(cl.id)>=0?'checked':'')+'> '+esc(cl.name)+(auto.indexOf(cl.id)>=0?' <span class="pill pill-info" style="font-size:10px">مكتشف تلقائياً</span>':'')+'</label>'; }).join(''):'<span class="mini">لا يوجد عملاء</span>';
+    var dh=document.getElementById('en_dailyHint');
+    if(dh) dh.textContent=manual?'محدَّد يدوياً. أزل كل العلامات واحفظ للعودة إلى الاكتشاف التلقائي.':'اكتشاف تلقائي: العملاء الذين لهم مبيعات في 60% أو أكثر من أيام البيع خلال آخر 4 أسابيع. علِّم العملاء واحفظ لتثبيت قائمة يدوية.'; }
   setVal('en_alertHour',c.alertHour); setVal('en_salesGrace',gval(c.salesGrace)); setVal('en_purchGrace',gval(c.purchGrace)); setVal('en_expGrace',gval(c.expGrace));
   var pv=document.getElementById('en_preview');
   if(pv) pv.innerHTML='<b>هذه الإعدادات خاصة بقسم «'+esc(deptName(db.activeDept))+'» فقط</b> — لكل قسم مسؤولوه ورسائله وساعته ومهله المستقلة.<br><b>معاينة:</b> '+esc(entryIntro(c.salesIntro,c.salesName))+' آخر يوم تم فيه إدخال المبيعات هو 2026-10-09، الرجاء إدخال مبيعات يوم 2026-10-10.';
@@ -7034,7 +7109,11 @@ function saveEntryCfg(){
     salesIntro:(val('en_salesIntro')||'').trim(), purchIntro:(val('en_purchIntro')||'').trim(), expIntro:(val('en_expIntro')||'').trim(),
     salesUid:(+val('en_salesUid')||null), purchUid:(+val('en_purchUid')||null),
     alertHour:(val('en_alertHour')!==''?Math.min(23,Math.max(0,+val('en_alertHour')||0)):10),
-    salesGrace:_grv('en_salesGrace'), purchGrace:_grv('en_purchGrace'), expGrace:_grv('en_expGrace') };
+    salesGrace:_grv('en_salesGrace'), purchGrace:_grv('en_purchGrace'), expGrace:_grv('en_expGrace'),
+    dailyClients:(function(){ var boxes=[].slice.call(document.querySelectorAll('#en_dailyClients [data-dcl]')), ch=boxes.filter(function(b){ return b.checked; }).map(function(b){ return +b.dataset.dcl; });
+      /* لم يُعدَّل الاختيار عن الاكتشاف التلقائي ⇒ يبقى تلقائياً؛ لا علامات ⇒ تلقائي؛ غير ذلك ⇒ قائمة يدوية */
+      var autoSel=autoDailyClients().slice().sort().join(','), prev=((dcur().entry)||{}).dailyClients;
+      if(!ch.length) return null; if(!Array.isArray(prev)&&ch.slice().sort().join(',')===autoSel) return null; return ch; })() };
   var n=document.getElementById('en_status'); if(n) n.textContent='تم الحفظ ✅ (خاص بقسم '+esc(deptName(db.activeDept))+')';
   log('data','الإعدادات','تحديث مسؤولي الإدخال ورسائل المتابعة — قسم '+deptName(db.activeDept));
   commit('تم حفظ أسماء المتابعة'); renderEntryCfg();
