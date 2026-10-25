@@ -1943,7 +1943,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-10-25-a';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-10-25-b';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -2634,9 +2634,56 @@ document.querySelectorAll('.tab-btn').forEach(function(b){ b.addEventListener('c
    محرك المخزون والتكلفة — يعيد بناء الأرصدة من كل الحركات مرتبة زمنياً
    ========================================================================== */
 function buildLedger(){
-  var stock={},cogsLine={},cogsDoc={},srCost={},prCost={},wasteCost={},prodCost={},warn=[],moves=[];
-  function cell(w,i){ var k=w+'|'+i; if(!stock[k]) stock[k]={whId:w,itemId:i,units:0,cost:0,weight:0}; return stock[k]; }
-  function put(w,i,units,cost,weight){ var s=cell(w,i); s.units+=units; s.cost+=cost; s.weight+=weight; }
+  var stock={},cogsLine={},cogsDoc={},srCost={},prCost={},wasteCost={},prodCost={},warn=[],moves=[],negSettle=[],costVar=[];
+  /* neg: طابور الكميات المصروفة على المكشوف (رصيد سالب) بتكلفتها التقديرية والمستند الذي صرفها — لتسويتها لاحقاً */
+  function cell(w,i){ var k=w+'|'+i; if(!stock[k]) stock[k]={whId:w,itemId:i,units:0,cost:0,weight:0,neg:[]}; return stock[k]; }
+  var curDate='';
+  /* ===== تسوية الرصيد السالب (مبدأ محاسبي: صنف كميته صفر قيمته صفر) =====
+     الصرف على المكشوف يُقدَّر بمتوسط الشراء؛ وعند دخول كمية تغطي العجز يُحسب الفرق بين التكلفة
+     الفعلية للكمية الداخلة والتكلفة التقديرية التي صُرفت بها، ويُحمَّل على المستند الذي صرفها
+     (تكلفة مبيعات الفاتورة / الفاقد / مرتجع الشراء) — فلا تبقى قيمة يتيمة في المخزون ولا يضيع فرق من الأرباح. */
+  function applyVar(tg,diff,s){
+    if(!tg||Math.abs(diff)<0.000001) return 'none';
+    if(tg.k==='sale'){ var key=tg.id+'#'+tg.idx; cogsLine[key]=(cogsLine[key]||0)+diff; cogsDoc[tg.id]=(cogsDoc[tg.id]||0)+diff; return 'sale'; }
+    if(tg.k==='waste'){ wasteCost[tg.id]=(wasteCost[tg.id]||0)+diff; return 'waste'; }
+    if(tg.k==='pr'){ prCost[tg.id]=(prCost[tg.id]||0)+diff; return 'pr'; }
+    if(tg.k==='cell'){ var t=stock[tg.w+'|'+tg.i]; if(t&&t.units>0.0001){ t.cost+=diff;
+        moves.push({date:curDate,whId:tg.w,itemId:tg.i,type:'تسوية تكلفة (تحويل رصيد)',ref:'—',party:itemName(s.itemId),inU:0,outU:0,val:0,adj:diff}); return 'cell'; } }
+    costVar.push({date:curDate,whId:s.whId,itemId:s.itemId,amount:diff}); return 'var';
+  }
+  function settleNeg(s,cover,inPer){
+    var left=cover;
+    while(left>0.0000001&&s.neg.length){
+      var e=s.neg[0], q=Math.min(left,e.units), estP=e.est*(q/e.units), diff=inPer*q-estP;
+      var where=applyVar(e.tg,diff,s);
+      negSettle.push({date:curDate,whId:s.whId,itemId:s.itemId,units:q,est:estP,actual:inPer*q,diff:diff,tg:e.tg,where:where,from:e.date});
+      e.units-=q; e.est-=estP; left-=q; if(e.units<=0.0000001) s.neg.shift();
+    }
+  }
+  function negPush(s,units,est,tg,date){ if(units>0.0000001) s.neg.push({units:units,est:est,tg:tg,date:date}); }
+  /* إقفال الخلية: كمية صفر ⇒ قيمة صفر (أي فرق تقريب يُحوَّل لفروق التكلفة بدل بقائه قيمة بلا كمية) */
+  function closeZero(s){
+    if(Math.abs(s.units)<0.0001){
+      if(Math.abs(s.cost)>=0.005){ var r=s.cost; costVar.push({date:curDate,whId:s.whId,itemId:s.itemId,amount:r,zero:true});   /* amount = ما خرج من قيمة المخزون */
+        moves.push({date:curDate,whId:s.whId,itemId:s.itemId,type:'تسوية قيمة رصيد صفري',ref:'—',party:'—',inU:0,outU:0,val:0,adj:-r}); }
+      s.units=0; s.cost=0; s.weight=0; s.neg=[];
+    }
+  }
+  function put(w,i,units,cost,weight){
+    var s=cell(w,i);
+    if(s.units<-0.0000001&&units>0){
+      /* كمية داخلة تغطي عجزاً سابقاً: الجزء المغطّي يُسوّى بتكلفته الفعلية مقابل التقدير */
+      var cover=Math.min(units,-s.units), fr=cover/units, inPer=cost/units, negPart=s.cost*(cover/-s.units), wPart=weight*fr;
+      settleNeg(s,cover,inPer);
+      var adj=-(inPer*cover+negPart);   /* ما يخرج من قيمة المخزون إلى تكلفة المستند الصارف */
+      if(Math.abs(adj)>0.000001) moves.push({date:curDate,whId:w,itemId:i,type:'تسوية تكلفة رصيد سالب',ref:'—',party:'—',inU:0,outU:0,val:0,adj:adj});
+      s.units+=cover; s.cost-=negPart; s.weight+=wPart;
+      units-=cover; cost-=inPer*cover; weight-=wPart;
+      if(Math.abs(s.units)<0.0001){ s.units=0; s.cost=0; s.weight=0; s.neg=[]; }
+    }
+    s.units+=units; s.cost+=cost; s.weight+=weight;
+    closeZero(s);
+  }
   function take(w,i,units){
     var s=cell(w,i);
     if(s.units<=0.0000001||units<=0) return {cost:0,weight:0,taken:0};
@@ -2663,7 +2710,7 @@ function buildLedger(){
   /* يسحب كمية بيع من مستودعها (ثم من المستودعات العامة عند العجز) ويُرجع التكلفة مع
      تفصيل ما سُحب من كل مستودع فعلياً (parts) — كي تُسجَّل حركة لكل مستودع فيتطابق
      دفتر الحركات (moves) مع الرصيد الفعلي (stock)، فلا يختلف stockAsOf عن الرصيد. */
-  function drawFor(whId,itemId,units,label,date,uw){
+  function drawFor(whId,itemId,units,label,date,uw,tg){
     var need=units,cost=0,parts=[];
     var a=take(whId,itemId,need); if(a.taken>0.0001){ cost+=a.cost; parts.push({whId:whId,units:a.taken,val:a.cost}); } need-=a.taken;
     if(need>0.0001){
@@ -2672,7 +2719,7 @@ function buildLedger(){
          آخر (كان يُشوّه الأرصدة ويجعل دفتر المخزون لا يطابق سجل الحركات). التكلفة
          تُقدَّر بمتوسط الشراء وتتحدّث تلقائياً عند إدخال الشراء؛ والمرجع آخر جرد فعلي. */
       var est=need*fbCost(itemId); cost+=est;
-      var s=cell(whId,itemId); s.units-=need; s.cost-=est; s.weight-=need*(+uw||0);
+      var s=cell(whId,itemId); s.units-=need; s.cost-=est; s.weight-=need*(+uw||0); negPush(s,need,est,tg,date);
       parts.push({whId:whId,units:need,val:est});
       warn.push({date:date,text:label+' '+date+': كمية '+itemName(itemId)+' في '+whName(whId)+' تتجاوز الرصيد المتاح — أصبح رصيد هذا المستودع سالباً. راجع الشراء أو الجرد الفعلي أو حوّل من مستودع آخر.'});
     }
@@ -2697,7 +2744,7 @@ function buildLedger(){
   ev.sort(function(a,b){ if(a.d!==b.d) return a.d<b.d?-1:1; if(a.t!==b.t) return a.t-b.t; return a.id-b.id; });
 
   ev.forEach(function(e){
-    var r=e.r;
+    var r=e.r; curDate=e.d;
     if(e.t===0){
       put(r.whId,r.itemId,+r.units||0,+r.total||0,(+r.units||0)*(+r.uw||0));
       moves.push({date:r.date,whId:r.whId,itemId:r.itemId,type:'رصيد افتتاحي',ref:'#'+r.id,party:'—',
@@ -2730,7 +2777,7 @@ function buildLedger(){
       var need=+r.fromUnits||0, g=take(r.fromWh,r.fromItemId,need), movedCost=g.cost;
       if(g.taken<need-0.0001){
         var rem=need-g.taken, est=rem*fbCost(r.fromItemId); movedCost+=est;
-        var sC=cell(r.fromWh,r.fromItemId); sC.units-=rem; sC.cost-=est; sC.weight-=rem*fromUw;
+        var sC=cell(r.fromWh,r.fromItemId); sC.units-=rem; sC.cost-=est; sC.weight-=rem*fromUw; negPush(sC,rem,est,{k:'cell',w:r.toWh,i:r.toItemId},r.date);
         warn.push({date:r.date,text:'تحويل رصيد '+r.date+': رصيد '+itemName(r.fromItemId)+' في '+whName(r.fromWh)
           +' لا يكفي لتحويل '+qty(need)+' — سُجِّل العجز وأصبح الرصيد سالباً.'});
       }
@@ -2763,7 +2810,7 @@ function buildLedger(){
     } else if(e.t===4){
       var tot=0;
       (r.lines||[]).forEach(function(l,idx){
-        var d=drawFor(l.whId,l.itemId,+l.units||0,'بيع',r.date,+l.uw||0);
+        var d=drawFor(l.whId,l.itemId,+l.units||0,'بيع',r.date,+l.uw||0,{k:'sale',id:r.id,idx:idx});
         cogsLine[r.id+'#'+idx]=d.cost; tot+=d.cost;
         /* حركة بيع لكل مستودع سُحب منه فعلاً (يتطابق دفتر الحركات مع الرصيد) */
         d.parts.forEach(function(pt){
@@ -2778,7 +2825,7 @@ function buildLedger(){
       var need5=+r.units||0, g5=take(r.whId,r.itemId,need5), c2=g5.cost;
       if(g5.taken<need5-0.001){
         var rem5=need5-g5.taken, est5=rem5*fbCost(r.itemId); c2+=est5;
-        var s5=cell(r.whId,r.itemId); s5.units-=rem5; s5.cost-=est5; s5.weight-=rem5*(+r.uw||0);
+        var s5=cell(r.whId,r.itemId); s5.units-=rem5; s5.cost-=est5; s5.weight-=rem5*(+r.uw||0); negPush(s5,rem5,est5,{k:'pr',id:r.id},r.date);
         warn.push({date:r.date,text:'مرتجع شراء '+r.date+': رصيد '+itemName(r.itemId)+' في '+whName(r.whId)
           +' لا يكفي لإرجاع '+qty(need5)+' وحدة — العجز '+qty(need5-g5.taken)+' وحدة.'});
       }
@@ -2791,7 +2838,7 @@ function buildLedger(){
       var need6=+r.units||0, g6=take(r.whId,r.itemId,need6), c3=g6.cost;
       if(g6.taken<need6-0.001){
         var rem6=need6-g6.taken, est6=rem6*fbCost(r.itemId); c3+=est6;
-        var s6=cell(r.whId,r.itemId); s6.units-=rem6; s6.cost-=est6; s6.weight-=rem6*(+r.uw||0);
+        var s6=cell(r.whId,r.itemId); s6.units-=rem6; s6.cost-=est6; s6.weight-=rem6*(+r.uw||0); negPush(s6,rem6,est6,{k:'waste',id:r.id},r.date);
         warn.push({date:r.date,text:'فاقد '+r.date+': رصيد '+itemName(r.itemId)+' في '+whName(r.whId)
           +' لا يكفي لتسجيل '+qty(need6)+' وحدة — سُجِّل العجز وأصبح الرصيد سالباً.'});
       }
@@ -2814,7 +2861,9 @@ function buildLedger(){
       }
     }
   });
-  return {stock:stock,cogsLine:cogsLine,cogsDoc:cogsDoc,srCost:srCost,prCost:prCost,wasteCost:wasteCost,prodCost:prodCost,warn:warn,moves:moves};
+  /* أي خلية انتهت بكمية صفرية تُقفل بقيمة صفر، ويُنظَّف «−0» العشري */
+  Object.keys(stock).forEach(function(k){ closeZero(stock[k]); delete stock[k].neg; });
+  return {stock:stock,cogsLine:cogsLine,cogsDoc:cogsDoc,srCost:srCost,prCost:prCost,wasteCost:wasteCost,prodCost:prodCost,warn:warn,moves:moves,negSettle:negSettle,costVar:costVar};
 }
 var L=null;
 function refreshLedger(){ L=buildLedger(); }
@@ -5166,7 +5215,7 @@ function stockAsOf(to){
     if(m.date>to) return;
     var k=m.whId+'|'+m.itemId, s=snap[k]||(snap[k]={whId:m.whId,itemId:m.itemId,units:0,cost:0});
     s.units+=(+m.inU||0)-(+m.outU||0);
-    s.cost +=((+m.inU||0)>0?(+m.val||0):0)-((+m.outU||0)>0?(+m.val||0):0);
+    s.cost +=((+m.inU||0)>0?(+m.val||0):0)-((+m.outU||0)>0?(+m.val||0):0)+(+m.adj||0);
   });
   Object.keys(snap).forEach(function(k){ var s=snap[k];
     if(Math.abs(s.units)<0.0001) s.units=0;
@@ -5913,7 +5962,12 @@ function renderInvValueMovement(){
   (db.waste||[]).forEach(function(w){ if(inP(w.date)) wst+=(L.wasteCost[w.id]||0); });
   (db.productions||[]).forEach(function(p){ if(inP(p.date)){ var pc=L.prodCost[p.id]; if(pc) prodAdd+=((+pc.labor||0)+(+pc.fixed||0)+(+pc.manual||0)); } });
   (db.conversions||[]).forEach(function(c){ if(inP(c.date)) convN++; });
-  var expected=opening+purch+addv+sret+prodAdd-cogs-pret-wst;
+  /* تسويات الأرصدة السالبة التي تعبر الفترات: تُحمَّل على تكلفة المستند في فترته، بينما يتغيّر المخزون يوم التغطية */
+  var negIn=0,negOut=0,varAmt=0;
+  (L.negSettle||[]).forEach(function(x){ if(x.where==='var'||x.where==='cell') return; var cov=inP(x.date), doc=inP(x.from||x.date);
+    if(cov&&!doc) negIn+=x.diff; if(doc&&!cov) negOut+=x.diff; });
+  (L.costVar||[]).forEach(function(x){ if(inP(x.date)) varAmt+=x.amount; });
+  var expected=opening+purch+addv+sret+prodAdd-cogs-pret-wst-negIn+negOut-varAmt;
   var residual=closing-expected;
   function row(lbl,v,cls,sub){ return '<tr><td class="name">'+esc(lbl)+(sub?' <span class="muted" style="font-size:11px">'+esc(sub)+'</span>':'')+'</td><td class="num '+(cls||'')+'">'+money(v)+'</td></tr>'; }
   var h='<div class="note" style="border-right-color:var(--leaf-dark)"><b>الفترة: '+(from?esc(from):'البداية')+' ← '+esc(to)+'</b></div>'
@@ -5926,6 +5980,9 @@ function renderInvValueMovement(){
     +row('− تكلفة البضاعة المباعة',-cogs,'neg')
     +row('− مرتجع شراء (خرج من المخزون)',-pret,'neg')
     +row('− الفاقد/عجز الجرد',-wst,'neg')
+    +(Math.abs(negIn)>=0.01?row('− تسوية أرصدة سالبة لمستندات فترة سابقة',-negIn,negIn>0?'neg':'pos','فرق التكلفة الفعلية عن التقدير — حُمِّل على تكلفة تلك المستندات'):'')
+    +(Math.abs(negOut)>=0.01?row('+ تسوية أرصدة سالبة ستتم بعد الفترة',negOut,negOut>0?'pos':'neg','محمَّلة على تكلفة مستندات هذه الفترة'):'')
+    +(Math.abs(varAmt)>=0.01?row('− فروق تقريب تكلفة المخزون',-varAmt,'neg','قيمة صغيرة على كمية صفرية — أُقفلت'):'')
     +'<tr class="total-row"><td class="name">= قيمة المخزون المتوقّعة آخر المدة</td><td class="num">'+money(expected)+'</td></tr>'
     +'<tr class="total-row"><td class="name">قيمة المخزون الفعلية آخر المدة (من الأرصدة)</td><td class="num">'+money(closing)+'</td></tr>'
     +'</tbody></table></div>'
@@ -7441,6 +7498,7 @@ function renderItemDiag(){
   (db.conversions||[]).forEach(function(c){ if(!inR(c.date)) return; A(c.fromItemId).cvOut+=+c.fromUnits||0; A(c.toItemId).cvIn+=+c.toUnits||0; });
   /* أرصدة بداية/نهاية المدة من لقطة المخزون (تشمل كل الحركات السابقة والجرد) */
   var openSnap=from?stockAsOf(diagDayBefore(from)):{}, closeSnap=stockAsOf(to);
+  var settleHtml=diagSettlementHtml(from,to);
   var openBal={}, closeBal={}, remWh={};
   Object.keys(openSnap).forEach(function(k){ var s=openSnap[k]; openBal[s.itemId]=(openBal[s.itemId]||0)+s.units; });
   Object.keys(closeSnap).forEach(function(k){ var s=closeSnap[k]; closeBal[s.itemId]=(closeBal[s.itemId]||0)+s.units;
@@ -7498,7 +7556,32 @@ function renderItemDiag(){
   box.innerHTML='<div class="note '+(nSusp?'':'no-print')+'" style="border-right-color:'+(nSusp?'var(--tomato)':'var(--leaf-dark)')+'"><b>'+perTxt+'</b> · '
     +(nSusp?('عُثر على <b>'+nSusp+'</b> صنف يحتاج انتباهاً داخل الفترة (يظهر أولاً). كل صف: رصيد البداية + مشتريات − مبيعات ± تسويات = رصيد النهاية.'):'كل الأصناف متّسقة داخل الفترة. ✅ رصيد البداية + مشتريات − مبيعات ± تسويات = رصيد النهاية.')+'</div>'
     +'<div class="table-scroll"><table><thead><tr><th class="name">الصنف</th><th>رصيد البداية</th><th>اشتُري</th><th>بِيع</th><th class="name">تسويات (افتتاحي/جرد · فاقد · مرتجع)</th><th>رصيد النهاية</th><th class="name">توزيع المستودعات</th><th class="name">معادلة التسوية / التشخيص</th></tr></thead><tbody>'
-    +(h||'<tr><td colspan="8" class="empty">لا توجد حركات أصناف في الفترة.</td></tr>')+'</tbody></table></div>';
+    +(h||'<tr><td colspan="8" class="empty">لا توجد حركات أصناف في الفترة.</td></tr>')+'</tbody></table></div>'+settleHtml;
+}
+/* سجل تسويات الأرصدة السالبة + فحص «قيمة بلا كمية» — للمراجع المالي */
+function diagSettlementHtml(from,to){
+  if(!L) refreshLedger();
+  var inR=function(d){ return inRange(d,from,to); };
+  var ns=(L.negSettle||[]).filter(function(x){ return inR(x.date)&&Math.abs(x.diff)>=0.01; });
+  var cv=(L.costVar||[]).filter(function(x){ return inR(x.date)&&Math.abs(x.amount)>=0.01; });
+  var orphan=Object.keys(L.stock).map(function(k){ return L.stock[k]; }).filter(function(c){ return Math.abs(c.units)<0.0001&&Math.abs(c.cost)>=0.01; });
+  var docTxt=function(x){ var t=x.tg||{};
+    if(t.k==='sale'){ var sd=byId(db.sales,t.id); return 'تكلفة مبيعات فاتورة '+esc(sd?(sd.no||('#'+sd.id)):('#'+t.id))+(sd?' ('+esc(clientName(sd.clientId))+' · '+esc(sd.date)+')':''); }
+    if(t.k==='waste') return 'تكلفة فاقد #'+t.id; if(t.k==='pr') return 'تكلفة مرتجع شراء #'+t.id;
+    if(t.k==='cell') return 'تكلفة الصنف المحوَّل إليه «'+esc(itemName(t.i))+'»'; return 'فروق تكلفة المخزون'; };
+  var tot=ns.reduce(function(a,x){ return a+x.diff; },0);
+  var h='<div class="sec-title" style="margin-top:16px">تسويات تكلفة الأرصدة السالبة <span class="hint">صنف كميته صفر قيمته صفر — الفرق يُحمَّل على المستند الذي صرف على المكشوف</span></div>'
+    +'<div class="note" style="border-right-color:'+(orphan.length?'var(--tomato)':'var(--leaf-dark)')+'">'
+    +(orphan.length?('⚠ يوجد '+orphan.length+' رصيد بكمية صفر وقيمة غير صفرية — يُرجى إبلاغ الدعم.'):'✅ لا يوجد أي صنف بكمية صفر وله قيمة في المخزون.')
+    +' · عدد التسويات في الفترة: <b>'+ns.length+'</b> · صافي أثرها على التكلفة: <b>'+money(tot)+'</b>'
+    +(tot>0?' (تكلفة فعلية أعلى من التقدير ⇒ ربح أقل)':tot<0?' (تكلفة فعلية أقل من التقدير ⇒ ربح أعلى)':'')+'</div>';
+  if(ns.length) h+='<div class="table-scroll"><table><thead><tr><th>تاريخ التغطية</th><th class="name">الصنف</th><th class="name">المستودع</th><th>كمية مغطّاة</th><th>صُرفت بتاريخ</th><th>التكلفة التقديرية</th><th>التكلفة الفعلية</th><th>الفرق</th><th class="name">حُمِّل على</th></tr></thead><tbody>'
+    +ns.slice().sort(function(a,b){ return Math.abs(b.diff)-Math.abs(a.diff); }).slice(0,300).map(function(x){
+      return '<tr><td>'+esc(x.date)+'</td><td class="name">'+esc(itemName(x.itemId))+'</td><td class="name">'+esc(whName(x.whId))+'</td><td>'+qty(x.units)+'</td><td>'+esc(x.from||'—')+'</td>'
+        +'<td>'+money(x.est)+'</td><td>'+money(x.actual)+'</td><td style="color:'+(x.diff>0?'var(--tomato)':'var(--leaf-dark)')+'"><b>'+money(x.diff)+'</b></td><td class="name">'+docTxt(x)+'</td></tr>'; }).join('')
+    +'</tbody></table></div>';
+  if(cv.length) h+='<div class="mini" style="margin-top:6px">فروق تقريب/تكلفة غير منسوبة لمستند في الفترة: '+cv.length+' بإجمالي '+money(cv.reduce(function(a,x){ return a+x.amount; },0))+'.</div>';
+  return h;
 }
 /* أدوات الفترة لتشخيص الأصناف */
 function diagDayBefore(d){ try{ var x=new Date(d+'T00:00:00'); x.setDate(x.getDate()-1); return x.toISOString().slice(0,10); }catch(e){ return d; } }
