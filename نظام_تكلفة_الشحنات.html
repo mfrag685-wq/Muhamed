@@ -1133,7 +1133,8 @@ html[data-theme="dark"] .rt td.hl{background:#2e2814;color:var(--accent)}
         <div class="fg"><label>مرجع العملية</label><input id="pay-ref" placeholder="اختياري" style="width:120px"></div>
         <div class="fg"><label>رقم الشحنة</label><input id="pay-ship" placeholder="اختياري" style="width:120px"></div>
         <div class="fg"><label>ملاحظات</label><input id="pay-notes" placeholder="اختياري" style="min-width:140px"></div>
-        <button class="btn btn-accent" onclick="addPaymentManual()">＋ إضافة</button>
+        <button class="btn btn-accent" id="pay-add-btn" onclick="addPaymentManual()">＋ إضافة</button>
+        <button class="btn btn-outline" id="pay-cancel-btn" onclick="cancelPayEdit()" style="display:none">✖ إلغاء التعديل</button>
       </div>
     </div>
   </div>
@@ -1473,9 +1474,11 @@ html[data-theme="dark"] .rt td.hl{background:#2e2814;color:var(--accent)}
   </div>
 
   <div class="card" id="cmp-pay-card" style="margin-top:12px">
-    <div class="card-header" style="background:#1b5e20">💳 دفعات المقارنة — وجهة الدفعة (الشركتان معاً / <span class="cmp-lblA-t">أ</span> / <span class="cmp-lblB-t">ب</span>)</div>
+    <div class="card-header" style="background:#1b5e20">💳 دفعات المقارنة — تُسجَّل مرة واحدة وتظهر هنا وفي كشف حساب المورد تلقائياً</div>
     <div class="card-body">
+      <div class="alert ai" style="margin-bottom:10px;font-size:.8rem">💡 اختر <strong>المورد</strong> فتُسجَّل الدفعة في كشف حسابه وتظهر هنا حسب <strong>الوجهة</strong>. دفعات كشف حساب المورد تظهر هنا تلقائياً دون إعادة إدخال.</div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+        <div class="fg"><label>المورد</label><select id="cpay-supplier" style="min-width:150px"></select></div>
         <div class="fg"><label>التاريخ</label><input id="cpay-date" type="date" style="width:150px"></div>
         <div class="fg"><label>المبلغ</label><input id="cpay-amount" type="number" min="0" step="0.01" placeholder="0.00" style="width:120px"></div>
         <div class="fg"><label>العملة</label><select id="cpay-cur" class="cur-sel"><option value="SAR">SAR</option><option value="USD">USD</option></select></div>
@@ -4744,7 +4747,7 @@ function renderPayments(){
           <td style="color:var(--success)">${fmtD(sar)}</td>
           <td>${m}</td><td>${escH(p.bank||'')}</td><td>${escH(p.ref||'')}</td>
           <td>${escH(p.shipmentNo||'')}</td><td style="font-size:.75rem">${escH(p.notes||'')}</td>
-          <td><button class="del-btn" onclick="deletePayment('${p.id}')">✕</button></td>
+          <td><button class="del-btn" onclick="editPayment('${p.id}')" title="تعديل" style="color:var(--primary)">✏️</button> <button class="del-btn" onclick="deletePayment('${p.id}')">✕</button></td>
         </tr>`;
       }).join('');
     }
@@ -4761,12 +4764,12 @@ function renderPayments(){
     <div class="sum-card"><div class="lbl">تحويل بنكي (SAR)</div><div class="val">${fmtD(trans)}</div></div>`;
 }
 
+var _payEdit=null;
 function addPaymentManual(){
   if(isReadonly()){ toast('👁 وضع القراءة فقط',true); return; }
   const amount=parseFloat(document.getElementById('pay-amount').value)||0;
   if(amount<=0){ toast('⚠️ أدخل مبلغاً صحيحاً',true); return; }
-  const p={
-    id:'pm_'+Date.now(),
+  const fields={
     date:document.getElementById('pay-date').value||new Date().toISOString().slice(0,10),
     amount, cur:document.getElementById('pay-cur').value,
     method:document.getElementById('pay-method').value,
@@ -4775,14 +4778,25 @@ function addPaymentManual(){
     shipmentNo:document.getElementById('pay-ship').value.trim(),
     notes:document.getElementById('pay-notes').value.trim()
   };
-  const list=payLoad(); list.push(p); paySave(list);
+  const list=payLoad();
+  if(_payEdit){ var t=list.find(function(x){return x.id===_payEdit;}); if(t){ Object.assign(t,fields); } paySave(list); cancelPayEdit(); logAction('تعديل دفعة', amount); toast('💾 تم حفظ تعديل الدفعة'); }
+  else { fields.id='pm_'+Date.now(); list.push(fields); paySave(list); logAction('إضافة دفعة', amount); toast('✅ تمت إضافة الدفعة'); }
   ['pay-amount','pay-ref','pay-notes','pay-bank'].forEach(id=>{ const e=document.getElementById(id); if(e)e.value=''; });
   renderPayments();
-  logAction('إضافة دفعة', p.amount+' '+p.cur);
-  toast('✅ تمت إضافة الدفعة');
 }
+function editPayment(id){
+  if(isReadonly()){ toast('👁 وضع القراءة فقط',true); return; }
+  var p=payLoad().find(function(x){return x.id===id;}); if(!p){ toast('الدفعة غير موجودة',true); return; }
+  _payEdit=id; var set=function(k,v){ var e=document.getElementById(k); if(e) e.value=(v==null?'':v); };
+  set('pay-date',p.date); set('pay-amount',p.amount); set('pay-cur',p.cur||'SAR'); set('pay-method',p.method||'transfer'); set('pay-bank',p.bank); set('pay-ref',p.ref); set('pay-ship',p.shipmentNo); set('pay-notes',p.notes);
+  if(typeof onPayMethodChange==='function') onPayMethodChange();
+  var btn=document.getElementById('pay-add-btn'); if(btn){ btn.textContent='💾 حفظ التعديل'; btn.classList.add('btn-primary'); }
+  var cx=document.getElementById('pay-cancel-btn'); if(cx) cx.style.display='';
+  toast('✏️ عدّل الحقول ثم «حفظ التعديل»'); try{ document.getElementById('pay-amount').focus(); }catch(e){}
+}
+function cancelPayEdit(){ _payEdit=null; var btn=document.getElementById('pay-add-btn'); if(btn){ btn.textContent='＋ إضافة'; btn.classList.remove('btn-primary'); } var cx=document.getElementById('pay-cancel-btn'); if(cx) cx.style.display='none'; ['pay-amount','pay-ref','pay-notes','pay-bank'].forEach(function(id){ var e=document.getElementById(id); if(e)e.value=''; }); }
 function deletePayment(id){
-  const list=payLoad().filter(p=>p.id!==id); paySave(list); renderPayments(); logAction('حذف دفعة',''); toast('🗑️ تم حذف الدفعة');
+  const list=payLoad().filter(p=>p.id!==id); paySave(list); if(_payEdit===id) cancelPayEdit(); renderPayments(); logAction('حذف دفعة',''); toast('🗑️ تم حذف الدفعة');
 }
 function clearAllPayments(){
   if(!can('delete')){ toast('لا تملك صلاحية الحذف',true); return; }
@@ -5564,45 +5578,69 @@ function cmpPayKey(pid){ return 'scs_cmppay_'+(pid||getActiveProfileId()||'defau
 function cmpPayLoad(pid){ try{ return JSON.parse(localStorage.getItem(cmpPayKey(pid))||'[]'); }catch(e){ return []; } }
 function cmpPaySave(a,pid){ try{ localStorage.setItem(cmpPayKey(pid),JSON.stringify(a)); return true; }catch(e){ toast('⚠️ فشل حفظ الدفعات: التخزين ممتلئ',true); return false; } }
 function cmpPayToSar(p){ var a=parseFloat(p&&p.amount)||0; return (p&&p.cur==='SAR')?a:a*(parseFloat(p&&p.rate)||S.fxUsdSar||3.756); }
-// المدفوع لكل نموذج: دفعة «معاً» تُخصم من النموذجين
+// مصدر موحّد لدفعات المقارنة: دفعات كشف حساب المورد (حسب الوجهة) + دفعات المقارنة القديمة (بلا batch)
+// فالدفعة تُسجَّل مرة واحدة في كشف المورد وتظهر هنا تلقائياً دون تكرار.
+function cmpUnifiedPays(){
+  var sp=saPayLoad().map(function(p){ return {src:'sp', id:p.id, date:p.date||'', amount:p.amount, cur:p.cur, rate:p.rate, target:p.target||'a', method:p.method, bank:p.bank, note:(p.notes||''), supplier:(p.supplier||'')}; });
+  var cp=cmpPayLoad().filter(function(p){ return !p.batch; }).map(function(p){ return {src:'cp', id:p.id, date:p.date||'', amount:p.amount, cur:p.cur, rate:p.rate, target:p.target||'both', method:p.method, bank:p.bank, note:(p.note||''), supplier:''}; });
+  return sp.concat(cp);
+}
+// المدفوع لكل نموذج: دفعة «معاً» تُخصم من النموذجين (من المصدر الموحّد)
 function cmpPaidByModel(){
   var paidA=0, paidB=0;
-  cmpPayLoad().forEach(function(p){ var tg=p.target||'both'; var v=cmpPayToSar(p);
+  cmpUnifiedPays().forEach(function(p){ var tg=p.target||'both'; var v=cmpPayToSar(p);
     if(tg==='a'||tg==='both') paidA+=v; if(tg==='b'||tg==='both') paidB+=v; });
   return {paidA:paidA, paidB:paidB};
 }
-var _cmpEdit=null;
+function cmpSupplierOptions(){
+  var sel=document.getElementById('cpay-supplier'); if(!sel) return;
+  var cur=sel.value||''; var sups=supLoad();
+  sel.innerHTML='<option value="">— دفعة مقارنة فقط (بلا مورد) —</option>'+sups.map(function(s){ return '<option value="'+escH(s.name)+'"'+(s.name===cur?' selected':'')+'>'+escH(s.name)+'</option>'; }).join('');
+}
+var _cmpEdit=null; // {src,id} عند التعديل
 function addCmpPayment(){
   if(isReadonly()){ toast('👁 وضع القراءة فقط',true); return; }
   var amount=parseFloat(document.getElementById('cpay-amount').value)||0;
   if(amount<=0){ toast('⚠️ أدخل مبلغاً صحيحاً',true); return; }
   var rate=document.getElementById('cpay-rate').value; rate=(rate===''||rate==null)?'':(parseFloat(rate)||'');
-  var fields={
-    date:document.getElementById('cpay-date').value||new Date().toISOString().slice(0,10),
-    amount:amount, cur:document.getElementById('cpay-cur').value, rate:rate,
-    target:(document.getElementById('cpay-target')||{}).value||'both',
-    method:document.getElementById('cpay-method').value,
-    bank:document.getElementById('cpay-bank').value.trim(),
-    note:document.getElementById('cpay-note').value.trim() };
-  var list=cmpPayLoad();
-  if(_cmpEdit){ var t=list.find(function(x){return x.id===_cmpEdit;}); if(t){ Object.assign(t,fields); } cmpPaySave(list); cancelCmpEdit(); logAction('تعديل دفعة مقارنة', amount); toast('💾 تم حفظ تعديل الدفعة'); }
-  else { fields.id='cpay_'+Date.now(); list.push(fields); cmpPaySave(list); logAction('إضافة دفعة مقارنة', amount+' / '+fields.target); toast('✅ تمت إضافة الدفعة'); }
+  var supplier=(document.getElementById('cpay-supplier')||{}).value||'';
+  var date=document.getElementById('cpay-date').value||new Date().toISOString().slice(0,10);
+  var cur=document.getElementById('cpay-cur').value, target=(document.getElementById('cpay-target')||{}).value||'both';
+  var method=document.getElementById('cpay-method').value, bank=document.getElementById('cpay-bank').value.trim(), note=document.getElementById('cpay-note').value.trim();
+  if(_cmpEdit){
+    // تحديث في المتجر الأصلي للدفعة (مورد أو مقارنة)
+    if(_cmpEdit.src==='sp'){ var sl=saPayLoad(); var t=sl.find(function(x){return x.id===_cmpEdit.id;}); if(t){ Object.assign(t,{supplier:(supplier||t.supplier),date:date,amount:amount,cur:cur,rate:(rate===''?(S.fxUsdSar||3.756):rate),target:target,method:method,bank:bank,notes:note}); } saPaySave(sl); }
+    else { var cl=cmpPayLoad(); var t2=cl.find(function(x){return x.id===_cmpEdit.id;}); if(t2){ Object.assign(t2,{date:date,amount:amount,cur:cur,rate:rate,target:target,method:method,bank:bank,note:note}); } cmpPaySave(cl); }
+    logAction('تعديل دفعة', amount); toast('💾 تم حفظ تعديل الدفعة'); cancelCmpEdit();
+  } else {
+    if(supplier){ // تُسجَّل كدفعة مورد (مصدر موحّد) فتظهر في الكشفين
+      var sl2=saPayLoad(); sl2.push({id:'sp_'+Date.now(), supplier:supplier, date:date, amount:amount, cur:cur, rate:(rate===''?(S.fxUsdSar||3.756):rate), target:target, method:method, bank:bank, ref:'', notes:note}); saPaySave(sl2);
+      logAction('إضافة دفعة (مورد+مقارنة)', supplier+': '+amount); toast('✅ سُجّلت في كشف المورد وتظهر في المقارنة');
+    } else { // دفعة مقارنة فقط (بلا مورد)
+      var cl2=cmpPayLoad(); cl2.push({id:'cpay_'+Date.now(), date:date, amount:amount, cur:cur, rate:rate, target:target, method:method, bank:bank, note:note}); cmpPaySave(cl2);
+      logAction('إضافة دفعة مقارنة', amount+' / '+target); toast('✅ تمت إضافة دفعة المقارنة');
+    }
+  }
   ['cpay-amount','cpay-rate','cpay-bank','cpay-note'].forEach(function(id){ var e=document.getElementById(id); if(e)e.value=''; });
   renderCmpPayList(); renderCmpNet();
+  try{ if(document.getElementById('page-supacct').classList.contains('active')) renderSupAcct(); }catch(e){}
 }
-function editCmpPayment(id){
+function editCmpPayment(src,id){
   if(isReadonly()){ toast('👁 وضع القراءة فقط',true); return; }
-  var p=cmpPayLoad().find(function(x){return x.id===id;}); if(!p){ toast('الدفعة غير موجودة',true); return; }
-  _cmpEdit=id; var set=function(k,v){ var e=document.getElementById(k); if(e) e.value=(v==null?'':v); };
-  set('cpay-date',p.date); set('cpay-amount',p.amount); set('cpay-cur',p.cur||'SAR'); set('cpay-rate',p.rate); set('cpay-target',p.target||'both'); set('cpay-method',p.method||'transfer'); set('cpay-bank',p.bank); set('cpay-note',p.note);
+  var p=(src==='sp'?saPayLoad():cmpPayLoad()).find(function(x){return x.id===id;}); if(!p){ toast('الدفعة غير موجودة',true); return; }
+  _cmpEdit={src:src,id:id}; var set=function(k,v){ var e=document.getElementById(k); if(e) e.value=(v==null?'':v); };
+  cmpSupplierOptions(); var ss=document.getElementById('cpay-supplier'); if(ss) ss.value=(src==='sp'?(p.supplier||''):'');
+  set('cpay-date',p.date); set('cpay-amount',p.amount); set('cpay-cur',p.cur||'SAR'); set('cpay-rate',p.rate); set('cpay-target',p.target||'both'); set('cpay-method',p.method||'transfer'); set('cpay-bank',p.bank); set('cpay-note',(src==='sp'?(p.notes||''):(p.note||'')));
   var btn=document.getElementById('cpay-add-btn'); if(btn){ btn.textContent='💾 حفظ التعديل'; btn.classList.add('btn-primary'); }
   var cx=document.getElementById('cpay-cancel-btn'); if(cx) cx.style.display='';
   toast('✏️ عدّل الحقول ثم «حفظ التعديل»'); try{ document.getElementById('cpay-amount').focus(); }catch(e){}
 }
 function cancelCmpEdit(){ _cmpEdit=null; var btn=document.getElementById('cpay-add-btn'); if(btn){ btn.textContent='➕ إضافة دفعة'; btn.classList.remove('btn-primary'); } var cx=document.getElementById('cpay-cancel-btn'); if(cx) cx.style.display='none'; ['cpay-amount','cpay-rate','cpay-bank','cpay-note'].forEach(function(id){ var e=document.getElementById(id); if(e)e.value=''; }); }
-function deleteCmpPayment(id){
+function deleteCmpPayment(src,id){
   if(isReadonly()){ toast('👁 وضع القراءة فقط',true); return; }
-  cmpPaySave(cmpPayLoad().filter(function(p){return p.id!==id;})); if(_cmpEdit===id) cancelCmpEdit(); renderCmpPayList(); renderCmpNet();
+  if(src==='sp'){ saPaySave(saPayLoad().filter(function(p){return p.id!==id;})); try{ if(document.getElementById('page-supacct').classList.contains('active')) renderSupAcct(); }catch(e){} }
+  else { cmpPaySave(cmpPayLoad().filter(function(p){return p.id!==id;})); }
+  if(_cmpEdit&&_cmpEdit.id===id) cancelCmpEdit(); renderCmpPayList(); renderCmpNet();
   logAction('حذف دفعة مقارنة',''); toast('🗑️ تم حذف الدفعة');
 }
 function renderCmpPayList(){
@@ -5610,17 +5648,19 @@ function renderCmpPayList(){
   var oa=document.getElementById('cpay-topt-a'); if(oa) oa.textContent=L.a+' فقط';
   var ob=document.getElementById('cpay-topt-b'); if(ob) ob.textContent=L.b+' فقط';
   var dEl=document.getElementById('cpay-date'); if(dEl && !dEl.value) dEl.value=new Date().toISOString().slice(0,10);
+  cmpSupplierOptions();
   var tgTxt={both:'الشركتان معاً', a:L.a, b:L.b};
   var tb=document.getElementById('cpay-tbody'); if(!tb) return;
-  var list=cmpPayLoad().slice().sort(function(a,b){ return (a.date<b.date)?1:-1; });
-  if(!list.length){ tb.innerHTML='<tr><td colspan="8" style="padding:16px;color:var(--muted)">لا توجد دفعات — أضِف دفعة أعلاه</td></tr>'; return; }
+  var list=cmpUnifiedPays().slice().sort(function(a,b){ return (a.date<b.date)?1:-1; });
+  if(!list.length){ tb.innerHTML='<tr><td colspan="8" style="padding:16px;color:var(--muted)">لا توجد دفعات — سجّل دفعة أعلاه أو من كشف حساب المورد</td></tr>'; return; }
   tb.innerHTML=list.map(function(p){
+    var noteTxt=(p.src==='sp'?('🧾 '+(p.supplier||'مورد')+(p.note?' — '+p.note:'')):(p.note||''));
     return '<tr><td>'+escH(p.date||'—')+'</td><td class="num">'+fmtD(p.amount||0)+' '+escH(p.cur||'')+'</td>'+
       '<td class="num" style="color:var(--success)">'+fmtD(cmpPayToSar(p))+'</td>'+
       '<td>'+escH(tgTxt[p.target||'both']||'')+'</td>'+
-      '<td>'+(p.method==='transfer'?'🏦 تحويل':'💵 نقد')+(p.bank?'':'')+'</td>'+
-      '<td>'+escH(p.bank||'')+'</td><td style="font-size:.78rem">'+escH(p.note||'')+'</td>'+
-      '<td><button class="del-btn" onclick="editCmpPayment(\''+p.id+'\')" title="تعديل" style="color:var(--primary)">✏️</button> <button class="del-btn" onclick="deleteCmpPayment(\''+p.id+'\')">✕</button></td></tr>';
+      '<td>'+(p.method==='transfer'?'🏦 تحويل':'💵 نقد')+'</td>'+
+      '<td>'+escH(p.bank||'')+'</td><td style="font-size:.78rem">'+escH(noteTxt)+'</td>'+
+      '<td><button class="del-btn" onclick="editCmpPayment(\''+p.src+'\',\''+p.id+'\')" title="تعديل" style="color:var(--primary)">✏️</button> <button class="del-btn" onclick="deleteCmpPayment(\''+p.src+'\',\''+p.id+'\')">✕</button></td></tr>';
   }).join('');
 }
 // إجماليات كل الشحنات (أ/ب) للشركة النشطة حسب الأساس المختار
@@ -5660,7 +5700,7 @@ function renderCmpNet(){
   var bs=document.getElementById('cacc-mode-sum'), bd=document.getElementById('cacc-mode-det');
   if(bs) bs.classList.toggle('btn-accent', _cmpAcctMode==='summary'); if(bd) bd.classList.toggle('btn-accent', _cmpAcctMode==='detail');
   var el=document.getElementById('cmp-acct-cols'); if(!el) return;
-  var rows=cmpTotalsRows(); var pays=cmpPayLoad();
+  var rows=cmpTotalsRows(); var pays=cmpUnifiedPays();
   function colHtml(model,label,accent){
     var total=0, ships=[];
     rows.forEach(function(r){ var amt=(model==='a')?r.aTot:r.bTot; if(amt>0){ total+=amt; ships.push({num:r.num, amt:amt}); } });
@@ -5700,7 +5740,7 @@ function renderCmpNet(){
     colHtml('a',L.a,'#1a3a5c')+colHtml('b',L.b,'#7a3e10')+'</div>';
 }
 function printCmpAccounts(){
-  var L=cmpLabels(); var rows=cmpTotalsRows(); var pays=cmpPayLoad();
+  var L=cmpLabels(); var rows=cmpTotalsRows(); var pays=cmpUnifiedPays();
   function stmt(model,label){
     var total=0, tr='';
     rows.forEach(function(r){ var amt=(model==='a')?r.aTot:r.bTot; if(amt>0){ total+=amt; tr+='<tr><td>شحنة #'+escH(r.num)+'</td><td class=num>'+fmtD(amt)+'</td></tr>'; } });
@@ -6272,7 +6312,7 @@ function exportPaymentsExcel(){
 // ═══════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════
-var APP_VERSION='v2026-10-27.14';   // رقم إصدار ظاهر للتحقق من تحميل أحدث نسخة (لا cache قديم)
+var APP_VERSION='v2026-10-27.15';   // رقم إصدار ظاهر للتحقق من تحميل أحدث نسخة (لا cache قديم)
 function initApp() {
   try{ var av=document.getElementById('app-ver'); if(av) av.textContent=APP_VERSION; }catch(e){}
   try{ reconcileProfiles(); }catch(e){}   // توحيد أي بروفايلات مكرّرة محلياً قبل العرض
