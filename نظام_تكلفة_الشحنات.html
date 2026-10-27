@@ -4828,13 +4828,24 @@ function shipFreightSar(snap){
   }
   return total;
 }
-// قيمة أجور الشحن بالدولار كما أُدخلت (الدولار كما هو، والريال يُحوَّل للدولار بسعر الصرف المحفوظ)
-function shipFreightUsd(snap){
+// قيمة أجور الشحن بالدولار لكل حاوية (الدولار كما هو، والريال يُحوَّل بسعر الصرف المحفوظ)
+function shipFreightUsdParts(snap){
   var rate=parseFloat(snap&&snap.fxUsdSar)||3.756; if(rate<=0) rate=3.756;
-  var conts=(snap&&snap.containers)||[], usd=0;
-  conts.forEach(function(c){ if(!c) return; var a=parseFloat(c.freight)||0; if(!a) return; usd += ((c.freightCur||'USD')==='SAR')? a/rate : a; });
-  if(usd===0){ conts.forEach(function(c){ ((c&&c.invoices)||[]).forEach(function(inv){ var v=parseFloat(inv&&inv.shippingCost)||0; if(v>0) usd += ((inv.shipCur||'USD')==='SAR')? v/rate : v; }); }); }
-  return usd;
+  var conts=(snap&&snap.containers)||[], parts=[];
+  conts.forEach(function(c){ if(!c) return; var a=parseFloat(c.freight)||0; if(!a) return; parts.push(((c.freightCur||'USD')==='SAR')? a/rate : a); });
+  if(!parts.length){ conts.forEach(function(c){ ((c&&c.invoices)||[]).forEach(function(inv){ var v=parseFloat(inv&&inv.shippingCost)||0; if(v>0) parts.push(((inv.shipCur||'USD')==='SAR')? v/rate : v); }); }); }
+  return parts;
+}
+function shipFreightUsd(snap){ return shipFreightUsdParts(snap).reduce(function(a,b){return a+b;},0); }
+// نص أجور الشحن بالدولار مع التفصيل لكل حاوية: 17,500 $ (8,750$ × 2) أو (10,000$ + 7,500$)
+function shipFreightUsdLabel(snap){
+  var parts=shipFreightUsdParts(snap); if(!parts.length) return '';
+  var tot=parts.reduce(function(a,b){return a+b;},0), brk='';
+  if(parts.length>1){
+    var allEq=parts.every(function(x){ return Math.abs(x-parts[0])<0.005; });
+    brk = allEq ? ' ('+fmtD(parts[0])+'$ × '+parts.length+')' : ' ('+parts.map(function(x){return fmtD(x)+'$';}).join(' + ')+')';
+  }
+  return 'أجور الشحن '+fmtD(tot)+' $'+brk;
 }
 function frtPayToSar(p){ var a=parseFloat(p&&p.amount)||0; return (p&&p.cur==='SAR')?a:a*(parseFloat(p&&p.rate)||S.fxUsdSar||3.756); }
 function onFrtMethodChange(){ var m=document.getElementById('frt-method').value; var w=document.getElementById('frt-bank-wrap'); if(w) w.style.display=(m==='transfer')?'':'none'; }
@@ -4844,7 +4855,7 @@ function clearFrtDates(){ var f=document.getElementById('frt-from'), t=document.
 // بناء صفوف الأستاذ (مدين/دائن) مرتبة بالتاريخ مع الرصيد الجاري — مطابقة لدالة ledger
 function frtLedger(from,to){
   var ships=dbLoad().filter(function(s){ return shipFreightSar(s)>0; })
-    .map(function(s){ var nc=((s.containers)||[]).length, usd=shipFreightUsd(s); return {date:s.shipmentDate||'', kind:'ship', label:'شحنة '+(s.shipmentNo||'—')+(nc?' ('+nc+' حاوية)':'')+(usd>0?' — أجور الشحن ≈ '+fmtD(usd)+' $':''), dr:shipFreightSar(s), cr:0}; });
+    .map(function(s){ var nc=((s.containers)||[]).length, ul=shipFreightUsdLabel(s); return {date:s.shipmentDate||'', kind:'ship', label:'شحنة '+(s.shipmentNo||'—')+(nc?' ('+nc+' حاوية)':'')+(ul?' — '+ul:''), dr:shipFreightSar(s), cr:0}; });
   var pays=frtLoad()
     .map(function(p){ var m=(p.method==='transfer')?('تحويل'+(p.bank?' — '+p.bank:'')):'نقدًا';
       return {date:p.date||'', kind:'pay', id:p.id, label:'دفعة ('+m+')'+(p.ref?' #'+p.ref:'')+(p.notes?' — '+p.notes:''), dr:0, cr:frtPayToSar(p)}; });
@@ -6378,7 +6389,7 @@ function exportPaymentsExcel(){
 // ═══════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════
-var APP_VERSION='v2026-10-27.17';   // رقم إصدار ظاهر للتحقق من تحميل أحدث نسخة (لا cache قديم)
+var APP_VERSION='v2026-10-27.18';   // رقم إصدار ظاهر للتحقق من تحميل أحدث نسخة (لا cache قديم)
 function initApp() {
   try{ var av=document.getElementById('app-ver'); if(av) av.textContent=APP_VERSION; }catch(e){}
   try{ reconcileProfiles(); }catch(e){}   // توحيد أي بروفايلات مكرّرة محلياً قبل العرض
