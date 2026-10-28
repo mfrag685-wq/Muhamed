@@ -2212,7 +2212,7 @@ function renderArchive() {
         <div class="ac-actions" onclick="event.stopPropagation()">
           <button class="btn btn-primary btn-sm" onclick="loadShipment('${r.id}')">📂 فتح</button>
           <button class="btn btn-outline btn-sm" onclick="showShipmentDetail('${r.id}')">🔍 تفاصيل</button>
-          <button class="btn btn-danger btn-sm" onclick="deleteShipment('${r.id}')">🗑️</button>
+          ${can('delete')?`<button class="btn btn-danger btn-sm" onclick="deleteShipment('${r.id}')">🗑️</button>`:''}
         </div>
       </div>
     </div>`;
@@ -2285,7 +2285,7 @@ function showShipmentDetail(id) {
     <button class="btn btn-primary" onclick="loadShipment('${id}');closeDetail()">📂 فتح وتعديل</button>
     <button class="btn btn-accent" onclick="loadAndCalc('${id}')">📊 عرض النتائج</button>
     <button class="btn btn-outline" onclick="duplicateShipment('${id}')">📋 نسخ الشحنة</button>
-    <button class="btn btn-danger" onclick="deleteShipment('${id}');closeDetail()">🗑️ حذف</button>
+    ${can('delete')?`<button class="btn btn-danger" onclick="deleteShipment('${id}');closeDetail()">🗑️ حذف</button>`:''}
   </div>`;
   el.style.display='flex';
 }
@@ -4825,7 +4825,7 @@ function renderPayments(){
           <td style="color:var(--success)">${fmtD(sar)}</td>
           <td>${m}</td><td>${escH(p.bank||'')}</td><td>${escH(p.ref||'')}</td>
           <td>${escH(p.shipmentNo||'')}</td><td style="font-size:.75rem">${escH(p.notes||'')}</td>
-          <td><button class="del-btn" onclick="editPayment('${p.id}')" title="تعديل" style="color:var(--primary)">✏️</button> <button class="del-btn" onclick="deletePayment('${p.id}')">✕</button></td>
+          <td>${can('payments')?`<button class="del-btn" onclick="editPayment('${p.id}')" title="تعديل" style="color:var(--primary)">✏️</button> `:''}${can('delete')?`<button class="del-btn" onclick="deletePayment('${p.id}')">✕</button>`:''}</td>
         </tr>`;
       }).join('');
     }
@@ -4864,6 +4864,7 @@ function addPaymentManual(){
 }
 function editPayment(id){
   if(isReadonly()){ toast('👁 وضع القراءة فقط',true); return; }
+  if(!can('payments')){ toast('لا تملك صلاحية الدفعات',true); return; }
   var p=payLoad().find(function(x){return x.id===id;}); if(!p){ toast('الدفعة غير موجودة',true); return; }
   _payEdit=id; var set=function(k,v){ var e=document.getElementById(k); if(e) e.value=(v==null?'':v); };
   set('pay-date',p.date); set('pay-amount',p.amount); set('pay-cur',p.cur||'SAR'); set('pay-method',p.method||'transfer'); set('pay-bank',p.bank); set('pay-ref',p.ref); set('pay-ship',p.shipmentNo); set('pay-notes',p.notes);
@@ -4874,6 +4875,8 @@ function editPayment(id){
 }
 function cancelPayEdit(){ _payEdit=null; var btn=document.getElementById('pay-add-btn'); if(btn){ btn.textContent='＋ إضافة'; btn.classList.remove('btn-primary'); } var cx=document.getElementById('pay-cancel-btn'); if(cx) cx.style.display='none'; ['pay-amount','pay-ref','pay-notes','pay-bank'].forEach(function(id){ var e=document.getElementById(id); if(e)e.value=''; }); }
 function deletePayment(id){
+  if(isReadonly()){ toast('👁 وضع القراءة فقط',true); return; }
+  if(!can('delete')){ toast('لا تملك صلاحية الحذف',true); return; }
   const list=payLoad().filter(p=>p.id!==id); paySave(list); if(_payEdit===id) cancelPayEdit(); renderPayments(); logAction('حذف دفعة',''); toast('🗑️ تم حذف الدفعة');
 }
 function clearAllPayments(){
@@ -4919,7 +4922,7 @@ function shipFreightUsdLabel(snap){
     var allEq=parts.every(function(x){ return Math.abs(x-parts[0])<0.005; });
     brk = allEq ? ' ('+fmtD(parts[0])+'$ × '+parts.length+')' : ' ('+parts.map(function(x){return fmtD(x)+'$';}).join(' + ')+')';
   }
-  return 'أجور الشحن '+fmtD(tot)+' $'+brk;
+  return tr('أجور الشحن')+' '+fmtD(tot)+' $'+brk;
 }
 function frtPayToSar(p){ var a=parseFloat(p&&p.amount)||0; return (p&&p.cur==='SAR')?a:a*(parseFloat(p&&p.rate)||S.fxUsdSar||3.756); }
 function onFrtMethodChange(){ var m=document.getElementById('frt-method').value; var w=document.getElementById('frt-bank-wrap'); if(w) w.style.display=(m==='transfer')?'':'none'; }
@@ -4929,10 +4932,10 @@ function clearFrtDates(){ var f=document.getElementById('frt-from'), t=document.
 // بناء صفوف الأستاذ (مدين/دائن) مرتبة بالتاريخ مع الرصيد الجاري — مطابقة لدالة ledger
 function frtLedger(from,to){
   var ships=dbLoad().filter(function(s){ return shipFreightSar(s)>0; })
-    .map(function(s){ var nc=((s.containers)||[]).length, ul=shipFreightUsdLabel(s); return {date:s.shipmentDate||'', kind:'ship', label:'شحنة '+(s.shipmentNo||'—')+(nc?' ('+nc+' حاوية)':'')+(ul?' — '+ul:''), dr:shipFreightSar(s), cr:0}; });
+    .map(function(s){ var nc=((s.containers)||[]).length, ul=shipFreightUsdLabel(s); return {date:s.shipmentDate||'', kind:'ship', label:tr('شحنة')+' '+(s.shipmentNo||'—')+(nc?' ('+nc+' '+tr('حاوية')+')':'')+(ul?' — '+ul:''), dr:shipFreightSar(s), cr:0}; });
   var pays=frtLoad()
-    .map(function(p){ var m=(p.method==='transfer')?('تحويل'+(p.bank?' — '+p.bank:'')):'نقدًا';
-      return {date:p.date||'', kind:'pay', id:p.id, label:'دفعة ('+m+')'+(p.ref?' #'+p.ref:'')+(p.notes?' — '+p.notes:''), dr:0, cr:frtPayToSar(p)}; });
+    .map(function(p){ var m=(p.method==='transfer')?(tr('تحويل')+(p.bank?' — '+p.bank:'')):tr('نقدًا');
+      return {date:p.date||'', kind:'pay', id:p.id, label:tr('دفعة')+' ('+m+')'+(p.ref?' #'+p.ref:'')+(p.notes?' — '+p.notes:''), dr:0, cr:frtPayToSar(p)}; });
   var all=ships.concat(pays).sort(function(a,b){ return (a.date<b.date)?-1:((a.date>b.date)?1:0); });
   // ترحيل ما قبل «من» كرصيد افتتاحي للفترة (للحفاظ على المطابقة الحسابية)
   var carried=0, kept=[];
@@ -4943,7 +4946,7 @@ function frtLedger(from,to){
     kept.push(e);
   });
   var out=[];
-  if(from){ out.push({date:from, kind:'carry', label:'رصيد مُرحّل (ما قبل '+from+')', dr:(carried>0?carried:0), cr:(carried<0?-carried:0), bal:carried}); }
+  if(from){ out.push({date:from, kind:'carry', label:tr('رصيد مُرحّل')+' ('+tr('ما قبل')+' '+from+')', dr:(carried>0?carried:0), cr:(carried<0?-carried:0), bal:carried}); }
   var run=carried;
   kept.forEach(function(e){ run+=e.dr-e.cr; out.push(Object.assign({},e,{bal:run})); });
   return out;
@@ -4989,7 +4992,7 @@ function renderFreight(){
       '<td class="num">'+(r.dr?fmtD(r.dr):'—')+'</td>'+
       '<td class="num" style="color:var(--success)">'+(r.cr?fmtD(r.cr):'—')+'</td>'+
       '<td class="num" style="font-weight:700;color:'+(r.bal>0?'var(--danger)':'var(--success)')+'">'+fmtD(r.bal)+'</td>'+
-      '<td>'+(r.kind==='pay'?'<button class="del-btn" onclick="editFreightPayment(\''+r.id+'\')" title="تعديل" style="color:var(--primary)">✏️</button> <button class="del-btn" onclick="deleteFreightPayment(\''+r.id+'\')">✕</button>':'')+'</td>'+
+      '<td>'+(r.kind==='pay'?((can('payments')?'<button class="del-btn" onclick="editFreightPayment(\''+r.id+'\')" title="تعديل" style="color:var(--primary)">✏️</button> ':'')+(can('delete')?'<button class="del-btn" onclick="deleteFreightPayment(\''+r.id+'\')">✕</button>':'')):'')+'</td>'+
     '</tr>';
   }).join('')+
     '<tr style="background:#e3f2fd;font-weight:800"><td colspan="3">الإجمالي</td>'+
@@ -5022,6 +5025,7 @@ function addFreightPayment(){
 }
 function editFreightPayment(id){
   if(isReadonly()){ toast('👁 وضع القراءة فقط',true); return; }
+  if(!can('payments')){ toast('لا تملك صلاحية الدفعات',true); return; }
   var p=frtLoad().find(function(x){return x.id===id;}); if(!p){ toast('الدفعة غير موجودة',true); return; }
   _frtEdit=id; var set=function(k,v){ var e=document.getElementById(k); if(e) e.value=(v==null?'':v); };
   set('frt-date',p.date); set('frt-amount',p.amount); set('frt-cur',p.cur||'SAR'); set('frt-method',p.method||'transfer'); set('frt-bank',p.bank); set('frt-ref',p.ref); set('frt-ship',p.shipmentNo); set('frt-notes',p.notes);
@@ -5033,6 +5037,7 @@ function editFreightPayment(id){
 function cancelFrtEdit(){ _frtEdit=null; var btn=document.getElementById('frt-add-btn'); if(btn){ btn.textContent='➕ إضافة دفعة'; btn.classList.remove('btn-primary'); } var cx=document.getElementById('frt-cancel-btn'); if(cx) cx.style.display='none'; ['frt-amount','frt-ref','frt-notes','frt-bank'].forEach(function(id){ var e=document.getElementById(id); if(e)e.value=''; }); }
 function deleteFreightPayment(id){
   if(isReadonly()){ toast('👁 وضع القراءة فقط',true); return; }
+  if(!can('delete')){ toast('لا تملك صلاحية الحذف',true); return; }
   var list=frtLoad().filter(function(p){return p.id!==id;}); frtSave(list); renderFreight(); logAction('حذف دفعة شحن',''); toast('🗑️ تم حذف الدفعة');
 }
 
@@ -5083,14 +5088,14 @@ function commShipRows(from,to){
 }
 function commLedger(from,to){
   var ships=dbLoad().filter(function(s){ return shipFobSar(s)>0; })
-    .map(function(s){ var info=commShipInfo(s), r=commRateFor(s.shipmentNo), comm=info.base*r/100, fx=(S.fxUsdSar||3.756), cU=fx>0?comm/fx:0; return {date:s.shipmentDate||'', kind:'ship', comm:comm, label:'عمولة شحنة '+(s.shipmentNo||'—')+' ('+info.ncInc+'/'+info.nc+' حاوية)'+' — '+fmtD(info.base)+'×'+fmtN(r)+'% = '+fmtD(comm)+' ر.س (≈ '+fmtD(cU)+' $)', dr:comm, cr:0}; })
+    .map(function(s){ var info=commShipInfo(s), r=commRateFor(s.shipmentNo), comm=info.base*r/100, fx=(S.fxUsdSar||3.756), cU=fx>0?comm/fx:0; return {date:s.shipmentDate||'', kind:'ship', comm:comm, label:tr('عمولة شحنة')+' '+(s.shipmentNo||'—')+' ('+info.ncInc+'/'+info.nc+' '+tr('حاوية')+')'+' — '+fmtD(info.base)+'×'+fmtN(r)+'% = '+fmtD(comm)+' '+tr('ر.س')+' (≈ '+fmtD(cU)+' $)', dr:comm, cr:0}; })
     .filter(function(e){ return e.comm>0; });
-  var pays=commPayLoad().map(function(p){ var m=(p.method==='transfer')?('تحويل'+(p.bank?' — '+p.bank:'')):'نقدًا'; return {date:p.date||'', kind:'pay', id:p.id, label:'دفعة عمولة ('+m+')'+(p.ref?' #'+p.ref:'')+(p.notes?' — '+p.notes:''), dr:0, cr:commPayToSar(p)}; });
+  var pays=commPayLoad().map(function(p){ var m=(p.method==='transfer')?(tr('تحويل')+(p.bank?' — '+p.bank:'')):tr('نقدًا'); return {date:p.date||'', kind:'pay', id:p.id, label:tr('دفعة عمولة')+' ('+m+')'+(p.ref?' #'+p.ref:'')+(p.notes?' — '+p.notes:''), dr:0, cr:commPayToSar(p)}; });
   var all=ships.concat(pays).sort(function(a,b){ return (a.date<b.date)?-1:((a.date>b.date)?1:0); });
   var carried=0, kept=[];
   all.forEach(function(e){ var before=from&&(e.date===''||e.date<from); if(before){ carried+=(e.dr-e.cr); return; } if(to&&e.date!==''&&e.date>to) return; kept.push(e); });
   var out=[];
-  if(from){ out.push({date:from, kind:'carry', label:'رصيد مُرحّل (ما قبل '+from+')', dr:(carried>0?carried:0), cr:(carried<0?-carried:0), bal:carried}); }
+  if(from){ out.push({date:from, kind:'carry', label:tr('رصيد مُرحّل')+' ('+tr('ما قبل')+' '+from+')', dr:(carried>0?carried:0), cr:(carried<0?-carried:0), bal:carried}); }
   var run=carried; kept.forEach(function(e){ run+=e.dr-e.cr; out.push(Object.assign({},e,{bal:run})); });
   return out;
 }
@@ -5148,7 +5153,7 @@ function renderCommAcct(){
     return '<tr'+(isCarry?' style="background:#fff8e6"':'')+'><td>'+(i+1)+'</td><td>'+escH(r.date||'—')+'</td><td>'+(isCarry?'<em>':'')+escH(r.label||'')+(isCarry?'</em>':'')+'</td>'+
       '<td class="num">'+(r.dr?fmtD(r.dr):'—')+'</td><td class="num" style="color:var(--success)">'+(r.cr?fmtD(r.cr):'—')+'</td>'+
       '<td class="num" style="font-weight:700;color:'+(r.bal>0?'var(--danger)':'var(--success)')+'">'+fmtD(r.bal)+'</td>'+
-      '<td>'+(r.kind==='pay'?'<button class="del-btn" onclick="editCommPayment(\''+r.id+'\')" title="تعديل" style="color:var(--primary)">✏️</button> <button class="del-btn" onclick="deleteCommPayment(\''+r.id+'\')">✕</button>':'')+'</td></tr>';
+      '<td>'+(r.kind==='pay'?((can('payments')?'<button class="del-btn" onclick="editCommPayment(\''+r.id+'\')" title="تعديل" style="color:var(--primary)">✏️</button> ':'')+(can('delete')?'<button class="del-btn" onclick="deleteCommPayment(\''+r.id+'\')">✕</button>':'')):'')+'</td></tr>';
   }).join('')+
     '<tr style="background:#e3f2fd;font-weight:800"><td colspan="3">الإجمالي</td><td class="num">'+fmtD(totDr)+'</td><td class="num" style="color:var(--success)">'+fmtD(totCr)+'</td><td class="num" style="color:'+(bal>0?'var(--danger)':'var(--success)')+'">'+fmtD(bal)+'</td><td></td></tr>';
 }
@@ -5170,6 +5175,7 @@ function addCommPayment(){
 }
 function editCommPayment(id){
   if(isReadonly()){ toast('👁 وضع القراءة فقط',true); return; }
+  if(!can('payments')){ toast('لا تملك صلاحية الدفعات',true); return; }
   var p=commPayLoad().find(function(x){return x.id===id;}); if(!p){ toast('الدفعة غير موجودة',true); return; }
   _commEdit=id; var set=function(k,v){ var e=document.getElementById(k); if(e) e.value=(v==null?'':v); };
   set('comm-date',p.date); set('comm-amount',p.amount); set('comm-cur',p.cur||'SAR'); set('comm-method',p.method||'transfer'); set('comm-bank',p.bank); set('comm-ref',p.ref); set('comm-notes',p.notes);
@@ -5181,11 +5187,12 @@ function editCommPayment(id){
 function cancelCommEdit(){ _commEdit=null; var btn=document.getElementById('comm-add-btn'); if(btn){ btn.textContent='➕ إضافة دفعة'; btn.classList.remove('btn-primary'); } var cx=document.getElementById('comm-cancel-btn'); if(cx) cx.style.display='none'; ['comm-amount','comm-ref','comm-notes','comm-bank'].forEach(function(id){ var e=document.getElementById(id); if(e)e.value=''; }); }
 function deleteCommPayment(id){
   if(isReadonly()){ toast('👁 وضع القراءة فقط',true); return; }
+  if(!can('delete')){ toast('لا تملك صلاحية الحذف',true); return; }
   commPaySave(commPayLoad().filter(function(p){return p.id!==id;})); if(_commEdit===id) cancelCommEdit(); renderCommAcct(); logAction('حذف دفعة عمولة',''); toast('🗑️ تم حذف الدفعة');
 }
 function printCommAcct(){
   var from=(document.getElementById('comm-from')||{}).value||'', to=(document.getElementById('comm-to')||{}).value||'';
-  var per=(from||to)?('الفترة: '+(from||'البداية')+' إلى '+(to||'الآن')):'كل الفترات';
+  var per=(from||to)?(tr('الفترة:')+' '+(from||tr('البداية'))+' '+tr('إلى')+' '+(to||tr('الآن'))):tr('كل الفترات');
   var crows=commShipRows(from,to), tVal=0, tC=0;
   var t1='<h3>جدول العمولة حسب الشحنات — '+escH(per)+'</h3>'+
     '<table><thead><tr><th>التاريخ</th><th>رقم الشحنة</th><th>الحاويات المحتسبة</th><th>قيمة الشحنة الخاضعة</th><th>نسبة %</th><th>قيمة العمولة</th></tr></thead><tbody>'+
@@ -5226,7 +5233,7 @@ function renderSuppliersModal(){
       +(s.active===0?'<span class="tag" style="background:#fdecea;color:#c0392b">موقوف</span>':'')+(s.note?'<div style="font-size:.75rem;color:var(--muted)">'+escH(s.note)+'</div>':'')+'</div>'
       +'<div style="display:flex;gap:5px;flex-wrap:wrap">'
       +'<button class="btn btn-outline btn-sm" onclick="editSupplier(\''+s.id+'\')">تعديل</button>'
-      +'<button class="btn btn-danger btn-sm" onclick="deleteSupplier(\''+s.id+'\')">حذف</button>'
+      +(can('delete')?'<button class="btn btn-danger btn-sm" onclick="deleteSupplier(\''+s.id+'\')">حذف</button>':'')
       +'</div></div>';
   }).join('')||'<div style="color:var(--muted);text-align:center;padding:14px">لا يوجد موردون بعد</div>';
   var s=editSupplierId?list.find(function(x){return x.id===editSupplierId;}):null;
@@ -5258,6 +5265,8 @@ function saveSupplier(){
   supSave(list); editSupplierId=null; renderSuppliersModal(); refreshSupplierDatalist(); logAction('حفظ مورد', name); toast('✅ تم حفظ المورد');
 }
 function deleteSupplier(id){
+  if(isReadonly()){ toast('👁 وضع القراءة فقط',true); return; }
+  if(!can('delete')){ toast('لا تملك صلاحية الحذف',true); return; }
   var s=supLoad().find(function(x){return x.id===id;}); if(!s) return;
   confirm2('حذف المورد "'+s.name+'"؟ (لن تُحذف شحناته — يبقى اسمها كما هو)', function(){
     supSave(supLoad().filter(function(x){return x.id!==id;})); renderSuppliersModal(); refreshSupplierDatalist(); logAction('حذف مورد', s.name); toast('🗑️ تم حذف المورد');
@@ -5289,18 +5298,18 @@ function supAcctLedger(name, from, to){
   var lname=String(name||'').toLowerCase();
   // كل الحركات بلا فلترة تاريخ (نفلتر لاحقاً مع ترحيل ما قبل الفترة)
   var ships=dbLoad().filter(function(s){ return String(s.supplierName||'').toLowerCase()===lname && shipFobSar(s)>0; })
-    .map(function(s){ var nc=((s.containers)||[]).length; return {date:s.shipmentDate||'', kind:'ship', label:'شحنة '+(s.shipmentNo||'—')+(nc?' ('+nc+' حاوية)':''), dr:shipFobSar(s), cr:0}; });
+    .map(function(s){ var nc=((s.containers)||[]).length; return {date:s.shipmentDate||'', kind:'ship', label:tr('شحنة')+' '+(s.shipmentNo||'—')+(nc?' ('+nc+' '+tr('حاوية')+')':''), dr:shipFobSar(s), cr:0}; });
   // حساب نموذج أ يشمل الدفعات الموسومة «أ» أو «كلاهما» (والقديمة بلا وسم تُعامل كـ«أ»)
   var pays=saPayLoad().filter(function(p){ var tg=p.target||'a'; return String(p.supplier||'').toLowerCase()===lname && (tg==='a'||tg==='both'); })
-    .map(function(p){ var m=(p.method==='transfer')?('تحويل'+(p.bank?' — '+p.bank:'')):'نقدًا'; var tgl=(p.target==='both')?' [أ+ب]':''; return {date:p.date||'', kind:'pay', id:p.id, label:'دفعة ('+m+')'+tgl+(p.ref?' #'+p.ref:'')+(p.notes?' — '+p.notes:''), dr:0, cr:saPayToSar(p)}; });
+    .map(function(p){ var m=(p.method==='transfer')?(tr('تحويل')+(p.bank?' — '+p.bank:'')):tr('نقدًا'); var tgl=(p.target==='both')?' [أ+ب]':''; return {date:p.date||'', kind:'pay', id:p.id, label:tr('دفعة')+' ('+m+')'+tgl+(p.ref?' #'+p.ref:'')+(p.notes?' — '+p.notes:''), dr:0, cr:saPayToSar(p)}; });
   // فواتير مشتريات مستوردة (مدين) — تخص نموذج أ أو مشتركة (نفس منطق الدفعات)
   var invs=supInvLoad().filter(function(v){ var tg=v.target||'both'; return String(v.supplier||'').toLowerCase()===lname && (tg==='a'||tg==='both'); })
-    .map(function(v){ return {date:v.date||'', kind:'inv', id:v.id, label:'فاتورة شراء'+(v.shipmentNo?' — شحنة '+v.shipmentNo:'')+((v.target==='both')?' [أ+ب]':'')+(v.notes?' — '+v.notes:''), dr:supInvToSar(v), cr:0}; });
+    .map(function(v){ return {date:v.date||'', kind:'inv', id:v.id, label:tr('فاتورة شراء')+(v.shipmentNo?' — '+tr('شحنة')+' '+v.shipmentNo:'')+((v.target==='both')?' [أ+ب]':'')+(v.notes?' — '+v.notes:''), dr:supInvToSar(v), cr:0}; });
   var all=ships.concat(pays).concat(invs);
   // رصيد افتتاحي للمورد (تاريخ فارغ = أقدم حركة)
   var sup=supLoad().find(function(x){ return x.name.toLowerCase()===lname; });
   var op=saOpeningSar(sup);
-  if(op>0) all.push({date:'', kind:'open', label:'رصيد افتتاحي', dr:op, cr:0});
+  if(op>0) all.push({date:'', kind:'open', label:tr('رصيد افتتاحي'), dr:op, cr:0});
   all.sort(function(a,b){ return (a.date<b.date)?-1:((a.date>b.date)?1:0); });
   // ترحيل ما قبل «من»: يُجمع في رصيد افتتاحي للفترة حتى تبقى المطابقة الحسابية صحيحة
   var carried=0, kept=[];
@@ -5311,7 +5320,7 @@ function supAcctLedger(name, from, to){
     kept.push(e);
   });
   var out=[];
-  if(from){ out.push({date:from, kind:'carry', label:'رصيد مُرحّل (ما قبل '+from+')', dr:(carried>0?carried:0), cr:(carried<0?-carried:0), bal:carried}); }
+  if(from){ out.push({date:from, kind:'carry', label:tr('رصيد مُرحّل')+' ('+tr('ما قبل')+' '+from+')', dr:(carried>0?carried:0), cr:(carried<0?-carried:0), bal:carried}); }
   var run=carried;
   kept.forEach(function(e){ run+=e.dr-e.cr; out.push(Object.assign({},e,{bal:run})); });
   return out;
@@ -5363,7 +5372,7 @@ function renderSupAcct(){
       '<td class="num">'+(r.dr?fmtD(r.dr):'—')+'</td>'+
       '<td class="num" style="color:var(--success)">'+(r.cr?fmtD(r.cr):'—')+'</td>'+
       '<td class="num" style="font-weight:700;color:'+(r.bal>0?'var(--danger)':'var(--success)')+'">'+fmtD(r.bal)+'</td>'+
-      '<td>'+(r.kind==='pay'?'<button class="del-btn" onclick="editSupplierPayment(\''+r.id+'\')" title="تعديل" style="color:var(--primary)">✏️</button> <button class="del-btn" onclick="deleteSupplierPayment(\''+r.id+'\')">✕</button>':'')+'</td>'+
+      '<td>'+(r.kind==='pay'?((can('payments')?'<button class="del-btn" onclick="editSupplierPayment(\''+r.id+'\')" title="تعديل" style="color:var(--primary)">✏️</button> ':'')+(can('delete')?'<button class="del-btn" onclick="deleteSupplierPayment(\''+r.id+'\')">✕</button>':'')):'')+'</td>'+
     '</tr>';
   }).join('')+
     '<tr style="background:#e3f2fd;font-weight:800"><td colspan="3">الإجمالي</td>'+
@@ -5399,6 +5408,7 @@ function addSupplierPayment(){
 }
 function editSupplierPayment(id){
   if(isReadonly()){ toast('👁 وضع القراءة فقط',true); return; }
+  if(!can('payments')){ toast('لا تملك صلاحية الدفعات',true); return; }
   var p=saPayLoad().find(function(x){return x.id===id;}); if(!p){ toast('الدفعة غير موجودة',true); return; }
   _saEdit=id;
   var set=function(k,v){ var e=document.getElementById(k); if(e) e.value=(v==null?'':v); };
@@ -5413,6 +5423,7 @@ function editSupplierPayment(id){
 function cancelSaEdit(){ _saEdit=null; var btn=document.getElementById('sa-add-btn'); if(btn){ btn.textContent='➕ إضافة دفعة'; btn.classList.remove('btn-primary'); } var cx=document.getElementById('sa-cancel-btn'); if(cx) cx.style.display='none'; ['sa-amount','sa-ref','sa-notes','sa-bank'].forEach(function(id){ var e=document.getElementById(id); if(e)e.value=''; }); }
 function deleteSupplierPayment(id){
   if(isReadonly()){ toast('👁 وضع القراءة فقط',true); return; }
+  if(!can('delete')){ toast('لا تملك صلاحية الحذف',true); return; }
   var list=saPayLoad().filter(function(p){return p.id!==id;}); saPaySave(list); if(_saEdit===id) cancelSaEdit(); renderSupAcct(); logAction('حذف دفعة مورد',''); toast('🗑️ تم حذف الدفعة');
 }
 
@@ -5732,6 +5743,7 @@ function addCmpPayment(){
 }
 function editCmpPayment(src,id){
   if(isReadonly()){ toast('👁 وضع القراءة فقط',true); return; }
+  if(!can('payments')){ toast('لا تملك صلاحية الدفعات',true); return; }
   var p=(src==='sp'?saPayLoad():cmpPayLoad()).find(function(x){return x.id===id;}); if(!p){ toast('الدفعة غير موجودة',true); return; }
   _cmpEdit={src:src,id:id}; var set=function(k,v){ var e=document.getElementById(k); if(e) e.value=(v==null?'':v); };
   cmpSupplierOptions(); var ss=document.getElementById('cpay-supplier'); if(ss) ss.value=(src==='sp'?(p.supplier||''):'');
@@ -5743,6 +5755,7 @@ function editCmpPayment(src,id){
 function cancelCmpEdit(){ _cmpEdit=null; var btn=document.getElementById('cpay-add-btn'); if(btn){ btn.textContent='➕ إضافة دفعة'; btn.classList.remove('btn-primary'); } var cx=document.getElementById('cpay-cancel-btn'); if(cx) cx.style.display='none'; ['cpay-amount','cpay-rate','cpay-bank','cpay-note'].forEach(function(id){ var e=document.getElementById(id); if(e)e.value=''; }); }
 function deleteCmpPayment(src,id){
   if(isReadonly()){ toast('👁 وضع القراءة فقط',true); return; }
+  if(!can('delete')){ toast('لا تملك صلاحية الحذف',true); return; }
   if(src==='sp'){ saPaySave(saPayLoad().filter(function(p){return p.id!==id;})); try{ if(document.getElementById('page-supacct').classList.contains('active')) renderSupAcct(); }catch(e){} }
   else { cmpPaySave(cmpPayLoad().filter(function(p){return p.id!==id;})); }
   if(_cmpEdit&&_cmpEdit.id===id) cancelCmpEdit(); renderCmpPayList(); renderCmpNet();
@@ -5765,7 +5778,7 @@ function renderCmpPayList(){
       '<td>'+escH(tgTxt[p.target||'both']||'')+'</td>'+
       '<td>'+(p.method==='transfer'?'🏦 تحويل':'💵 نقد')+'</td>'+
       '<td>'+escH(p.bank||'')+'</td><td style="font-size:.78rem">'+escH(noteTxt)+'</td>'+
-      '<td><button class="del-btn" onclick="editCmpPayment(\''+p.src+'\',\''+p.id+'\')" title="تعديل" style="color:var(--primary)">✏️</button> <button class="del-btn" onclick="deleteCmpPayment(\''+p.src+'\',\''+p.id+'\')">✕</button></td></tr>';
+      '<td>'+(can('payments')?'<button class="del-btn" onclick="editCmpPayment(\''+p.src+'\',\''+p.id+'\')" title="تعديل" style="color:var(--primary)">✏️</button> ':'')+(can('delete')?'<button class="del-btn" onclick="deleteCmpPayment(\''+p.src+'\',\''+p.id+'\')">✕</button>':'')+'</td></tr>';
   }).join('');
 }
 // إجماليات كل الشحنات (أ/ب) للشركة النشطة حسب الأساس المختار
@@ -6264,7 +6277,7 @@ function _ledgerXlsx(filename, title, sub, rows){
   var wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'كشف الحساب');
   XLSX.writeFile(wb, filename); toast('⬇️ تم تصدير الكشف إلى Excel');
 }
-function _perTxt(from,to){ return (from||to)?('من '+(from||'البداية')+' إلى '+(to||'الآن')):'كل الفترات'; }
+function _perTxt(from,to){ return (from||to)?(tr('من')+' '+(from||tr('البداية'))+' '+tr('إلى')+' '+(to||tr('الآن'))):tr('كل الفترات'); }
 function exportSupAcctXlsx(){ var name=(document.getElementById('sa-supplier')||{}).value||''; if(!name){ toast('اختر مورداً أولاً',true); return; } var from=(document.getElementById('sa-from')||{}).value||'', to=(document.getElementById('sa-to')||{}).value||''; _ledgerXlsx('كشف_حساب_المورد_'+name+'.xlsx','كشف حساب المورد: '+name, _perTxt(from,to), supAcctLedger(name,from,to)); }
 function exportFrtAcctXlsx(){ var from=(document.getElementById('frt-from')||{}).value||'', to=(document.getElementById('frt-to')||{}).value||''; _ledgerXlsx('كشف_حساب_الشحن.xlsx','كشف حساب أجور الشحن', _perTxt(from,to), frtLedger(from,to)); }
 function exportCommAcctXlsx(){
@@ -6472,7 +6485,7 @@ function exportPaymentsExcel(){
 // ═══════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════
-var APP_VERSION='v2026-10-28.23';   // رقم إصدار ظاهر للتحقق من تحميل أحدث نسخة (لا cache قديم)
+var APP_VERSION='v2026-10-28.24';   // رقم إصدار ظاهر للتحقق من تحميل أحدث نسخة (لا cache قديم)
 // ═══════════════════════════════════════════
 // 🌐 محرّك الترجمة الشامل (عربي / English / 中文) — قاموس + مسح DOM + مراقب تغييرات
 // ═══════════════════════════════════════════
@@ -6543,6 +6556,244 @@ Object.assign(TR.en,{
 });
 Object.assign(TR.zh,{
  'جدول العمولة':'佣金表','الحاويات المحتسبة':'计入集装箱','قيمة الشحنة الخاضعة':'应计货值','المبلغ (ر.س)':'金额(里亚尔)','شحنة':'装运','فواتير مشتريات مستوردة':'导入采购发票','إجمالي المدين':'借方合计','إجمالي الدفعات':'付款合计','الدفعات المخصومة':'已扣付款','كشف حساب أجور الشحن':'运费账户对账单','الوصف':'说明','لا توجد حركات':'无交易','الرصيد الحالي:':'当前余额:','إجمالي الشحنات':'装运合计','لا شحنات':'无装运'
+});
+// الدفعة الثالثة: عبارات الواجهة المتبقية
+Object.assign(TR.en,{
+ 'إنشاء حساب المدير':'Create Admin Account',
+ 'تهيئة أول تشغيل — أنشئ حساب المدير للتحكم بالمستخدمين والصلاحيات':'First-run setup — create the admin account to manage users and permissions',
+ '🆕 إنشاء المدير والدخول':'🆕 Create admin & sign in',
+ '🔓 لديك حساب بالفعل؟ سجّل الدخول':'🔓 Already have an account? Sign in',
+ 'الشركات (النُظُم) المسموحة — اترك الكل فارغاً = جميع الشركات':'Allowed companies (systems) — leave all empty = all companies',
+ '🧾 الموردون — للشركة النشطة:':'🧾 Suppliers — for the active company:',
+ '📄 نموذج فارغ':'📄 Blank template',
+ 'كل شركة لها بيانات وسجل شحنات مستقل تماماً':'Each company has fully independent data and shipment records',
+ '⭐ مخصصة':'⭐ Custom',
+ 'إنشاء':'Create',
+ '--- اختر نشاطاً ---':'--- Select an activity ---',
+ '1 وحدة الفاتورة = ؟ SAR':'1 invoice unit = ? SAR',
+ '1 USD = ؟ SAR':'1 USD = ? SAR',
+ 'إعداد: أ/ محمد فرج | A. Mohamed Farag':'Prepared by: A. Mohamed Farag',
+ '🇸🇦 عربي':'🇸🇦 Arabic',
+ '📥 استيراد البيانات وتعبئتها من ملف Excel':'📥 Import and fill data from an Excel file',
+ 'الطريقة:':'Method:',
+ 'هو ما يفصل الحاويات (كل رقم مختلف = حاوية مستقلة)، و':'separates containers (each different number = a separate container), and',
+ 'يُكتب مرة واحدة في أول سطر.':'is written once in the first row.',
+ 'رقم الشحنة *':'Shipment No. *',
+ '📌 هذا المعامل يُطبَّق تلقائياً على كل حقل تختار له USD':'📌 This factor is applied automatically to every field you set to USD',
+ 'عملة التقرير النهائي':'Final report currency',
+ '🔄 سعر الشراء بالدولار → × 3.7560 → ريال':'🔄 USD purchase price → × 3.7560 → SAR',
+ 'مثال: 100 USD = 375.60 SAR':'Example: 100 USD = 375.60 SAR',
+ '4 حاويات':'4 containers',
+ 'آلية التوزيع:':'Distribution method:',
+ 'مصاريف الفاتورة → على أصنافها بنسبة القيمة |':'Invoice expenses → to its items by value ratio |',
+ 'توزيع على الأصناف':'Distribute to items',
+ 'توزيع على فواتير الحاوية':'Distribute to container invoices',
+ 'توزيع على كل الفواتير':'Distribute to all invoices',
+ '＋ إضافة مصروف شحنة':'＋ Add shipment expense',
+ '⚠️ يرجى إدخال البيانات ثم الضغط على "احسب التكلفة"':'⚠️ Please enter the data then click "Calculate Cost"',
+ 'تم إعداد هذا التقرير بنظام تكلفة الشحنات الإلكتروني':'This report was produced by the electronic Shipment Costing System',
+ 'فلترة: النشاط':'Filter: Activity',
+ '📦 الكل':'📦 All',
+ 'Margin — على سعر البيع':'Margin — on sale price',
+ 'مثال: ربح 25% = سعر ÷ 0.75':'Example: 25% profit = price ÷ 0.75',
+ 'Mark-up — على التكلفة':'Mark-up — on cost',
+ 'مثال: ربح 25% = تكلفة × 1.25':'Example: 25% profit = cost × 1.25',
+ 'يظهر فارغاً للإدخال — أخفِه للحصول على لقطة شاشة أنظف':'Shows empty for input — hide it for a cleaner screenshot',
+ '0 منتج':'0 products',
+ 'يرجى الذهاب إلى صفحة':'Please go to the page',
+ 'ثم الضغط على "احسب التكلفة" أولاً':'then click "Calculate Cost" first',
+ 'ملاحظة:':'Note:',
+ '📥 استيراد الدفعات المسددة من Excel':'📥 Import paid payments from Excel',
+ '«النموذج / الشركة»':'«Model / Company»',
+ '➕ إضافة دفعة يدوياً — للشركة النشطة:':'➕ Add payment manually — for the active company:',
+ '＋ إضافة':'＋ Add',
+ 'مدينة':'debit',
+ '، ويخصم منها':', and deducted from it are',
+ 'الدفعات':'payments',
+ 'المسجَّلة أدناه، فيظهر':'recorded below, showing',
+ 'الرصيد المتبقّي':'remaining balance',
+ '💵 تسجيل دفعة لشركة الشحن — للشركة النشطة:':'💵 Record a payment to the freight company — for the active company:',
+ 'قيمة الشحنة (SAR)':'Shipment value (SAR)',
+ 'قيمة العمولة (SAR)':'Commission value (SAR)',
+ '💵 تسجيل دفعة عمولة — للشركة النشطة':'💵 Record a commission payment — for the active company',
+ '— رصيد':'— balance',
+ '= دفعاته المسجَّلة، مع':'= its recorded payments, with',
+ '. يمكن أيضاً استيراد':'. You can also import',
+ '(تزيد المدين) و':'(increases debit) and',
+ '⬇️ تصدير الدفعات':'⬇️ Export payments',
+ '🧾📥 استيراد مجموعة — تظهر في كشف حساب المورد وفي كشف المقارنة':'🧾📥 Import a group — appears in the supplier account and the comparison statement',
+ 'استورد مجموعة':'Import a group',
+ '(مشتركة أو تخص جهة) أو مجموعة':'(shared or company-specific) or a group',
+ '(قيمة شراء لكل شحنة). عمود':'(purchase value per shipment). Column',
+ '= تظهر للنموذجين ·':'= shown for both models ·',
+ '💳 دفعات:':'💳 Payments:',
+ '🧾 فواتير:':'🧾 Invoices:',
+ 'استبدال المستورد سابقاً لكل شركة':'Replace what was previously imported for each company',
+ '💵 تسجيل دفعة للمورد —':'💵 Record a payment to the supplier —',
+ 'تخصّ':'concerns',
+ 'تقرير الموديلات المُجمّع':'Aggregated models report',
+ '📋 الموديلات (مرتبة حسب التكلفة الواصلة)':'📋 Models (sorted by landed cost)',
+ 'يُعرض افتراضياً بـ':'Shown by default in',
+ 'المطابقة لكشف حساب المورد، ويمكن تحويله إلى':'matching the supplier account, and can be switched to',
+ '(شاملة الشحن والجمارك) من «أساس قيمة نموذج أ».':'(including freight and customs) from «Model A value basis».',
+ 'فقط.':'only.',
+ '— الشحنة:':'— Shipment:',
+ 'عملة أسعار':'Price currency',
+ 'افتراضي (كنموذج أ)':'Default (as Model A)',
+ 'اتركهما فارغين لاستخدام عملة/سعر صرف نفس الشحنة في نموذج أ.':'Leave both empty to use the same shipment\'s currency/exchange rate in Model A.',
+ '＋ صنف':'＋ Item',
+ '📊 مقارنة الموديلات المشتركة (':'📊 Shared models comparison (',
+ 'شراء':'Purchase',
+ '/وحدة':'/unit',
+ '📈 مقارنة إجماليات الشحنات (':'📈 Shipment totals comparison (',
+ ') — إجمالي قيمة كل شحنة':') — total value of each shipment',
+ 'إجمالي':'Total',
+ '💡 اختر':'💡 Select',
+ 'فتُسجَّل الدفعة في كشف حسابه وتظهر هنا حسب':'the payment is recorded in its account and shown here by',
+ '. دفعات كشف حساب المورد تظهر هنا تلقائياً دون إعادة إدخال.':'. Supplier-account payments appear here automatically without re-entry.',
+ 'سعر الصرف (اختياري)':'Exchange rate (optional)',
+ 'الطريقة':'Method',
+ 'نقد / صرافة':'Cash / exchange',
+ 'ملاحظة':'Note',
+ 'بالريال':'in SAR',
+ '📒 كشف حساب النماذج بعد الدفعات (':'📒 Models account statement after payments ('
+});
+Object.assign(TR.zh,{
+ 'إنشاء حساب المدير':'创建管理员账户',
+ 'تهيئة أول تشغيل — أنشئ حساب المدير للتحكم بالمستخدمين والصلاحيات':'首次运行设置 — 创建管理员账户以管理用户和权限',
+ '🆕 إنشاء المدير والدخول':'🆕 创建管理员并登录',
+ '🔓 لديك حساب بالفعل؟ سجّل الدخول':'🔓 已有账户？登录',
+ 'الشركات (النُظُم) المسموحة — اترك الكل فارغاً = جميع الشركات':'允许的公司（系统）— 全部留空 = 所有公司',
+ '🧾 الموردون — للشركة النشطة:':'🧾 供应商 — 当前公司：',
+ '📄 نموذج فارغ':'📄 空白模板',
+ 'كل شركة لها بيانات وسجل شحنات مستقل تماماً':'每个公司拥有完全独立的数据和装运记录',
+ '⭐ مخصصة':'⭐ 自定义',
+ 'إنشاء':'创建',
+ '--- اختر نشاطاً ---':'--- 选择活动 ---',
+ '1 وحدة الفاتورة = ؟ SAR':'1 发票单位 = ? 里亚尔',
+ '1 USD = ؟ SAR':'1 美元 = ? 里亚尔',
+ 'إعداد: أ/ محمد فرج | A. Mohamed Farag':'编制：A. Mohamed Farag',
+ '🇸🇦 عربي':'🇸🇦 阿拉伯语',
+ '📥 استيراد البيانات وتعبئتها من ملف Excel':'📥 从 Excel 文件导入并填充数据',
+ 'الطريقة:':'方式：',
+ 'هو ما يفصل الحاويات (كل رقم مختلف = حاوية مستقلة)، و':'用于区分集装箱（每个不同编号 = 独立集装箱），并且',
+ 'يُكتب مرة واحدة في أول سطر.':'只在第一行填写一次。',
+ 'رقم الشحنة *':'装运编号 *',
+ '📌 هذا المعامل يُطبَّق تلقائياً على كل حقل تختار له USD':'📌 此系数自动应用于你设为美元的每个字段',
+ 'عملة التقرير النهائي':'最终报表货币',
+ '🔄 سعر الشراء بالدولار → × 3.7560 → ريال':'🔄 美元采购价 → × 3.7560 → 里亚尔',
+ 'مثال: 100 USD = 375.60 SAR':'示例：100 美元 = 375.60 里亚尔',
+ '4 حاويات':'4 个集装箱',
+ 'آلية التوزيع:':'分摊方式：',
+ 'مصاريف الفاتورة → على أصنافها بنسبة القيمة |':'发票费用 → 按价值比例分摊到其项目 |',
+ 'توزيع على الأصناف':'分摊到项目',
+ 'توزيع على فواتير الحاوية':'分摊到集装箱发票',
+ 'توزيع على كل الفواتير':'分摊到所有发票',
+ '＋ إضافة مصروف شحنة':'＋ 添加装运费用',
+ '⚠️ يرجى إدخال البيانات ثم الضغط على "احسب التكلفة"':'⚠️ 请输入数据后点击"计算成本"',
+ 'تم إعداد هذا التقرير بنظام تكلفة الشحنات الإلكتروني':'本报表由电子装运成本系统生成',
+ 'فلترة: النشاط':'筛选：活动',
+ '📦 الكل':'📦 全部',
+ 'Margin — على سعر البيع':'Margin — 基于售价',
+ 'مثال: ربح 25% = سعر ÷ 0.75':'示例：25% 利润 = 价格 ÷ 0.75',
+ 'Mark-up — على التكلفة':'Mark-up — 基于成本',
+ 'مثال: ربح 25% = تكلفة × 1.25':'示例：25% 利润 = 成本 × 1.25',
+ 'يظهر فارغاً للإدخال — أخفِه للحصول على لقطة شاشة أنظف':'显示为空以便输入 — 隐藏可获得更整洁的截图',
+ '0 منتج':'0 个产品',
+ 'يرجى الذهاب إلى صفحة':'请前往页面',
+ 'ثم الضغط على "احسب التكلفة" أولاً':'然后先点击"计算成本"',
+ 'ملاحظة:':'注意：',
+ '📥 استيراد الدفعات المسددة من Excel':'📥 从 Excel 导入已付款项',
+ '«النموذج / الشركة»':'«型号 / 公司»',
+ '➕ إضافة دفعة يدوياً — للشركة النشطة:':'➕ 手动添加付款 — 当前公司：',
+ '＋ إضافة':'＋ 添加',
+ 'مدينة':'借方',
+ '، ويخصم منها':'，并从中扣除',
+ 'الدفعات':'付款',
+ 'المسجَّلة أدناه، فيظهر':'如下所记录，显示',
+ 'الرصيد المتبقّي':'剩余余额',
+ '💵 تسجيل دفعة لشركة الشحن — للشركة النشطة:':'💵 向货运公司登记付款 — 当前公司：',
+ 'قيمة الشحنة (SAR)':'货值（里亚尔）',
+ 'قيمة العمولة (SAR)':'佣金额（里亚尔）',
+ '💵 تسجيل دفعة عمولة — للشركة النشطة':'💵 登记佣金付款 — 当前公司',
+ '— رصيد':'— 余额',
+ '= دفعاته المسجَّلة، مع':'= 其已记录的付款，连同',
+ '. يمكن أيضاً استيراد':'. 也可以导入',
+ '(تزيد المدين) و':'（增加借方）和',
+ '⬇️ تصدير الدفعات':'⬇️ 导出付款',
+ '🧾📥 استيراد مجموعة — تظهر في كشف حساب المورد وفي كشف المقارنة':'🧾📥 导入一组 — 显示在供应商账户和对比表中',
+ 'استورد مجموعة':'导入一组',
+ '(مشتركة أو تخص جهة) أو مجموعة':'（共享或特定公司）或一组',
+ '(قيمة شراء لكل شحنة). عمود':'（每批装运的采购值）。列',
+ '= تظهر للنموذجين ·':'= 两种型号均显示 ·',
+ '💳 دفعات:':'💳 付款：',
+ '🧾 فواتير:':'🧾 发票：',
+ 'استبدال المستورد سابقاً لكل شركة':'替换每个公司先前导入的内容',
+ '💵 تسجيل دفعة للمورد —':'💵 向供应商登记付款 —',
+ 'تخصّ':'涉及',
+ 'تقرير الموديلات المُجمّع':'汇总型号报表',
+ '📋 الموديلات (مرتبة حسب التكلفة الواصلة)':'📋 型号（按到岸成本排序）',
+ 'يُعرض افتراضياً بـ':'默认显示为',
+ 'المطابقة لكشف حساب المورد، ويمكن تحويله إلى':'与供应商账户一致，可切换为',
+ '(شاملة الشحن والجمارك) من «أساس قيمة نموذج أ».':'（含运费和关税）来自«型号A价值基准»。',
+ 'فقط.':'仅限。',
+ '— الشحنة:':'— 装运：',
+ 'عملة أسعار':'价格货币',
+ 'افتراضي (كنموذج أ)':'默认（同型号A）',
+ 'اتركهما فارغين لاستخدام عملة/سعر صرف نفس الشحنة في نموذج أ.':'两者留空则使用型号A中同批装运的货币/汇率。',
+ '＋ صنف':'＋ 项目',
+ '📊 مقارنة الموديلات المشتركة (':'📊 共享型号对比（',
+ 'شراء':'采购',
+ '/وحدة':'/单位',
+ '📈 مقارنة إجماليات الشحنات (':'📈 装运总额对比（',
+ ') — إجمالي قيمة كل شحنة':'） — 每批装运的总值',
+ 'إجمالي':'合计',
+ '💡 اختر':'💡 选择',
+ 'فتُسجَّل الدفعة في كشف حسابه وتظهر هنا حسب':'付款将记入其账户并按以下方式显示',
+ '. دفعات كشف حساب المورد تظهر هنا تلقائياً دون إعادة إدخال.':'. 供应商账户付款会自动显示在此处，无需重新输入。',
+ 'سعر الصرف (اختياري)':'汇率（可选）',
+ 'الطريقة':'方式',
+ 'نقد / صرافة':'现金 / 兑换',
+ 'ملاحظة':'注意',
+ 'بالريال':'以里亚尔',
+ '📒 كشف حساب النماذج بعد الدفعات (':'📒 付款后型号账户对账单（'
+});
+// الدفعة الرابعة: أجزاء بنود الكشوف
+Object.assign(TR.en,{
+ 'أجور الشحن':'Freight',
+ 'حاوية':'container',
+ 'تحويل':'transfer',
+ 'دفعة':'Payment',
+ 'رصيد مُرحّل':'Carried balance',
+ 'ما قبل':'before',
+ 'فاتورة شراء':'Purchase invoice',
+ 'رصيد افتتاحي':'Opening balance',
+ 'عمولة شحنة':'Commission shipment',
+ 'ر.س':'SAR',
+ 'دفعة عمولة':'Commission payment',
+ 'من':'From',
+ 'البداية':'the beginning',
+ 'الآن':'now',
+ 'كل الفترات':'All periods',
+ 'الفترة:':'Period:'
+});
+Object.assign(TR.zh,{
+ 'أجور الشحن':'运费',
+ 'حاوية':'集装箱',
+ 'تحويل':'转账',
+ 'دفعة':'付款',
+ 'رصيد مُرحّل':'结转余额',
+ 'ما قبل':'早于',
+ 'فاتورة شراء':'采购发票',
+ 'رصيد افتتاحي':'期初余额',
+ 'عمولة شحنة':'佣金 装运',
+ 'ر.س':'里亚尔',
+ 'دفعة عمولة':'佣金付款',
+ 'من':'从',
+ 'البداية':'开始',
+ 'الآن':'现在',
+ 'كل الفترات':'所有期间',
+ 'الفترة:':'期间：'
 });
 var _trOrig=new WeakMap(), _trPh=new WeakMap(), _trTitle=new WeakMap(), _trBusy=false, _trObs=null, _trTimer=null;
 var _emojiLead=/^((?:[←-⇿⌀-➿⬀-⯿☀-⛿️\uD83C-􏰀-\uDFFF\s])+)/;
