@@ -4734,7 +4734,7 @@ function renderPayments(){
 
   const list=payLoad();
   const q=(document.getElementById('pay-search')?.value||'').trim().toLowerCase();
-  let rows=list.slice().sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  let rows=list.slice().sort((a,b)=>(a.date||'').localeCompare(b.date||''));
   if(q) rows=rows.filter(p=>[p.date,p.bank,p.ref,p.shipmentNo,p.notes,p.method==='transfer'?'تحويل':'نقدا',p.amount].join(' ').toLowerCase().includes(q));
 
   const tb=document.getElementById('pay-tbody');
@@ -5674,7 +5674,7 @@ function renderCmpPayList(){
   cmpSupplierOptions();
   var tgTxt={both:'الشركتان معاً', a:L.a, b:L.b};
   var tb=document.getElementById('cpay-tbody'); if(!tb) return;
-  var list=cmpUnifiedPays().slice().sort(function(a,b){ return (a.date<b.date)?1:-1; });
+  var list=cmpUnifiedPays().slice().sort(function(a,b){ return (a.date<b.date)?-1:((a.date>b.date)?1:0); });
   if(!list.length){ tb.innerHTML='<tr><td colspan="8" style="padding:16px;color:var(--muted)">لا توجد دفعات — سجّل دفعة أعلاه أو من كشف حساب المورد</td></tr>'; return; }
   tb.innerHTML=list.map(function(p){
     var noteTxt=(p.src==='sp'?('🧾 '+(p.supplier||'مورد')+(p.note?' — '+p.note:'')):(p.note||''));
@@ -6389,7 +6389,7 @@ function exportPaymentsExcel(){
 // ═══════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════
-var APP_VERSION='v2026-10-27.18';   // رقم إصدار ظاهر للتحقق من تحميل أحدث نسخة (لا cache قديم)
+var APP_VERSION='v2026-10-28.19';   // رقم إصدار ظاهر للتحقق من تحميل أحدث نسخة (لا cache قديم)
 function initApp() {
   try{ var av=document.getElementById('app-ver'); if(av) av.textContent=APP_VERSION; }catch(e){}
   try{ reconcileProfiles(); }catch(e){}   // توحيد أي بروفايلات مكرّرة محلياً قبل العرض
