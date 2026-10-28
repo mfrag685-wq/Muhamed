@@ -435,6 +435,13 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 @media print{.registry-bar,.rb-kpis .rb-kpi .k{}.reg-wrap{max-height:none;border:0;overflow:visible}
   table.reg thead th{position:static;background:#e9eee9!important;color:#000!important}
   table.reg tr.reg-total td{position:static;background:#e2e8e0!important;color:#000!important}}
+/* اسم العميل في تنبيه المبيعات — لون مميّز متحرّك */
+.cl-name{display:inline-block;font-weight:800;padding:0 6px;border-radius:6px;color:#fff;
+  background:linear-gradient(90deg,#7c3aed,#2563eb,#0891b2,#7c3aed);background-size:300% 100%;
+  animation:clNameMove 3s linear infinite, clNamePulse 1.6s ease-in-out infinite;box-shadow:0 0 0 0 rgba(124,58,237,.45)}
+@keyframes clNameMove{0%{background-position:0% 50%}100%{background-position:300% 50%}}
+@keyframes clNamePulse{0%,100%{transform:scale(1);box-shadow:0 0 0 0 rgba(124,58,237,.45)}50%{transform:scale(1.07);box-shadow:0 0 0 5px rgba(124,58,237,0)}}
+@media (prefers-reduced-motion:reduce){.cl-name{animation:none}}
 </style>
 <!-- ===== مكتبة Firebase للمزامنة السحابية (تعمل فقط عند تعبئة الإعدادات) ===== -->
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
@@ -1945,7 +1952,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-10-27-c';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-10-28-a';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -5361,7 +5368,7 @@ function entryDelayAlerts(){
     var items=byName[name].slice().sort(function(a,b){ return a.sev-b.sev; });   /* الأعجل أولاً داخل الموظّف */
     var top=items[0];
     return {level:'staff', tier:top.tier, sev:top.sev, title:'متابعة الإدخال — '+name, intro:top.intro,
-      lines:items.map(function(it){ return it.ack?{t:it.kindDef+': '+it.msg,ack:it.ack}:(it.kindDef+': '+it.msg); })};
+      lines:items.map(function(it){ return it.ack?{t:it.kindDef+': '+it.msg,ack:it.ack,cname:it.cname}:(it.kindDef+': '+it.msg); })};
   });
   A.sort(function(a,b){ return (a.sev==null?9:a.sev)-(b.sev==null?9:b.sev); });   /* الموظّف الأعجل أولاً */
   return A;
@@ -5408,7 +5415,7 @@ function dailyClientFollowUps(clients,cfg,td,realTd){
     var msg=miss.length===1
       ? 'لم تُسجَّل مبيعات هذا العميل ليوم '+miss[0]+(age>=2?' (متأخّر '+age+' أيام)':'')+'.'
       : 'أيام بلا مبيعات مسجّلة لهذا العميل ('+miss.length+'): '+miss.map(function(x){ return x.slice(5); }).join('، ')+' — يُرجى استدراكها بدءاً من '+miss[0]+'.';
-    out.push({name:cfg.salesName,intro:intro,kindDef:'مبيعات «'+name+'»',tier:tier,sev:sev,msg:msg,ack:{cid:cid,dates:miss}});
+    out.push({name:cfg.salesName,intro:intro,kindDef:'مبيعات «'+name+'»',cname:name,tier:tier,sev:sev,msg:msg,ack:{cid:cid,dates:miss}});
   });
   return out;
 }
@@ -5544,7 +5551,8 @@ function staffCardHtml(a){
       +'<div class="staff-alert-t sd-lines">'+a.lines.map(function(ln){
         if(ln&&typeof ln==='object'){
           var ab=canAckStock('high')?(' <button type="button" class="ack-btn" style="padding:2px 9px;font-size:12px" title="تأكيد أن العميل لم تكن له مبيعات فعلية في هذه الأيام" onclick="ackNoSales('+ln.ack.cid+',\''+ln.ack.dates.join(',')+'\')">✔ لا مبيعات فعلية</button>'):'';
-          return '<div class="sd-line">• '+esc(ln.t)+ab+'</div>'; }
+          var lt=esc(ln.t); if(ln.cname){ var en=esc(ln.cname); lt=lt.replace(en,function(){ return '<span class="cl-name">'+en+'</span>'; }); }
+          return '<div class="sd-line">• '+lt+ab+'</div>'; }
         return '<div class="sd-line">• '+esc(ln)+'</div>'; }).join('')+'</div>';
   } else {
     var ack=a.ackKind?('<div style="margin-top:9px"><button type="button" class="ack-btn" onclick="ackStockReview(\''+a.ackKind+'\')">✔ أقِرّ بصحة الرصيد وأُخفي التنبيه</button></div>'):'';
