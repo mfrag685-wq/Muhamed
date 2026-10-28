@@ -970,6 +970,15 @@ html[data-theme="dark"] .rt td.hl{background:#2e2814;color:var(--accent)}
 <!-- ══ PAGE 5: PRICING ══ -->
 <div id="page-pricing" class="page">
 
+  <div class="card" style="margin-bottom:12px">
+    <div class="card-body" style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
+      <div class="fg"><label>اختر شحنة لاحتساب بيعها (المكتملة: لها تفاصيل ومصاريف)</label>
+        <select id="pricing-ship-select" onchange="pricingSelectShipment(this.value)" style="min-width:300px"></select>
+      </div>
+      <span id="pricing-ship-hint" style="font-size:.8rem;color:var(--muted)"></span>
+    </div>
+  </div>
+
   <!-- Top info bar -->
   <div class="pricing-info-bar" id="pricing-info-bar">
     <div class="pib-item">
@@ -3275,7 +3284,25 @@ function searchContainers(q){
 // Global store for computed rows (set after calculate())
 window._calcRows = [];
 
+// اختيار شحنة محفوظة لاحتساب بيعها مباشرة (المكتملة: لها تفاصيل أصناف ومصاريف)
+function shipHasItems(s){ return ((s.containers||[]).some(function(c){ return ((c.invoices||[]).some(function(inv){ return ((inv.items||[]).some(function(it){ return (parseFloat(it.qty)||0)>0 && (parseFloat(it.unitPrice)||0)>0; })); })); })); }
+function shipHasExpenses(s){ var sc=(s.shipCosts||[]).reduce(function(t,c){return t+(parseFloat(c.amount)||0);},0); var cc=(s.containers||[]).reduce(function(t,c){ return t+((c.costs||[]).reduce(function(u,x){return u+(parseFloat(x.amount)||0);},0))+(parseFloat(c.freight)||0); },0); return (sc+cc)>0; }
+function populatePricingShips(){
+  var sel=document.getElementById('pricing-ship-select'); if(!sel) return;
+  var ships=dbLoad().filter(function(s){ return shipHasItems(s)&&shipHasExpenses(s); })
+    .sort(function(a,b){ return ((a.shipmentDate||'')<(b.shipmentDate||''))?-1:1; });
+  var cur=S.currentId||'';
+  sel.innerHTML='<option value="">— اختر شحنة —</option>'+ships.map(function(s){ return '<option value="'+escH(String(s.id))+'"'+(s.id===cur?' selected':'')+'>'+escH(String(s.shipmentNo||s.id))+((s.shipmentDate)?(' · '+escH(s.shipmentDate)):'')+((s.supplierName)?(' · '+escH(s.supplierName)):'')+'</option>'; }).join('');
+  var hint=document.getElementById('pricing-ship-hint'); if(hint) hint.textContent=ships.length?('✔ '+ships.length+' شحنة مكتملة متاحة'):'لا توجد شحنات مكتملة — أضِف التفاصيل والمصاريف أولاً';
+}
+function pricingSelectShipment(id){
+  if(!id) return;
+  loadShipment(id);   // يحمّل الشحنة في مساحة العمل
+  calculate();        // يحسب التكاليف (يملأ window._calcRows)
+  showPage('page-pricing');  // يعود لشاشة البيع ويعرض الجدول
+}
 function loadPricingPage() {
+  populatePricingShips();
   // Update info bar
   document.getElementById('pib-shipno').textContent    = document.getElementById('shipment-no').value    || '—';
   document.getElementById('pib-date').textContent      = document.getElementById('shipment-date').value  || '—';
@@ -6442,35 +6469,70 @@ function exportPaymentsExcel(){
 // ═══════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════
-var APP_VERSION='v2026-10-28.21';   // رقم إصدار ظاهر للتحقق من تحميل أحدث نسخة (لا cache قديم)
+var APP_VERSION='v2026-10-28.22';   // رقم إصدار ظاهر للتحقق من تحميل أحدث نسخة (لا cache قديم)
 // ═══════════════════════════════════════════
-// 🌐 تعدّد اللغات (عربي / English / 中文) — الدفعة 1: الواجهة الرئيسية
+// 🌐 محرّك الترجمة الشامل (عربي / English / 中文) — قاموس + مسح DOM + مراقب تغييرات
 // ═══════════════════════════════════════════
 var LANG_KEY='scs_lang';
 function curLang(){ try{ return localStorage.getItem(LANG_KEY)||'ar'; }catch(e){ return 'ar'; } }
-var I18N={
-  en:{
-    'tab.shipment':'📦 Shipment','tab.costs':'💰 Expenses','tab.results':'📊 Costs','tab.pricing':'💹 Pricing',
-    'tab.archive':'🗂️ Shipments','tab.payments':'💵 Payments','tab.freight':'🚚 Freight A/C','tab.supacct':'📒 Supplier A/C',
-    'tab.modelrep':'📈 Models Report','tab.compare':'⚖️ Comparison',
-    'btn.save':'💾 Save Shipment','btn.new':'➕ New Shipment','btn.settings':'⚙️ Settings','btn.suppliers':'🧾 Suppliers',
-    'btn.users':'👥 Users','btn.log':'📋 Log','btn.mypass':'🔑 My Password','btn.logout':'🚪 Logout'
-  },
-  zh:{
-    'tab.shipment':'📦 装运','tab.costs':'💰 费用','tab.results':'📊 成本','tab.pricing':'💹 定价',
-    'tab.archive':'🗂️ 装运记录','tab.payments':'💵 付款','tab.freight':'🚚 运费账户','tab.supacct':'📒 供应商账户',
-    'tab.modelrep':'📈 型号报告','tab.compare':'⚖️ 对比',
-    'btn.save':'💾 保存装运','btn.new':'➕ 新装运','btn.settings':'⚙️ 设置','btn.suppliers':'🧾 供应商',
-    'btn.users':'👥 用户','btn.log':'📋 日志','btn.mypass':'🔑 我的密码','btn.logout':'🚪 退出'
+function t(){ return null; }
+// القاموس: المفتاح نص عربي ظاهر (بدون أيقونة البداية — يُحتفظ بها تلقائياً)
+var TR={ en:{
+ 'بيانات الشحنة':'Shipment','المصاريف':'Expenses','التكاليف':'Costs','احتساب البيع':'Pricing','سجل الشحنات':'Shipments','الدفعات المسددة':'Payments','كشف حساب الشحن':'Freight Account','كشف حساب المورد':'Supplier Account','كشف حساب العمولة':'Commission Account','تقرير الموديلات':'Models Report','المقارنة':'Comparison',
+ 'حفظ الشحنة':'Save Shipment','شحنة جديدة':'New Shipment','إعدادات':'Settings','الموردون':'Suppliers','المستخدمون':'Users','السجل':'Log','كلمتي':'My Password','خروج':'Logout','جاهز':'Ready','محمّل':'Loaded','ليلي':'Night','نهاري':'Day','سحابي':'Cloud','متزامن ☁':'Synced ☁','متزامن':'Synced',
+ 'رقم الشحنة':'Shipment No.','تاريخ الشحنة':'Shipment Date','المورد':'Supplier','بلد المنشأ':'Origin Country','إجمالي تكلفة الشحنة':'Total Shipment Cost','عدد الحاويات':'Containers','اسم / كود المورد':'Supplier name / code','حالة الشحنة':'Status','ملاحظات':'Notes','جارية':'In progress',
+ 'إعدادات هوامش الربح وضريبة القيمة المضافة':'Profit Margin & VAT Settings','تحديث الجدول':'Refresh Table','تصدير Excel':'Export Excel','طباعة':'Print','هوامش الربح':'Profit Margins','هامش ربح 1 (%)':'Margin 1 (%)','هامش ربح 2 (%)':'Margin 2 (%)','هامش ربح 3 (%)':'Margin 3 (%)','طريقة احتساب الهامش':'Margin Method','ضريبة القيمة المضافة':'VAT','نسبة الضريبة (%)':'VAT Rate (%)','سعر البيع المخصص':'Custom Sale Price','جدول احتساب أسعار البيع':'Sale Price Table','لم يتم احتساب التكاليف بعد':'Costs not calculated yet','احسب التكاليف الآن':'Calculate Costs Now','إعادة الحساب':'Recalculate','طباعة جدول البيع (A4)':'Print Price Sheet (A4)','حفظ مع أسعار البيع':'Save with Sale Prices','اختر شحنة لاحتساب بيعها (المكتملة: لها تفاصيل ومصاريف)':'Select a completed shipment (with details & expenses) to price',
+ 'التاريخ':'Date','البيان':'Description','مدين':'Debit','دائن':'Credit','الرصيد الجاري':'Running Balance','الرصيد':'Balance','الإجمالي':'Total','قيمة الشحنة':'Shipment Value','نسبة العمولة %':'Rate %','قيمة العمولة':'Commission','المبلغ':'Amount','العملة':'Currency','طريقة الدفع':'Method','البنك':'Bank','مرجع':'Reference','مرجع العملية':'Reference','الوجهة':'Target','تحويل بنكي':'Bank Transfer','نقدًا':'Cash','ملخص':'Summary','تفصيلي':'Detailed','مسح':'Clear','إلى':'To','إضافة دفعة':'Add Payment','إلغاء التعديل':'Cancel Edit','حفظ التعديل':'Save Edit',
+ 'كشف الحساب':'Account Statement','إجمالي المشتريات — مدين (SAR)':'Total Purchases — Debit (SAR)','الرصيد المتبقّي (SAR)':'Remaining Balance (SAR)','إجمالي العمولة — مدين (SAR)':'Total Commission — Debit (SAR)','إجمالي المسدد — دائن (SAR)':'Total Paid — Credit (SAR)','إجمالي رسوم الشحن — مدين (SAR)':'Total Freight — Debit (SAR)',
+ 'الدور':'Role','الاسم':'Name','الحالة':'Status','نشط':'Active','موقوف':'Suspended','تعديل':'Edit','حذف':'Delete','كلمة المرور':'Password','حفظ المستخدم':'Save User','الصلاحيات':'Permissions','إضافة مستخدم جديد':'Add New User',
+ 'تسجيل الدخول':'Login','اسم المستخدم':'Username','دخول':'Sign in','تذكّرني على هذا الجهاز (دخول تلقائي)':'Remember me on this device (auto login)'
+}, zh:{
+ 'بيانات الشحنة':'装运数据','المصاريف':'费用','التكاليف':'成本','احتساب البيع':'定价','سجل الشحنات':'装运记录','الدفعات المسددة':'已付款项','كشف حساب الشحن':'运费账户','كشف حساب المورد':'供应商账户','كشف حساب العمولة':'佣金账户','تقرير الموديلات':'型号报告','المقارنة':'对比',
+ 'حفظ الشحنة':'保存装运','شحنة جديدة':'新装运','إعدادات':'设置','الموردون':'供应商','المستخدمون':'用户','السجل':'日志','كلمتي':'我的密码','خروج':'退出','جاهز':'就绪','محمّل':'已加载','ليلي':'夜间','نهاري':'日间','سحابي':'云','متزامن ☁':'已同步 ☁','متزامن':'已同步',
+ 'رقم الشحنة':'装运编号','تاريخ الشحنة':'装运日期','المورد':'供应商','بلد المنشأ':'原产国','إجمالي تكلفة الشحنة':'装运总成本','عدد الحاويات':'集装箱数','اسم / كود المورد':'供应商名称/代码','حالة الشحنة':'状态','ملاحظات':'备注','جارية':'进行中',
+ 'إعدادات هوامش الربح وضريبة القيمة المضافة':'利润率与增值税设置','تحديث الجدول':'刷新表格','تصدير Excel':'导出 Excel','طباعة':'打印','هوامش الربح':'利润率','هامش ربح 1 (%)':'利润率 1 (%)','هامش ربح 2 (%)':'利润率 2 (%)','هامش ربح 3 (%)':'利润率 3 (%)','طريقة احتساب الهامش':'利润计算方式','ضريبة القيمة المضافة':'增值税','نسبة الضريبة (%)':'税率 (%)','سعر البيع المخصص':'自定义售价','جدول احتساب أسعار البيع':'售价计算表','لم يتم احتساب التكاليف بعد':'尚未计算成本','احسب التكاليف الآن':'立即计算成本','إعادة الحساب':'重新计算','طباعة جدول البيع (A4)':'打印售价表 (A4)','حفظ مع أسعار البيع':'保存售价','اختر شحنة لاحتساب بيعها (المكتملة: لها تفاصيل ومصاريف)':'选择已完成的装运（含明细和费用）进行定价',
+ 'التاريخ':'日期','البيان':'说明','مدين':'借方','دائن':'贷方','الرصيد الجاري':'余额','الرصيد':'余额','الإجمالي':'合计','قيمة الشحنة':'装运金额','نسبة العمولة %':'比率 %','قيمة العمولة':'佣金','المبلغ':'金额','العملة':'币种','طريقة الدفع':'付款方式','البنك':'银行','مرجع':'参考号','مرجع العملية':'参考号','الوجهة':'对象','تحويل بنكي':'银行转账','نقدًا':'现金','ملخص':'摘要','تفصيلي':'明细','مسح':'清除','إلى':'至','إضافة دفعة':'添加付款','إلغاء التعديل':'取消编辑','حفظ التعديل':'保存编辑',
+ 'كشف الحساب':'账户明细','إجمالي المشتريات — مدين (SAR)':'采购总额 — 借方 (SAR)','الرصيد المتبقّي (SAR)':'剩余余额 (SAR)','إجمالي العمولة — مدين (SAR)':'佣金总额 — 借方 (SAR)','إجمالي المسدد — دائن (SAR)':'已付总额 — 贷方 (SAR)','إجمالي رسوم الشحن — مدين (SAR)':'运费总额 — 借方 (SAR)',
+ 'الدور':'角色','الاسم':'姓名','الحالة':'状态','نشط':'启用','موقوف':'停用','تعديل':'编辑','حذف':'删除','كلمة المرور':'密码','حفظ المستخدم':'保存用户','الصلاحيات':'权限','إضافة مستخدم جديد':'添加新用户',
+ 'تسجيل الدخول':'登录','اسم المستخدم':'用户名','دخول':'登录','تذكّرني على هذا الجهاز (دخول تلقائي)':'在此设备上记住我（自动登录）'
+}};
+var _trOrig=new WeakMap(), _trPh=new WeakMap(), _trTitle=new WeakMap(), _trBusy=false, _trObs=null, _trTimer=null;
+var _emojiLead=/^((?:[←-⇿⌀-➿⬀-⯿☀-⛿️\uD83C-􏰀-\uDFFF\s])+)/;
+function _trLook(lang,ar){ var d=TR[lang]; if(!d) return null; return (d[ar]!=null)?d[ar]:null; }
+function _trTextNode(n,lang){
+  var cur=n.nodeValue; var orig=_trOrig.has(n)?_trOrig.get(n):cur; var trimmed=(orig||'').trim(); if(!trimmed) return;
+  var desired;
+  if(lang==='ar'){ desired=orig; }
+  else {
+    var lead='', core=trimmed; var m=trimmed.match(_emojiLead); if(m){ lead=m[1]; core=trimmed.slice(lead.length); }
+    var tr=_trLook(lang, core.trim());
+    if(tr==null){ tr=_trLook(lang, trimmed); if(tr!=null){ lead=''; core=trimmed; } }
+    if(tr==null){ desired = _trOrig.has(n)? orig : null; if(desired===null) return; }
+    else { if(!_trOrig.has(n)) _trOrig.set(n, orig); desired = orig.replace(trimmed, lead+tr); }
   }
-};
-function t(key){ var l=curLang(); if(l==='ar') return null; var d=I18N[l]; return (d&&d[key]!=null)?d[key]:null; }
+  if(cur!==desired) n.nodeValue=desired;
+}
+function translatePass(root){
+  var lang=curLang(); root=root||document.body; if(!root) return; _trBusy=true;
+  try{
+    var w=document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null, false), n, list=[];
+    while(n=w.nextNode()){ var p=n.parentNode; if(!p) continue; var tg=p.nodeName; if(tg==='SCRIPT'||tg==='STYLE') continue; if(p.id==='lang-switch'||p.id==='app-ver') continue; list.push(n); }
+    list.forEach(function(nd){ try{ _trTextNode(nd,lang); }catch(e){} });
+    try{ root.querySelectorAll('[placeholder]').forEach(function(el){ var o=_trPh.has(el)?_trPh.get(el):el.getAttribute('placeholder'); if(o==null) return; var des; if(lang==='ar'){ des=o; } else { var tr=_trLook(lang,(o||'').trim()); if(tr==null){ if(!_trPh.has(el)) return; des=o; } else { if(!_trPh.has(el))_trPh.set(el,o); des=tr; } } if(el.getAttribute('placeholder')!==des) el.setAttribute('placeholder',des); }); }catch(e){}
+  }catch(e){}
+  _trBusy=false;
+}
 function applyLang(){
   var l=curLang();
-  try{ document.documentElement.lang=l; document.documentElement.setAttribute('dir', (l==='ar')?'rtl':'ltr'); }catch(e){}
-  try{ document.querySelectorAll('[data-i18n]').forEach(function(el){ var k=el.getAttribute('data-i18n'); if(el.getAttribute('data-ar')==null) el.setAttribute('data-ar', el.textContent); var tr=t(k); el.textContent=(tr!=null)?tr:el.getAttribute('data-ar'); }); }catch(e){}
-  try{ document.querySelectorAll('[data-i18n-ph]').forEach(function(el){ var k=el.getAttribute('data-i18n-ph'); if(el.getAttribute('data-ar-ph')==null) el.setAttribute('data-ar-ph', el.getAttribute('placeholder')||''); var tr=t(k); el.setAttribute('placeholder', (tr!=null)?tr:el.getAttribute('data-ar-ph')); }); }catch(e){}
+  try{ document.documentElement.lang=l; document.documentElement.setAttribute('dir',(l==='ar')?'rtl':'ltr'); }catch(e){}
+  try{ translatePass(document.body); }catch(e){}
   var sw=document.getElementById('lang-switch'); if(sw) sw.value=l;
+  _ensureTrObserver();
+}
+function _ensureTrObserver(){
+  if(_trObs||typeof MutationObserver==='undefined'||!document.body) return;
+  try{ _trObs=new MutationObserver(function(){ if(curLang()==='ar'||_trBusy) return; clearTimeout(_trTimer); _trTimer=setTimeout(function(){ translatePass(document.body); },80); });
+    _trObs.observe(document.body,{childList:true,subtree:true,characterData:true}); }catch(e){}
 }
 function setLang(l){ try{ localStorage.setItem(LANG_KEY,l); }catch(e){} applyLang(); try{ toast(l==='ar'?'🌐 العربية':(l==='en'?'🌐 English':'🌐 中文')); }catch(e){} }
 function initApp() {
