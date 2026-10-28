@@ -692,30 +692,33 @@ html[data-theme="dark"] .rt td.hl{background:#2e2814;color:var(--accent)}
     <button class="cloud-badge" id="cloud-badge" onclick="openCloudModal()" title="المزامنة السحابية" style="display:none"><span class="cloud-dot" id="cloud-dot"></span><span id="cloud-label">سحابي</span></button>
     <span id="app-ver" style="font-size:.6rem;color:rgba(255,255,255,.75);margin-inline-start:6px;white-space:nowrap"></span>
     <div class="save-ind"><div class="save-dot"></div><span id="save-status">جاهز</span></div>
-    <button class="hbtn accent" onclick="saveShipment()">💾 حفظ الشحنة</button>
-    <button class="hbtn" onclick="newShipment()">➕ شحنة جديدة</button>
-    <button class="hbtn" id="btn-settings" onclick="openSetup()">⚙️ إعدادات</button>
-    <button class="hbtn" id="btn-suppliers" onclick="openSuppliers()">🧾 الموردون</button>
-    <button class="hbtn" id="btn-users" onclick="openUsers()">👥 المستخدمون</button>
-    <button class="hbtn" id="btn-log" onclick="openLog()">📋 السجل</button>
+    <select id="lang-switch" onchange="setLang(this.value)" title="اللغة / Language / 语言"
+      style="background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.3);color:#fff;border-radius:7px;padding:3px 6px;font-size:.78rem;font-weight:700;cursor:pointer;outline:none">
+      <option value="ar">🇸🇦 عربي</option><option value="en">🇬🇧 English</option><option value="zh">🇨🇳 中文</option></select>
+    <button class="hbtn accent" onclick="saveShipment()" data-i18n="btn.save">💾 حفظ الشحنة</button>
+    <button class="hbtn" onclick="newShipment()" data-i18n="btn.new">➕ شحنة جديدة</button>
+    <button class="hbtn" id="btn-settings" onclick="openSetup()" data-i18n="btn.settings">⚙️ إعدادات</button>
+    <button class="hbtn" id="btn-suppliers" onclick="openSuppliers()" data-i18n="btn.suppliers">🧾 الموردون</button>
+    <button class="hbtn" id="btn-users" onclick="openUsers()" data-i18n="btn.users">👥 المستخدمون</button>
+    <button class="hbtn" id="btn-log" onclick="openLog()" data-i18n="btn.log">📋 السجل</button>
     <span id="current-user-name" style="font-size:.72rem;color:rgba(255,255,255,.75);white-space:nowrap"></span>
-    <button class="hbtn" onclick="changeMyPassword()" title="تغيير كلمة مروري">🔑 كلمتي</button>
-    <button class="hbtn" onclick="logout()" title="تسجيل الخروج">🚪 خروج</button>
+    <button class="hbtn" onclick="changeMyPassword()" title="تغيير كلمة مروري" data-i18n="btn.mypass">🔑 كلمتي</button>
+    <button class="hbtn" onclick="logout()" title="تسجيل الخروج" data-i18n="btn.logout">🚪 خروج</button>
   </div>
 </div>
 
 <div class="tabs">
-  <div class="tab active"  onclick="showPage('page-shipment')">📦 بيانات الشحنة</div>
-  <div class="tab"         onclick="showPage('page-costs')">💰 المصاريف</div>
-  <div class="tab"         onclick="showPage('page-results')">📊 التكاليف</div>
-  <div class="tab tab-pricing" onclick="showPage('page-pricing')">💹 احتساب البيع</div>
-  <div class="tab"         onclick="showPage('page-archive')">🗂️ سجل الشحنات</div>
-  <div class="tab"         onclick="showPage('page-payments')">💵 الدفعات المسددة</div>
-  <div class="tab"         onclick="showPage('page-freight')">🚚 كشف حساب الشحن</div>
-  <div class="tab"         onclick="showPage('page-supacct')">📒 كشف حساب المورد</div>
+  <div class="tab active"  onclick="showPage('page-shipment')" data-i18n="tab.shipment">📦 بيانات الشحنة</div>
+  <div class="tab"         onclick="showPage('page-costs')" data-i18n="tab.costs">💰 المصاريف</div>
+  <div class="tab"         onclick="showPage('page-results')" data-i18n="tab.results">📊 التكاليف</div>
+  <div class="tab tab-pricing" onclick="showPage('page-pricing')" data-i18n="tab.pricing">💹 احتساب البيع</div>
+  <div class="tab"         onclick="showPage('page-archive')" data-i18n="tab.archive">🗂️ سجل الشحنات</div>
+  <div class="tab"         onclick="showPage('page-payments')" data-i18n="tab.payments">💵 الدفعات المسددة</div>
+  <div class="tab"         onclick="showPage('page-freight')" data-i18n="tab.freight">🚚 كشف حساب الشحن</div>
+  <div class="tab"         onclick="showPage('page-supacct')" data-i18n="tab.supacct">📒 كشف حساب المورد</div>
   <div class="tab"         onclick="showPage('page-comm')">🧮 <span id="tab-comm-label">كشف حساب العمولة</span></div>
-  <div class="tab"         onclick="showPage('page-modelrep')">📈 تقرير الموديلات</div>
-  <div class="tab"         onclick="showPage('page-compare')">⚖️ المقارنة</div>
+  <div class="tab"         onclick="showPage('page-modelrep')" data-i18n="tab.modelrep">📈 تقرير الموديلات</div>
+  <div class="tab"         onclick="showPage('page-compare')" data-i18n="tab.compare">⚖️ المقارنة</div>
 </div>
 
 <div class="main">
@@ -6439,9 +6442,40 @@ function exportPaymentsExcel(){
 // ═══════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════
-var APP_VERSION='v2026-10-28.20';   // رقم إصدار ظاهر للتحقق من تحميل أحدث نسخة (لا cache قديم)
+var APP_VERSION='v2026-10-28.21';   // رقم إصدار ظاهر للتحقق من تحميل أحدث نسخة (لا cache قديم)
+// ═══════════════════════════════════════════
+// 🌐 تعدّد اللغات (عربي / English / 中文) — الدفعة 1: الواجهة الرئيسية
+// ═══════════════════════════════════════════
+var LANG_KEY='scs_lang';
+function curLang(){ try{ return localStorage.getItem(LANG_KEY)||'ar'; }catch(e){ return 'ar'; } }
+var I18N={
+  en:{
+    'tab.shipment':'📦 Shipment','tab.costs':'💰 Expenses','tab.results':'📊 Costs','tab.pricing':'💹 Pricing',
+    'tab.archive':'🗂️ Shipments','tab.payments':'💵 Payments','tab.freight':'🚚 Freight A/C','tab.supacct':'📒 Supplier A/C',
+    'tab.modelrep':'📈 Models Report','tab.compare':'⚖️ Comparison',
+    'btn.save':'💾 Save Shipment','btn.new':'➕ New Shipment','btn.settings':'⚙️ Settings','btn.suppliers':'🧾 Suppliers',
+    'btn.users':'👥 Users','btn.log':'📋 Log','btn.mypass':'🔑 My Password','btn.logout':'🚪 Logout'
+  },
+  zh:{
+    'tab.shipment':'📦 装运','tab.costs':'💰 费用','tab.results':'📊 成本','tab.pricing':'💹 定价',
+    'tab.archive':'🗂️ 装运记录','tab.payments':'💵 付款','tab.freight':'🚚 运费账户','tab.supacct':'📒 供应商账户',
+    'tab.modelrep':'📈 型号报告','tab.compare':'⚖️ 对比',
+    'btn.save':'💾 保存装运','btn.new':'➕ 新装运','btn.settings':'⚙️ 设置','btn.suppliers':'🧾 供应商',
+    'btn.users':'👥 用户','btn.log':'📋 日志','btn.mypass':'🔑 我的密码','btn.logout':'🚪 退出'
+  }
+};
+function t(key){ var l=curLang(); if(l==='ar') return null; var d=I18N[l]; return (d&&d[key]!=null)?d[key]:null; }
+function applyLang(){
+  var l=curLang();
+  try{ document.documentElement.lang=l; document.documentElement.setAttribute('dir', (l==='ar')?'rtl':'ltr'); }catch(e){}
+  try{ document.querySelectorAll('[data-i18n]').forEach(function(el){ var k=el.getAttribute('data-i18n'); if(el.getAttribute('data-ar')==null) el.setAttribute('data-ar', el.textContent); var tr=t(k); el.textContent=(tr!=null)?tr:el.getAttribute('data-ar'); }); }catch(e){}
+  try{ document.querySelectorAll('[data-i18n-ph]').forEach(function(el){ var k=el.getAttribute('data-i18n-ph'); if(el.getAttribute('data-ar-ph')==null) el.setAttribute('data-ar-ph', el.getAttribute('placeholder')||''); var tr=t(k); el.setAttribute('placeholder', (tr!=null)?tr:el.getAttribute('data-ar-ph')); }); }catch(e){}
+  var sw=document.getElementById('lang-switch'); if(sw) sw.value=l;
+}
+function setLang(l){ try{ localStorage.setItem(LANG_KEY,l); }catch(e){} applyLang(); try{ toast(l==='ar'?'🌐 العربية':(l==='en'?'🌐 English':'🌐 中文')); }catch(e){} }
 function initApp() {
   try{ var av=document.getElementById('app-ver'); if(av) av.textContent=APP_VERSION; }catch(e){}
+  try{ applyLang(); }catch(e){}
   try{ reconcileProfiles(); }catch(e){}   // توحيد أي بروفايلات مكرّرة محلياً قبل العرض
   try{ applyCompanyDeepLink(); }catch(e){}  // اختيار الشركة من الرابط الداخلي #co=
   renderQuickSwitch();
