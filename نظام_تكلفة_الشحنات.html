@@ -2655,7 +2655,7 @@ function buildConCostPanels(){
     <span style="font-size:.82rem;font-weight:800;color:#9a7b2e">🚢 أجور الشحن لكل حاوية (تُطبَّق على الكل):</span>
     <input type="number" id="frt-rate-all" min="0" step="0.01" placeholder="مثال 7000" style="width:110px;padding:4px 7px;border:1.5px solid #d8c39a;border-radius:5px">
     <select id="frt-rate-all-cur" class="cur-sel"><option value="USD">USD</option><option value="SAR">SAR</option></select>
-    <button class="apply-all-btn" style="background:#f6a623;color:#fff;border-color:#f6a623" onclick="applyFreightToAll()">طبّق على ${nC} حاوية</button>
+    <button class="apply-all-btn" style="background:#f6a623;color:#fff;border-color:#f6a623" onclick="applyFreightToAll()">${tr('طبّق على')} ${nC} ${tr('حاوية')}</button>
     <span id="frt-rate-all-hint" style="font-size:.75rem;color:#9a7b2e"></span>
   </div>
   <div class="apply-all-bar" style="margin-bottom:10px">
@@ -3099,7 +3099,7 @@ function calculate(){
   document.getElementById('ph-info').textContent=`رقم الشحنة: ${sNo} | التاريخ: ${sDate} | الحاويات: ${getN()} | النشاط: ${S.activityName}`;
   document.getElementById('ph-meta').innerHTML=`<span>1 ${S.invCur} = ${S.fxInvSar} SAR</span><br><span>1 USD = ${S.fxUsdSar} SAR</span><br><span>${new Date().toLocaleDateString('ar')}</span>`;
   document.getElementById('pf-prep').textContent='إعداد: '+S.preparer;
-  document.getElementById('pf-date').textContent='تاريخ الإعداد: '+new Date().toLocaleDateString('ar-SA');
+  document.getElementById('pf-date').textContent=tr('تاريخ الإعداد:')+' '+new Date().toLocaleDateString(curLang()==='ar'?'ar-SA':(curLang()==='zh'?'zh-CN':'en-GB'));
 
   // Auto-save summary
   if(S.currentId){ const db=dbLoad(); const r=db.find(x=>x.id===S.currentId); if(r){r.summary=computeSummary();dbSave(db);} }
@@ -3324,7 +3324,7 @@ function loadPricingPage() {
   document.getElementById('pib-total').textContent = fmtD(gTot) + ' SAR';
   document.getElementById('pricing-not-ready').style.display    = 'none';
   document.getElementById('pricing-table-container').style.display = 'block';
-  document.getElementById('pricing-badge').textContent = rows.length + ' منتج';
+  document.getElementById('pricing-badge').textContent = rows.length + ' '+tr('منتج');
 
   renderPricingTable(rows);
 }
@@ -3990,7 +3990,7 @@ function exportFullBackup(){
   a.click();
   const nShip=data.profiles.reduce((s,e)=>s+(e.db?.length||0),0);
   const nPay =data.profiles.reduce((s,e)=>s+(e.pay?.length||0),0);
-  toast(`✅ نسخة شاملة: ${data.profiles.length} شركة، ${nShip} شحنة، ${nPay} دفعة`);
+  toast(`✅ نسخة شاملة: ${data.profiles.length} شركة، ${nShip} ${tr('شحنة')}، ${nPay} ${tr('دفعة')}`);
 }
 
 function importFullBackup(){
@@ -4773,7 +4773,7 @@ function applyImportedRows(aoa,fname){
   if(st) st.innerHTML=`✅ تم استيراد <strong>${nItem}</strong> صنف ضمن <strong>${nInv}</strong> فاتورة و<strong>${nCon}</strong> حاوية`
     + (shipNo?` — الشحنة <strong>${escH(shipNo)}</strong>`:'') + ` — من الملف: ${escH(fname)}`;
   showPage('page-shipment');
-  logAction('استيراد بيانات', nItem+' صنف / '+nCon+' حاوية');
+  logAction('استيراد بيانات', nItem+' صنف / '+nCon+' '+tr('حاوية'));
   toast('✅ تم استيراد البيانات بنجاح ('+nCon+' حاوية)');
 }
 
@@ -4837,7 +4837,7 @@ function renderPayments(){
   const trans= list.filter(p=>p.method==='transfer').reduce((s,p)=>s+payToSar(p.amount,p.cur),0);
   const sc=document.getElementById('pay-sum-cards');
   if(sc) sc.innerHTML=`
-    <div class="sum-card"><div class="lbl">إجمالي المسدد (SAR)</div><div class="val">${fmtD(tot)}</div><div class="sub">${list.length} دفعة</div></div>
+    <div class="sum-card"><div class="lbl">إجمالي المسدد (SAR)</div><div class="val">${fmtD(tot)}</div><div class="sub">${list.length} ${tr('دفعة')}</div></div>
     <div class="sum-card"><div class="lbl">نقدًا (SAR)</div><div class="val">${fmtD(cash)}</div></div>
     <div class="sum-card"><div class="lbl">تحويل بنكي (SAR)</div><div class="val">${fmtD(trans)}</div></div>`;
 }
@@ -4971,8 +4971,8 @@ function renderFreight(){
 
   var sc=document.getElementById('frt-sum-cards');
   if(sc) sc.innerHTML=
-    '<div class="sum-card"><div class="lbl">إجمالي رسوم الشحن — مدين (SAR)</div><div class="val">'+fmtD(totDr)+'</div><div class="sub">'+rows.filter(function(r){return r.kind==='ship';}).length+' شحنة</div></div>'+
-    '<div class="sum-card"><div class="lbl">إجمالي المسدد — دائن (SAR)</div><div class="val" style="color:var(--success)">'+fmtD(totCr)+'</div><div class="sub">'+rows.filter(function(r){return r.kind==='pay';}).length+' دفعة</div></div>'+
+    '<div class="sum-card"><div class="lbl">إجمالي رسوم الشحن — مدين (SAR)</div><div class="val">'+fmtD(totDr)+'</div><div class="sub">'+rows.filter(function(r){return r.kind==='ship';}).length+' '+tr('شحنة')+'</div></div>'+
+    '<div class="sum-card"><div class="lbl">إجمالي المسدد — دائن (SAR)</div><div class="val" style="color:var(--success)">'+fmtD(totCr)+'</div><div class="sub">'+rows.filter(function(r){return r.kind==='pay';}).length+' '+tr('دفعة')+'</div></div>'+
     '<div class="sum-card"><div class="lbl">الرصيد المتبقّي (SAR)</div><div class="val" style="color:'+(bal>0?'var(--danger)':'var(--success)')+'">'+fmtD(bal)+'</div><div class="sub">'+(bal>0?'مستحق لشركة الشحن':(bal<0?'مدفوع بالزيادة':'مسدَّد بالكامل'))+'</div></div>';
 
   var tb=document.getElementById('frt-tbody'); if(!tb) return;
@@ -5121,12 +5121,12 @@ function renderCommAcct(){
         var main='<tr>'+
           '<td>'+(i+1)+'</td><td>'+escH(r.date||'—')+'</td>'+
           '<td><span style="cursor:pointer;color:var(--primary);font-weight:600" onclick="var e=document.getElementById(\''+rid+'\');if(e)e.hidden=!e.hidden">▾ '+escH(String(r.num))+'</span>'+(r.nc?' <span style="color:'+(someExcl?'var(--danger)':'var(--muted)')+';font-size:.72rem">('+r.ncInc+'/'+r.nc+' حاوية)</span>':'')+'</td>'+
-          '<td class="num"'+(someExcl?' title="القيمة الكاملة: '+fmtD(r.fullValue)+' ر.س"':'')+'>'+fmtD(r.base)+(someExcl?' <span style="color:var(--muted);font-size:.68rem">خاضعة</span>':'')+'</td>'+
+          '<td class="num"'+(someExcl?' title="القيمة الكاملة: '+fmtD(r.fullValue)+' '+tr('ر.س')+'"':'')+'>'+fmtD(r.base)+(someExcl?' <span style="color:var(--muted);font-size:.68rem">خاضعة</span>':'')+'</td>'+
           '<td class="num"><input type="number" min="0" step="0.01" value="'+(r.rate||0)+'" onchange="setCommRate(\''+sn+'\',this.value)" style="width:82px;text-align:center"></td>'+
           '<td class="num" style="font-weight:700;color:var(--primary)">'+fmtD(r.comm)+'</td></tr>';
         var cells=r.containers.map(function(c){
           if(c.whole) return '<span style="font-size:.8rem;color:var(--muted)">شحنة بدون تفصيل حاويات — تُحتسب العمولة على قيمتها كاملة</span>';
-          return '<label style="display:inline-flex;align-items:center;gap:5px;margin:3px 14px 3px 0;font-size:.82rem"><input type="checkbox" '+(c.excluded?'':'checked')+' onchange="toggleCommCont(\''+sn+'\','+c.ci+')" style="width:16px;height:16px"> '+escH(String(c.cname))+' <span style="color:var(--muted)">('+fmtD(c.fob)+' ر.س)</span></label>';
+          return '<label style="display:inline-flex;align-items:center;gap:5px;margin:3px 14px 3px 0;font-size:.82rem"><input type="checkbox" '+(c.excluded?'':'checked')+' onchange="toggleCommCont(\''+sn+'\','+c.ci+')" style="width:16px;height:16px"> '+escH(String(c.cname))+' <span style="color:var(--muted)">('+fmtD(c.fob)+' '+tr('ر.س')+')</span></label>';
         }).join('');
         var sub='<tr id="'+rid+'" hidden><td></td><td colspan="5" style="background:#fafbfc"><div style="padding:3px 2px;font-size:.78rem;color:var(--muted);margin-bottom:2px">✔ الحاويات المحتسبة في العمولة (أزل العلامة لإعفاء حاوية من العمولة):</div>'+cells+'</td></tr>';
         return main+sub;
@@ -5139,8 +5139,8 @@ function renderCommAcct(){
   var totDr=rows.reduce(function(s,r){return s+r.dr;},0), totCr=rows.reduce(function(s,r){return s+r.cr;},0), bal=totDr-totCr;
   var sc=document.getElementById('comm-sum-cards');
   if(sc) sc.innerHTML=
-    '<div class="sum-card"><div class="lbl">إجمالي العمولة — مدين (SAR)</div><div class="val">'+fmtD(totDr)+'</div><div class="sub">'+rows.filter(function(r){return r.kind==='ship';}).length+' شحنة</div></div>'+
-    '<div class="sum-card"><div class="lbl">إجمالي المسدد — دائن (SAR)</div><div class="val" style="color:var(--success)">'+fmtD(totCr)+'</div><div class="sub">'+rows.filter(function(r){return r.kind==='pay';}).length+' دفعة</div></div>'+
+    '<div class="sum-card"><div class="lbl">إجمالي العمولة — مدين (SAR)</div><div class="val">'+fmtD(totDr)+'</div><div class="sub">'+rows.filter(function(r){return r.kind==='ship';}).length+' '+tr('شحنة')+'</div></div>'+
+    '<div class="sum-card"><div class="lbl">إجمالي المسدد — دائن (SAR)</div><div class="val" style="color:var(--success)">'+fmtD(totCr)+'</div><div class="sub">'+rows.filter(function(r){return r.kind==='pay';}).length+' '+tr('دفعة')+'</div></div>'+
     '<div class="sum-card"><div class="lbl">الرصيد المتبقّي (SAR)</div><div class="val" style="color:'+(bal>0?'var(--danger)':'var(--success)')+'">'+fmtD(bal)+'</div><div class="sub">'+(bal>0?'مستحق':(bal<0?'مدفوع بالزيادة':'مسدَّد بالكامل'))+'</div></div>';
   var lt=document.getElementById('comm-led-tbody'); if(!lt) return;
   if(!rows.length){ lt.innerHTML='<tr><td colspan="7" style="padding:20px;color:var(--muted)">لا توجد حركات</td></tr>'; return; }
@@ -5204,7 +5204,7 @@ function printCommAcct(){
     led.map(function(r){ return '<tr><td>'+escH(r.date||'—')+'</td><td style="text-align:right">'+escH(r.label||'')+'</td><td class=num>'+(r.dr?fmtD(r.dr):'')+'</td><td class=num>'+(r.cr?fmtD(r.cr):'')+'</td><td class=num>'+fmtD(r.bal)+'</td></tr>'; }).join('')+
     '<tr class=tot><td colspan=2>الإجمالي</td><td class=num>'+fmtD(totDr)+'</td><td class=num>'+fmtD(totCr)+'</td><td class=num>'+fmtD(bal)+'</td></tr>'+
     '</tbody></table>'+
-    '<p style="font-weight:700">الرصيد المتبقّي: '+fmtD(bal)+' ر.س — '+(bal>0?'مستحق':(bal<0?'مدفوع بالزيادة':'مسدَّد بالكامل'))+'</p>';
+    '<p style="font-weight:700">الرصيد المتبقّي: '+fmtD(bal)+' '+tr('ر.س')+' — '+(bal>0?'مستحق':(bal<0?'مدفوع بالزيادة':'مسدَّد بالكامل'))+'</p>';
   cmpPrintWindow(commTitle(), t1+t2);
 }
 
@@ -5349,8 +5349,8 @@ function renderSupAcct(){
   var bPaid=saPayLoad().filter(function(p){ var tg=p.target||'a'; return String(p.supplier||'').toLowerCase()===String(name).toLowerCase() && (tg==='b'||tg==='both') && okd(p.date); }).reduce(function(s,p){return s+saPayToSar(p);},0);
   var sc=document.getElementById('sa-sum-cards');
   if(sc) sc.innerHTML=
-    '<div class="sum-card"><div class="lbl">إجمالي المشتريات — مدين (SAR)</div><div class="val">'+fmtD(totDr)+'</div><div class="sub">'+rows.filter(function(r){return r.kind==='ship';}).length+' شحنة</div></div>'+
-    '<div class="sum-card"><div class="lbl">إجمالي المسدد لنموذج أ — دائن (SAR)</div><div class="val" style="color:var(--success)">'+fmtD(totCr)+'</div><div class="sub">'+rows.filter(function(r){return r.kind==='pay';}).length+' دفعة</div></div>'+
+    '<div class="sum-card"><div class="lbl">إجمالي المشتريات — مدين (SAR)</div><div class="val">'+fmtD(totDr)+'</div><div class="sub">'+rows.filter(function(r){return r.kind==='ship';}).length+' '+tr('شحنة')+'</div></div>'+
+    '<div class="sum-card"><div class="lbl">إجمالي المسدد لنموذج أ — دائن (SAR)</div><div class="val" style="color:var(--success)">'+fmtD(totCr)+'</div><div class="sub">'+rows.filter(function(r){return r.kind==='pay';}).length+' '+tr('دفعة')+'</div></div>'+
     '<div class="sum-card"><div class="lbl">الرصيد المتبقّي (SAR)</div><div class="val" style="color:'+(bal>0?'var(--danger)':'var(--success)')+'">'+fmtD(bal)+'</div><div class="sub">'+(bal>0?'مستحق للمورد':(bal<0?'مدفوع بالزيادة':'مسدَّد بالكامل'))+'</div></div>'+
     (bPaid>0?'<div class="sum-card"><div class="lbl">مدفوع يخص نموذج ب (SAR)</div><div class="val">'+fmtD(bPaid)+'</div><div class="sub">لا يؤثر على رصيد نموذج أ</div></div>':'');
 
@@ -5834,21 +5834,21 @@ function renderCmpNet(){
       '<div style="display:flex;justify-content:space-between;padding:3px 0"><span style="color:var(--muted)">إجمالي المدين (شحنات'+(invTot>0?' + فواتير مستوردة':'')+') (ر.س)</span><b>'+fmtD(total)+'</b></div>'+
       (invTot>0?'<div style="display:flex;justify-content:space-between;padding:3px 0;font-size:.8rem"><span style="color:var(--muted)">— منها فواتير مشتريات مستوردة</span><b style="color:#7a3e10">'+fmtD(invTot)+'</b></div>':'')+
       '<div style="display:flex;justify-content:space-between;padding:3px 0"><span style="color:var(--muted)">إجمالي الدفعات (ر.س)</span><b>'+fmtD(paid)+'</b></div>'+
-      '<div style="display:flex;justify-content:space-between;padding:6px 0;border-top:1px solid var(--border);margin-top:4px;font-weight:800"><span>'+(rem>=0?'المتبقّي':'فائض مدفوع')+'</span><b style="color:'+(rem>0?'var(--danger)':'var(--success)')+'">'+fmtD(Math.abs(rem))+' ر.س</b></div>';
+      '<div style="display:flex;justify-content:space-between;padding:6px 0;border-top:1px solid var(--border);margin-top:4px;font-weight:800"><span>'+(rem>=0?'المتبقّي':'فائض مدفوع')+'</span><b style="color:'+(rem>0?'var(--danger)':'var(--success)')+'">'+fmtD(Math.abs(rem))+' '+tr('ر.س')+'</b></div>';
     if(_cmpAcctMode==='detail'){
       ships.forEach(function(s){ var rid='acc-'+model+'-'+_safeId(s.num);
         h+='<div style="border:1px solid var(--border);border-radius:7px;margin-top:6px">'+
           '<div style="display:flex;justify-content:space-between;padding:7px 9px;cursor:pointer;background:#eef2f7;font-weight:700" onclick="var e=document.getElementById(\''+rid+'\');if(e)e.hidden=!e.hidden">'+
-          '<span>▾ شحنة #'+escH(s.num)+'</span><b>'+fmtD(s.amt)+' ر.س</b></div>'+
+          '<span>▾ شحنة #'+escH(s.num)+'</span><b>'+fmtD(s.amt)+' '+tr('ر.س')+'</b></div>'+
           '<div id="'+rid+'" style="padding:6px 10px;background:#fafbfc;overflow-x:auto">'+modelDetailRows(s.num,model)+'</div></div>';
       });
       if(invList.length){
         h+='<div style="margin-top:10px;font-weight:700;color:#7a3e10">فواتير مشتريات مستوردة</div>';
-        invList.forEach(function(v){ h+='<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px dashed var(--border);font-size:.82rem"><span>'+escH(v.date||'')+(v.shipmentNo?' — شحنة '+escH(v.shipmentNo):'')+(v.supplier?' — '+escH(v.supplier):'')+(v.target==='both'?' <span style="color:#7a3e10">(مشتركة)</span>':'')+'</span><b>+ '+fmtD(supInvToSar(v))+' ر.س</b></div>'; });
+        invList.forEach(function(v){ h+='<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px dashed var(--border);font-size:.82rem"><span>'+escH(v.date||'')+(v.shipmentNo?' — شحنة '+escH(v.shipmentNo):'')+(v.supplier?' — '+escH(v.supplier):'')+(v.target==='both'?' <span style="color:#7a3e10">(مشتركة)</span>':'')+'</span><b>+ '+fmtD(supInvToSar(v))+' '+tr('ر.س')+'</b></div>'; });
       }
       if(pl.length){
         h+='<div style="margin-top:10px;font-weight:700;color:var(--muted)">الدفعات المخصومة</div>';
-        pl.forEach(function(p){ h+='<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px dashed var(--border);font-size:.82rem"><span>'+escH(p.date||'')+' — '+escH(p.bank||(p.method==='transfer'?'تحويل':'نقد'))+(p.target==='both'?' <span style="color:#7a3e10">(مشتركة)</span>':'')+'</span><b style="color:var(--success)">− '+fmtD(cmpPayToSar(p))+' ر.س</b></div>'; });
+        pl.forEach(function(p){ h+='<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px dashed var(--border);font-size:.82rem"><span>'+escH(p.date||'')+' — '+escH(p.bank||(p.method==='transfer'?'تحويل':'نقد'))+(p.target==='both'?' <span style="color:#7a3e10">(مشتركة)</span>':'')+'</span><b style="color:var(--success)">− '+fmtD(cmpPayToSar(p))+' '+tr('ر.س')+'</b></div>'; });
       }
     }
     h+='</div></div>';
@@ -5996,7 +5996,7 @@ function applyModelBRows(aoa){
   if(!added){ toast('لم يتم العثور على صفوف صالحة (تحقق من رقم الشحنة والموديل)',true); return; }
   importBackup('استيراد نموذج ب', [bKey()]);
   bSave(obj);
-  logAction('استيراد نموذج ب من Excel', added+' سطر / '+Object.keys(ships).length+' شحنة');
+  logAction('استيراد نموذج ب من Excel', added+' سطر / '+Object.keys(ships).length+' '+tr('شحنة'));
   // حدّث المحرر إن كانت الشحنة الحالية ضمن المستورد
   onCmpShipChange(); renderCompare();
   toast('✅ تم استيراد '+added+' سطر لـ '+Object.keys(ships).length+' شحنة في نموذج ب');
@@ -6103,7 +6103,7 @@ function applySupplierPayRows(aoa){
   if(!added){ toast('لا صفوف صالحة (تحقق من المورد والمبلغ)',true); return; }
   importBackup('استيراد دفعات موردين', [saPayKey()]);
   saPaySave(list.concat(addRows)); if(document.getElementById('page-supacct').classList.contains('active')) renderSupAcct();
-  logAction('استيراد دفعات موردين Excel', added+' دفعة'); toast('✅ تم استيراد '+added+' دفعة مورد — للتراجع اضغط «↩ تراجع عن آخر استيراد»');
+  logAction('استيراد دفعات موردين Excel', added+' '+tr('دفعة')); toast('✅ تم استيراد '+added+' دفعة مورد — للتراجع اضغط «↩ تراجع عن آخر استيراد»');
 }
 // ═══════════════════════════════════════════
 // 🧾📥 استيراد مجموعة: دفعات (حساب المورد + المقارنة) + فواتير مشتريات (رصيد المورد + المقارنة)
@@ -6172,7 +6172,7 @@ function applyGroupPayRows(aoa,fname){
   try{ if(document.getElementById('page-supacct').classList.contains('active')) renderSupAcct(); }catch(e){}
   try{ renderCmpPayList(); renderCmpNet(); }catch(e){}
   var st=document.getElementById('grp-import-status'); if(st) st.textContent='✅ استُوردت '+n+' دفعة (حساب المورد + دفعات المقارنة) من: '+fname;
-  logAction('استيراد مجموعة دفعات', n+' دفعة'); toast('✅ تم استيراد '+n+' دفعة — للتراجع اضغط «↩ تراجع»');
+  logAction('استيراد مجموعة دفعات', n+' '+tr('دفعة')); toast('✅ تم استيراد '+n+' دفعة — للتراجع اضغط «↩ تراجع»');
 }
 
 function applyGroupInvRows(aoa,fname){
@@ -6466,7 +6466,7 @@ function applyPaymentRows(aoa,fname){
   renderPayments();
   const st=document.getElementById('pay-import-status');
   if(st) st.innerHTML=`✅ استُوردت الدفعات: ${escH(summary.join('، '))} — من الملف: ${escH(fname)}`;
-  logAction('استيراد دفعات', count+' دفعة');
+  logAction('استيراد دفعات', count+' '+tr('دفعة'));
   toast('✅ تم استيراد الدفعات ('+count+') — للتراجع اضغط «↩ تراجع عن آخر استيراد»');
 }
 
@@ -6485,7 +6485,7 @@ function exportPaymentsExcel(){
 // ═══════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════
-var APP_VERSION='v2026-10-28.24';   // رقم إصدار ظاهر للتحقق من تحميل أحدث نسخة (لا cache قديم)
+var APP_VERSION='v2026-10-28.25';   // رقم إصدار ظاهر للتحقق من تحميل أحدث نسخة (لا cache قديم)
 // ═══════════════════════════════════════════
 // 🌐 محرّك الترجمة الشامل (عربي / English / 中文) — قاموس + مسح DOM + مراقب تغييرات
 // ═══════════════════════════════════════════
@@ -6795,6 +6795,179 @@ Object.assign(TR.zh,{
  'كل الفترات':'所有期间',
  'الفترة:':'期间：'
 });
+// الدفعة الخامسة: مراجعة كاملة لبقية النظام
+Object.assign(TR.en,{
+ '= قيمة الشراء (FOB) لشحنات هذا المورد (نفس إجمالي «سجل الشحنات»)، ورصيد':'= purchase value (FOB) of this supplier\'s shipments (same as «Shipments Log» total), and balance',
+ 'أجور الشحن (SAR)':'Freight (SAR)',
+ 'أخرى (SAR)':'Other (SAR)',
+ 'أدخل نموذج ب':'Enter Model B',
+ 'أصناف':'items',
+ 'أضِف أصناف نموذج ب أو اجلب موديلات نموذج أ':'Add Model B items or import Model A models',
+ 'أضِف موردين من «🧾 الموردون» ثم اختر مورداً':'Add suppliers from «🧾 Suppliers» then select a supplier',
+ 'إجمالي الدفعات (ر.س)':'Total payments (SAR)',
+ 'إجمالي الشراء FOB (SAR)':'Total FOB purchase (SAR)',
+ 'إجمالي الفرق (نموذج أ − نموذج ب)':'Total difference (Model A − Model B)',
+ 'إجمالي الكمية':'Total quantity',
+ 'إجمالي المدين (شحنات) (ر.س)':'Total debit (shipments) (SAR)',
+ 'إجمالي المسدد (SAR)':'Total paid (SAR)',
+ 'إجمالي المسدد لنموذج أ — دائن (SAR)':'Total paid for Model A — credit (SAR)',
+ 'إجمالي الواصل (SAR)':'Total landed (SAR)',
+ 'إجمالي كل الشحنات — نموذج أ':'Total of all shipments — Model A',
+ 'إجمالي كل الشحنات — نموذج ب':'Total of all shipments — Model B',
+ 'إجمالي مصاريف الشحنة':'Total shipment expenses',
+ 'اختر المورد لعرض كشف حسابه — أضِف الموردين من زر «🧾 الموردون» بالأعلى.':'Select a supplier to view its account — add suppliers from the «🧾 Suppliers» button above.',
+ 'اختر رقم شحنة لعرض تفصيل الموديلات':'Select a shipment number to view model details',
+ 'اختر رقم شحنة موجوداً في نموذج أ، ثم أدخل أسعار نموذج ب لنفس الموديلات.':'Select a shipment number present in Model A, then enter Model B prices for the same models.',
+ 'اضغط "💾 حفظ الشحنة" بعد إدخال البيانات':'Click "💾 Save Shipment" after entering the data',
+ 'الإجمالي الكلي':'Grand total',
+ 'الإجمالي الكلي للتكلفة':'Grand total cost',
+ 'البند':'Item',
+ 'التكلفة (USD)':'Cost (USD)',
+ 'التكلفة الإجمالية الفعلية':'Actual total cost',
+ 'التكلفة الفعلية (SAR)':'Actual cost (SAR)',
+ 'التكلفة الكلية (SAR)':'Total cost (SAR)',
+ 'الحاوية':'Container',
+ 'الخصم (SAR)':'Discount (SAR)',
+ 'الخصومات (SAR)':'Discounts (SAR)',
+ 'الصنف':'Item',
+ 'العمولات (SAR)':'Commissions (SAR)',
+ 'العمولة (SAR)':'Commission (SAR)',
+ 'الفاتورة':'Invoice',
+ 'الفارق':'Difference',
+ 'الكل → SAR':'All → SAR',
+ 'الكل → USD':'All → USD',
+ 'المتبقّي':'Remaining',
+ 'المدخل (SAR)':'Input (SAR)',
+ 'المستوى':'Level',
+ 'الموزع (SAR)':'Distributed (SAR)',
+ 'تحويل بنكي (SAR)':'Bank transfer (SAR)',
+ 'تظهر هنا وفي كشف المقارنة. أجور الشحن تبقى في «كشف حساب الشحن» منفصلةً.':'appear here and in the comparison statement. Freight stays separate in «Freight Account».',
+ 'تكلفة الوحدة (SAR)':'Unit cost (SAR)',
+ 'تكلفة الوحدة (USD)':'Unit cost (USD)',
+ 'خصم كل الفواتير → %':'Discount all invoices → %',
+ 'خصم كل الفواتير → مبلغ':'Discount all invoices → amount',
+ 'سعر الشراء (SAR)':'Purchase price (SAR)',
+ 'سعر المورد (USD)':'Supplier price (USD)',
+ 'شحن الفاتورة (SAR)':'Invoice freight (SAR)',
+ 'عدد الموديلات':'Number of models',
+ 'قيمة الشراء (SAR)':'Purchase value (SAR)',
+ 'قيمة الشراء (USD)':'Purchase value (USD)',
+ 'كل الموردين':'All suppliers',
+ 'لا توجد بيانات — احفظ شحنات أو عدّل الفلاتر':'No data — save shipments or adjust filters',
+ 'لا توجد دفعات — أضف دفعة أو استورد من Excel':'No payments — add a payment or import from Excel',
+ 'لا توجد دفعات — سجّل دفعة أعلاه أو من كشف حساب المورد':'No payments — record a payment above or from the supplier account',
+ 'لا توجد شحنات بقيمة — احفظ شحنات أو عدّل الفلترة':'No shipments with value — save shipments or adjust filter',
+ 'لا توجد شحنات محفوظة بعد':'No saved shipments yet',
+ 'لا توجد شحنات مكتملة — أضِف التفاصيل والمصاريف أولاً':'No completed shipments — add details and expenses first',
+ 'لا توجد شحنات — احفظ شحنات في نموذج أ وأدخل نموذج ب':'No shipments — save shipments in Model A and enter Model B',
+ 'لا توجد شركات بعد — أضف شركتك الأولى أدناه':'No companies yet — add your first company below',
+ 'لشركة الشحن. كل شحنة تُحتسب بسعر صرفها المحفوظ وقت الحفظ (بدون أي انحراف).':'to the freight company. Each shipment is computed at its exchange rate saved at save time (no drift).',
+ 'مسدَّد بالكامل':'Fully paid',
+ 'مصاريف الحاويات (SAR)':'Container expenses (SAR)',
+ 'مصاريف الحاوية (SAR)':'Container expense (SAR)',
+ 'مصاريف الشحنة (SAR)':'Shipment expenses (SAR)',
+ 'نقدًا (SAR)':'Cash (SAR)',
+ '— اختر شحنة —':'— Select a shipment —',
+ '— دفعة مقارنة فقط (بلا مورد) —':'— Comparison-only payment (no supplier) —',
+ '— لا يوجد موردون —':'— No suppliers —',
+ '⚡ تحديد عملة كل مصاريف الحاويات:':'⚡ Set currency for all container expenses:',
+ '⚡ تحديد عملة كل مصاريف الشحنة:':'⚡ Set currency for all shipment expenses:',
+ '⚡ تطبيق سريع على كل الفواتير:':'⚡ Quick apply to all invoices:',
+ '✅ جدول التحقق المحاسبي — التوزيع على المستويات الثلاثة':'✅ Accounting verification table — distribution across the three levels',
+ '💳 دفعات المقارنة — تُسجَّل مرة واحدة وتظهر هنا وفي كشف حساب المورد تلقائياً':'💳 Comparison payments — recorded once and shown here and in the supplier account automatically',
+ '📊 تفصيل التكلفة الفعلية لكل غرفة / صنف — كل المبالغ بالريال SAR':'📊 Actual cost breakdown per room / item — all amounts in SAR',
+ '📦 ملخص حسب الحاوية':'📦 Summary by container',
+ '🔹 كل مصروف يمكن إدخاله بالريال أو الدولار — يُحوَّل تلقائياً عند الحساب':'🔹 Each expense can be entered in SAR or USD — converted automatically on calculation',
+ '🚢 أجور الشحن لكل حاوية (تُطبَّق على الكل):':'🚢 Freight per container (applied to all):'
+});
+Object.assign(TR.zh,{
+ '= قيمة الشراء (FOB) لشحنات هذا المورد (نفس إجمالي «سجل الشحنات»)، ورصيد':'= 该供应商装运的采购值(FOB)（与«装运记录»合计相同），余额',
+ 'أجور الشحن (SAR)':'运费（里亚尔）',
+ 'أخرى (SAR)':'其他（里亚尔）',
+ 'أدخل نموذج ب':'输入型号B',
+ 'أصناف':'项目',
+ 'أضِف أصناف نموذج ب أو اجلب موديلات نموذج أ':'添加型号B项目或导入型号A型号',
+ 'أضِف موردين من «🧾 الموردون» ثم اختر مورداً':'从«🧾 供应商»添加供应商，然后选择一个',
+ 'إجمالي الدفعات (ر.س)':'付款合计（里亚尔）',
+ 'إجمالي الشراء FOB (SAR)':'FOB采购合计（里亚尔）',
+ 'إجمالي الفرق (نموذج أ − نموذج ب)':'差额合计（型号A − 型号B）',
+ 'إجمالي الكمية':'数量合计',
+ 'إجمالي المدين (شحنات) (ر.س)':'借方合计（装运）（里亚尔）',
+ 'إجمالي المسدد (SAR)':'已付合计（里亚尔）',
+ 'إجمالي المسدد لنموذج أ — دائن (SAR)':'型号A已付合计 — 贷方（里亚尔）',
+ 'إجمالي الواصل (SAR)':'到岸合计（里亚尔）',
+ 'إجمالي كل الشحنات — نموذج أ':'所有装运合计 — 型号A',
+ 'إجمالي كل الشحنات — نموذج ب':'所有装运合计 — 型号B',
+ 'إجمالي مصاريف الشحنة':'装运费用合计',
+ 'اختر المورد لعرض كشف حسابه — أضِف الموردين من زر «🧾 الموردون» بالأعلى.':'选择供应商以查看其账户 — 从上方«🧾 供应商»按钮添加供应商。',
+ 'اختر رقم شحنة لعرض تفصيل الموديلات':'选择装运编号以查看型号明细',
+ 'اختر رقم شحنة موجوداً في نموذج أ، ثم أدخل أسعار نموذج ب لنفس الموديلات.':'选择型号A中存在的装运编号，然后为相同型号输入型号B价格。',
+ 'اضغط "💾 حفظ الشحنة" بعد إدخال البيانات':'输入数据后点击"💾 保存装运"',
+ 'الإجمالي الكلي':'总计',
+ 'الإجمالي الكلي للتكلفة':'成本总计',
+ 'البند':'项目',
+ 'التكلفة (USD)':'成本（美元）',
+ 'التكلفة الإجمالية الفعلية':'实际总成本',
+ 'التكلفة الفعلية (SAR)':'实际成本（里亚尔）',
+ 'التكلفة الكلية (SAR)':'总成本（里亚尔）',
+ 'الحاوية':'集装箱',
+ 'الخصم (SAR)':'折扣（里亚尔）',
+ 'الخصومات (SAR)':'折扣（里亚尔）',
+ 'الصنف':'项目',
+ 'العمولات (SAR)':'佣金（里亚尔）',
+ 'العمولة (SAR)':'佣金（里亚尔）',
+ 'الفاتورة':'发票',
+ 'الفارق':'差额',
+ 'الكل → SAR':'全部 → 里亚尔',
+ 'الكل → USD':'全部 → 美元',
+ 'المتبقّي':'剩余',
+ 'المدخل (SAR)':'输入（里亚尔）',
+ 'المستوى':'层级',
+ 'الموزع (SAR)':'已分摊（里亚尔）',
+ 'تحويل بنكي (SAR)':'银行转账（里亚尔）',
+ 'تظهر هنا وفي كشف المقارنة. أجور الشحن تبقى في «كشف حساب الشحن» منفصلةً.':'显示在此处及对比表中。运费在«运费账户»中单独保留。',
+ 'تكلفة الوحدة (SAR)':'单位成本（里亚尔）',
+ 'تكلفة الوحدة (USD)':'单位成本（美元）',
+ 'خصم كل الفواتير → %':'全部发票折扣 → %',
+ 'خصم كل الفواتير → مبلغ':'全部发票折扣 → 金额',
+ 'سعر الشراء (SAR)':'采购价（里亚尔）',
+ 'سعر المورد (USD)':'供应商价（美元）',
+ 'شحن الفاتورة (SAR)':'发票运费（里亚尔）',
+ 'عدد الموديلات':'型号数量',
+ 'قيمة الشراء (SAR)':'采购值（里亚尔）',
+ 'قيمة الشراء (USD)':'采购值（美元）',
+ 'كل الموردين':'所有供应商',
+ 'لا توجد بيانات — احفظ شحنات أو عدّل الفلاتر':'无数据 — 保存装运或调整筛选',
+ 'لا توجد دفعات — أضف دفعة أو استورد من Excel':'无付款 — 添加付款或从Excel导入',
+ 'لا توجد دفعات — سجّل دفعة أعلاه أو من كشف حساب المورد':'无付款 — 在上方或供应商账户中登记付款',
+ 'لا توجد شحنات بقيمة — احفظ شحنات أو عدّل الفلترة':'无有值装运 — 保存装运或调整筛选',
+ 'لا توجد شحنات محفوظة بعد':'暂无已保存装运',
+ 'لا توجد شحنات مكتملة — أضِف التفاصيل والمصاريف أولاً':'无已完成装运 — 请先添加明细和费用',
+ 'لا توجد شحنات — احفظ شحنات في نموذج أ وأدخل نموذج ب':'无装运 — 在型号A保存装运并输入型号B',
+ 'لا توجد شركات بعد — أضف شركتك الأولى أدناه':'暂无公司 — 在下方添加第一个公司',
+ 'لشركة الشحن. كل شحنة تُحتسب بسعر صرفها المحفوظ وقت الحفظ (بدون أي انحراف).':'给货运公司。每批装运按保存时的汇率计算（无偏差）。',
+ 'مسدَّد بالكامل':'已付清',
+ 'مصاريف الحاويات (SAR)':'集装箱费用（里亚尔）',
+ 'مصاريف الحاوية (SAR)':'集装箱费用（里亚尔）',
+ 'مصاريف الشحنة (SAR)':'装运费用（里亚尔）',
+ 'نقدًا (SAR)':'现金（里亚尔）',
+ '— اختر شحنة —':'— 选择装运 —',
+ '— دفعة مقارنة فقط (بلا مورد) —':'— 仅对比付款（无供应商）—',
+ '— لا يوجد موردون —':'— 无供应商 —',
+ '⚡ تحديد عملة كل مصاريف الحاويات:':'⚡ 设置所有集装箱费用的货币：',
+ '⚡ تحديد عملة كل مصاريف الشحنة:':'⚡ 设置所有装运费用的货币：',
+ '⚡ تطبيق سريع على كل الفواتير:':'⚡ 快速应用到所有发票：',
+ '✅ جدول التحقق المحاسبي — التوزيع على المستويات الثلاثة':'✅ 会计核对表 — 三个层级的分摊',
+ '💳 دفعات المقارنة — تُسجَّل مرة واحدة وتظهر هنا وفي كشف حساب المورد تلقائياً':'💳 对比付款 — 记录一次，自动显示在此处及供应商账户',
+ '📊 تفصيل التكلفة الفعلية لكل غرفة / صنف — كل المبالغ بالريال SAR':'📊 各房间/项目的实际成本明细 — 所有金额以里亚尔计',
+ '📦 ملخص حسب الحاوية':'📦 按集装箱汇总',
+ '🔹 كل مصروف يمكن إدخاله بالريال أو الدولار — يُحوَّل تلقائياً عند الحساب':'🔹 每项费用可用里亚尔或美元输入 — 计算时自动换算',
+ '🚢 أجور الشحن لكل حاوية (تُطبَّق على الكل):':'🚢 每集装箱运费（应用于全部）：'
+});
+Object.assign(TR.en,{'منتج':'products'});
+Object.assign(TR.zh,{'منتج':'产品'});
+Object.assign(TR.en,{'طبّق على':'Apply to','تاريخ الإعداد:':'Prepared on:'});
+Object.assign(TR.zh,{'طبّق على':'应用于','تاريخ الإعداد:':'编制日期:'});
 var _trOrig=new WeakMap(), _trPh=new WeakMap(), _trTitle=new WeakMap(), _trBusy=false, _trObs=null, _trTimer=null;
 var _emojiLead=/^((?:[←-⇿⌀-➿⬀-⯿☀-⛿️\uD83C-􏰀-\uDFFF\s])+)/;
 function _trLook(lang,ar){ var d=TR[lang]; if(!d) return null; return (d[ar]!=null)?d[ar]:null; }
