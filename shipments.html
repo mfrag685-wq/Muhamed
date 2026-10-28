@@ -2964,8 +2964,8 @@ function calculate(){
   let h='';
   h+=`<div class="vbox ${vOk?'vok':'vwarn'}">
     ${vOk
-      ? `✅ التحقق المحاسبي: التوزيع دقيق 100% — مصاريف الشحنة الموزعة=${fmtD(gSshSar)} SAR ✓ | مصاريف الحاويات=${fmtD(gConSar)} SAR ✓`
-      : `⚠️ فارق في التوزيع: شحنة=${fmtD(diffShip)} SAR | حاويات=${fmtD(diffCon)} SAR`}
+      ? `✅ ${tr('التحقق المحاسبي:')} ${tr('التوزيع دقيق 100%')} — ${tr('مصاريف الشحنة الموزعة')}=${fmtD(gSshSar)} SAR ✓ | ${tr('مصاريف الحاويات')}=${fmtD(gConSar)} SAR ✓`
+      : `⚠️ ${tr('فارق في التوزيع:')} ${tr('شحنة')}=${fmtD(diffShip)} SAR | ${tr('حاويات')}=${fmtD(diffCon)} SAR`}
   </div>`;
 
   const invCurLabel = S.invCur || 'SAR';
@@ -3096,7 +3096,7 @@ function calculate(){
   const sNo=document.getElementById('shipment-no').value;
   const sDate=document.getElementById('shipment-date').value;
   document.getElementById('ph-co').textContent=S.company||S.activityName;
-  document.getElementById('ph-info').textContent=`رقم الشحنة: ${sNo} | التاريخ: ${sDate} | الحاويات: ${getN()} | النشاط: ${S.activityName}`;
+  document.getElementById('ph-info').textContent=`${tr('رقم الشحنة:')} ${sNo} | ${tr('التاريخ:')} ${sDate} | ${tr('الحاويات:')} ${getN()} | ${tr('النشاط:')} ${S.activityName}`;
   document.getElementById('ph-meta').innerHTML=`<span>1 ${S.invCur} = ${S.fxInvSar} SAR</span><br><span>1 USD = ${S.fxUsdSar} SAR</span><br><span>${new Date().toLocaleDateString('ar')}</span>`;
   document.getElementById('pf-prep').textContent='إعداد: '+S.preparer;
   document.getElementById('pf-date').textContent=tr('تاريخ الإعداد:')+' '+new Date().toLocaleDateString(curLang()==='ar'?'ar-SA':(curLang()==='zh'?'zh-CN':'en-GB'));
@@ -6485,7 +6485,7 @@ function exportPaymentsExcel(){
 // ═══════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════
-var APP_VERSION='v2026-10-28.25';   // رقم إصدار ظاهر للتحقق من تحميل أحدث نسخة (لا cache قديم)
+var APP_VERSION='v2026-10-28.26';   // رقم إصدار ظاهر للتحقق من تحميل أحدث نسخة (لا cache قديم)
 // ═══════════════════════════════════════════
 // 🌐 محرّك الترجمة الشامل (عربي / English / 中文) — قاموس + مسح DOM + مراقب تغييرات
 // ═══════════════════════════════════════════
@@ -6968,6 +6968,119 @@ Object.assign(TR.en,{'منتج':'products'});
 Object.assign(TR.zh,{'منتج':'产品'});
 Object.assign(TR.en,{'طبّق على':'Apply to','تاريخ الإعداد:':'Prepared on:'});
 Object.assign(TR.zh,{'طبّق على':'应用于','تاريخ الإعداد:':'编制日期:'});
+// الدفعة السادسة: تلميحات/عناوين/placeholder وجمل طويلة
+Object.assign(TR.en,{
+ 'إدارة النماذج / الشركات':'Manage models / companies',
+ 'إلغاء آخر عملية استيراد وإرجاع البيانات لما قبلها':'Undo last import and restore previous data',
+ 'إلى تاريخ':'To date',
+ 'استعادة آخر نسخة حُفظت تلقائياً عند الإغلاق':'Restore the last auto-saved backup on close',
+ 'استعادة من نسخة احتياطية':'Restore from a backup',
+ 'استعادة نسخة شاملة':'Restore a full backup',
+ 'التنقل بين النماذج (الشركات)':'Switch between models (companies)',
+ 'اللغة / Language / 语言':'Language',
+ 'المزامنة السحابية':'Cloud sync',
+ 'تبديل الوضع الليلي / النهاري':'Toggle dark / light mode',
+ 'تسجيل الخروج':'Sign out',
+ 'تغيير اسم النموذج':'Rename model',
+ 'تغيير كلمة مروري':'Change my password',
+ 'حفظ نسخة احتياطية شاملة تلقائياً عند إغلاق البرنامج':'Auto-save a full backup when closing the app',
+ 'من تاريخ':'From date',
+ 'نسخ رابط داخلي لهذه الشركة':'Copy internal link for this company',
+ 'نسخة الشركة الحالية فقط':'Current company only',
+ 'نسخة شاملة لكل الشركات (شحنات + إعدادات + دفعات)':'Full backup of all companies (shipments + settings + payments)',
+ 'ابحث باسم الموديل…':'Search by model name…',
+ 'ابحث بـ: رقم الشحنة، رقم الحاوية، رقم الفاتورة، المورد، البلد، الصنف...':'Search by: shipment, container, invoice, supplier, country, item...',
+ 'ابحث عن حاوية برقمها أو رقم فاتورة أو صنف…':'Search a container by its number, an invoice, or an item…',
+ 'ابحث: بنك، مرجع، شحنة، طريقة…':'Search: bank, reference, shipment, method…',
+ 'اختر/اكتب رقم الشحنة':'Select/type shipment number',
+ 'اسم الشركة أو المؤسسة':'Company or organization name',
+ 'اسم المصروف...':'Expense name...',
+ 'افتراضي':'Default',
+ 'افتراضي = سعر نموذج أ':'Default = Model A price',
+ 'بحث: موظف، إجراء…':'Search: user, action…',
+ 'مثال 7000':'e.g. 7000',
+ 'مثال: 2.5':'e.g. 2.5',
+ 'مثال: China، Italy...':'e.g. China, Italy...',
+ 'مثال: شركة النور للأثاث':'e.g. Al-Noor Furniture Co.',
+ 'مثال: محمد فرج':'e.g. Mohamed Farag',
+ 'مثال: منتج، صنف...':'e.g. product, item...',
+ 'مثال: مواد البناء':'e.g. building materials',
+ 'ملاحظات اختيارية':'Optional notes',
+ '= تخص نموذجاً واحداً. الدفعات تُسجَّل في حساب المورد + دفعات المقارنة، والفواتير تزيد رصيد المورد وتظهر في كشف المقارنة.':'= concern a single model. Payments are recorded in the supplier account + comparison payments, and invoices increase the supplier balance and appear in the comparison statement.',
+ '= مصدر استيراد بديل لنفس الشحنة، تُدخل فيه أسعار الموديلات فقط لمعرفة تكلفة الشراء البديلة. تُقارن':'= an alternative import source for the same shipment, where only model prices are entered to find the alternative purchase cost. Compared',
+ 'أسعار البيع المخصصة يمكن تعديلها مباشرة في الجدول — \n          يُحسب هامش الربح الفعلي تلقائياً مع مؤشر لوني (أخضر = ربح / أحمر = خسارة)':'Custom sale prices can be edited directly in the table — the actual profit margin is computed automatically with a color indicator (green = profit / red = loss)',
+ 'أضِف موردي البضاعة هنا. تظهر أسماؤهم كاقتراح في حقل «المورد» بصفحة الشحنة، ويُبنى عليهم «كشف حساب المورد».':'Add your goods suppliers here. Their names appear as suggestions in the «Supplier» field on the shipment page, and the «Supplier Account» is built on them.',
+ 'إنشاء شحنة جديدة؟ سيتم مسح البيانات الحالية غير المحفوظة.':'Create a new shipment? Current unsaved data will be cleared.',
+ 'تأكيد العملية':'Confirm action',
+ 'تُطبَّق على كل الشحنات ما لم تُعدّل نسبة شحنة بعينها في الجدول أدناه. الشركة النشطة:':'Applied to all shipments unless a specific shipment\'s rate is changed in the table below. Active company:',
+ 'لا توجد حركات — وسم مصاريف الشحن بزر «🚚 شحن» في صفحة المصاريف، أو سجّل دفعة أعلاه':'No transactions — tag freight expenses with the «🚚 Freight» button on the expenses page, or record a payment above',
+ 'لا يوجد موردون بعد':'No suppliers yet',
+ 'لكل نموذج: إجمالي الشحنات − إجمالي الدفعات = المتبقّي (أو فائض مدفوع). دفعة «الشركتان معاً» تُخصم من النموذجين. الوضع التفصيلي يعرض مبلغ كل شحنة قابلاً للتوسّع للموديلات + الدفعات المخصومة.':'Per model: total shipments − total payments = remaining (or overpaid surplus). A «both companies» payment is deducted from both models. Detailed view shows each shipment amount expandable to models + deducted payments.',
+ 'نزّل النموذج الجاهز → املأ رقم الشحنة والحاويات والفواتير والأصناف → ارفعه هنا ليُعبّأ النظام تلقائياً.\n        كل سطر = صنف واحد.':'Download the ready template → fill the shipment number, containers, invoices and items → upload it here to auto-fill the system. Each row = one item.',
+ 'نزّل النموذج الجاهز → سجّل الدفعات (نقدًا أو تحويل مع ذكر البنك) → ارفعه.\n        عمود':'Download the ready template → record payments (cash or transfer with the bank) → upload it. Column',
+ 'يوجّه كل دفعة لشركتها تلقائياً، فيمكن استيراد دفعات الشركة الأولى والثانية معاً في ملف واحد. إن تُرك فارغاً تُسجَّل للشركة النشطة.':'routes each payment to its company automatically, so first- and second-company payments can be imported together in one file. If left empty, it is recorded for the active company.',
+ '— تُحتسب العمولة لكل شحنة = قيمة الشحنة (الحاويات المحتسبة بسعر الشراء FOB) × نسبة العمولة، ويُخصم منها الدفعات ليظهر الرصيد المتبقّي.':'— Commission per shipment = shipment value (counted containers at FOB purchase price) × commission rate, less payments to show the remaining balance.',
+ '— يجمع رسوم الشحن من الشحنات (المصاريف المُوسومة بزر «🚚 شحن» في صفحة المصاريف) كأرصدة':'— Aggregates freight charges from shipments (expenses tagged with the «🚚 Freight» button on the expenses page) as balances',
+ '— يجمع كل الموديلات عبر جميع الشحنات المحفوظة: الكمية، قيمة الشراء (FOB)، والتكلفة الواصلة الإجمالية ومتوسط الوحدة. التكلفة الواصلة تُحتسب بنفس محرك «التكاليف» تماماً لكل شحنة بسعر صرفها المحفوظ.':'— Aggregates all models across every saved shipment: quantity, purchase value (FOB), total landed cost and unit average. Landed cost is computed with the exact same «Costs» engine for each shipment at its saved exchange rate.',
+ '→ على فواتير حاويتها بنسبة صافي القيمة | مصاريف الشحنة → على كل الفواتير بنسبة صافي قيمتها | المجموع = 100% دائماً':'→ to its container\'s invoices by net value ratio | shipment expenses → to all invoices by their net value ratio | total = 100% always'
+});
+Object.assign(TR.zh,{
+ 'إدارة النماذج / الشركات':'管理型号 / 公司',
+ 'إلغاء آخر عملية استيراد وإرجاع البيانات لما قبلها':'撤销上次导入并恢复之前的数据',
+ 'إلى تاريخ':'至日期',
+ 'استعادة آخر نسخة حُفظت تلقائياً عند الإغلاق':'恢复关闭时自动保存的最新备份',
+ 'استعادة من نسخة احتياطية':'从备份恢复',
+ 'استعادة نسخة شاملة':'恢复完整备份',
+ 'التنقل بين النماذج (الشركات)':'在型号（公司）间切换',
+ 'اللغة / Language / 语言':'语言',
+ 'المزامنة السحابية':'云同步',
+ 'تبديل الوضع الليلي / النهاري':'切换深色 / 浅色模式',
+ 'تسجيل الخروج':'登出',
+ 'تغيير اسم النموذج':'重命名型号',
+ 'تغيير كلمة مروري':'修改我的密码',
+ 'حفظ نسخة احتياطية شاملة تلقائياً عند إغلاق البرنامج':'关闭应用时自动保存完整备份',
+ 'من تاريخ':'从日期',
+ 'نسخ رابط داخلي لهذه الشركة':'复制此公司的内部链接',
+ 'نسخة الشركة الحالية فقط':'仅当前公司',
+ 'نسخة شاملة لكل الشركات (شحنات + إعدادات + دفعات)':'所有公司完整备份（装运+设置+付款）',
+ 'ابحث باسم الموديل…':'按型号名称搜索…',
+ 'ابحث بـ: رقم الشحنة، رقم الحاوية، رقم الفاتورة، المورد، البلد، الصنف...':'搜索：装运、集装箱、发票、供应商、国家、项目...',
+ 'ابحث عن حاوية برقمها أو رقم فاتورة أو صنف…':'按集装箱编号、发票或项目搜索…',
+ 'ابحث: بنك، مرجع، شحنة، طريقة…':'搜索：银行、参考号、装运、方式…',
+ 'اختر/اكتب رقم الشحنة':'选择/输入装运编号',
+ 'اسم الشركة أو المؤسسة':'公司或机构名称',
+ 'اسم المصروف...':'费用名称...',
+ 'افتراضي':'默认',
+ 'افتراضي = سعر نموذج أ':'默认 = 型号A价格',
+ 'بحث: موظف، إجراء…':'搜索：用户、操作…',
+ 'مثال 7000':'例如 7000',
+ 'مثال: 2.5':'例如 2.5',
+ 'مثال: China، Italy...':'例如 China, Italy...',
+ 'مثال: شركة النور للأثاث':'例如 Al-Noor 家具公司',
+ 'مثال: محمد فرج':'例如 Mohamed Farag',
+ 'مثال: منتج، صنف...':'例如 产品、项目...',
+ 'مثال: مواد البناء':'例如 建筑材料',
+ 'ملاحظات اختيارية':'可选备注',
+ '= تخص نموذجاً واحداً. الدفعات تُسجَّل في حساب المورد + دفعات المقارنة، والفواتير تزيد رصيد المورد وتظهر في كشف المقارنة.':'= 仅涉及单一型号。付款记入供应商账户+对比付款，发票增加供应商余额并显示在对比表中。',
+ '= مصدر استيراد بديل لنفس الشحنة، تُدخل فيه أسعار الموديلات فقط لمعرفة تكلفة الشراء البديلة. تُقارن':'= 同一装运的替代进口来源，仅输入型号价格以得出替代采购成本。进行对比',
+ 'أسعار البيع المخصصة يمكن تعديلها مباشرة في الجدول — \n          يُحسب هامش الربح الفعلي تلقائياً مع مؤشر لوني (أخضر = ربح / أحمر = خسارة)':'自定义售价可直接在表格中编辑 — 实际利润率自动计算并带颜色指示（绿=盈利 / 红=亏损）',
+ 'أضِف موردي البضاعة هنا. تظهر أسماؤهم كاقتراح في حقل «المورد» بصفحة الشحنة، ويُبنى عليهم «كشف حساب المورد».':'在此添加货物供应商。其名称会作为建议显示在装运页的«供应商»字段中，并据此生成«供应商账户»。',
+ 'إنشاء شحنة جديدة؟ سيتم مسح البيانات الحالية غير المحفوظة.':'创建新装运？当前未保存的数据将被清除。',
+ 'تأكيد العملية':'确认操作',
+ 'تُطبَّق على كل الشحنات ما لم تُعدّل نسبة شحنة بعينها في الجدول أدناه. الشركة النشطة:':'除非在下表中修改某批装运的比率，否则应用于所有装运。当前公司：',
+ 'لا توجد حركات — وسم مصاريف الشحن بزر «🚚 شحن» في صفحة المصاريف، أو سجّل دفعة أعلاه':'无交易 — 在费用页用«🚚 运费»按钮标记运费，或在上方登记付款',
+ 'لا يوجد موردون بعد':'暂无供应商',
+ 'لكل نموذج: إجمالي الشحنات − إجمالي الدفعات = المتبقّي (أو فائض مدفوع). دفعة «الشركتان معاً» تُخصم من النموذجين. الوضع التفصيلي يعرض مبلغ كل شحنة قابلاً للتوسّع للموديلات + الدفعات المخصومة.':'每个型号：装运合计 − 付款合计 = 剩余（或超付）。«两家公司»付款从两个型号扣除。明细视图显示每批装运金额，可展开至型号+已扣付款。',
+ 'نزّل النموذج الجاهز → املأ رقم الشحنة والحاويات والفواتير والأصناف → ارفعه هنا ليُعبّأ النظام تلقائياً.\n        كل سطر = صنف واحد.':'下载现成模板 → 填写装运编号、集装箱、发票和项目 → 在此上传以自动填充系统。每行 = 一个项目。',
+ 'نزّل النموذج الجاهز → سجّل الدفعات (نقدًا أو تحويل مع ذكر البنك) → ارفعه.\n        عمود':'下载现成模板 → 登记付款（现金或转账并注明银行）→ 上传。列',
+ 'يوجّه كل دفعة لشركتها تلقائياً، فيمكن استيراد دفعات الشركة الأولى والثانية معاً في ملف واحد. إن تُرك فارغاً تُسجَّل للشركة النشطة.':'自动将每笔付款分配到其公司，因此第一和第二公司的付款可在一个文件中一起导入。若留空，则记入当前公司。',
+ '— تُحتسب العمولة لكل شحنة = قيمة الشحنة (الحاويات المحتسبة بسعر الشراء FOB) × نسبة العمولة، ويُخصم منها الدفعات ليظهر الرصيد المتبقّي.':'— 每批装运佣金 = 货值（计入集装箱按FOB采购价）× 佣金率，减去付款得出剩余余额。',
+ '— يجمع رسوم الشحن من الشحنات (المصاريف المُوسومة بزر «🚚 شحن» في صفحة المصاريف) كأرصدة':'— 从装运中汇总运费（费用页用«🚚 运费»按钮标记的费用）作为余额',
+ '— يجمع كل الموديلات عبر جميع الشحنات المحفوظة: الكمية، قيمة الشراء (FOB)، والتكلفة الواصلة الإجمالية ومتوسط الوحدة. التكلفة الواصلة تُحتسب بنفس محرك «التكاليف» تماماً لكل شحنة بسعر صرفها المحفوظ.':'— 汇总所有已保存装运的全部型号：数量、采购值（FOB）、到岸总成本和单位均价。到岸成本用与«成本»完全相同的引擎按各装运保存的汇率计算。',
+ '→ على فواتير حاويتها بنسبة صافي القيمة | مصاريف الشحنة → على كل الفواتير بنسبة صافي قيمتها | المجموع = 100% دائماً':'→ 按净值比例分摊到其集装箱发票 | 装运费用 → 按净值比例分摊到所有发票 | 合计 = 始终100%'
+});
+Object.assign(TR.en,{'التحقق المحاسبي:':'Accounting check:','التوزيع دقيق 100%':'Distribution exact 100%','مصاريف الشحنة الموزعة':'Distributed shipment expenses','مصاريف الحاويات':'Container expenses','فارق في التوزيع:':'Distribution discrepancy:','حاويات':'containers','رقم الشحنة:':'Shipment No.:','التاريخ:':'Date:','الحاويات:':'Containers:','النشاط:':'Activity:'});
+Object.assign(TR.zh,{'التحقق المحاسبي:':'会计核对：','التوزيع دقيق 100%':'分摊精确100%','مصاريف الشحنة الموزعة':'已分摊装运费用','مصاريف الحاويات':'集装箱费用','فارق في التوزيع:':'分摊差异：','حاويات':'集装箱','رقم الشحنة:':'装运编号：','التاريخ:':'日期：','الحاويات:':'集装箱：','النشاط:':'活动：'});
 var _trOrig=new WeakMap(), _trPh=new WeakMap(), _trTitle=new WeakMap(), _trBusy=false, _trObs=null, _trTimer=null;
 var _emojiLead=/^((?:[←-⇿⌀-➿⬀-⯿☀-⛿️\uD83C-􏰀-\uDFFF\s])+)/;
 function _trLook(lang,ar){ var d=TR[lang]; if(!d) return null; return (d[ar]!=null)?d[ar]:null; }
@@ -6991,6 +7104,7 @@ function translatePass(root){
     while(n=w.nextNode()){ var p=n.parentNode; if(!p) continue; var tg=p.nodeName; if(tg==='SCRIPT'||tg==='STYLE') continue; if(p.id==='lang-switch'||p.id==='app-ver') continue; list.push(n); }
     list.forEach(function(nd){ try{ _trTextNode(nd,lang); }catch(e){} });
     try{ root.querySelectorAll('[placeholder]').forEach(function(el){ var o=_trPh.has(el)?_trPh.get(el):el.getAttribute('placeholder'); if(o==null) return; var des; if(lang==='ar'){ des=o; } else { var tr=_trLook(lang,(o||'').trim()); if(tr==null){ if(!_trPh.has(el)) return; des=o; } else { if(!_trPh.has(el))_trPh.set(el,o); des=tr; } } if(el.getAttribute('placeholder')!==des) el.setAttribute('placeholder',des); }); }catch(e){}
+    try{ root.querySelectorAll('[title]').forEach(function(el){ var o=_trTitle.has(el)?_trTitle.get(el):el.getAttribute('title'); if(o==null||!o.trim()) return; var des; if(lang==='ar'){ des=o; } else { var tr=_trLook(lang,(o||'').trim()); if(tr==null){ if(!_trTitle.has(el)) return; des=o; } else { if(!_trTitle.has(el))_trTitle.set(el,o); des=tr; } } if(el.getAttribute('title')!==des) el.setAttribute('title',des); }); }catch(e){}
   }catch(e){}
   _trBusy=false;
 }
