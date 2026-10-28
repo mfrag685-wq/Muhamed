@@ -529,6 +529,8 @@ html[data-theme="dark"] .rt td.hl{background:#2e2814;color:var(--accent)}
       </div>
       <label style="font-size:.76rem;font-weight:700;color:var(--muted)">الصلاحيات</label>
       <div id="u-perms" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:6px 0 12px" onclick="document.getElementById('u-role').value='custom'"></div>
+      <label style="font-size:.76rem;font-weight:700;color:var(--muted)">الشركات (النُظُم) المسموحة — اترك الكل فارغاً = جميع الشركات</label>
+      <div id="u-profiles" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:6px 0 12px"></div>
       <button class="btn btn-accent" onclick="saveUser()">💾 حفظ المستخدم</button>
     </div>
   </div>
@@ -682,6 +684,8 @@ html[data-theme="dark"] .rt td.hl{background:#2e2814;color:var(--accent)}
         style="background:transparent;border:none;color:#fff;font-size:.8rem;font-weight:700;cursor:pointer;max-width:150px;outline:none"></select>
       <button onclick="renameActiveProfile()" title="تغيير اسم النموذج"
         style="background:none;border:none;color:#fff;cursor:pointer;font-size:.85rem;padding:2px 4px">✏️</button>
+      <button onclick="copyCompanyLink()" title="نسخ رابط داخلي لهذه الشركة"
+        style="background:none;border:none;color:#fff;cursor:pointer;font-size:.85rem;padding:2px 4px">🔗</button>
     </div>
     <button class="profile-badge" onclick="openProfileModal()" id="active-profile-badge" title="إدارة النماذج / الشركات">🏢 ...</button>
     <button class="theme-toggle" onclick="toggleTheme()" id="theme-toggle-btn" title="تبديل الوضع الليلي / النهاري"><span id="theme-icon">🌙</span> <span id="theme-label">ليلي</span></button>
@@ -709,7 +713,7 @@ html[data-theme="dark"] .rt td.hl{background:#2e2814;color:var(--accent)}
   <div class="tab"         onclick="showPage('page-payments')">💵 الدفعات المسددة</div>
   <div class="tab"         onclick="showPage('page-freight')">🚚 كشف حساب الشحن</div>
   <div class="tab"         onclick="showPage('page-supacct')">📒 كشف حساب المورد</div>
-  <div class="tab"         onclick="showPage('page-comm')">🧮 كشف حساب العمولة</div>
+  <div class="tab"         onclick="showPage('page-comm')">🧮 <span id="tab-comm-label">كشف حساب العمولة</span></div>
   <div class="tab"         onclick="showPage('page-modelrep')">📈 تقرير الموديلات</div>
   <div class="tab"         onclick="showPage('page-compare')">⚖️ المقارنة</div>
 </div>
@@ -1213,8 +1217,7 @@ html[data-theme="dark"] .rt td.hl{background:#2e2814;color:var(--accent)}
 
 <!-- ══ PAGE 7B: COMMISSION ACCOUNT (كشف حساب العمولة) ══ -->
 <div id="page-comm" class="page">
-  <div class="alert ai" style="margin-bottom:12px">🧮 <strong>كشف حساب العمولة</strong> — تُحتسب العمولة لكل شحنة = <strong>قيمة الشحنة</strong> (إجمالي حاوياتها بسعر الشراء FOB المحفوظ) × <strong>نسبة العمولة</strong>. النسبة قابلة للتعديل لكل شحنة أو كنسبة افتراضية للجميع. العمولة المستحقة رصيد <strong>مدين</strong>، والدفعات رصيد <strong>دائن</strong>، مع <strong>الرصيد المتبقّي</strong> وإمكانية الطباعة.</div>
-
+  <div class="alert ai" style="margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap"><span>🧮 <strong id="comm-page-title">كشف حساب العمولة</strong> — تُحتسب العمولة لكل شحنة = قيمة الشحنة (الحاويات المحتسبة بسعر الشراء FOB) × نسبة العمولة، ويُخصم منها الدفعات ليظهر الرصيد المتبقّي.</span><button class="btn btn-outline btn-sm" onclick="renameCommStatement()">✏️ تعديل اسم الكشف</button></div>
   <div class="card" style="margin-bottom:12px">
     <div class="card-body" style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap">
       <div class="fg"><label>النسبة الافتراضية للعمولة (%)</label><input id="comm-rate" type="number" min="0" step="0.01" placeholder="مثال: 2.5" style="width:150px"></div>
@@ -1700,6 +1703,7 @@ function createProfile() {
 }
 
 function selectProfile(id) {
+  if(!canUseProfile(id)){ toast('لا تملك صلاحية الدخول لهذه الشركة',true); renderQuickSwitch(); return; }
   setActiveProfileId(id);
   cfgLoad();  // load this profile's config
   applyTheme();
@@ -1716,16 +1720,28 @@ function selectProfile(id) {
 function renderQuickSwitch() {
   const sel = document.getElementById('quick-profile-switch');
   if (!sel) return;
-  const profiles = profilesLoad();
+  const profiles = visibleProfiles();
   const active = getActiveProfileId();
-  if (!profiles.length) { sel.innerHTML = '<option value="__new">➕ أنشئ نموذجاً…</option>'; return; }
+  const canNew = (typeof can==='function') ? can('companies') : true;
+  if (!profiles.length) { sel.innerHTML = canNew?'<option value="__new">➕ أنشئ نموذجاً…</option>':'<option value="">— لا شركات متاحة —</option>'; return; }
   sel.innerHTML = profiles.map(p =>
     `<option value="${p.id}" ${p.id===active?'selected':''}>${p.icon||'🏢'} ${escH(p.name)}</option>`
-  ).join('') + '<option value="__new">➕ نموذج جديد…</option>';
+  ).join('') + (canNew?'<option value="__new">➕ نموذج جديد…</option>':'');
 }
 function quickSwitchProfile(v) {
   if (v === '__new') { openProfileModal(); renderQuickSwitch(); return; }
   if (v && v !== getActiveProfileId()) selectProfile(v);
+}
+function copyCompanyLink(){
+  var id=getActiveProfileId(); if(!id){ toast('اختر شركة أولاً',true); return; }
+  var url=location.origin+location.pathname+'#co='+encodeURIComponent(id);
+  try{ if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(url).then(function(){ toast('🔗 نُسخ رابط الشركة الداخلي'); },function(){ window.prompt('انسخ رابط الشركة:', url); }); } else { window.prompt('انسخ رابط الشركة:', url); } }
+  catch(e){ window.prompt('انسخ رابط الشركة:', url); }
+}
+function applyCompanyDeepLink(){
+  try{ var m=(location.hash||'').match(/co=([^&]+)/); if(!m) return; var id=decodeURIComponent(m[1]);
+    if(profilesLoad().some(function(p){return String(p.id)===String(id);}) && canUseProfile(id)){ setActiveProfileId(id); try{ cfgLoad(); }catch(e){} }
+  }catch(e){}
 }
 function renameActiveProfile() {
   const id = getActiveProfileId();
@@ -4082,18 +4098,25 @@ const PERMS=[
   ['pricing','احتساب أسعار البيع'],
   ['payments','الدفعات المسددة'],
   ['archive','سجل الشحنات'],
+  ['supacct','كشف حساب المورد'],
+  ['freight','كشف حساب الشحن'],
+  ['commission','كشف حساب العمولة'],
+  ['modelrep','تقرير الموديلات'],
+  ['compare','المقارنة'],
   ['companies','إدارة الشركات (تبديل/إنشاء/حذف)'],
   ['settings','الإعدادات'],
   ['delete','الحذف'],
   ['users','إدارة المستخدمين']
 ];
+// صلاحيات دقيقة جديدة ترث من الصلاحية الأعمّ عند عدم تحديدها (توافق مع المستخدمين القدامى)
+const PERM_FALLBACK={supacct:'payments', freight:'payments', commission:'payments', modelrep:'results', compare:'results'};
 const ROLE_NAMES={admin:'مدير النظام',manager:'مدير',entry:'مدخل بيانات',viewer:'مشاهد',custom:'مخصص'};
 function permAll(v){ const o={}; PERMS.forEach(p=>o[p[0]]=v); return o; }
 function rolePreset(role){
   if(role==='admin')   return permAll(true);
   if(role==='manager'){ const o=permAll(true); o.users=false; return o; }
-  if(role==='entry')   return {shipment:true,costs:true,results:true,pricing:true,payments:true,archive:true,companies:false,settings:false,delete:false,users:false};
-  if(role==='viewer')  return {shipment:false,costs:false,results:true,pricing:false,payments:false,archive:true,companies:false,settings:false,delete:false,users:false};
+  if(role==='entry')   return {shipment:true,costs:true,results:true,pricing:true,payments:true,archive:true,supacct:true,freight:true,commission:true,modelrep:true,compare:true,companies:false,settings:false,delete:false,users:false};
+  if(role==='viewer')  return {shipment:false,costs:false,results:true,pricing:false,payments:false,archive:true,supacct:true,freight:true,commission:true,modelrep:true,compare:true,companies:false,settings:false,delete:false,users:false};
   return permAll(false);
 }
 function hashPw(s){ s=String(s); let h=5381; for(let i=0;i<s.length;i++){ h=((h<<5)+h)+s.charCodeAt(i); h|=0; } return 'h'+(h>>>0).toString(16); }
@@ -4104,7 +4127,13 @@ function currentUser(){
   return usersLoad().find(u=>u.username===un)||null;
 }
 function can(perm){ const u=currentUser(); if(!u||u.active===0) return false; if(u.role==='admin') return true;
-  if(u.perms){ if(u.perms[perm]!==undefined) return !!u.perms[perm]; if((perm==='shipment'||perm==='costs'||perm==='results')&&u.perms.ops!==undefined) return !!u.perms.ops; } return false; }
+  if(u.perms){ if(u.perms[perm]!==undefined) return !!u.perms[perm];
+    if(PERM_FALLBACK[perm]!==undefined && u.perms[PERM_FALLBACK[perm]]!==undefined) return !!u.perms[PERM_FALLBACK[perm]];
+    if((perm==='shipment'||perm==='costs'||perm==='results')&&u.perms.ops!==undefined) return !!u.perms.ops; } return false; }
+// ── صلاحية الشركات (النُظُم) لكل مستخدم ──
+function userAllowedProfiles(u){ u=u||currentUser(); if(!u||u.role==='admin') return null; var a=u.profiles; return (Array.isArray(a)&&a.length)?a.map(String):null; }
+function canUseProfile(id){ var allow=userAllowedProfiles(); if(!allow) return true; return allow.indexOf(String(id))>=0; }
+function visibleProfiles(){ var all=profilesLoad(); var allow=userAllowedProfiles(); if(!allow) return all; return all.filter(function(p){ return allow.indexOf(String(p.id))>=0; }); }
 function isReadonly(){ const u=currentUser(); if(!u) return false; if(u.role==='admin') return false; return !!u.readonly || u.role==='viewer'; }
 function adminExists(){ return usersLoad().some(function(u){ return u.role==='admin'; }); }
 
@@ -4297,11 +4326,13 @@ function resetIdle(){ if(!currentUser()) return; if(loadLogin()) return; /* «ت
 // ── تطبيق الصلاحيات على الواجهة ──
 function applyPermsUI(){
   const u=currentUser();
+  // إن كانت الشركة النشطة غير مسموحة لهذا المستخدم، انتقل لأول شركة مسموحة
+  try{ var _act=getActiveProfileId(); if(u && _act && !canUseProfile(_act)){ var _vp=visibleProfiles(); if(_vp.length){ setActiveProfileId(_vp[0].id); try{ cfgLoad(); }catch(e){} } } }catch(e){}
   // اسم المستخدم في الرأس
   const nm=document.getElementById('current-user-name'); if(nm) nm.textContent = u?(u.name||u.username)+' · '+(ROLE_NAMES[u.role]||'')+(isReadonly()?' · 👁 قراءة فقط':''):'';
   document.body.classList.toggle('ro', isReadonly());
   // إظهار/إخفاء التبويبات حسب الصلاحية (كل تقرير/شاشة على حدة)
-  const tabPerm={'page-shipment':'shipment','page-costs':'costs','page-results':'results','page-pricing':'pricing','page-archive':'archive','page-payments':'payments','page-freight':'payments','page-supacct':'payments','page-comm':'payments','page-modelrep':'results','page-compare':'results'};
+  const tabPerm={'page-shipment':'shipment','page-costs':'costs','page-results':'results','page-pricing':'pricing','page-archive':'archive','page-payments':'payments','page-freight':'freight','page-supacct':'supacct','page-comm':'commission','page-modelrep':'modelrep','page-compare':'compare'};
   document.querySelectorAll('.tabs .tab').forEach(t=>{
     const oc=t.getAttribute('onclick')||''; const m=oc.match(/'(page-[a-z]+)'/);
     if(m){ t.style.display = can(tabPerm[m[1]]||'shipment') ? '' : 'none'; }
@@ -4313,10 +4344,12 @@ function applyPermsUI(){
   showIf('btn-suppliers','companies');
   showIf('btn-settings','settings');
   try{ refreshSupplierDatalist(); }catch(e){}
-  // زر إدارة الشركات (badge + quick switch)
+  // زر إدارة الشركات (badge + quick switch): يظهر المبدّل لمن يملك إدارة الشركات أو لديه أكثر من شركة متاحة
   const comp=can('companies');
+  const vis=(typeof visibleProfiles==='function')?visibleProfiles().length:0;
+  const showSwitch = comp || vis>1;
   ['active-profile-badge'].forEach(id=>{ const e=document.getElementById(id); if(e) e.style.display=comp?'':'none'; });
-  const qs=document.getElementById('quick-profile-switch'); if(qs&&qs.parentElement) qs.parentElement.style.display=comp?'':'none';
+  const qs=document.getElementById('quick-profile-switch'); if(qs&&qs.parentElement) qs.parentElement.style.display=showSwitch?'':'none';
   // فتح أول تبويب مسموح إن كان الحالي مخفياً
   const active=document.querySelector('.tabs .tab.active');
   if(active && active.style.display==='none'){
@@ -4354,7 +4387,16 @@ function renderUsersModal(){
   document.getElementById('u-active').value=u?String(u.active===0?0:1):'1';
   var roEl=document.getElementById('u-readonly'); if(roEl) roEl.value=u?String(u.readonly?1:0):'0';
   renderPermGrid(u?u.perms:rolePreset('entry'));
+  renderUserProfiles(u?u.profiles:null);
 }
+function renderUserProfiles(sel){
+  sel=Array.isArray(sel)?sel.map(String):[];
+  var el=document.getElementById('u-profiles'); if(!el) return;
+  var profs=profilesLoad();
+  if(!profs.length){ el.innerHTML='<div style="color:var(--muted);font-size:.8rem">لا توجد شركات بعد</div>'; return; }
+  el.innerHTML=profs.map(function(p){ return '<label style="display:flex;align-items:center;gap:6px;font-size:.82rem;padding:4px 6px;border:1px solid var(--border);border-radius:6px"><input type="checkbox" data-prof="'+escH(String(p.id))+'" '+(sel.indexOf(String(p.id))>=0?'checked':'')+' style="width:auto"> '+(p.icon||'🏢')+' '+escH(p.name)+'</label>'; }).join('');
+}
+function collectUserProfiles(){ var a=[]; document.querySelectorAll('#u-profiles input[data-prof]').forEach(function(c){ if(c.checked) a.push(c.getAttribute('data-prof')); }); return a; }
 function renderPermGrid(perms){
   perms=perms||{};
   document.getElementById('u-perms').innerHTML=PERMS.map(p=>`
@@ -4380,14 +4422,14 @@ function saveUser(){
     const u=users.find(x=>x.id===editUserId); if(!u) return;
     // منع إيقاف/تنزيل آخر مدير
     if(u.role==='admin' && (role!=='admin'||active===0) && users.filter(x=>x.role==='admin'&&x.active!==0).length<=1){ toast('لا يمكن إيقاف آخر مدير',true); return; }
-    u.name=name; u.username=un; u.role=role; u.active=active; u.readonly=readonly; u.perms=role==='admin'?permAll(true):perms;
+    u.name=name; u.username=un; u.role=role; u.active=active; u.readonly=readonly; u.perms=role==='admin'?permAll(true):perms; u.profiles=(role==='admin'?[]:collectUserProfiles());
     usersSave(users); editUserId=null; renderUsersModal(); applyPermsUI(); logAction('حفظ مستخدم', un); toast('✅ تم حفظ المستخدم');
     // مزامنة العضوية السحابية: إيقاف الحساب = سحب الوصول، تفعيله = تحديث بياناته
     if(cloudAccounts() && u.fbUid){ if(active===0) cloudRemoveMember(u.fbUid); else cloudWriteMember(u.fbUid,u).catch(function(){}); }
   } else {
     const pw=document.getElementById('u-pass').value;
     if(pw.length<6){ toast('كلمة المرور 6 أحرف على الأقل',true); return; }
-    var nu={id:Date.now(),name:name,username:un,pass:hashPw(pw),role:role,perms:role==='admin'?permAll(true):perms,active:active,readonly:readonly};
+    var nu={id:Date.now(),name:name,username:un,pass:hashPw(pw),role:role,perms:role==='admin'?permAll(true):perms,active:active,readonly:readonly,profiles:(role==='admin'?[]:collectUserProfiles())};
     users.push(nu);
     usersSave(users); editUserId=null; renderUsersModal(); applyPermsUI(); logAction('حفظ مستخدم', un); toast('✅ تم حفظ المستخدم');
     // اعتماد الحساب سحابياً (إنشاء حساب Firebase + تسجيله عضواً) كي يتمكن من الدخول من أي جهاز
@@ -4969,6 +5011,13 @@ var _commMode='detail';
 function commCfgKey(pid){ return 'scs_commcfg_'+(pid||getActiveProfileId()||'default'); }
 function commCfgLoad(pid){ try{ var o=JSON.parse(localStorage.getItem(commCfgKey(pid))||'{}'); if(!o||typeof o!=='object') o={}; if(!o.byShip||typeof o.byShip!=='object') o.byShip={}; return o; }catch(e){ return {rate:0, byShip:{}}; } }
 function commCfgSave(o,pid){ try{ localStorage.setItem(commCfgKey(pid),JSON.stringify(o)); return true; }catch(e){ toast('⚠️ فشل حفظ إعداد العمولة',true); return false; } }
+function commTitle(){ var t=(commCfgLoad().title||'').trim(); return t||'كشف حساب العمولة'; }
+function applyCommTitle(){ var t=commTitle(); var a=document.getElementById('tab-comm-label'); if(a) a.textContent=t; var b=document.getElementById('comm-page-title'); if(b) b.textContent=t; }
+function renameCommStatement(){
+  if(isReadonly()){ toast('👁 وضع القراءة فقط',true); return; }
+  var cur=commTitle(); var nm=window.prompt('اسم كشف العمولة:', cur); if(nm===null) return; nm=String(nm).trim(); if(!nm){ toast('الاسم فارغ',true); return; }
+  var c=commCfgLoad(); c.title=nm; commCfgSave(c); applyCommTitle(); logAction('تعديل اسم كشف العمولة', nm); toast('✏️ تم تغيير اسم الكشف إلى: '+nm);
+}
 function commDefaultRate(){ var r=parseFloat(commCfgLoad().rate); return isNaN(r)?0:r; }
 function commRateFor(num){ var c=commCfgLoad(), k=String(num); if(c.byShip && c.byShip[k]!=null && c.byShip[k]!=='' && !isNaN(parseFloat(c.byShip[k]))) return parseFloat(c.byShip[k]); return commDefaultRate(); }
 // حاويات الشحنة وقيمتها (FOB بالريال من تفصيل الأصناف) — للتحكم في احتساب العمولة لكل حاوية
@@ -5014,6 +5063,7 @@ function commLedger(from,to){
   return out;
 }
 function renderCommAcct(){
+  applyCommTitle();
   var pid=getActiveProfileId();
   var pname=(profilesLoad().find(function(p){return p.id===pid;})||{}).name||'—';
   var nm=document.getElementById('comm-active-name'); if(nm) nm.textContent=pname;
@@ -5116,7 +5166,7 @@ function printCommAcct(){
     '<tr class=tot><td colspan=2>الإجمالي</td><td class=num>'+fmtD(totDr)+'</td><td class=num>'+fmtD(totCr)+'</td><td class=num>'+fmtD(bal)+'</td></tr>'+
     '</tbody></table>'+
     '<p style="font-weight:700">الرصيد المتبقّي: '+fmtD(bal)+' ر.س — '+(bal>0?'مستحق':(bal<0?'مدفوع بالزيادة':'مسدَّد بالكامل'))+'</p>';
-  cmpPrintWindow('كشف حساب العمولة', t1+t2);
+  cmpPrintWindow(commTitle(), t1+t2);
 }
 
 // ═══════════════════════════════════════════
@@ -6199,7 +6249,7 @@ function exportCommAcctXlsx(){
   aoa2.push(['','الإجمالي', totDr, totCr, totDr-totCr]);
   var ws2=XLSX.utils.aoa_to_sheet(aoa2); ws2['!cols']=[{wch:12},{wch:50},{wch:14},{wch:14},{wch:14}];
   var wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws1,'جدول العمولة'); XLSX.utils.book_append_sheet(wb,ws2,'كشف الحساب');
-  XLSX.writeFile(wb,'كشف_حساب_العمولة.xlsx'); toast('⬇️ تم تصدير كشف العمولة إلى Excel');
+  XLSX.writeFile(wb, commTitle()+'.xlsx'); toast('⬇️ تم تصدير كشف العمولة إلى Excel');
 }
 function _safeSheet(s){ return (String(s||'ورقة').replace(/[\\\/\?\*\[\]:]/g,' ').trim().slice(0,28))||'ورقة'; }
 function exportCmpAccountsXlsx(){
@@ -6389,10 +6439,11 @@ function exportPaymentsExcel(){
 // ═══════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════
-var APP_VERSION='v2026-10-28.19';   // رقم إصدار ظاهر للتحقق من تحميل أحدث نسخة (لا cache قديم)
+var APP_VERSION='v2026-10-28.20';   // رقم إصدار ظاهر للتحقق من تحميل أحدث نسخة (لا cache قديم)
 function initApp() {
   try{ var av=document.getElementById('app-ver'); if(av) av.textContent=APP_VERSION; }catch(e){}
   try{ reconcileProfiles(); }catch(e){}   // توحيد أي بروفايلات مكرّرة محلياً قبل العرض
+  try{ applyCompanyDeepLink(); }catch(e){}  // اختيار الشركة من الرابط الداخلي #co=
   renderQuickSwitch();
   updateAutoBackupLabel();
   cloudInit();
