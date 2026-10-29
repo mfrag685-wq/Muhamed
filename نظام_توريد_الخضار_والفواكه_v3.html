@@ -450,6 +450,12 @@ table.reg .reg-act button:hover{background:#f1f5f9}
 .act-flash{animation:actFlash 1.4s ease-out}
 @keyframes actFlash{0%{box-shadow:0 0 0 0 var(--ac)}30%{box-shadow:0 0 0 6px var(--acb)}100%{box-shadow:0 0 0 0 transparent}}
 @media print{.sec-title[data-act]{background:none;border:0;border-right:3px solid var(--ac)}.sec-title[data-act] .act-ic{display:none}}
+/* بطاقات المؤشرات في كل الشاشات: لون مميّز لكل بطاقة */
+.panel .cards:not(.dash-kpis) .card{border-top:3px solid #1f9d57}
+.panel .cards:not(.dash-kpis) .card:nth-child(6n+2){border-top-color:#2a78d6}.panel .cards:not(.dash-kpis) .card:nth-child(6n+3){border-top-color:#e8900c}
+.panel .cards:not(.dash-kpis) .card:nth-child(6n+4){border-top-color:#7048cf}.panel .cards:not(.dash-kpis) .card:nth-child(6n+5){border-top-color:#e03131}
+.panel .cards:not(.dash-kpis) .card:nth-child(6n){border-top-color:#12b886}
+.panel .cards .card.dark{border-top-color:#0f172a}
 /* شاشة التقارير */
 .rp-gallery{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px;margin:0 0 12px}
 .rp-gallery .rg-cat{background:var(--surface);border:1px solid var(--line);border-top:3px solid var(--ac);border-radius:12px;padding:9px 10px}
@@ -2049,7 +2055,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-10-29-d';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-10-29-e';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -2766,6 +2772,7 @@ function showTab(id){
   document.querySelectorAll('.panel').forEach(function(p){ p.classList.toggle('active',p.id===id); });
   if(id==='itemdiag'&&can('itemdiag')){ renderItemDiag(); try{ renderInvAudit(); }catch(e){} }   /* شغّل الفحص فور فتح التبويب */
   if(changing) window.scrollTo({top:0,behavior:'smooth'});   /* لا تقفز للأعلى إن كان التبويب مفتوحاً أصلاً (تعديل/إضافة صنف) */
+  try{ actNavInit(id); }catch(e){}
 }
 document.querySelectorAll('.tab-btn').forEach(function(b){ b.addEventListener('click',function(){ showTab(b.dataset.tab); }); });
 
@@ -5819,15 +5826,36 @@ var ACTS={
   r_table:['🧾','جدول التقرير','#334155','#f1f5f9','#cbd5e1'], r_excel:['📥','نماذج Excel','#16a34a','#f0fdf4','#bbf7d0']};
 var ACT_MATCH=[['تحويل بين المستودعات','transfer'],['الفاقد والتوالف','waste'],['تحويل بضائع بين الأقسام','dept'],['إضافة أصناف للمخزون','opening'],
   ['تسويات زيادة الجرد','adj'],['تحويل رصيد بين صنفين','conv'],['الجرد الفعلي','count'],['حركة قيمة المخزون','value']];
+/* تعيين تلقائي لأي شاشة: أيقونة حسب معنى العنوان ولون مميّز لكل قسم (الإجراءات الخطرة بالأحمر) */
+var ACT_ICONS=[['نِسب التوزيع','📊'],['دمج','🔀'],['طلبات الانضمام','🙋'],['صلاحيات','🔐'],['الأصناف','🥬'],['سجل حركات','🕵️'],['سجل فواتير','🗂️'],['سجل السداد','💳'],['مرتجعات المشتريات','↩️'],['مرتجعات المبيعات','↪️'],['توزيع الكمية','🧩'],
+  ['توزيع المصروف','🧩'],['بنود السند','🧾'],['المصروفات حسب','💸'],['أرصدة الموردين','🚚'],['أرصدة العملاء','👥'],['كشف حساب','📄'],['قيود التسوية','⚖️'],
+  ['فتح حساب','🆕'],['تسجيل حركة','✍️'],['أرصدة الحسابات','💼'],['المكوّنات','🧪'],['أوامر التغليف','🏭'],['التكلفة الشاملة','🧮'],['التحميل الثابت','📐'],
+  ['قائمة الدخل','📊'],['أدوات الأرباح','🛠️'],['الخصومات','🏷️'],['مجموعات','🗃️'],['الوحدات','📏'],['المستودعات','🏬'],['العملاء','👥'],['الموردون','🚚'],
+  ['الأقسام المتاحة','🗝️'],['الصلاحيات','🔐'],['إغلاق فترة','🔒'],['مسؤولو الإدخال','📣'],['ملاحظات','📝'],['شعار','🎨'],['الترحيب','👋'],['إدارة الأقسام','🏢'],
+  ['توحيد','🔗'],['دمج','🔀'],['تصحيح أوزان','⚖️'],['بدء فترة','🚀'],['نِسب التوزيع','📊'],['تصفير','🧹'],['شطب','🗑️'],['النسخ الاحتياطي','💾'],['مشاركة','🤝'],
+  ['حول البرنامج','ℹ️'],['تشخيص','🩺']];
+var ACT_PAL=[['#2563eb','#eff6ff','#bfdbfe'],['#16a34a','#f0fdf4','#bbf7d0'],['#7c3aed','#f5f3ff','#ddd6fe'],['#d97706','#fffbeb','#fde68a'],
+  ['#0d9488','#f0fdfa','#99f6e4'],['#db2777','#fdf2f8','#fbcfe8'],['#4f46e5','#eef2ff','#c7d2fe'],['#ea580c','#fff7ed','#fed7aa']];
+function actAuto(panelId,h,i){
+  var t=''; [].forEach.call(h.childNodes,function(n){ if(n.nodeType===3) t+=n.textContent; }); t=t.trim();
+  var name=t.replace(/^[\u0660-\u0669\d]+\)\s*/,'').split(/ — |\s\(/)[0].trim(); if(name.length>30) name=name.slice(0,29)+'…';
+  var ic='📌', em=t.match(/^([\u2600-\u27BF]|[\uD83C-\uDBFF][\uDC00-\uDFFF])\uFE0F?\s*/);
+  if(em){ ic=em[0].trim(); name=name.replace(em[0],'').trim(); h.dataset.ownIc='1'; }
+  else ACT_ICONS.some(function(m){ if(t.indexOf(m[0])>=0){ ic=m[1]; return true; } return false; });
+  var danger=/تصفير|شطب|حذف/.test(t), pal=danger?['#dc2626','#fef2f2','#fecaca']:ACT_PAL[i%ACT_PAL.length], key='a_'+panelId+'_'+i;
+  ACTS[key]=[ic,name||('قسم '+(i+1)),pal[0],pal[1],pal[2]]; return key; }
 function actPaint(el,key){ var a=ACTS[key]; if(!a) return; el.style.setProperty('--ac',a[2]); el.style.setProperty('--acl',a[3]); el.style.setProperty('--acb',a[4]); }
 function actShown(el,root){ for(var e=el; e&&e!==root; e=e.parentElement){ if(e.style&&e.style.display==='none') return false; } return true; }
 function actNavInit(panelId){
-  var root=document.getElementById(panelId), nav=document.getElementById(panelId+'ActNav'); if(!root||!nav) return;
+  var root=document.getElementById(panelId); if(!root) return;
+  var nav=document.getElementById(panelId+'ActNav'), ai=0;
   /* 1) تعيين المفتاح للعناوين حسب نصّها (مرة واحدة) ثم تلوين محتوى كل قسم حتى العنوان التالي */
   [].forEach.call(root.querySelectorAll('.sec-title'),function(h){
     if(!h.dataset.act){ var t=h.textContent; ACT_MATCH.some(function(m){ if(t.indexOf(m[0])>=0){ h.dataset.act=m[1]; return true; } return false; }); }
+    if(!h.dataset.act) h.dataset.act=actAuto(panelId,h,ai);
+    ai++;
     var key=h.dataset.act; if(!key||!ACTS[key]) return;
-    if(!h.querySelector('.act-ic')){ var ic=document.createElement('span'); ic.className='act-ic'; ic.textContent=ACTS[key][0]; h.insertBefore(ic,h.firstChild); h.id=h.id||('act_'+key); }
+    if(!h.querySelector('.act-ic')&&!h.dataset.ownIc){ var ic=document.createElement('span'); ic.className='act-ic'; ic.textContent=ACTS[key][0]; h.insertBefore(ic,h.firstChild); h.id=h.id||('act_'+key); }
     actPaint(h,key);
     for(var e=h.nextElementSibling; e&&!e.classList.contains('sec-title')&&!e.classList.contains('split'); e=e.nextElementSibling){ e.dataset.actb=key; actPaint(e,key); }
   });
@@ -5836,6 +5864,10 @@ function actNavInit(panelId){
   if(panelId==='stock') items.push({key:'s_bal',el:document.getElementById('stockTopAnchor')});
   [].forEach.call(root.querySelectorAll('.sec-title[data-act]'),function(h){ if(actShown(h,root)) items.push({key:h.dataset.act,el:h});
     if(panelId==='reports'&&h.dataset.act==='r_detail') items.push({key:'r_table'}); });
+  if(!nav){ if(items.length<3||root.querySelector('.registry-bar')) return;   /* الشاشات القصيرة: تلوين الأقسام فقط بلا شريط */
+    nav=document.createElement('div'); nav.className='act-nav no-print'; nav.id=panelId+'ActNav';
+    var pt=root.querySelector('.panel-title'); if(pt) pt.parentNode.insertBefore(nav,pt.nextSibling);
+    else { var f=root.querySelector('.sec-title'); f.parentNode.insertBefore(nav,f); } }
   var q=nav.querySelector('input'), qv=q?q.value:'';
   nav.innerHTML='<span class="an-l">⚡ انتقال سريع</span>'+items.map(function(it){ var a=ACTS[it.key];
     return '<button type="button" class="an-chip" data-k="'+it.key+'" style="--ac:'+a[2]+';--acl:'+a[3]+'" onclick="actGo(\''+panelId+'\',\''+it.key+'\')">'+a[0]+' '+esc(a[1])+'</button>'; }).join('')
