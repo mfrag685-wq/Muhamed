@@ -2378,7 +2378,7 @@ function getN(){ return parseInt(document.getElementById('container-count').valu
 
 function buildContainerTabs() {
   const n=getN();
-  document.getElementById('containers-badge').textContent=n+' حاويات';
+  document.getElementById('containers-badge').textContent=n+' '+tr('حاويات');
   while(S.containers.length<n){
     const ci=S.containers.length+1;
     S.containers.push({id:ci,number:'CONT-'+String(ci).padStart(3,'0'),invoices:[mkInv(1)],costs:[],freight:0,freightCur:'USD'});
@@ -2393,7 +2393,7 @@ function buildContainerTabs() {
     const ci=i+1;
     const t=document.createElement('div');
     t.className='ctab'+(i===0?' active':''); t.id=`ctab-${ci}`;
-    t.textContent=`حاوية ${ci}`;
+    t.textContent=`${tr('حاوية')} ${ci}`;
     t.onclick=()=>activateCTab(ci);
     tabsEl.appendChild(t);
     const p=document.createElement('div');
@@ -2424,7 +2424,7 @@ function buildCPanel(ci){
       onchange="S.containers[${ci-1}].number=this.value" style="min-width:175px"></div>
   </div>`;
   c.invoices.forEach((_,ii)=>{ h+=buildInvHTML(ci,ii+1); });
-  h+=`<button class="add-btn" onclick="addInvoice(${ci})">＋ إضافة فاتورة للحاوية ${ci}</button>`;
+  h+=`<button class="add-btn" onclick="addInvoice(${ci})">＋ ${tr('إضافة فاتورة للحاوية')} ${ci}</button>`;
   return h;
 }
 function buildInvHTML(ci,ii){
@@ -2434,7 +2434,7 @@ function buildInvHTML(ci,ii){
   return `
   <div class="card" style="margin-bottom:11px" id="inv-card-${ci}-${ii}">
     <div class="card-header" style="font-size:.81rem;justify-content:space-between">
-      <span>📄 فاتورة ${ii} — حاوية ${ci}</span>
+      <span>📄 ${tr('فاتورة')} ${ii} — ${tr('حاوية')} ${ci}</span>
       <div style="display:flex;align-items:center;gap:7px">
         <label style="font-size:.7rem;opacity:.75;white-space:nowrap">رقم الفاتورة:</label>
         <input type="text" value="${escH(inv.invNumber||'')}" placeholder="INV-001"
@@ -2458,16 +2458,16 @@ function buildInvHTML(ci,ii){
             <option value="AED" ${cur==='AED'?'selected':''}>درهم (AED)</option>
           </select>
           ${!isSar ? `<span class="inv-cur-rate-badge">× ${S.fxUsdSar} → SAR</span>` : '<span class="inv-cur-rate-badge sar-badge">ريال مباشر</span>'}
-          <button class="apply-all-btn" onclick="applyPurchCurToAll('${cur}')">تطبيق (${cur}) على كل الفواتير</button>
+          <button class="apply-all-btn" onclick="applyPurchCurToAll('${cur}')">${tr('تطبيق')} (${cur}) ${tr('على كل الفواتير')}</button>
         </div>
       </div>
       <div class="tbl-wrap">
         <table id="items-table-${ci}-${ii}">
           <thead><tr>
-            <th>#</th><th style="text-align:right">${S.itemLabel||'الصنف'}</th>
+            <th>#</th><th style="text-align:right">${tr(S.itemLabel||'الصنف')}</th>
             <th>الكمية</th>
-            <th>سعر الوحدة (${cur})</th>
-            <th>الإجمالي (${cur})</th>
+            <th>${tr('سعر الوحدة')} (${cur})</th>
+            <th>${tr('الإجمالي')} (${cur})</th>
             ${!isSar ? `<th>= SAR</th>` : ''}
             <th>×</th>
           </tr></thead>
@@ -2481,7 +2481,7 @@ function buildInvHTML(ci,ii){
           </tr></tfoot>
         </table>
       </div>
-      <button class="add-btn" onclick="addItem(${ci},${ii})">＋ إضافة ${S.itemLabel||'صنف'}</button>
+      <button class="add-btn" onclick="addItem(${ci},${ii})">＋ ${tr('إضافة')} ${tr(S.itemLabel||'صنف')}</button>
     </div>
   </div>`;
 }
@@ -2495,7 +2495,7 @@ function buildItemRows(ci,ii){
     const totSar=tot*rate;
     return `
     <tr><td>${idx+1}</td>
-    <td><input type="text" value="${escH(it.name)}" placeholder="${S.itemLabel||'الصنف'}..."
+    <td><input type="text" value="${escH(it.name)}" placeholder="${tr(S.itemLabel||'الصنف')}..."
       onchange="updIt(${ci},${ii},${idx},'name',this.value)" style="text-align:right;min-width:140px"></td>
     <td><input type="number" value="${it.qty}" min="1" step="1" style="width:62px"
       onchange="updIt(${ci},${ii},${idx},'qty',this.value);calcInvTot(${ci},${ii})"></td>
@@ -2570,7 +2570,7 @@ function buildInvCostPanels(){
     const rate=S.fxUsdSar;
     h+=`<div class="card" style="margin-bottom:9px">
       <div class="card-header" style="font-size:.8rem">
-        📄 فاتورة ${ii+1} — حاوية ${ci+1}
+        📄 ${tr('فاتورة')} ${ii+1} — ${tr('حاوية')} ${ci+1}
         ${inv.invNumber?'<span class="tag tag-inv">'+escH(inv.invNumber)+'</span>':''}
       </div>
       <div class="card-body">
@@ -2666,8 +2666,8 @@ function buildConCostPanels(){
   S.containers.forEach((c,ci)=>{
     h+=`<div class="card" style="margin-bottom:9px">
       <div class="card-header" style="font-size:.8rem;justify-content:space-between">
-        <span>📦 حاوية ${ci+1}${c.number?' <span class="tag tag-con">'+escH(c.number)+'</span>':''}</span>
-        <span class="tag tag-con">${c.invoices.length} فاتورة</span>
+        <span>📦 ${tr('حاوية')} ${ci+1}${c.number?' <span class="tag tag-con">'+escH(c.number)+'</span>':''}</span>
+        <span class="tag tag-con">${c.invoices.length} ${tr('فاتورة')}</span>
       </div>
       <div class="card-body">
         <div class="cost-item-row" style="background:#fff6e6;border:1px solid #f0c36d;border-radius:8px;padding:7px 9px;margin-bottom:8px">
@@ -2685,7 +2685,7 @@ function buildConCostPanels(){
         <div id="con-costs-list-${ci+1}">`;
     c.costs.forEach(cc=>{ h+=renderConCostRow(ci+1,cc,rate); });
     h+=`</div>
-        <button class="add-btn-sm" onclick="addConCost(${ci+1})">＋ إضافة مصروف للحاوية ${ci+1}</button>
+        <button class="add-btn-sm" onclick="addConCost(${ci+1})">＋ ${tr('إضافة مصروف للحاوية')} ${ci+1}</button>
         <div style="font-size:.72rem;color:var(--muted);margin-top:4px">🔹 أجور الشحن البحري ومصاريف الحاوية تُوزَّع على فواتير هذه الحاوية بنسبة صافي قيمة كل فاتورة</div>
       </div></div>`;
   });
@@ -6485,7 +6485,7 @@ function exportPaymentsExcel(){
 // ═══════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════
-var APP_VERSION='v2026-10-28.26';   // رقم إصدار ظاهر للتحقق من تحميل أحدث نسخة (لا cache قديم)
+var APP_VERSION='v2026-10-29.27';   // رقم إصدار ظاهر للتحقق من تحميل أحدث نسخة (لا cache قديم)
 // ═══════════════════════════════════════════
 // 🌐 محرّك الترجمة الشامل (عربي / English / 中文) — قاموس + مسح DOM + مراقب تغييرات
 // ═══════════════════════════════════════════
@@ -7081,6 +7081,65 @@ Object.assign(TR.zh,{
 });
 Object.assign(TR.en,{'التحقق المحاسبي:':'Accounting check:','التوزيع دقيق 100%':'Distribution exact 100%','مصاريف الشحنة الموزعة':'Distributed shipment expenses','مصاريف الحاويات':'Container expenses','فارق في التوزيع:':'Distribution discrepancy:','حاويات':'containers','رقم الشحنة:':'Shipment No.:','التاريخ:':'Date:','الحاويات:':'Containers:','النشاط:':'Activity:'});
 Object.assign(TR.zh,{'التحقق المحاسبي:':'会计核对：','التوزيع دقيق 100%':'分摊精确100%','مصاريف الشحنة الموزعة':'已分摊装运费用','مصاريف الحاويات':'集装箱费用','فارق في التوزيع:':'分摊差异：','حاويات':'集装箱','رقم الشحنة:':'装运编号：','التاريخ:':'日期：','الحاويات:':'集装箱：','النشاط:':'活动：'});
+// الدفعة السابعة: شاشة المصاريف/الفواتير الديناميكية
+Object.assign(TR.en,{
+ 'إضافة فاتورة للحاوية':'Add invoice to container',
+ 'فاتورة':'Invoice',
+ 'تطبيق':'Apply',
+ 'على كل الفواتير':'to all invoices',
+ 'سعر الوحدة':'Unit price',
+ 'إضافة':'Add',
+ 'صنف':'item',
+ 'الصنف...':'Item...',
+ 'إضافة مصروف للحاوية':'Add expense to container',
+ 'رقم الحاوية / Container No.':'Container No.',
+ 'مثال: TCKU1234567':'e.g. TCKU1234567',
+ 'رقم الفاتورة:':'Invoice No.:',
+ '💱 عملة سعر الشراء لهذه الفاتورة:':'💱 Purchase currency for this invoice:',
+ 'ريال مباشر':'Direct SAR',
+ 'إجمالي الفاتورة':'Invoice total',
+ '💼 العمولة على قيمة الفاتورة':'💼 Commission on invoice value',
+ '% من قيمة الفاتورة':'% of invoice value',
+ '🏷️ الخصم التجاري':'🏷️ Trade discount',
+ 'نسبة %':'Percent %',
+ 'مبلغ ثابت':'Fixed amount',
+ '📋 مصاريف أخرى':'📋 Other expenses',
+ '📌 معامل التحويل المستخدم: 1 USD =':'📌 Conversion factor used: 1 USD =',
+ '🚢 أجور الشحن البحري':'🚢 Sea freight',
+ 'حاوية → فواتيرها':'Container → its invoices',
+ '🔹 أجور الشحن البحري ومصاريف الحاوية تُوزَّع على فواتير هذه الحاوية بنسبة صافي قيمة كل فاتورة':'🔹 Sea freight and container costs are distributed to this container\'s invoices by each invoice\'s net value ratio',
+ 'غرفة / صنف':'Room / Item',
+ 'غرفة / صنف...':'Room / Item...'
+});
+Object.assign(TR.zh,{
+ 'إضافة فاتورة للحاوية':'为集装箱添加发票',
+ 'فاتورة':'发票',
+ 'تطبيق':'应用',
+ 'على كل الفواتير':'到所有发票',
+ 'سعر الوحدة':'单价',
+ 'إضافة':'添加',
+ 'صنف':'项目',
+ 'الصنف...':'项目...',
+ 'إضافة مصروف للحاوية':'为集装箱添加费用',
+ 'رقم الحاوية / Container No.':'集装箱号',
+ 'مثال: TCKU1234567':'例如 TCKU1234567',
+ 'رقم الفاتورة:':'发票号：',
+ '💱 عملة سعر الشراء لهذه الفاتورة:':'💱 此发票的采购货币：',
+ 'ريال مباشر':'直接里亚尔',
+ 'إجمالي الفاتورة':'发票合计',
+ '💼 العمولة على قيمة الفاتورة':'💼 发票金额佣金',
+ '% من قيمة الفاتورة':'发票金额的%',
+ '🏷️ الخصم التجاري':'🏷️ 商业折扣',
+ 'نسبة %':'百分比%',
+ 'مبلغ ثابت':'固定金额',
+ '📋 مصاريف أخرى':'📋 其他费用',
+ '📌 معامل التحويل المستخدم: 1 USD =':'📌 使用的换算系数：1 USD =',
+ '🚢 أجور الشحن البحري':'🚢 海运费',
+ 'حاوية → فواتيرها':'集装箱 → 其发票',
+ '🔹 أجور الشحن البحري ومصاريف الحاوية تُوزَّع على فواتير هذه الحاوية بنسبة صافي قيمة كل فاتورة':'🔹 海运费和集装箱费用按各发票净值比例分摊到本集装箱的发票',
+ 'غرفة / صنف':'房间 / 项目',
+ 'غرفة / صنف...':'房间 / 项目...'
+});
 var _trOrig=new WeakMap(), _trPh=new WeakMap(), _trTitle=new WeakMap(), _trBusy=false, _trObs=null, _trTimer=null;
 var _emojiLead=/^((?:[←-⇿⌀-➿⬀-⯿☀-⛿️\uD83C-􏰀-\uDFFF\s])+)/;
 function _trLook(lang,ar){ var d=TR[lang]; if(!d) return null; return (d[ar]!=null)?d[ar]:null; }
@@ -7111,6 +7170,8 @@ function translatePass(root){
 function applyLang(){
   var l=curLang();
   try{ document.documentElement.lang=l; document.documentElement.setAttribute('dir',(l==='ar')?'rtl':'ltr'); }catch(e){}
+  // إعادة بناء الألواح الديناميكية (الحاويات/الفواتير/التكاليف) المبنية بـ tr() وقت البناء
+  try{ if(typeof S!=='undefined' && S && Array.isArray(S.containers) && S.containers.length && document.getElementById('container-tabs')){ buildContainerTabs(); } }catch(e){}
   try{ translatePass(document.body); }catch(e){}
   var sw=document.getElementById('lang-switch'); if(sw) sw.value=l;
   _ensureTrObserver();
