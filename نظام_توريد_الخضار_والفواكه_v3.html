@@ -2114,7 +2114,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-10-30-d';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-10-30-e';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -2637,6 +2637,23 @@ function doLogin(e){
 }
 function doLogout(){
   log('auth','الخروج','تسجيل خروج'); persist();
+  /* وضع السحابة: ارفع حركة الخروج (وأي تغيير معلّق) قبل قطع الاتصال — كان الفصل يلغي مؤقّت الرفع فتضيع */
+  if(cloudAccounts()&&cloudReady&&cloudRef&&!doLogout._busy){
+    doLogout._busy=true; toast('جارٍ حفظ تسجيل الخروج…');
+    var t0=Date.now();
+    (function waitFlush(){
+      if(cloudInflight&&Date.now()-t0<4000){ setTimeout(waitFlush,150); return; }
+      clearTimeout(cloudPushTimer); cloudDirty=true;
+      var pr=null; try{ pr=cloudFlush(); }catch(e){}
+      var done=false, fin=function(){ if(done) return; done=true; doLogout._busy=false; finishLogout(); };
+      if(pr&&pr.then) pr.then(fin,fin); else fin();
+      setTimeout(fin,4000);   /* لا ننتظر أكثر من 4 ثوانٍ (اتصال ضعيف) — تبقى الحركة محفوظة محلياً وتُرفع لاحقاً */
+    })();
+    return;
+  }
+  finishLogout();
+}
+function finishLogout(){
   try{ sessionStorage.removeItem(SKEY); }catch(e){}
   lsRemove(RKEY);   /* الخروج يُلغي التذكّر على الجهاز */
   var rem=document.getElementById('lg_remember'); if(rem) rem.checked=false;
@@ -7832,7 +7849,8 @@ function auditFiltered(){
 }
 function renderAudit(){
   var all=auditFiltered();
-  var rows=all.slice().reverse().slice(0,600);
+  var rows=all.map(function(a,i){ return [a,i]; }).sort(function(x,y){ return tsCmp(String(y[0].ts||''),String(x[0].ts||''))||(y[1]-x[1]); })
+    .map(function(z){ return z[0]; }).slice(0,600);   /* الأحدث أولاً بحسب الوقت فعلياً */
   var cb=document.getElementById('au_all'); if(cb) cb.checked=false;
   document.getElementById('tbAudit').innerHTML=rows.map(function(x){
     var cls=x.action==='delete'?'pill-bad':(x.action==='edit'?'pill-warn':(x.action==='auth'?'pill-info':'pill-ok'));
@@ -10882,7 +10900,7 @@ function cloudFlush(){
      (النقطة/$ /# /[ /] ممنوعة في المفاتيح فقط) فينتفي فشل الرفع بسبب اسم مستخدم
      أو مفتاح يحوي حرفاً ممنوعاً، ويصبح الرفع كتلة واحدة موثوقة. */
   var payload={data:s,fmt:'str',build:APP_BUILD,updatedAt:firebase.database.ServerValue.TIMESTAMP,updatedBy:(ME?ME.name:'')};
-  cloudRef.set(payload).then(function(){
+  return cloudRef.set(payload).then(function(){
     cloudInflight=false; cloudLastPushed=s; cloudRetry=0; cloudLastError='';
     setCloudErrTip('');
     if(cloudDirty) cloudFlush();          /* وردت حركة أثناء الرفع → ارفعها */
@@ -11098,12 +11116,18 @@ function cloudWatchConnection(){
 /* دمج سجلّين حسب المعرّف id: أساسه القادم من السحابة + يُضاف إليه ما هو موجود محلياً فقط
    (سجلّات أضافها هذا الجهاز ولم تصل السحابة بعد) — عند تطابق المعرّف يُبقى الأحدث بحسب ts.
    هذا يمنع ضياع أي إدخال عند تزامن عدة مستخدمين أو بعد انقطاع المزامنة. */
+/* مقارنة توقيتات السجلّات: ts نصّي «YYYY-MM-DD HH:MM» (يُقارَن نصياً) أو رقمي قديم.
+   ملاحظة: المقارنة الرقمية (+ts) على النص تعطي NaN فتفشل دائماً — وكانت تُبقي نسخة السحابة
+   حتى لو عُدِّل السجل محلياً بعدها (ضياع تعديل عند تزامن مستخدمَين). */
+function tsKey(r){ if(!r) return ''; var a=r.editTs, b=r.ts; a=(a==null?'':String(a)); b=(b==null?'':String(b)); return a>b?a:b; }
+function tsCmp(x,y){ if(x===y) return 0; var nx=+x, ny=+y;
+  if(x!==''&&y!==''&&isFinite(nx)&&isFinite(ny)) return nx<ny?-1:1; return x<y?-1:1; }
 function unionById(remoteArr,localArr){
   var map={},order=[];
   (remoteArr||[]).forEach(function(r){ if(r&&r.id!=null&&!(r.id in map)){ map[r.id]=r; order.push(r.id); } });
   (localArr||[]).forEach(function(l){ if(!l||l.id==null) return;
     if(!(l.id in map)){ map[l.id]=l; order.push(l.id); }
-    else if((+l.ts||0)>(+map[l.id].ts||0)) map[l.id]=l; });
+    else if(tsCmp(tsKey(l),tsKey(map[l.id]))>0) map[l.id]=l; });   /* الأحدث تعديلاً يفوز */
   return order.map(function(k){ return map[k]; });
 }
 /* دمج سجل الحركات (audit) من الطرفين: سجل تراكمي لا يُستبدَل — يوحَّد بالمعرّف
@@ -11118,7 +11142,8 @@ function unionAudit(remoteArr,localArr,tomb){
     var k=(a.id!=null)?('i'+a.id):('t'+(a.ts||0)+'|'+(a.userId!=null?a.userId:'')+'|'+(a.action||'')+'|'+(a.entity||'')+'|'+(a.details||''));
     if(seen[k]) return; seen[k]=1; out.push(a);
   });
-  out.sort(function(x,y){ return (+x.ts||0)-(+y.ts||0); });
+  /* ترتيب زمني ثابت (ts نصّي) — مع الحفاظ على ترتيب الإدراج عند تساوي الدقيقة */
+  out=out.map(function(a,i){ return [a,i]; }).sort(function(x,y){ return tsCmp(String(x[0].ts||''),String(y[0].ts||''))||(x[1]-y[1]); }).map(function(z){ return z[0]; });
   if(out.length>AUDIT_KEEP) out=out.slice(-AUDIT_KEEP);
   return out;
 }
@@ -11460,7 +11485,7 @@ function cloudInit(){
   var rid=lsGet(RKEY);   /* مستخدم متذكَّر على الجهاز — دخول تلقائي بلا كلمة مرور */
   var u=sid?byId(db.users,+sid):(rid?byId(db.users,+rid):null);
   if(u&&Number(u.active)){ ME=u; u.lastLogin=nowTs(); try{ sessionStorage.setItem(SKEY,String(u.id)); }catch(e2){}
-    if(rid) log('auth','الدخول','دخول تلقائي (جهاز متذكَّر)'); startApp(); }
+    if(rid&&!sid){ log('auth','الدخول','دخول تلقائي (جهاز متذكَّر)'); persist(); } startApp(); }
   else {
     document.getElementById('loginCo').textContent=db.settings.company||'نظام توريد الخضار والفواكه';
     var lru=rid?byId(db.users,+rid):null;   /* لو المستخدم المتذكَّر موقوف: عبّئ اسمه فقط */
