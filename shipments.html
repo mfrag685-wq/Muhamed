@@ -226,6 +226,20 @@ td.sar-equiv{font-size:.76rem!important;padding:4px 6px!important}
 .donut-legend .dl{display:flex;align-items:center;gap:7px;margin-bottom:6px;color:var(--text)}
 .donut-legend .dl b{width:11px;height:11px;border-radius:3px;flex-shrink:0}
 .donut-legend .dl .dv{margin-inline-start:auto;font-weight:700;font-variant-numeric:tabular-nums}
+/* تحسينات شاشات الإدخال */
+.ship-live{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.sl-chip{background:var(--bg);border:1px solid var(--border);border-radius:20px;padding:4px 12px;font-size:.76rem;font-weight:700;color:var(--text)}
+.sl-chip.sl-total{background:linear-gradient(90deg,#17304a,#245179);color:#fff;border:none}
+html[data-theme="dark"] .sl-chip{background:#0f1a26}
+.field-warn{color:var(--danger);font-size:.7rem;font-weight:700;margin-top:4px}
+.inp-bad{border-color:var(--danger)!important;background:rgba(192,57,43,.06)!important}
+.inp-bad:focus{outline:2px solid rgba(192,57,43,.4)}
+.mini-btn{background:transparent;border:1px solid var(--border);color:var(--primary);border-radius:5px;padding:2px 7px;font-size:.82rem;cursor:pointer;margin-inline-end:4px;line-height:1.2}
+.mini-btn:hover{background:var(--accent-light)}
+.save-ind.unsaved{color:#ffd27a}
+.save-ind.unsaved .save-dot{background:#ff9800;box-shadow:0 0 0 3px rgba(255,152,0,.25);animation:sdpulse 1.3s infinite}
+@keyframes sdpulse{0%,100%{opacity:1}50%{opacity:.4}}
+body.ro [onclick*="duplicate"],body.ro .mini-btn{display:none!important}
 .vbox{padding:8px 12px;border-radius:7px;margin-bottom:11px;font-size:.81rem}
 .vok{background:#e8f5e9;color:#1b5e20;border:1px solid #a5d6a7}
 .vwarn{background:#fff3e0;color:#e65100;border:1px solid #ffcc80}
@@ -846,7 +860,7 @@ html[data-theme="dark"] .rt td.hl{background:#2e2814;color:var(--accent)}
     <div class="card-header">🚢 معلومات الشحنة</div>
     <div class="card-body">
       <div class="form-row">
-        <div class="fg"><label>رقم الشحنة *</label><input id="shipment-no" value="SH-2025-001" placeholder="SH-2025-001"></div>
+        <div class="fg"><label>رقم الشحنة *</label><input id="shipment-no" value="SH-2025-001" placeholder="SH-2025-001" oninput="checkDupShipNo()" autocomplete="off"><div id="shipno-warn" class="field-warn" style="display:none"></div></div>
         <div class="fg"><label>تاريخ الشحنة</label><input id="shipment-date" type="date" value="2025-06-01"></div>
         <div class="fg"><label>اسم / كود المورد</label><input id="supplier-name" list="suppliers-datalist" placeholder="اسم المورد أو كوده" oninput="onSupplierNameInput()"><datalist id="suppliers-datalist"></datalist></div>
         <div class="fg"><label>بلد المنشأ</label><input id="origin-country" placeholder="مثال: China، Italy..."></div>
@@ -927,6 +941,7 @@ html[data-theme="dark"] .rt td.hl{background:#2e2814;color:var(--accent)}
   <div class="card">
     <div class="card-header">📋 فواتير الحاويات <span class="badge" id="containers-badge">4 حاويات</span></div>
     <div class="card-body">
+      <div id="ship-live" class="ship-live"></div>
       <div class="search-box" style="margin-bottom:9px;max-width:420px">
         <input id="container-search" placeholder="ابحث عن حاوية برقمها أو رقم فاتورة أو صنف…" oninput="searchContainers(this.value)">
       </div>
@@ -1239,7 +1254,7 @@ html[data-theme="dark"] .rt td.hl{background:#2e2814;color:var(--accent)}
     <div class="card-body">
       <div class="form-row">
         <div class="fg"><label>التاريخ</label><input type="date" id="pay-date"></div>
-        <div class="fg"><label>المبلغ</label><input type="number" id="pay-amount" min="0" step="0.01" placeholder="0.00" style="width:110px"></div>
+        <div class="fg"><label>المبلغ</label><input type="number" id="pay-amount" min="0" step="0.01" placeholder="0.00" style="width:110px" inputmode="decimal" onkeydown="if(event.key==='Enter'){event.preventDefault();addPaymentManual();}"></div>
         <div class="fg"><label>العملة</label><select id="pay-cur"><option value="SAR">ريال (SAR)</option><option value="USD">دولار (USD)</option></select></div>
         <div class="fg"><label>طريقة الدفع</label><select id="pay-method" onchange="onPayMethodChange()"><option value="cash">💵 نقدًا</option><option value="transfer">🏦 تحويل بنكي</option></select></div>
         <div class="fg" id="pay-bank-wrap" style="display:none"><label>البنك</label><input id="pay-bank" placeholder="اسم البنك" style="min-width:140px"></div>
@@ -1286,7 +1301,7 @@ html[data-theme="dark"] .rt td.hl{background:#2e2814;color:var(--accent)}
     <div class="card-body">
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
         <div class="fg"><label>التاريخ</label><input id="frt-date" type="date" style="width:150px"></div>
-        <div class="fg"><label>المبلغ</label><input id="frt-amount" type="number" min="0" step="0.01" placeholder="0.00" style="width:130px"></div>
+        <div class="fg"><label>المبلغ</label><input id="frt-amount" type="number" min="0" step="0.01" placeholder="0.00" style="width:130px" inputmode="decimal" onkeydown="if(event.key==='Enter'){event.preventDefault();addFreightPayment();}"></div>
         <div class="fg"><label>العملة</label><select id="frt-cur" class="cur-sel"><option value="SAR">SAR</option><option value="USD">USD</option></select></div>
         <div class="fg"><label>طريقة الدفع</label><select id="frt-method" onchange="onFrtMethodChange()"><option value="transfer">🏦 تحويل بنكي</option><option value="cash">💵 نقدًا</option></select></div>
         <div class="fg" id="frt-bank-wrap"><label>البنك</label><input id="frt-bank" placeholder="اسم البنك" style="width:150px"></div>
@@ -1354,7 +1369,7 @@ html[data-theme="dark"] .rt td.hl{background:#2e2814;color:var(--accent)}
     <div class="card-body">
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
         <div class="fg"><label>التاريخ</label><input id="comm-date" type="date" style="width:150px"></div>
-        <div class="fg"><label>المبلغ</label><input id="comm-amount" type="number" min="0" step="0.01" placeholder="0.00" style="width:130px"></div>
+        <div class="fg"><label>المبلغ</label><input id="comm-amount" type="number" min="0" step="0.01" placeholder="0.00" style="width:130px" inputmode="decimal" onkeydown="if(event.key==='Enter'){event.preventDefault();addCommPayment();}"></div>
         <div class="fg"><label>العملة</label><select id="comm-cur" class="cur-sel"><option value="SAR">SAR</option><option value="USD">USD</option></select></div>
         <div class="fg"><label>طريقة الدفع</label><select id="comm-method" onchange="onCommMethodChange()"><option value="transfer">🏦 تحويل بنكي</option><option value="cash">💵 نقدًا</option></select></div>
         <div class="fg" id="comm-bank-wrap"><label>البنك</label><input id="comm-bank" placeholder="اسم البنك" style="width:150px"></div>
@@ -1445,7 +1460,7 @@ html[data-theme="dark"] .rt td.hl{background:#2e2814;color:var(--accent)}
     <div class="card-body">
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
         <div class="fg"><label>التاريخ</label><input id="sa-date" type="date" style="width:150px"></div>
-        <div class="fg"><label>المبلغ</label><input id="sa-amount" type="number" min="0" step="0.01" placeholder="0.00" style="width:130px"></div>
+        <div class="fg"><label>المبلغ</label><input id="sa-amount" type="number" min="0" step="0.01" placeholder="0.00" style="width:130px" inputmode="decimal" onkeydown="if(event.key==='Enter'){event.preventDefault();addSupplierPayment();}"></div>
         <div class="fg"><label>العملة</label><select id="sa-cur" class="cur-sel"><option value="SAR">SAR</option><option value="USD">USD</option></select></div>
         <div class="fg"><label>طريقة الدفع</label><select id="sa-method" onchange="onSaMethodChange()"><option value="transfer">🏦 تحويل بنكي</option><option value="cash">💵 نقدًا</option></select></div>
         <div class="fg"><label>تخصّ</label><select id="sa-target"><option value="a">نموذج أ</option><option value="b">نموذج ب</option><option value="both">كلاهما</option></select></div>
@@ -2066,6 +2081,7 @@ function saveShipment() {
     document.getElementById('save-status').textContent = 'محفوظ ' + new Date().toLocaleTimeString('ar');
     toast('✅ تم حفظ الشحنة: ' + no);
     logAction('حفظ شحنة', no);
+    try{ clearDirty(); refreshInputDatalists(); updateShipLive(); checkDupShipNo(); }catch(e){}
   }
 }
 
@@ -2142,6 +2158,7 @@ function loadShipment(id) {
   document.getElementById('save-status').textContent = 'محمّل';
   toast('📂 تم تحميل الشحنة: ' + snap.shipmentNo);
   showPage('page-shipment');
+  try{ clearDirty(); refreshInputDatalists(); updateShipLive(); checkDupShipNo(); }catch(e){}
 }
 
 function deleteShipment(id) {
@@ -2169,7 +2186,7 @@ function blankShipment() {
     {id:7,label:'مصاريف التخزين',amount:0,cur:'SAR'},
   ];
   S.nextShipCostId=8; S.nextConCostId=100;
-  document.getElementById('shipment-no').value      = 'SH-'+new Date().getFullYear()+'-';
+  document.getElementById('shipment-no').value      = nextShipmentNo();
   document.getElementById('shipment-date').value    = new Date().toISOString().slice(0,10);
   document.getElementById('supplier-name').value    = '';
   document.getElementById('origin-country').value   = '';
@@ -2180,6 +2197,7 @@ function blankShipment() {
   buildContainerTabs();
   document.getElementById('results-content').innerHTML = '<div class="alert ai">⚠️ يرجى إدخال البيانات ثم الضغط على "احسب التكلفة"</div>';
   const st=document.getElementById('import-status'); if(st) st.textContent='';
+  try{ clearDirty(); refreshInputDatalists(); updateShipLive(); checkDupShipNo(); }catch(e){}
 }
 
 function newShipment() {
@@ -2188,6 +2206,85 @@ function newShipment() {
     showPage('page-shipment');
     toast('✨ شحنة جديدة جاهزة');
   });
+}
+
+// ═══════════════════════════════════════════
+// ✨ تحسينات شاشات الإدخال (دقة/مرونة/سرعة/ترتيب)
+// ═══════════════════════════════════════════
+var _dirty=false, _liveT=null;
+function markDirty(){ if(_dirty) return; _dirty=true; try{ var s=document.getElementById('save-status'); if(s) s.textContent='● '+tr('غير محفوظ'); var d=document.querySelector('.save-ind'); if(d) d.classList.add('unsaved'); }catch(e){} }
+function clearDirty(){ _dirty=false; try{ var d=document.querySelector('.save-ind'); if(d) d.classList.remove('unsaved'); }catch(e){} }
+function nextShipmentNo(){
+  var db=dbLoad(), yr=new Date().getFullYear();
+  var best=null,bestN=-1;
+  db.forEach(function(s){ var m=String(s.shipmentNo||'').match(/^(.*?)(\d+)\s*$/); if(m){ var n=parseInt(m[2],10); if(n>bestN){ bestN=n; best=m; } } });
+  if(best){ return best[1]+String(bestN+1).padStart(best[2].length,'0'); }
+  return 'SH-'+yr+'-001';
+}
+function checkDupShipNo(){
+  var el=document.getElementById('shipment-no'), w=document.getElementById('shipno-warn'); if(!el||!w) return;
+  var v=(el.value||'').trim().toLowerCase();
+  if(!v){ w.style.display='none'; el.classList.remove('inp-bad'); return; }
+  var dup=dbLoad().some(function(s){ return String(s.shipmentNo||'').trim().toLowerCase()===v && s.id!==S.currentId; });
+  if(dup){ w.textContent='⚠️ '+tr('رقم شحنة مستخدم من قبل'); w.style.display='block'; el.classList.add('inp-bad'); }
+  else { w.style.display='none'; el.classList.remove('inp-bad'); }
+}
+function refreshInputDatalists(){
+  try{
+    var idl=document.getElementById('scs-items-dl'), cdl=document.getElementById('scs-cont-dl');
+    if(!idl){ idl=document.createElement('datalist'); idl.id='scs-items-dl'; document.body.appendChild(idl); }
+    if(!cdl){ cdl=document.createElement('datalist'); cdl.id='scs-cont-dl'; document.body.appendChild(cdl); }
+    var items={}, conts={};
+    dbLoad().forEach(function(s){ (s.containers||[]).forEach(function(c){ if(c.number) conts[c.number]=1; (c.invoices||[]).forEach(function(inv){ (inv.items||[]).forEach(function(it){ if(it.name&&String(it.name).trim()) items[String(it.name).trim()]=1; }); }); }); });
+    idl.innerHTML=Object.keys(items).slice(0,500).map(function(n){return '<option value="'+escH(n)+'">';}).join('');
+    cdl.innerHTML=Object.keys(conts).slice(0,500).map(function(n){return '<option value="'+escH(n)+'">';}).join('');
+  }catch(e){}
+}
+function updateShipLive(){
+  var el=document.getElementById('ship-live'); if(!el || typeof S==='undefined' || !S.containers) return;
+  var nc=S.containers.length, ni=0, nit=0, fob=0;
+  S.containers.forEach(function(c){ ni+=(c.invoices||[]).length; (c.invoices||[]).forEach(function(inv){ var cur=inv.purchCur||S.invCur||'USD'; (inv.items||[]).forEach(function(it){ nit++; fob+=toSar((parseFloat(it.qty)||0)*(parseFloat(it.unitPrice)||0),cur); }); }); });
+  el.innerHTML='<span class="sl-chip">📦 '+nc+' '+tr('حاوية')+'</span>'+
+    '<span class="sl-chip">📄 '+ni+' '+tr('فاتورة')+'</span>'+
+    '<span class="sl-chip">🧩 '+nit+' '+tr('صنف')+'</span>'+
+    '<span class="sl-chip sl-total">💰 '+tr('إجمالي الشراء')+': '+fmtD(fob)+' SAR</span>';
+}
+function itemRowEnter(ci,ii,idx){
+  var inv=S.containers[ci-1].invoices[ii-1];
+  if(idx>=inv.items.length-1 && inv.items.length<5){ addItem(ci,ii); }
+  setTimeout(function(){ try{ var rows=document.querySelectorAll('#items-body-'+ci+'-'+ii+' tr'); var r=rows[Math.min(idx+1,rows.length-1)]; if(r){ var inp=r.querySelector('input[type=text]'); if(inp){ inp.focus(); inp.select&&inp.select(); } } }catch(e){} },30);
+  markDirty();
+}
+function duplicateItem(ci,ii,idx){
+  if(isReadonly())return;
+  var inv=S.containers[ci-1].invoices[ii-1]; if(!inv) return;
+  if(inv.items.length>=5){ toast('⚠️ '+tr('الحد 5 أصناف'),true); return; }
+  inv.items.splice(idx+1,0,JSON.parse(JSON.stringify(inv.items[idx])));
+  refreshPanel(ci); calcInvTot(ci,ii); markDirty(); toast('⧉ '+tr('تم تكرار الصنف'));
+}
+function duplicateInvoice(ci,ii){
+  if(isReadonly())return;
+  var c=S.containers[ci-1]; if(!c) return;
+  if(c.invoices.length>=5){ toast('⚠️ '+tr('الحد 5 فواتير'),true); return; }
+  var copy=JSON.parse(JSON.stringify(c.invoices[ii-1])); copy.id=c.invoices.length+1; copy.invNumber='';
+  c.invoices.splice(ii,0,copy);
+  refreshPanel(ci); buildInvCostPanels(); markDirty(); toast('⧉ '+tr('تم تكرار الفاتورة'));
+}
+function duplicateContainer(ci){
+  if(isReadonly())return;
+  if(S.containers.length>=7){ toast('⚠️ '+tr('الحد 7 حاويات'),true); return; }
+  var src=S.containers[ci-1]; if(!src) return;
+  var copy=JSON.parse(JSON.stringify(src)); copy.number=(src.number?src.number+'-'+tr('نسخة'):'');
+  S.containers.splice(ci,0,copy);
+  S.containers.forEach(function(c,i){ c.id=i+1; });
+  var sel=document.getElementById('container-count'); if(sel) sel.value=Math.min(7,S.containers.length);
+  buildContainerTabs(); try{ activateCTab(ci+1); }catch(e){} markDirty(); toast('⧉ '+tr('تم تكرار الحاوية'));
+}
+function _setupInputUX(){
+  try{
+    ['page-shipment','page-costs'].forEach(function(pid){ var p=document.getElementById(pid); if(p && !p._uxbound){ p._uxbound=1; p.addEventListener('input',function(){ markDirty(); clearTimeout(_liveT); _liveT=setTimeout(updateShipLive,260); }); p.addEventListener('change',function(){ clearTimeout(_liveT); _liveT=setTimeout(updateShipLive,60); }); } });
+    if(!window._beforeUnloadBound){ window._beforeUnloadBound=1; window.addEventListener('beforeunload',function(e){ if(_dirty){ e.preventDefault(); e.returnValue=''; return ''; } }); }
+  }catch(e){}
 }
 
 // ═══════════════════════════════════════════
@@ -2497,6 +2594,7 @@ function buildContainerTabs() {
     panelsEl.appendChild(p);
   }
   buildInvCostPanels(); buildConCostPanels(); renderShipCosts();
+  try{ updateShipLive(); }catch(e){}
 }
 function rebuildAllPanels(){
   document.getElementById('container-count').value=S.containers.length;
@@ -2513,10 +2611,11 @@ function mkItem(){ return {name:'',qty:1,unitPrice:0}; }
 
 function buildCPanel(ci){
   const c=S.containers[ci-1];
-  let h=`<div class="form-row" style="margin-bottom:9px">
+  let h=`<div class="form-row" style="margin-bottom:9px;align-items:flex-end">
     <div class="fg"><label>رقم الحاوية / Container No.</label>
-    <input type="text" value="${escH(c.number)}" placeholder="مثال: TCKU1234567"
+    <input type="text" value="${escH(c.number)}" placeholder="مثال: TCKU1234567" list="scs-cont-dl"
       onchange="S.containers[${ci-1}].number=this.value" style="min-width:175px"></div>
+    <button class="btn btn-outline btn-sm" title="${tr('تكرار الحاوية ببياناتها')}" onclick="duplicateContainer(${ci})">⧉ ${tr('تكرار الحاوية')}</button>
   </div>`;
   c.invoices.forEach((_,ii)=>{ h+=buildInvHTML(ci,ii+1); });
   h+=`<button class="add-btn" onclick="addInvoice(${ci})">＋ ${tr('إضافة فاتورة للحاوية')} ${ci}</button>`;
@@ -2535,6 +2634,7 @@ function buildInvHTML(ci,ii){
         <input type="text" value="${escH(inv.invNumber||'')}" placeholder="INV-001"
           onchange="S.containers[${ci-1}].invoices[${ii-1}].invNumber=this.value"
           style="width:120px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.28);color:#fff;border-radius:5px;padding:3px 6px;font-size:.76rem">
+        <button class="del-btn" style="color:#fff" title="${tr('تكرار الفاتورة')}" onclick="duplicateInvoice(${ci},${ii})">⧉</button>
         ${ii>1?`<button class="del-btn" style="color:#ffb3b3" onclick="removeInvoice(${ci},${ii})">🗑️</button>`:''}
       </div>
     </div>
@@ -2590,15 +2690,16 @@ function buildItemRows(ci,ii){
     const totSar=tot*rate;
     return `
     <tr><td>${idx+1}</td>
-    <td><input type="text" value="${escH(it.name)}" placeholder="${tr(S.itemLabel||'الصنف')}..."
+    <td><input type="text" value="${escH(it.name)}" placeholder="${tr(S.itemLabel||'الصنف')}..." list="scs-items-dl"
       onchange="updIt(${ci},${ii},${idx},'name',this.value)" style="text-align:right;min-width:140px"></td>
-    <td><input type="number" value="${it.qty}" min="1" step="1" style="width:62px"
+    <td><input type="number" value="${it.qty}" min="1" step="1" style="width:62px" inputmode="decimal"
       onchange="updIt(${ci},${ii},${idx},'qty',this.value);calcInvTot(${ci},${ii})"></td>
-    <td><input type="number" value="${it.unitPrice||''}" min="0" step="0.01" style="width:95px"
+    <td><input type="number" value="${it.unitPrice||''}" min="0" step="0.01" style="width:95px" inputmode="decimal"
+      onkeydown="if(event.key==='Enter'){event.preventDefault();itemRowEnter(${ci},${ii},${idx});}"
       onchange="updIt(${ci},${ii},${idx},'unitPrice',this.value);calcInvTot(${ci},${ii})"></td>
     <td class="num" id="it-tot-${ci}-${ii}-${idx}">${fmtN(tot)}</td>
     ${!isSar?`<td class="num sar-equiv" id="it-sar-${ci}-${ii}-${idx}" style="color:var(--success);font-size:.78rem">${fmtN(totSar)}</td>`:''}
-    <td>${idx>0?`<button class="del-btn" onclick="removeItem(${ci},${ii},${idx})">✕</button>`:''}</td>
+    <td style="white-space:nowrap"><button class="mini-btn" title="${tr('تكرار الصنف')}" onclick="duplicateItem(${ci},${ii},${idx})">⧉</button>${idx>0?`<button class="del-btn" onclick="removeItem(${ci},${ii},${idx})">✕</button>`:''}</td>
     </tr>`;
   }).join('');
 }
@@ -2618,6 +2719,7 @@ function calcInvTot(ci,ii){
   const t=inv.items.reduce((s,it)=>s+it.qty*it.unitPrice,0);
   const e=document.getElementById(`inv-total-${ci}-${ii}`); if(e)e.textContent=fmtN(t);
   const es=document.getElementById(`inv-total-sar-${ci}-${ii}`); if(es)es.textContent=fmtN(t*rate)+' SAR';
+  try{ updateShipLive(); }catch(e){}
 }
 
 function onInvCurChange(ci,ii,cur){
@@ -3343,7 +3445,8 @@ function showPage(id){
   const pages=['page-dashboard','page-shipment','page-costs','page-results','page-pricing','page-archive','page-payments','page-freight','page-supacct','page-comm','page-modelrep','page-compare'];
   document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',pages[i]===id));
   if(id==='page-dashboard'){ renderDashboard(); }
-  if(id==='page-costs'){ buildInvCostPanels(); buildConCostPanels(); renderShipCosts(); }
+  if(id==='page-shipment'){ try{ _setupInputUX(); refreshInputDatalists(); updateShipLive(); checkDupShipNo(); }catch(e){} }
+  if(id==='page-costs'){ buildInvCostPanels(); buildConCostPanels(); renderShipCosts(); try{ _setupInputUX(); }catch(e){} }
   if(id==='page-archive'){ renderArchive(); }
   if(id==='page-pricing'){ loadPricingPage(); }
   if(id==='page-payments'){ renderPayments(); }
@@ -6767,7 +6870,7 @@ function exportPaymentsExcel(){
 // ═══════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════
-var APP_VERSION='v2026-10-29.30';   // رقم إصدار ظاهر للتحقق من تحميل أحدث نسخة (لا cache قديم)
+var APP_VERSION='v2026-10-29.31';   // رقم إصدار ظاهر للتحقق من تحميل أحدث نسخة (لا cache قديم)
 // ═══════════════════════════════════════════
 // 🌐 محرّك الترجمة الشامل (عربي / English / 中文) — قاموس + مسح DOM + مراقب تغييرات
 // ═══════════════════════════════════════════
@@ -7525,6 +7628,39 @@ Object.assign(TR.zh,{
 });
 Object.assign(TR.en,{'أغلى شحنة':'Most expensive shipment','أعلى مورد رصيداً':'Highest supplier balance','متوسط تكلفة الشحنة':'Average shipment cost','أكثر عملات الشراء':'Top purchase currency'});
 Object.assign(TR.zh,{'أغلى شحنة':'最贵装运','أعلى مورد رصيداً':'供应商余额最高','متوسط تكلفة الشحنة':'平均装运成本','أكثر عملات الشراء':'主要采购货币'});
+// الدفعة 11: تحسينات شاشات الإدخال
+Object.assign(TR.en,{
+ 'غير محفوظ':'Unsaved',
+ 'رقم شحنة مستخدم من قبل':'Shipment number already used',
+ 'إجمالي الشراء':'Total purchase',
+ 'تكرار الصنف':'Duplicate item',
+ 'تكرار الحاوية':'Duplicate container',
+ 'تكرار الحاوية ببياناتها':'Duplicate container with its data',
+ 'تكرار الفاتورة':'Duplicate invoice',
+ 'نسخة':'copy',
+ 'الحد 7 حاويات':'Max 7 containers',
+ 'الحد 5 فواتير':'Max 5 invoices',
+ 'الحد 5 أصناف':'Max 5 items',
+ 'تم تكرار الصنف':'Item duplicated',
+ 'تم تكرار الفاتورة':'Invoice duplicated',
+ 'تم تكرار الحاوية':'Container duplicated'
+});
+Object.assign(TR.zh,{
+ 'غير محفوظ':'未保存',
+ 'رقم شحنة مستخدم من قبل':'装运编号已被使用',
+ 'إجمالي الشراء':'采购合计',
+ 'تكرار الصنف':'复制项目',
+ 'تكرار الحاوية':'复制集装箱',
+ 'تكرار الحاوية ببياناتها':'复制集装箱及其数据',
+ 'تكرار الفاتورة':'复制发票',
+ 'نسخة':'副本',
+ 'الحد 7 حاويات':'最多7个集装箱',
+ 'الحد 5 فواتير':'最多5张发票',
+ 'الحد 5 أصناف':'最多5个项目',
+ 'تم تكرار الصنف':'项目已复制',
+ 'تم تكرار الفاتورة':'发票已复制',
+ 'تم تكرار الحاوية':'集装箱已复制'
+});
 var _trOrig=new WeakMap(), _trPh=new WeakMap(), _trTitle=new WeakMap(), _trBusy=false, _trObs=null, _trTimer=null;
 var _emojiLead=/^((?:[←-⇿⌀-➿⬀-⯿☀-⛿️\uD83C-􏰀-\uDFFF\s])+)/;
 function _trLook(lang,ar){ var d=TR[lang]; if(!d) return null; return (d[ar]!=null)?d[ar]:null; }
@@ -7645,6 +7781,7 @@ function initApp() {
   }
   // تحميل لوحة التحكم إن كانت هي الصفحة الظاهرة
   try{ var pd=document.getElementById('page-dashboard'); if(pd && pd.classList.contains('active')) renderDashboard(); }catch(e){}
+  try{ _setupInputUX(); refreshInputDatalists(); updateShipLive(); }catch(e){}
 }
 
 window.onload = function() {
