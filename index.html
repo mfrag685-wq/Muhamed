@@ -2119,7 +2119,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-10-30-f';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-10-30-g';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -2656,7 +2656,7 @@ function doLogin(e){
   var user=db.users.filter(function(x){return x.username.toLowerCase()===u.toLowerCase();})[0];
   var err=document.getElementById('loginErr');
   if(!user||user.pass!==hash(p)){ recordFailedLogin(u,user?'كلمة مرور خاطئة':'اسم مستخدم غير موجود');
-    err.textContent='اسم المستخدم أو كلمة المرور غير صحيحة — تُسجَّل محاولات الدخول الفاشلة ويطّلع عليها المدير'; err.style.display='block'; return; }
+    err.textContent='اسم المستخدم أو كلمة المرور غير صحيحة'; err.style.display='block'; return; }
   if(!Number(user.active)){ recordFailedLogin(u,'الحساب موقوف'); err.textContent='هذا الحساب موقوف. راجع مدير النظام.'; err.style.display='block'; return; }
   err.style.display='none';
   user.lastLogin=nowTs(); ME=user;
