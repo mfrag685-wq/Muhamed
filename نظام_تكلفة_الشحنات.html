@@ -6870,7 +6870,7 @@ function exportPaymentsExcel(){
 // ═══════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════
-var APP_VERSION='v2026-10-29.31';   // رقم إصدار ظاهر للتحقق من تحميل أحدث نسخة (لا cache قديم)
+var APP_VERSION='v2026-10-29.32';   // رقم إصدار ظاهر للتحقق من تحميل أحدث نسخة (لا cache قديم)
 // ═══════════════════════════════════════════
 // 🌐 محرّك الترجمة الشامل (عربي / English / 中文) — قاموس + مسح DOM + مراقب تغييرات
 // ═══════════════════════════════════════════
@@ -7691,11 +7691,30 @@ function translatePass(root){
 function applyLang(){
   var l=curLang();
   try{ document.documentElement.lang=l; document.documentElement.setAttribute('dir',(l==='ar')?'rtl':'ltr'); }catch(e){}
-  // إعادة بناء الألواح الديناميكية (الحاويات/الفواتير/التكاليف) المبنية بـ tr() وقت البناء
-  try{ if(typeof S!=='undefined' && S && Array.isArray(S.containers) && S.containers.length && document.getElementById('container-tabs')){ buildContainerTabs(); } }catch(e){}
   try{ translatePass(document.body); }catch(e){}
+  // إعادة بناء الصفحة الديناميكية النشطة باللغة الحالية (المحتوى المبني بـ tr() لا يُعكَس تلقائياً)
+  try{ _renderActivePage(); }catch(e){}
+  // ترجمة ثانية للمحتوى المُعاد بناؤه بنصوص عربية يعتمد على المحرّك (مثل شاشة المقارنة)
+  try{ if(l!=='ar') translatePass(document.body); }catch(e){}
   var sw=document.getElementById('lang-switch'); if(sw) sw.value=l;
   _ensureTrObserver();
+}
+// يعيد تشغيل مُولِّد الصفحة النشطة (يُستدعى عند تبديل اللغة لإصلاح المحتوى الديناميكي)
+function _renderActivePage(){
+  var ap=document.querySelector('.page.active'); if(!ap) return; var id=ap.id;
+  try{
+    if(id==='page-dashboard'){ renderDashboard(); }
+    else if(id==='page-shipment'){ if(typeof S!=='undefined' && S && Array.isArray(S.containers) && S.containers.length && document.getElementById('container-tabs')){ buildContainerTabs(); } }
+    else if(id==='page-costs'){ buildInvCostPanels(); buildConCostPanels(); renderShipCosts(); }
+    else if(id==='page-pricing'){ loadPricingPage(); }
+    else if(id==='page-payments'){ renderPayments(); }
+    else if(id==='page-freight'){ renderFreight(); }
+    else if(id==='page-supacct'){ renderSupAcct(); }
+    else if(id==='page-comm'){ renderCommAcct(); }
+    else if(id==='page-modelrep'){ renderModelReport(); }
+    else if(id==='page-compare'){ renderCompare(); try{ renderCmpBEditor(); }catch(e){} }
+    else if(id==='page-archive'){ renderArchive(); }
+  }catch(e){}
 }
 function _ensureTrObserver(){
   if(_trObs||typeof MutationObserver==='undefined'||!document.body) return;
