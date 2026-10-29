@@ -1142,6 +1142,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 <section id="expenses" class="panel">
   <div class="print-head"><span class="print-logo"></span><h3>سجل المصروفات</h3><p>إعداد محمد فرج</p></div>
   <div class="panel-title">المصروفات ومراكز التكلفة</div>
+  <div class="sec-title no-print" data-act="e_form">تسجيل مصروف <span class="hint">مباشر لفرع أو مشترك موزّع — ويمكن سند مجمّع بعدة بنود</span></div>
   <div class="doc-box no-print" id="expenseFormBox">
     <div class="field" style="margin-bottom:8px;position:relative">
       <label>🔍 بحث عن مصروف سابق <span class="hint">اكتب كلمة من البيان أو التصنيف أو المبلغ — اضغط النتيجة لإعادة استخدامها</span></label>
@@ -1196,6 +1197,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
       <button class="btn" onclick="splitEqually()">توزيع بالتساوي</button>
       <span class="editing-note" id="e_editing"></span></div>
   </div>
+  <div class="sec-title no-print" data-act="e_filter">البحث والفلترة <span class="hint">التحليل والقائمة أدناه يتبعان الفلترة</span></div>
   <div class="filters no-print">
     <div class="field"><label>بحث</label><input type="text" id="ef_search" oninput="renderExpenses()" placeholder="🔍 البيان أو المورد أو التصنيف"></div>
     <div class="field"><label>من</label><input type="date" id="ef_from" onchange="renderExpenses()"></div>
@@ -1210,14 +1212,18 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
     <button class="btn" onclick="clearExpenseFilters()">إلغاء الفلترة</button>
     <button class="btn" onclick="exportTable('expenses')">تصدير Excel</button>
   </div>
+  <div class="sec-title" data-act="e_kpi">تحليل المصروفات <span class="hint" id="expCmpHint"></span></div>
+  <div class="cards dash-kpis" id="expCards"></div>
+  <div class="chart-grid" id="expCharts"></div>
+  <div class="sec-title" data-act="e_list">قائمة بنود المصروفات</div>
   <div id="expReconcile" class="note no-print" style="display:none;margin-bottom:8px"></div>
   <div class="table-scroll"><table>
     <thead><tr><th>التاريخ</th><th>النوع</th><th class="name">الجهة</th><th class="name">التصنيف</th>
       <th>القيمة</th><th class="name">البيان</th><th class="name">أدخلها</th><th>إجراء</th></tr></thead>
     <tbody id="tbExpenses"></tbody></table></div>
-  <div class="sec-title">المصروفات حسب التصنيف</div>
+  <div class="sec-title" data-act="e_cat">المصروفات حسب التصنيف</div>
   <div class="table-scroll"><table>
-    <thead><tr><th class="name">التصنيف</th><th>مباشر</th><th>مشترك</th><th>الإجمالي</th><th>النسبة</th></tr></thead>
+    <thead><tr><th>#</th><th class="name">التصنيف</th><th>مباشر</th><th>مشترك</th><th>الإجمالي</th><th>النسبة</th></tr></thead>
     <tbody id="tbExpCat"></tbody></table></div>
 </section>
 
@@ -2062,7 +2068,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-10-29-f';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-10-29-g';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -5831,6 +5837,8 @@ var ACTS={
   count:['📋','الجرد الفعلي','#ea580c','#fff7ed','#fed7aa'], value:['📉','حركة قيمة المخزون','#4f46e5','#eef2ff','#c7d2fe'],
   r_simple:['⚖️','التقرير المبسّط','#0f766e','#f0fdfa','#99f6e4'], r_detail:['📑','التقارير التفصيلية','#2563eb','#eff6ff','#bfdbfe'],
   r_table:['🧾','جدول التقرير','#334155','#f1f5f9','#cbd5e1'],
+  e_form:['✍️','تسجيل مصروف','#16a34a','#f0fdf4','#bbf7d0'], e_filter:['🔍','البحث والفلترة','#475569','#f8fafc','#cbd5e1'],
+  e_kpi:['🎯','التحليل','#0f766e','#f0fdfa','#99f6e4'], e_list:['🗂️','قائمة البنود','#2563eb','#eff6ff','#bfdbfe'], e_cat:['🏷️','حسب التصنيف','#d97706','#fffbeb','#fde68a'],
   i_kpi:['🎯','المؤشرات','#0f766e','#f0fdfa','#99f6e4'], i_charts:['📈','الرسوم البيانية','#2563eb','#eff6ff','#bfdbfe'],
   i_branch:['🏪','قائمة كل فرع','#7c3aed','#f5f3ff','#ddd6fe'], i_total:['🏛️','قائمة الشركة','#0f172a','#f1f5f9','#cbd5e1'], r_excel:['📥','نماذج Excel','#16a34a','#f0fdf4','#bbf7d0']};
 var ACT_MATCH=[['تحويل بين المستودعات','transfer'],['الفاقد والتوالف','waste'],['تحويل بضائع بين الأقسام','dept'],['إضافة أصناف للمخزون','opening'],
@@ -5854,7 +5862,7 @@ function actAuto(panelId,h,i){
   var danger=/تصفير|شطب|حذف/.test(t), pal=danger?['#dc2626','#fef2f2','#fecaca']:ACT_PAL[i%ACT_PAL.length], key='a_'+panelId+'_'+i;
   ACTS[key]=[ic,name||('قسم '+(i+1)),pal[0],pal[1],pal[2]]; return key; }
 function actPaint(el,key){ var a=ACTS[key]; if(!a) return; el.style.setProperty('--ac',a[2]); el.style.setProperty('--acl',a[3]); el.style.setProperty('--acb',a[4]); }
-function actShown(el,root){ for(var e=el; e&&e!==root; e=e.parentElement){ if(e.style&&e.style.display==='none') return false; } return true; }
+function actShown(el,root){ for(var e=el; e&&e!==root; e=e.parentElement){ if((e.style&&e.style.display==='none')||(e.classList&&e.classList.contains('hidden'))) return false; } return true; }
 function actNavInit(panelId){
   var root=document.getElementById(panelId); if(!root) return;
   var nav=document.getElementById(panelId+'ActNav'), ai=0;
@@ -6539,7 +6547,7 @@ function filteredExpenses(){
 function renderExpenses(){
   fillExpCats();   /* تحديث قائمتي التصنيف (الإدخال + الفلتر) لتشمل المخصّص */
   var rows=filteredExpenses();
-  var h='',T=0,cats={};
+  var h='',T=0,cats={}, mxA=0; rows.forEach(function(x){ if(+x.amount>mxA) mxA=+x.amount; });
   rows.forEach(function(x){
     T+=x.amount;
     if(!cats[x.cat||'أخرى']) cats[x.cat||'أخرى']={d:0,s:0};
@@ -6547,7 +6555,7 @@ function renderExpenses(){
     h+='<tr><td>'+esc(x.date)+'</td><td><span class="pill '+(x.type==='direct'?'pill-ok':(x.type==='shared'?'pill-warn':'pill-info'))+'">'
       +esc(expTypeLabel(x.type))+'</span></td>'
       +'<td class="name">'+esc(expTargetLabel(x))+'</td>'
-      +'<td class="name">'+esc(x.cat||'')+'</td><td>'+money(x.amount)+(amortInfo(x)?' <span class="pill pill-info">'+esc(amortLabel(x))+'</span>':'')+'</td>'
+      +'<td class="name">'+esc(x.cat||'')+'</td><td>'+money(x.amount)+'<span class="mbar" style="--mb:#e03131;width:'+(mxA>0?Math.max(3,x.amount/mxA*100):0).toFixed(0)+'%"></span>'+(amortInfo(x)?' <span class="pill pill-info">'+esc(amortLabel(x))+'</span>':'')+'</td>'
       +'<td class="name">'+esc(x.desc)+(x.grp?' <span class="pill pill-info" title="بند ضمن سند مجمّع">🧾 '+esc(x.voucher||'سند مجمّع')+'</span>':'')+'</td>'
       +'<td class="name muted">'+enteredBy(x)+'</td>'
       +'<td>'+(can('canAdd')?'<button class="btn-sm btn-alt" onclick="repeatExpense('+x.id+')" title="تكرار هذا المصروف بتاريخ جديد (يومي/شهري) مع إمكانية التعديل">⟳ تكرار</button> ':'')
@@ -6555,13 +6563,43 @@ function renderExpenses(){
   });
   document.getElementById('tbExpenses').innerHTML=mineOnlyRow(8)+(h?h+'<tr class="total-row"><td colspan="4">الإجمالي</td><td>'+money(T)+'</td><td colspan="3"></td></tr>'
     :'<tr><td colspan="8" class="empty">لا توجد مصروفات في هذه الفترة.</td></tr>');
-  var ch=Object.keys(cats).sort(function(a,b){return (cats[b].d+cats[b].s)-(cats[a].d+cats[a].s);}).map(function(k){
-    var v=cats[k],s=v.d+v.s;
-    return '<tr><td class="name">'+esc(k)+'</td><td>'+money(v.d)+'</td><td>'+money(v.s)+'</td><td>'+money(s)+'</td><td class="muted">'+pct(s,T)+'</td></tr>'; }).join('');
-  document.getElementById('tbExpCat').innerHTML=mineOnlyRow(5)+(ch||'<tr><td colspan="5" class="empty">—</td></tr>');
+  var ch=Object.keys(cats).sort(function(a,b){return (cats[b].d+cats[b].s)-(cats[a].d+cats[a].s);}).map(function(k,i){
+    var v=cats[k],s=v.d+v.s, sh=T>0?s/T*100:0;
+    return '<tr><td><span class="rk'+(i<3?' r'+(i+1):'')+'">'+(i+1)+'</span></td><td class="name"><b>'+esc(k)+'</b></td><td>'+money(v.d)+'</td><td>'+money(v.s)+'</td><td><b>'+money(s)+'</b></td>'
+      +'<td class="muted">'+pct(s,T)+'<span class="mbar" style="--mb:#d97706;width:'+Math.max(3,sh).toFixed(0)+'%"></span></td></tr>'; }).join('');
+  if(ch) ch+='<tr class="total-row"><td></td><td>الإجمالي</td><td></td><td></td><td>'+money(T)+'</td><td>100%</td></tr>';
+  document.getElementById('tbExpCat').innerHTML=mineOnlyRow(6)+(ch||'<tr><td colspan="6" class="empty">—</td></tr>');
   renderExpReconcile(rows.length, T);
+  try{ renderExpenseVisuals(rows,T,cats); actNavInit('expenses'); }catch(e){}
 }
 
+/* لمسات شاشة المصروفات: مؤشرات (مع مقارنة بالفترة السابقة عند تحديد فترة) + رسوم تتبع الفلترة */
+function renderExpenseVisuals(rows,T,cats){
+  var box=document.getElementById('expCards'), cbox=document.getElementById('expCharts'); if(!box) return;
+  var f=val('ef_from'), t=val('ef_to'), prv=null;
+  if(f&&t&&t>=f){ var nd=Math.round((new Date(t)-new Date(f))/86400000)+1, pTo=ivAddDays(f,-1), pFrom=ivAddDays(pTo,-(nd-1)), ps=0;
+    (db.expenses||[]).forEach(function(x){ if(canSeeRec(x)&&x.date>=pFrom&&x.date<=pTo) ps+=+x.amount||0; }); prv={s:ps,from:pFrom,to:pTo}; }
+  var hint=document.getElementById('expCmpHint'); if(hint) hint.textContent=prv?('مقارنة بالفترة السابقة المماثلة '+prv.from+' ← '+prv.to):'حدّد «من/إلى» لتظهر المقارنة بالفترة السابقة';
+  var dir=0, sh=0, big=null, days={}; rows.forEach(function(x){ var a=+x.amount||0; if(x.type==='direct') dir+=a; else sh+=a; if(!big||a>big.amount) big=x; days[x.date]=1; });
+  var topCat=Object.keys(cats).sort(function(a,b){ return (cats[b].d+cats[b].s)-(cats[a].d+cats[a].s); })[0], tc=topCat?cats[topCat].d+cats[topCat].s:0;
+  var dk=''; if(prv){ var d=deltaPct(prv.s,T); dk=d?'<span class="kd '+(d.dir==='up'?'down':'up')+'" title="'+prv.from+' ← '+prv.to+'">'+d.txt+' عن السابقة</span>':'<span class="kd flat">لا مقارنة</span>'; }
+  var kc=function(ic,col,lc,k,v,n,x,dark){ return '<div class="card'+(dark?' dark':'')+'" style="--kc:'+col+';--kcl:'+lc+'"><span class="kic">'+ic+'</span><div class="k">'+k+'</div><div class="v">'+v+'</div><div class="n">'+n+'</div>'+(x||'')+'</div>'; };
+  var nd2=Object.keys(days).length;
+  box.innerHTML=kc('💸','#e03131','#fdecec','إجمالي المصروفات',money(T),rows.length+' بند · '+nd2+' يوم',dk,true)
+    +kc('🧮','#2a78d6','#eaf2fc','متوسط البند',money(rows.length?T/rows.length:0),'متوسط اليوم '+money(nd2?T/nd2:0))
+    +kc('🎯','#1f9d57','#e7f6ee','مباشر على الفروع',money(dir),(T>0?(dir/T*100).toFixed(1):'0')+'% من الإجمالي')
+    +kc('🔀','#e8900c','#fdf3e3','مشترك موزّع',money(sh),(T>0?(sh/T*100).toFixed(1):'0')+'% من الإجمالي')
+    +kc('🏷️','#7048cf','#f1edfb','أكبر تصنيف',esc(topCat||'—'),money(tc)+' · '+(T>0?(tc/T*100).toFixed(1):'0')+'%')
+    +kc('🔝','#d6336c','#fcebf1','أكبر بند',money(big?big.amount:0),big?esc((big.desc||big.cat||'')+' · '+big.date):'—');
+  if(!cbox) return;
+  var M={}; rows.forEach(function(x){ var k=(x.date||'').slice(0,7); if(k) M[k]=(M[k]||0)+(+x.amount||0); });
+  var mk=Object.keys(M).sort().slice(-12);
+  var trend=barChart('المصروفات الشهرية','إجمالي كل شهر حسب الفلترة الحالية',mk,[{name:'المصروفات',color:'#e03131',vals:mk.map(function(k){ return M[k]; })}]);
+  var dn=donutChart('توزيع المصروفات حسب التصنيف','نصيب كل تصنيف من الإجمالي',Object.keys(cats).map(function(k){ return {label:k,value:cats[k].d+cats[k].s}; }));
+  var tg={}; rows.forEach(function(x){ var l=x.type==='direct'?expTargetLabel(x):'مشترك موزّع'; tg[l]=(tg[l]||0)+(+x.amount||0); });
+  var hb=hBarChart('المصروفات حسب الجهة المستفيدة','المباشر لكل فرع مقابل المشترك الموزّع',Object.keys(tg).map(function(k){ return {label:k,value:tg[k],color:k==='مشترك موزّع'?'#e8900c':'#2a78d6'}; }).sort(function(a,b){ return b.value-a.value; }).slice(0,8));
+  cbox.innerHTML=trend+dn+hb;
+}
 /* الرصيد النهائي لجهة — مصدر واحد يشمل كل المكوّنات (قيود التسوية adj ضمنها) */
 function supBal(v){ return (v.buy||0)-(v.ret||0)+(v.opening||0)-(v.paid||0)+(v.adj||0); }
 function clBal(v){ return (v.sell||0)-(v.ret||0)+(v.opening||0)-(v.recv||0)-(v.disc||0)+(v.adj||0); }
