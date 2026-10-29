@@ -5874,7 +5874,7 @@ function printCmpAccounts(){
       '<tr class=tot><td>'+(rem>=0?'المتبقّي':'فائض مدفوع')+'</td><td class=num>'+fmtD(Math.abs(rem))+'</td></tr>'+
       '</tbody></table>';
   }
-  cmpPrintWindow('كشف حساب النماذج — '+escH(L.a)+' و '+escH(L.b), stmt('a',L.a)+stmt('b',L.b));
+  cmpPrintWindow('كشف حساب النماذج — '+escH(L.a)+' '+tr('و')+' '+escH(L.b), stmt('a',L.a)+stmt('b',L.b));
 }
 function printCmpNet(){
   var L=cmpLabels(); var basis=cmpBasis();
@@ -6244,7 +6244,7 @@ function cmpPrintWindow(title, inner){
     'table{width:100%;border-collapse:collapse;margin:8px 0 18px;font-size:12px}th,td{border:1px solid #bbb;padding:6px 8px;text-align:center}th{background:#1a3a5c;color:#fff}'+
     'td.num{text-align:center}tr.tot{background:#e3f2fd;font-weight:800}h3{margin:14px 0 4px;font-size:14px;color:#1a3a5c;border-bottom:2px solid #1a3a5c;padding-bottom:2px}';
   w.document.write('<!doctype html><html dir=\"rtl\"><head><meta charset=\"utf-8\"><title>'+title+'</title><style>'+css+'</style></head><body>'+
-    '<h1>'+title+'</h1><div class=\"sub\">'+escH(pname)+' — '+new Date().toLocaleString('ar')+'</div>'+inner+
+    '<h1>'+title+'</h1><div class=\"sub\">'+escH(pname)+' — '+new Date().toLocaleString(curLang()==='ar'?'ar':(curLang()==='zh'?'zh-CN':'en-GB'))+'</div>'+inner+
     '<script>window.onload=function(){window.print();}<\/script></body></html>');
   try{ translateDoc(w.document); }catch(e){}
   w.document.close();
@@ -6485,7 +6485,7 @@ function exportPaymentsExcel(){
 // ═══════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════
-var APP_VERSION='v2026-10-29.27';   // رقم إصدار ظاهر للتحقق من تحميل أحدث نسخة (لا cache قديم)
+var APP_VERSION='v2026-10-29.28';   // رقم إصدار ظاهر للتحقق من تحميل أحدث نسخة (لا cache قديم)
 // ═══════════════════════════════════════════
 // 🌐 محرّك الترجمة الشامل (عربي / English / 中文) — قاموس + مسح DOM + مراقب تغييرات
 // ═══════════════════════════════════════════
@@ -7140,6 +7140,37 @@ Object.assign(TR.zh,{
  'غرفة / صنف':'房间 / 项目',
  'غرفة / صنف...':'房间 / 项目...'
 });
+// الدفعة الثامنة: عبارات الطباعة (المقارنة/العمولة/الكشوف)
+Object.assign(TR.en,{
+ 'الرصيد المتبقّي:':'Remaining balance:',
+ 'مستحق':'due',
+ 'مدفوع بالزيادة':'overpaid',
+ 'كشف حساب المورد:':'Supplier account:',
+ 'كشف حساب النماذج':'Models account statement',
+ 'فائض مدفوع':'overpaid surplus',
+ 'لا توجد موديلات مشتركة لهذه الشحنة':'No shared models for this shipment',
+ 'الشحنة:':'Shipment:',
+ 'مقارنة إجماليات الشحنات':'Shipment totals comparison',
+ 'المقارنة التحليلية (موديل بموديل)':'Analytical comparison (model by model)',
+ 'مقابل':'vs',
+ 'النهاية':'the end'
+});
+Object.assign(TR.zh,{
+ 'الرصيد المتبقّي:':'剩余余额：',
+ 'مستحق':'应付',
+ 'مدفوع بالزيادة':'超付',
+ 'كشف حساب المورد:':'供应商账户：',
+ 'كشف حساب النماذج':'型号账户对账单',
+ 'فائض مدفوع':'超付余额',
+ 'لا توجد موديلات مشتركة لهذه الشحنة':'此装运无共享型号',
+ 'الشحنة:':'装运：',
+ 'مقارنة إجماليات الشحنات':'装运总额对比',
+ 'المقارنة التحليلية (موديل بموديل)':'分析对比（逐型号）',
+ 'مقابل':'对比',
+ 'النهاية':'结束'
+});
+Object.assign(TR.en,{'و':'&','نقد':'Cash'});
+Object.assign(TR.zh,{'و':'和','نقد':'现金'});
 var _trOrig=new WeakMap(), _trPh=new WeakMap(), _trTitle=new WeakMap(), _trBusy=false, _trObs=null, _trTimer=null;
 var _emojiLead=/^((?:[←-⇿⌀-➿⬀-⯿☀-⛿️\uD83C-􏰀-\uDFFF\s])+)/;
 function _trLook(lang,ar){ var d=TR[lang]; if(!d) return null; return (d[ar]!=null)?d[ar]:null; }
@@ -7185,7 +7216,42 @@ function setLang(l){ try{ localStorage.setItem(LANG_KEY,l); }catch(e){} applyLan
 // ترجمة نص مفرد (للتصدير والطباعة): يرجّع العربي كما هو عند اللغة العربية أو تعذّر الترجمة
 function tr(ar){ try{ var l=curLang(); if(l==='ar'||ar==null) return ar; var s=String(ar); var lead='',core=s; var m=s.match(_emojiLead); if(m){ lead=m[1]; core=s.slice(lead.length); } var hit=_trLook(l,core.trim()); if(hit==null) hit=_trLook(l,s.trim()); if(hit==null) return ar; return (m? lead:'')+hit; }catch(e){ return ar; } }
 // ترجمة محتوى مستند منفصل (نافذة طباعة) بالكامل حسب اللغة الحالية
-function translateDoc(doc){ try{ var l=curLang(); if(l==='ar'||!doc) return; try{ doc.documentElement.setAttribute('dir',(l==='ar')?'rtl':'ltr'); doc.documentElement.lang=l; }catch(e){} var root=doc.body||doc.documentElement; if(!root) return; var w=doc.createTreeWalker(root, NodeFilter.SHOW_TEXT, null, false), n, list=[]; while(n=w.nextNode()){ var p=n.parentNode; if(!p) continue; var tg=p.nodeName; if(tg==='SCRIPT'||tg==='STYLE') continue; list.push(n); } list.forEach(function(nd){ try{ var cur=nd.nodeValue, t=(cur||'').trim(); if(!t) return; var lead='',core=t; var m=t.match(_emojiLead); if(m){ lead=m[1]; core=t.slice(lead.length); } var hit=_trLook(l,core.trim()); if(hit==null) hit=_trLook(l,t); if(hit==null) return; nd.nodeValue=cur.replace(t, (m?lead:'')+hit); }catch(e){} }); }catch(e){} }
+// قائمة عبارات مرتّبة (الأطول أولاً) لكل لغة — للترجمة على مستوى العبارة داخل النصوص المركّبة (الطباعة)
+var _trPhraseCache={};
+function _trPhrases(lang){
+  if(_trPhraseCache[lang]) return _trPhraseCache[lang];
+  var d=TR[lang]||{}, arr=[];
+  var AR='\\u0621-\\u064A\\u0660-\\u0669';
+  for(var k in d){ if(!d.hasOwnProperty(k)) continue;
+    var key=(k||'').trim(); if(key.length<2) continue;
+    if(!/[؀-ۿ]/.test(key)) continue;           // عربي فقط كمصدر
+    var val=d[k]; if(val==null) continue;
+    // حدود: لا يسبقها/يليها حرف عربي (حتى لا نكسر كلمة أطول)
+    var esc=key.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+    try{ arr.push({re:new RegExp('(?<![' + AR + '])'+esc+'(?![' + AR + '])','g'), to:String(val), len:key.length}); }catch(e){}
+  }
+  arr.sort(function(a,b){ return b.len-a.len; });
+  _trPhraseCache[lang]=arr; return arr;
+}
+function _trPhraseText(text,lang){
+  if(!text || !/[؀-ۿ]/.test(text)) return text;
+  var arr=_trPhrases(lang);
+  for(var i=0;i<arr.length;i++){ if(!/[؀-ۿ]/.test(text)) break; text=text.replace(arr[i].re, arr[i].to); }
+  return text;
+}
+function translateDoc(doc){ try{ var l=curLang(); if(l==='ar'||!doc) return;
+  try{ doc.documentElement.setAttribute('dir',(l==='ar')?'rtl':'ltr'); doc.documentElement.lang=l; }catch(e){}
+  try{ if(doc.title) doc.title=_trPhraseText(doc.title,l); }catch(e){}
+  var root=doc.body||doc.documentElement; if(!root) return;
+  var w=doc.createTreeWalker(root, NodeFilter.SHOW_TEXT, null, false), n, list=[];
+  while(n=w.nextNode()){ var p=n.parentNode; if(!p) continue; var tg=p.nodeName; if(tg==='SCRIPT'||tg==='STYLE') continue; list.push(n); }
+  list.forEach(function(nd){ try{ var cur=nd.nodeValue, t=(cur||'').trim(); if(!t||!/[؀-ۿ]/.test(t)) return;
+    var lead='',core=t; var m=t.match(_emojiLead); if(m){ lead=m[1]; core=t.slice(lead.length); }
+    var hit=_trLook(l,core.trim()); if(hit==null) hit=_trLook(l,t);
+    if(hit!=null){ nd.nodeValue=cur.replace(t, (m?lead:'')+hit); return; }
+    // fallback: ترجمة على مستوى العبارة للنصوص المركّبة
+    var tp=_trPhraseText(t,l); if(tp!==t) nd.nodeValue=cur.replace(t,tp);
+  }catch(e){} }); }catch(e){} }
 function initApp() {
   try{ var av=document.getElementById('app-ver'); if(av) av.textContent=APP_VERSION; }catch(e){}
   try{ applyLang(); }catch(e){}
