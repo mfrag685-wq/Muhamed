@@ -450,6 +450,10 @@ table.reg .reg-act button:hover{background:#f1f5f9}
 [data-actb].note{border-right-color:var(--ac)!important}
 [data-actb].table-scroll{border-top:3px solid var(--ac);border-radius:10px}
 .act-flash{animation:actFlash 1.4s ease-out}
+.act-hl{outline:3px solid var(--ac,#2563eb);outline-offset:3px;border-radius:10px;transition:outline-color .4s}
+.act-hl tbody tr:not(.total-row):not(.day-row) td{animation:actRow 2.4s ease-out}
+@keyframes actRow{0%,35%{background:var(--acl,#eff6ff)}100%{background:transparent}}
+.act-spacer{pointer-events:none}
 @keyframes actFlash{0%{box-shadow:0 0 0 0 var(--ac)}30%{box-shadow:0 0 0 6px var(--acb)}100%{box-shadow:0 0 0 0 transparent}}
 @media print{.sec-title[data-act]{background:none;border:0;border-right:3px solid var(--ac)}.sec-title[data-act] .act-ic{display:none}}
 /* بطاقات المؤشرات في كل الشاشات: لون مميّز لكل بطاقة */
@@ -2068,7 +2072,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-10-29-g';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-10-29-h';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -2785,7 +2789,7 @@ function showTab(id){
   document.querySelectorAll('.panel').forEach(function(p){ p.classList.toggle('active',p.id===id); });
   if(id==='itemdiag'&&can('itemdiag')){ renderItemDiag(); try{ renderInvAudit(); }catch(e){} }   /* شغّل الفحص فور فتح التبويب */
   if(changing) window.scrollTo({top:0,behavior:'smooth'});   /* لا تقفز للأعلى إن كان التبويب مفتوحاً أصلاً (تعديل/إضافة صنف) */
-  try{ actNavInit(id); }catch(e){}
+  try{ var _sp=document.querySelector('#'+id+' .act-spacer'); if(_sp) _sp.style.height='0px'; actNavInit(id); }catch(e){}
 }
 document.querySelectorAll('.tab-btn').forEach(function(b){ b.addEventListener('click',function(){ showTab(b.dataset.tab); }); });
 
@@ -5895,9 +5899,21 @@ function actFilter(inp){ var v=(inp.value||'').trim();
   [].forEach.call(inp.parentNode.querySelectorAll('.an-chip'),function(c){ c.classList.toggle('dim',!!v&&c.textContent.indexOf(v)<0); }); }
 function actGo(panelId,key){
   var root=document.getElementById(panelId), el=key==='s_bal'?document.getElementById('stockTopAnchor'):(key==='r_table'?document.getElementById('rpBanner'):root.querySelector('.sec-title[data-act="'+key+'"]')); if(!el) return;
-  el.scrollIntoView({behavior:'smooth',block:'start'});
-  var box=el.nextElementSibling; while(box&&!box.classList.contains('doc-box')&&box.dataset.actb===key) box=box.nextElementSibling;
-  [el].concat(box&&box.classList.contains('doc-box')?[box]:[]).forEach(function(x){ actPaint(x,key); x.classList.remove('act-flash'); void x.offsetWidth; x.classList.add('act-flash'); });
+  /* أعضاء القسم: العنوان + كل ما يتبعه حتى القسم التالي (نموذج/ملاحظة/جدول) */
+  var mem=[el];
+  if(key==='r_table') ['rpCards','rpChart','rpSearch','rpBody'].forEach(function(id){ var e=document.getElementById(id); if(e) mem.push(id==='rpSearch'?e.parentNode:(id==='rpBody'?e.closest('.table-scroll'):e)); });
+  else for(var e=el.nextElementSibling; e&&e.dataset.actb===key; e=e.nextElementSibling){ if(actShown(e,root)&&e.offsetHeight) mem.push(e); }
+  /* التمرير بحيث يظهر القسم أسفل شريط الانتقال الثابت مباشرةً (لا يغطّيه الشريط) */
+  var nav=document.getElementById(panelId+'ActNav'), navH=(nav&&nav.offsetHeight?nav.offsetHeight:0)+14;
+  var top=el.getBoundingClientRect().top+window.pageYOffset-navH;
+  /* القسم في آخر الصفحة: مساحة مؤقتة أسفل الشاشة كي يصعد القسم لأعلى بدل بقائه في الأسفل */
+  var sp=root.querySelector('.act-spacer'); if(!sp){ sp=document.createElement('div'); sp.className='act-spacer'; root.appendChild(sp); }
+  sp.style.height='0px';
+  var need=top+window.innerHeight-document.documentElement.scrollHeight; if(need>0) sp.style.height=Math.ceil(need)+'px';
+  window.scrollTo({top:Math.max(0,top),behavior:'smooth'});
+  clearTimeout(actGo._t); (actGo._m||[]).forEach(function(x){ x.classList.remove('act-hl'); });
+  mem.forEach(function(x){ actPaint(x,key); x.classList.remove('act-flash','act-hl'); void x.offsetWidth; x.classList.add('act-flash','act-hl'); });
+  actGo._m=mem; actGo._t=setTimeout(function(){ mem.forEach(function(x){ x.classList.remove('act-hl'); }); },2600);
 }
 var _renderStockBase=renderStock;
 renderStock=function(){ var r=_renderStockBase.apply(this,arguments); try{ actNavInit('stock'); }catch(e){} return r; };
