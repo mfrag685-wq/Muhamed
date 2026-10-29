@@ -430,6 +430,38 @@ table.reg tr.reg-total td.txt{text-align:right}
 table.reg .pill-inv{background:#e2e8f0;color:#334155;border-radius:6px;padding:1px 7px;font-size:11px;font-weight:700}
 table.reg .reg-act button{border:1px solid #cbd5e1;background:#fff;color:#334155;border-radius:7px;padding:3px 9px;font-size:12px;cursor:pointer;font-family:inherit}
 table.reg .reg-act button:hover{background:#f1f5f9}
+/* تمييز الإجراءات والأقسام: شريط انتقال سريع + لون وأيقونة لكل إجراء */
+.act-nav{position:sticky;top:0;z-index:25;display:flex;flex-wrap:wrap;align-items:center;gap:6px;background:rgba(255,255,255,.96);backdrop-filter:blur(4px);
+  border:1px solid var(--line);border-radius:12px;padding:7px 9px;margin:0 0 12px;box-shadow:0 2px 8px rgba(15,23,42,.06)}
+.act-nav:empty{display:none}
+.act-nav .an-l{font-size:12px;font-weight:800;color:var(--ink-3);margin-inline-end:4px}
+.act-nav .an-chip{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--ac);background:var(--acl);color:var(--ac);border-radius:999px;
+  padding:4px 11px;font-family:inherit;font-size:12.5px;font-weight:700;cursor:pointer;transition:transform .12s,box-shadow .12s}
+.act-nav .an-chip:hover{transform:translateY(-1px);box-shadow:0 3px 8px rgba(15,23,42,.12);background:var(--ac);color:#fff}
+.act-nav .an-chip.dim{opacity:.25}
+.act-nav input{margin-inline-start:auto;width:190px;max-width:100%;padding:5px 10px;border-radius:999px;border:1px solid var(--line);font-family:inherit;font-size:12.5px}
+.sec-title[data-act]{display:flex;align-items:center;flex-wrap:wrap;gap:4px 8px;background:var(--acl);color:#0f172a;border:1px solid var(--acb);border-right:5px solid var(--ac);
+  border-radius:10px;padding:8px 12px;scroll-margin-top:64px}
+.sec-title[data-act] .act-ic{display:inline-grid;place-items:center;width:28px;height:28px;border-radius:8px;background:var(--ac);color:#fff;font-size:15px;flex:0 0 auto}
+.sec-title[data-act] .hint{font-weight:500}
+[data-actb].doc-box{border-top:3px solid var(--ac);background:linear-gradient(180deg,var(--acl),var(--surface-2) 60px)}
+[data-actb].note{border-right-color:var(--ac)!important}
+[data-actb].table-scroll{border-top:3px solid var(--ac);border-radius:10px}
+.act-flash{animation:actFlash 1.4s ease-out}
+@keyframes actFlash{0%{box-shadow:0 0 0 0 var(--ac)}30%{box-shadow:0 0 0 6px var(--acb)}100%{box-shadow:0 0 0 0 transparent}}
+@media print{.sec-title[data-act]{background:none;border:0;border-right:3px solid var(--ac)}.sec-title[data-act] .act-ic{display:none}}
+/* بطاقات مؤشرات الملخص */
+.dash-kpis .card{border-top:3px solid var(--kc,#0f766e)}
+.dash-kpis .card .v{white-space:nowrap}
+.dash-kpis .card .kic{float:left;width:30px;height:30px;border-radius:9px;display:grid;place-items:center;font-size:15px;background:var(--kcl,#f0fdfa);margin:-2px 0 0 6px}
+.chart-box.cb-full svg{max-height:340px}
+.dash-kpis .card.dark .kic{background:rgba(255,255,255,.12)}
+.kd{display:inline-block;margin-top:5px;border-radius:999px;padding:1px 8px;font-size:11px;font-weight:800}
+.kd.up{background:#dcfce7;color:#166534}.kd.down{background:#fee2e2;color:#991b1b}.kd.flat{background:#f1f5f9;color:#475569}
+.card.dark .kd.up{background:rgba(134,239,172,.2);color:#bbf7d0}.card.dark .kd.down{background:rgba(252,165,165,.2);color:#fecaca}
+.rk{display:inline-grid;place-items:center;min-width:22px;height:22px;border-radius:999px;background:#f1f5f9;color:#475569;font-size:11.5px;font-weight:800}
+.rk.r1{background:#fde68a;color:#78350f}.rk.r2{background:#e5e7eb;color:#374151}.rk.r3{background:#fed7aa;color:#7c2d12}
+.mbar{display:block;height:4px;border-radius:3px;background:var(--mb,#1f9d57);margin-top:3px;opacity:.85}
 /* لمسات تقرير الملخّص */
 .reg-tools{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:8px 12px;margin-bottom:8px;font-size:13px}
 .reg-tools .rt-l{color:#64748b;font-weight:700;font-size:12px}
@@ -592,6 +624,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 <section id="dash" class="panel active">
   <div class="print-head"><span class="print-logo"></span><h3 id="ph1">تقرير الملخص</h3><p>إعداد محمد فرج</p></div>
   <div class="panel-title">ملخص الأداء <span class="hint" id="dashRange"></span></div>
+  <div class="act-nav no-print" id="dashActNav"></div>
   <div class="filters no-print">
     <div class="field"><label>اختر الشهر</label><input type="month" id="f_month_dash" onchange="pickDashMonth()"></div>
     <div class="field"><label>من تاريخ</label><input type="date" id="f_from" onchange="clrDashMonth();renderAll()"></div>
@@ -603,23 +636,25 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
   </div>
   <div id="dashWarn"></div>
   <div id="advisorBox" class="no-print"></div>
-  <div class="cards" id="kpiCards"></div>
+  <div class="sec-title" data-act="d_kpi">المؤشرات الرئيسية <span class="hint" id="dashCmpHint"></span></div>
+  <div class="cards dash-kpis" id="kpiCards"></div>
+  <div class="sec-title" data-act="d_charts">الرسوم البيانية والاتجاهات <span class="hint">مرّر المؤشر فوق أي عمود أو نقطة لرؤية القيمة</span></div>
   <div class="chart-grid" id="dashCharts"></div>
   <div class="profit-only">
-  <div class="sec-title">أداء الفروع خلال الفترة</div>
+  <div class="sec-title" data-act="d_branch">أداء الفروع خلال الفترة</div>
   <div class="table-scroll"><table>
     <thead><tr><th class="name">الفرع / مركز التكلفة</th><th>المبيعات</th><th>تكلفة المبيعات</th><th>مجمل الربح</th>
       <th>الهامش</th><th>المصروفات</th><th>صافي الربح</th></tr></thead>
     <tbody id="dashBranches"></tbody></table></div>
   </div>
   <div class="split">
-    <div><div class="sec-title">أفضل الأصناف <span class="hint">حسب المبيعات</span></div>
+    <div><div class="sec-title" data-act="d_items">أفضل الأصناف <span class="hint">حسب مجمل الربح</span></div>
       <div class="table-scroll"><table>
-        <thead><tr><th class="name">الصنف</th><th>الكمية</th><th>المبيعات</th><th class="profit-only">مجمل الربح</th><th class="profit-only">الهامش</th></tr></thead>
+        <thead><tr><th>#</th><th class="name">الصنف</th><th>الكمية</th><th>المبيعات</th><th class="profit-only">مجمل الربح</th><th class="profit-only">الهامش</th></tr></thead>
         <tbody id="dashItems"></tbody></table></div></div>
-    <div><div class="sec-title alt">أعلى الموردين شراءً</div>
+    <div><div class="sec-title alt" data-act="d_sup">أعلى الموردين شراءً</div>
       <div class="table-scroll"><table>
-        <thead><tr><th class="name">المورد</th><th>عدد الفواتير</th><th>قيمة المشتريات</th><th class="balance-only">الرصيد المستحق</th></tr></thead>
+        <thead><tr><th>#</th><th class="name">المورد</th><th>عدد الفواتير</th><th>قيمة المشتريات</th><th class="balance-only">الرصيد المستحق</th></tr></thead>
         <tbody id="dashSuppliers"></tbody></table></div></div>
   </div>
 </section>
@@ -873,7 +908,8 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 <!-- ======================= المخزون ======================= -->
 <section id="stock" class="panel">
   <div class="print-head"><span class="print-logo"></span><h3>تقرير المخزون</h3><p>إعداد محمد فرج</p></div>
-  <div class="panel-title">أرصدة المخزون <span class="hint">التقييم بمتوسط التكلفة المرجح لكل مستودع</span></div>
+  <div class="panel-title" id="stockTopAnchor">أرصدة المخزون <span class="hint">التقييم بمتوسط التكلفة المرجح لكل مستودع</span></div>
+  <div class="act-nav no-print" id="stockActNav"></div>
   <div id="stockWarn"></div>
   <div id="stockOpening" class="note no-print" style="display:none;margin-bottom:10px;border-right-color:var(--sky)"></div>
   <div class="filters no-print">
@@ -1982,7 +2018,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-10-29-b';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-10-29-c';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -5706,6 +5742,49 @@ function regDetailRow(k,g,colspan){
     +(sale?'<td class="num profit-only">'+num(g.cost)+'</td><td class="num profit-only">'+sign(g.gp)+'</td>':'')+'</tr></tbody></table></td></tr>';
   return h;
 }
+/* ===== تمييز الإجراءات: لون + أيقونة لكل قسم، وشريط انتقال سريع مع بحث ===== */
+var ACTS={
+  d_kpi:['📊','المؤشرات','#0f766e','#f0fdfa','#99f6e4'], d_charts:['📈','الرسوم البيانية','#2563eb','#eff6ff','#bfdbfe'],
+  d_branch:['🏪','أداء الفروع','#7c3aed','#f5f3ff','#ddd6fe'], d_items:['🏆','أفضل الأصناف','#16a34a','#f0fdf4','#bbf7d0'], d_sup:['🚚','الموردون','#d97706','#fffbeb','#fde68a'],
+  s_bal:['📦','الأرصدة','#0f172a','#f1f5f9','#cbd5e1'],
+  transfer:['🔁','تحويل بين المستودعات','#2563eb','#eff6ff','#bfdbfe'], waste:['🗑️','الفاقد والتوالف','#dc2626','#fef2f2','#fecaca'],
+  dept:['🏢','تحويل بين الأقسام','#0d9488','#f0fdfa','#99f6e4'], opening:['➕','إضافة أصناف بالتكلفة','#16a34a','#f0fdf4','#bbf7d0'],
+  adj:['⚖️','تسويات زيادة الجرد','#b45309','#fffbeb','#fde68a'], conv:['🔄','تحويل بين صنفين','#7c3aed','#f5f3ff','#ddd6fe'],
+  count:['📋','الجرد الفعلي','#ea580c','#fff7ed','#fed7aa'], value:['📉','حركة قيمة المخزون','#4f46e5','#eef2ff','#c7d2fe']};
+var ACT_MATCH=[['تحويل بين المستودعات','transfer'],['الفاقد والتوالف','waste'],['تحويل بضائع بين الأقسام','dept'],['إضافة أصناف للمخزون','opening'],
+  ['تسويات زيادة الجرد','adj'],['تحويل رصيد بين صنفين','conv'],['الجرد الفعلي','count'],['حركة قيمة المخزون','value']];
+function actPaint(el,key){ var a=ACTS[key]; if(!a) return; el.style.setProperty('--ac',a[2]); el.style.setProperty('--acl',a[3]); el.style.setProperty('--acb',a[4]); }
+function actShown(el,root){ for(var e=el; e&&e!==root; e=e.parentElement){ if(e.style&&e.style.display==='none') return false; } return true; }
+function actNavInit(panelId){
+  var root=document.getElementById(panelId), nav=document.getElementById(panelId+'ActNav'); if(!root||!nav) return;
+  /* 1) تعيين المفتاح للعناوين حسب نصّها (مرة واحدة) ثم تلوين محتوى كل قسم حتى العنوان التالي */
+  [].forEach.call(root.querySelectorAll('.sec-title'),function(h){
+    if(!h.dataset.act){ var t=h.textContent; ACT_MATCH.some(function(m){ if(t.indexOf(m[0])>=0){ h.dataset.act=m[1]; return true; } return false; }); }
+    var key=h.dataset.act; if(!key||!ACTS[key]) return;
+    if(!h.querySelector('.act-ic')){ var ic=document.createElement('span'); ic.className='act-ic'; ic.textContent=ACTS[key][0]; h.insertBefore(ic,h.firstChild); h.id=h.id||('act_'+key); }
+    actPaint(h,key);
+    for(var e=h.nextElementSibling; e&&!e.classList.contains('sec-title')&&!e.classList.contains('split'); e=e.nextElementSibling){ e.dataset.actb=key; actPaint(e,key); }
+  });
+  /* 2) شريط الانتقال السريع: الأقسام الظاهرة فقط */
+  var items=[];
+  if(panelId==='stock') items.push({key:'s_bal',el:document.getElementById('stockTopAnchor')});
+  [].forEach.call(root.querySelectorAll('.sec-title[data-act]'),function(h){ if(actShown(h,root)) items.push({key:h.dataset.act,el:h}); });
+  var q=nav.querySelector('input'), qv=q?q.value:'';
+  nav.innerHTML='<span class="an-l">⚡ انتقال سريع</span>'+items.map(function(it){ var a=ACTS[it.key];
+    return '<button type="button" class="an-chip" data-k="'+it.key+'" style="--ac:'+a[2]+';--acl:'+a[3]+'" onclick="actGo(\''+panelId+'\',\''+it.key+'\')">'+a[0]+' '+esc(a[1])+'</button>'; }).join('')
+    +'<input type="search" placeholder="🔎 ابحث عن إجراء…" oninput="actFilter(this)" onkeydown="if(event.key===\'Enter\'){var c=this.parentNode.querySelector(\'.an-chip:not(.dim)\');if(c)c.click();}">';
+  if(qv){ var ni=nav.querySelector('input'); ni.value=qv; actFilter(ni); }
+}
+function actFilter(inp){ var v=(inp.value||'').trim();
+  [].forEach.call(inp.parentNode.querySelectorAll('.an-chip'),function(c){ c.classList.toggle('dim',!!v&&c.textContent.indexOf(v)<0); }); }
+function actGo(panelId,key){
+  var root=document.getElementById(panelId), el=key==='s_bal'?document.getElementById('stockTopAnchor'):root.querySelector('.sec-title[data-act="'+key+'"]'); if(!el) return;
+  el.scrollIntoView({behavior:'smooth',block:'start'});
+  var box=el.nextElementSibling; while(box&&!box.classList.contains('doc-box')&&box.dataset.actb===key) box=box.nextElementSibling;
+  [el].concat(box&&box.classList.contains('doc-box')?[box]:[]).forEach(function(x){ actPaint(x,key); x.classList.remove('act-flash'); void x.offsetWidth; x.classList.add('act-flash'); });
+}
+var _renderStockBase=renderStock;
+renderStock=function(){ var r=_renderStockBase.apply(this,arguments); try{ actNavInit('stock'); }catch(e){} return r; };
 /* ===== لمسات تقرير الملخّص: ترتيب بالنقر على العناوين + تجميع (يوم/شهر/طرف) بإجماليات فرعية + مؤشرات ===== */
 var regSort={s:{key:'date',dir:-1},p:{key:'date',dir:-1}}, regGroup={s:'none',p:'none'}, regLastIds={s:[],p:[]};
 try{ var _rp=JSON.parse(localStorage.getItem('regSummaryPrefs')||'null'); if(_rp&&_rp.sort&&_rp.group){ regSort=_rp.sort; regGroup=_rp.group; } }catch(e){}
@@ -6945,15 +7024,28 @@ function renderDash(){
   db.clients.forEach(function(c){ var v=pt.cl[c.id]; rec+=(clBal(v)); });
   var purch=0,wt=0;
   db.purchases.forEach(function(p){ if(inRg(p.date)){ purch+=p.total; wt+=p.weight||0; } });
+  /* مقارنة بالفترة السابقة المماثلة (نفس عدد الأيام مباشرةً قبل بداية الفترة) */
+  var R0=rg(), prv=null, curS=0, curN=0, sDays={};
+  db.sales.forEach(function(s){ if(inRg(s.date)){ curS+=+s.total||0; curN++; sDays[s.date]=1; } });
+  if(R0.from&&R0.to&&R0.to>=R0.from){ var nd=Math.round((new Date(R0.to)-new Date(R0.from))/86400000)+1, pTo=ivAddDays(R0.from,-1), pFrom=ivAddDays(pTo,-(nd-1));
+    prv={s:0,p:0,from:pFrom,to:pTo};
+    db.sales.forEach(function(s){ if(s.date>=pFrom&&s.date<=pTo) prv.s+=+s.total||0; });
+    db.purchases.forEach(function(p){ if(p.date>=pFrom&&p.date<=pTo) prv.p+=+p.total||0; }); }
+  var dlt=function(cur,old,goodUp){ if(!prv) return ''; var d=deltaPct(old,cur); if(!d) return '<span class="kd flat">لا مقارنة</span>';
+    var good=(d.dir==='up')===(goodUp!==false); return '<span class="kd '+(goodUp===null?'flat':(good?'up':'down'))+'" title="مقارنة بالفترة '+prv.from+' ← '+prv.to+'">'+d.txt+' عن السابقة</span>'; };
+  var ch=document.getElementById('dashCmpHint'); if(ch) ch.textContent=prv?('الشارات تقارن بالفترة السابقة المماثلة '+prv.from+' ← '+prv.to):'';
+  var nSD=Object.keys(sDays).length;
+  var kc=function(ic,col,lc,k,v,n,dk,dark){ return '<div class="card'+(dark?' dark':'')+'" style="--kc:'+col+';--kcl:'+lc+'"><span class="kic">'+ic+'</span><div class="k">'+k+'</div><div class="v">'+v+'</div><div class="n">'+n+'</div>'+(dk||'')+'</div>'; };
   document.getElementById('kpiCards').innerHTML=
-    card('صافي المبيعات',money(T.nrev),'بعد المرتجعات')
-   +(canSeeProfit()?(card('تكلفة المبيعات',money(T.cogs),'بمتوسط التكلفة')
-   +card('مجمل الربح',money(T.gp),'هامش '+pct(T.gp,T.nrev))
-   +card('صافي الربح',money(T.net),'هامش '+pct(T.net,T.nrev),true)):'')
-   +card('المشتريات',money(purch),qty(wt)+' كغ خلال الفترة')
-   +card('قيمة المخزون',money(stockVal),'رصيد حالي بكل المستودعات')
-   +(canSeeBalances()?(card('مستحق للموردين',money(pay),'التزامات قائمة')
-   +card('مستحق من العملاء',money(rec),'ذمم لم تُحصّل')):'');
+    kc('💰','#1f9d57','#e7f6ee','صافي المبيعات',money(T.nrev),'بعد المرتجعات · '+curN+' فاتورة',dlt(curS,prv&&prv.s))
+   +kc('📅','#2a78d6','#eaf2fc','متوسط المبيعات اليومية',money(nSD?curS/nSD:0),nSD+' يوم بيع خلال الفترة')
+   +(canSeeProfit()?(kc('🧾','#e8900c','#fdf3e3','تكلفة المبيعات',money(T.cogs),'بمتوسط التكلفة')
+   +kc('📈','#12b886','#e6f8f2','مجمل الربح',money(T.gp),'هامش '+pct(T.gp,T.nrev))
+   +kc('🏁','#0f172a','#1e293b','صافي الربح',money(T.net),'هامش '+pct(T.net,T.nrev),'',true)):'')
+   +kc('🛒','#e8900c','#fdf3e3','المشتريات',money(purch),qty(wt)+' كغ خلال الفترة',dlt(purch,prv&&prv.p,null))
+   +kc('📦','#7048cf','#f1edfb','قيمة المخزون',money(stockVal),'رصيد حالي بكل المستودعات')
+   +(canSeeBalances()?(kc('🔻','#e03131','#fdecec','مستحق للموردين',money(pay),'التزامات قائمة')
+   +kc('🔺','#3b5bdb','#ebefff','مستحق من العملاء',money(rec),'ذمم لم تُحصّل')):'');
   var hb='', dbrow=function(name,x){ return '<tr><td class="name"><b>'+esc(name)+'</b></td><td>'+money(x.net_rev)+'</td><td>'+money(x.cogs)+'</td>'
       +'<td>'+sign(x.gp)+'</td><td class="muted">'+pct(x.gp,x.net_rev)+'</td><td>'+money(x.exp)+'</td><td>'+sign(x.net)+'</td></tr>'; };
   var oth={net_rev:0,cogs:0,gp:0,exp:0,net:0}, nO=0;
@@ -6968,21 +7060,26 @@ function renderDash(){
     (s.lines||[]).forEach(function(l,i){ if(!it[l.itemId]) it[l.itemId]={u:0,rev:0,c:0};
       it[l.itemId].u+=+l.units||0; it[l.itemId].rev+=+l.total||0; it[l.itemId].c+=L.cogsLine[s.id+'#'+i]||0; }); });
   var ik=Object.keys(it).sort(function(a,b){return (it[b].rev-it[b].c)-(it[a].rev-it[a].c);}).slice(0,10);
-  document.getElementById('dashItems').innerHTML=ik.map(function(k){
+  var ikMax=0; ik.forEach(function(k){ if(it[k].rev>ikMax) ikMax=it[k].rev; });
+  document.getElementById('dashItems').innerHTML=ik.map(function(k,i){
     var v=it[k],gp=v.rev-v.c;
-    return '<tr><td class="name"><b>'+esc(itemName(+k))+'</b></td><td>'+qty(v.u)+'</td><td>'+money(v.rev)+'</td>'
-      +'<td class="profit-only">'+sign(gp)+'</td><td class="muted profit-only">'+pct(gp,v.rev)+'</td></tr>'; }).join('')
-    ||'<tr><td colspan="5" class="empty">لا توجد مبيعات في هذه الفترة.</td></tr>';
+    return '<tr><td><span class="rk'+(i<3?' r'+(i+1):'')+'">'+(i+1)+'</span></td><td class="name"><b>'+esc(itemName(+k))+'</b></td><td>'+qty(v.u)+'</td>'
+      +'<td>'+money(v.rev)+'<span class="mbar" style="width:'+(ikMax>0?Math.max(4,v.rev/ikMax*100):0).toFixed(0)+'%"></span></td>'
+      +'<td class="profit-only">'+sign(gp)+'</td><td class="profit-only">'+regMarginPill(v.rev>0?gp/v.rev*100:null)+'</td></tr>'; }).join('')
+    ||'<tr><td colspan="6" class="empty">لا توجد مبيعات في هذه الفترة.</td></tr>';
   var sp={};
   db.purchases.forEach(function(p){ if(!inRg(p.date)) return;
     if(!sp[p.supplierId]) sp[p.supplierId]={n:0,v:0}; sp[p.supplierId].n++; sp[p.supplierId].v+=p.total; });
   var pt2=partyTotals().sup;
-  document.getElementById('dashSuppliers').innerHTML=Object.keys(sp).sort(function(a,b){return sp[b].v-sp[a].v;}).map(function(k){
-    var v=sp[k],b=pt2[k]?supBal(pt2[k]):0;
-    return '<tr><td class="name"><b>'+esc(supName(+k))+'</b></td><td>'+v.n+'</td><td>'+money(v.v)+'</td>'
+  var spTot=0; Object.keys(sp).forEach(function(k){ spTot+=sp[k].v; });
+  document.getElementById('dashSuppliers').innerHTML=Object.keys(sp).sort(function(a,b){return sp[b].v-sp[a].v;}).map(function(k,i){
+    var v=sp[k],b=pt2[k]?supBal(pt2[k]):0, sh=spTot>0?v.v/spTot*100:0;
+    return '<tr><td><span class="rk'+(i<3?' r'+(i+1):'')+'">'+(i+1)+'</span></td><td class="name"><b>'+esc(supName(+k))+'</b></td><td>'+v.n+'</td>'
+      +'<td>'+money(v.v)+' <span class="muted" style="font-size:11px">'+sh.toFixed(1)+'%</span><span class="mbar" style="--mb:#e8900c;width:'+Math.max(4,sh).toFixed(0)+'%"></span></td>'
       +'<td class="balance-only '+balCls(b)+'">'+money(b)+'</td></tr>'; }).join('')
-    ||'<tr><td colspan="4" class="empty">لا توجد مشتريات في هذه الفترة.</td></tr>';
+    ||'<tr><td colspan="5" class="empty">لا توجد مشتريات في هذه الفترة.</td></tr>';
   renderDashCharts(r,pay,rec);
+  try{ actNavInit('dash'); }catch(e){}
 }
 /* رسوم لوحة الملخص: اتجاه شهري + توزيع المصروفات + أعلى العملاء ربحاً */
 function renderDashCharts(pnlRows,pay,rec){
@@ -7071,7 +7168,31 @@ function renderDashCharts(pnlRows,pay,rec){
         +'<div class="table-scroll"><table><thead><tr><th class="name">'+lbl+'</th><th>'+esc(curYM)+(isPartial?' (1–'+cutD+')':'')+'</th><th>'+esc(prevYM)+(isPartial?' (1–'+cutD+')':'')+'</th><th>التغيّر</th><th>الحصة</th></tr></thead><tbody>'+brows+btot+'</tbody></table></div></div>';
     }
   }
-  box.innerHTML=trend+donut+top+cmp+branchCmp;
+  /* 5) المبيعات اليومية خلال الفترة (حتى 62 يوماً) — مع أعلى يوم ومتوسط وأيام بلا بيع */
+  var R=rg(), daily='', wk='', clShare='', topIt='';
+  var full=function(h){ return h.replace('<div class="chart-box">','<div class="chart-box cb-full" style="grid-column:1/-1">'); };
+  if(R.from&&R.to&&R.to>=R.from){
+    var days=[], dd=R.from; for(var gi=0; dd<=R.to&&gi<62; gi++, dd=ivAddDays(dd,1)) days.push(dd);
+    if(dd>R.to){ var DS={}, DP={}; days.forEach(function(x){ DS[x]=0; DP[x]=0; });
+      db.sales.forEach(function(s){ if(DS[s.date]!=null) DS[s.date]+=+s.total||0; });
+      db.purchases.forEach(function(p){ if(DP[p.date]!=null) DP[p.date]+=+p.total||0; });
+      var sv=days.map(function(x){ return DS[x]; }), bi2=0, act=0, sum=0, zero=0;
+      sv.forEach(function(v,i){ if(v>sv[bi2]) bi2=i; if(v>0.0001){ act++; sum+=v; } else zero++; });
+      var dn=[]; if(act){ dn.push('أعلى يوم: <b>'+esc(days[bi2])+'</b> ('+esc(fmtK(sv[bi2]))+')'); dn.push('متوسط يوم البيع: <b>'+esc(fmtK(sum/act))+'</b>'); }
+      if(zero) dn.push('أيام بلا مبيعات: <b>'+zero+'</b>');
+      daily=full(lineChart('المبيعات والمشتريات اليومية','كل يوم خلال الفترة المختارة (قبل الضريبة)',days.map(function(x){ return x.slice(8)+'/'+x.slice(5,7); }),
+        [{name:'المبيعات',color:CHART_COLORS[0],vals:sv},{name:'المشتريات',color:CHART_COLORS[1],vals:days.map(function(x){ return DP[x]; })}],{note:dn})); }
+  }
+  /* 6) المبيعات حسب أيام الأسبوع · 7) حصة العملاء · 8) أعلى الأصناف مبيعاً */
+  var W7=[0,0,0,0,0,0,0], byCl={}, byIt={};
+  db.sales.forEach(function(s){ if(!inRg(s.date)) return; var t=+s.total||0, dt=parseDate(s.date)||new Date(s.date);
+    if(!isNaN(dt)) W7[dt.getDay()]+=t; var cn=clientName(s.clientId); byCl[cn]=(byCl[cn]||0)+t;
+    (s.lines||[]).forEach(function(l){ var n=itemName(l.itemId); byIt[n]=(byIt[n]||0)+(+l.total||0); }); });
+  wk=barChart('المبيعات حسب أيام الأسبوع','إجمالي مبيعات كل يوم من أيام الأسبوع خلال الفترة',REG_WD,[{name:'المبيعات',color:CHART_COLORS[2],vals:W7}]);
+  clShare=donutChart('حصة العملاء من المبيعات','توزيع مبيعات الفترة على العملاء',Object.keys(byCl).map(function(k){ return {label:k,value:byCl[k]}; }));
+  topIt=hBarChart('أعلى الأصناف مبيعاً','قيمة المبيعات خلال الفترة',Object.keys(byIt).map(function(k){ return {label:k,value:byIt[k],color:CHART_COLORS[0]}; })
+    .sort(function(a,b){ return b.value-a.value; }).slice(0,8));
+  box.innerHTML=daily+trend+clShare+topIt+wk+donut+top+cmp+branchCmp;
 }
 
 /* ==========================================================================
