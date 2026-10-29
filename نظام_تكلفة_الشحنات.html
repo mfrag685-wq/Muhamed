@@ -156,6 +156,47 @@ td.sar-equiv{font-size:.76rem!important;padding:4px 6px!important}
 .sum-card .lbl{font-size:.68rem;opacity:.7;margin-bottom:2px}
 .sum-card .val{font-size:1rem;font-weight:800;color:var(--accent)}
 .sum-card .sub{font-size:.7rem;color:rgba(255,255,255,.52);margin-top:1px}
+/* ── لوحة التحكم ── */
+.dash-head{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+.dash-title{margin:0;font-size:1.25rem;color:var(--primary)}
+.dash-sub{font-size:.8rem;color:var(--muted);margin-top:3px}
+.dash-actions{display:flex;gap:7px;align-items:center;flex-wrap:wrap}
+.dash-range{padding:6px 10px;border:1px solid var(--line,#cfd8e3);border-radius:7px;font-size:.8rem;background:#fff;color:#1a2b3c}
+.kpi-row{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.kpi{flex:1;min-width:150px;border-radius:12px;padding:13px 15px;color:#fff;position:relative;overflow:hidden;box-shadow:0 2px 10px rgba(16,40,64,.10)}
+.kpi .ic{position:absolute;left:10px;top:8px;font-size:1.5rem;opacity:.22}
+.kpi .k-lbl{font-size:.72rem;opacity:.9;font-weight:600;margin-bottom:5px}
+.kpi .k-val{font-size:1.32rem;font-weight:800;line-height:1.1;letter-spacing:.2px}
+.kpi .k-sub{font-size:.68rem;opacity:.82;margin-top:3px}
+.kpi.k1{background:linear-gradient(135deg,#17304a,#245179)}
+.kpi.k2{background:linear-gradient(135deg,#1b5e20,#2e8b3a)}
+.kpi.k3{background:linear-gradient(135deg,#8a5a00,#c08a1e)}
+.kpi.k4{background:linear-gradient(135deg,#5b2d8a,#8148c0)}
+.kpi.k5{background:linear-gradient(135deg,#0f6b6b,#149a9a)}
+.bal-row{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.bal-card{flex:1;min-width:190px;background:#fff;border:1px solid var(--line,#e1e8f0);border-radius:11px;padding:12px 14px;border-inline-start:5px solid var(--primary)}
+.bal-card.pos{border-inline-start-color:#c62828}
+.bal-card.zero{border-inline-start-color:#1b7a33}
+.bal-card .b-lbl{font-size:.74rem;color:var(--muted);font-weight:600;margin-bottom:4px}
+.bal-card .b-val{font-size:1.12rem;font-weight:800;color:#17304a}
+.bal-card .b-sub{font-size:.68rem;color:var(--muted);margin-top:3px}
+.dash-grid-2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px}
+.dash-panel{background:#fff;border:1px solid var(--line,#e1e8f0);border-radius:11px;padding:13px 15px}
+.dash-panel h3{margin:0 0 10px;font-size:.92rem;color:var(--primary);display:flex;align-items:center;gap:6px}
+.dash-bar{display:flex;align-items:center;gap:8px;margin-bottom:7px;font-size:.76rem}
+.dash-bar .bl{width:34%;min-width:80px;color:#2c3e50;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dash-bar .bt{flex:1;background:#eef2f7;border-radius:6px;height:16px;overflow:hidden}
+.dash-bar .bf{display:block;height:100%;min-width:2px;border-radius:6px;background:linear-gradient(90deg,#245179,#3a7bbf)}
+.dash-bar .bv{min-width:78px;text-align:end;font-weight:700;color:#17304a;font-variant-numeric:tabular-nums}
+.stack{display:flex;height:26px;border-radius:7px;overflow:hidden;margin:6px 0 10px;box-shadow:inset 0 0 0 1px rgba(0,0,0,.05)}
+.stack>span{display:flex;align-items:center;justify-content:center;color:#fff;font-size:.66rem;font-weight:700;min-width:0}
+.stack-lg{display:flex;gap:12px;flex-wrap:wrap;font-size:.72rem}
+.stack-lg b{display:inline-block;width:10px;height:10px;border-radius:2px;margin-inline-end:4px;vertical-align:middle}
+.dash-list{width:100%;border-collapse:collapse;font-size:.78rem}
+.dash-list th,.dash-list td{padding:6px 8px;border-bottom:1px solid #eef2f7;text-align:start}
+.dash-list th{color:var(--muted);font-weight:600;font-size:.72rem}
+.dash-list td.n{text-align:end;font-variant-numeric:tabular-nums;font-weight:700;color:#17304a}
+.dash-empty{text-align:center;color:var(--muted);padding:26px;font-size:.85rem}
 .vbox{padding:8px 12px;border-radius:7px;margin-bottom:11px;font-size:.81rem}
 .vok{background:#e8f5e9;color:#1b5e20;border:1px solid #a5d6a7}
 .vwarn{background:#fff3e0;color:#e65100;border:1px solid #ffcc80}
@@ -432,6 +473,8 @@ html[data-theme="dark"] .rt td.hl{background:#2e2814;color:var(--accent)}
 }
 @media (max-width:400px){
   .sum-card{min-width:100%}
+  .kpi{min-width:calc(50% - 7px)!important}
+  .dash-grid-2{grid-template-columns:1fr!important}
 }
 
 /* ☁️ حالة المزامنة السحابية */
@@ -710,7 +753,8 @@ html[data-theme="dark"] .rt td.hl{background:#2e2814;color:var(--accent)}
 </div>
 
 <div class="tabs">
-  <div class="tab active"  onclick="showPage('page-shipment')" data-i18n="tab.shipment">📦 بيانات الشحنة</div>
+  <div class="tab active"  onclick="showPage('page-dashboard')" data-i18n="tab.dashboard">🏠 لوحة التحكم</div>
+  <div class="tab"         onclick="showPage('page-shipment')" data-i18n="tab.shipment">📦 بيانات الشحنة</div>
   <div class="tab"         onclick="showPage('page-costs')" data-i18n="tab.costs">💰 المصاريف</div>
   <div class="tab"         onclick="showPage('page-results')" data-i18n="tab.results">📊 التكاليف</div>
   <div class="tab tab-pricing" onclick="showPage('page-pricing')" data-i18n="tab.pricing">💹 احتساب البيع</div>
@@ -725,8 +769,28 @@ html[data-theme="dark"] .rt td.hl{background:#2e2814;color:var(--accent)}
 
 <div class="main">
 
+<!-- ══ PAGE 0: DASHBOARD ══ -->
+<div id="page-dashboard" class="page active">
+  <div class="dash-head">
+    <div>
+      <h2 class="dash-title">🏠 لوحة التحكم</h2>
+      <div class="dash-sub" id="dash-company">—</div>
+    </div>
+    <div class="dash-actions">
+      <select id="dash-range" onchange="renderDashboard()" class="dash-range">
+        <option value="all">كل الفترات</option>
+        <option value="30">آخر 30 يوماً</option>
+        <option value="90">آخر 90 يوماً</option>
+        <option value="365">آخر سنة</option>
+      </select>
+      <button class="btn btn-outline btn-sm" onclick="renderDashboard()">🔄 تحديث</button>
+    </div>
+  </div>
+  <div id="dash-body"></div>
+</div>
+
 <!-- ══ PAGE 1: SHIPMENT ══ -->
-<div id="page-shipment" class="page active">
+<div id="page-shipment" class="page">
   <div class="card import-card">
     <div class="card-header" style="background:#1b5e20">📥 استيراد البيانات وتعبئتها من ملف Excel</div>
     <div class="card-body">
@@ -3245,8 +3309,9 @@ function preparePricingPrint(){ setTimeout(()=>window.print(),100); }
 function showPage(id){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.getElementById(id).classList.add('active');
-  const pages=['page-shipment','page-costs','page-results','page-pricing','page-archive','page-payments','page-freight','page-supacct','page-comm','page-modelrep','page-compare'];
+  const pages=['page-dashboard','page-shipment','page-costs','page-results','page-pricing','page-archive','page-payments','page-freight','page-supacct','page-comm','page-modelrep','page-compare'];
   document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',pages[i]===id));
+  if(id==='page-dashboard'){ renderDashboard(); }
   if(id==='page-costs'){ buildInvCostPanels(); buildConCostPanels(); renderShipCosts(); }
   if(id==='page-archive'){ renderArchive(); }
   if(id==='page-pricing'){ loadPricingPage(); }
@@ -3257,6 +3322,85 @@ function showPage(id){
   if(id==='page-modelrep'){ renderModelReport(); }
   if(id==='page-compare'){ renderCompare(); renderCmpBEditor(); }
 }
+
+// ═══════════════════════════════════════════
+// 🏠 لوحة التحكم (Dashboard)
+// ═══════════════════════════════════════════
+function _shipLandedTotal(snap){ try{ return snapLanded(snap).reduce(function(s,r){ return s+(r.landedSar||0); },0); }catch(e){ return 0; } }
+function _dashRangeFilter(ships){
+  var v=(document.getElementById('dash-range')||{}).value||'all';
+  if(v==='all') return ships;
+  var days=parseInt(v,10)||0; if(!days) return ships;
+  var cut=new Date(); cut.setDate(cut.getDate()-days); var cutS=cut.toISOString().slice(0,10);
+  return ships.filter(function(s){ return (s.shipmentDate||'')>=cutS; });
+}
+function renderDashboard(){
+  var el=document.getElementById('dash-body'); if(!el) return;
+  try{ var pn=(profilesLoad().find(function(p){return p.id===getActiveProfileId();})||{}).name||'—'; var dc=document.getElementById('dash-company'); if(dc) dc.textContent=pn; }catch(e){}
+  var all=dbLoad(); var ships=_dashRangeFilter(all);
+  if(!ships.length){ el.innerHTML='<div class="dash-empty">'+tr('لا توجد شحنات محفوظة بعد')+'</div>'; return; }
+  // تجميعات
+  var nShip=ships.length, nCont=0, totFob=0, totFreight=0, totLanded=0;
+  var perShip=[];
+  ships.forEach(function(s){
+    var conts=((s.containers)||[]).length; nCont+=conts;
+    var fob=shipFobSar(s)||0, frt=shipFreightSar(s)||0, land=_shipLandedTotal(s);
+    totFob+=fob; totFreight+=frt; totLanded+=land;
+    perShip.push({no:s.shipmentNo||'—', date:s.shipmentDate||'', sup:s.supplierName||'', fob:fob, land:land, conts:conts});
+  });
+  var otherC=Math.max(0, totLanded-totFob-totFreight);
+  var uplift=totFob>0?((totLanded-totFob)/totFob*100):0;
+  // الأرصدة (كل الفترات — مركز حساب)
+  var supBal=0; try{ var names={}; supLoad().forEach(function(x){ names[x.name]=1; }); all.forEach(function(s){ if(s.supplierName) names[s.supplierName]=1; });
+    Object.keys(names).forEach(function(nm){ try{ var L=supAcctLedger(nm,'',''); if(L.length) supBal+=L[L.length-1].bal||0; }catch(e){} }); }catch(e){}
+  var frtBal=0; try{ var FL=frtLedger('',''); if(FL.length) frtBal=FL[FL.length-1].bal||0; }catch(e){}
+  var commBal=0; try{ var CL=commLedger('',''); if(CL.length) commBal=CL[CL.length-1].bal||0; }catch(e){}
+  // KPIs
+  var h='<div class="kpi-row">'+
+    _kpi('k1','🚢', tr('عدد الشحنات'), fmtD(nShip).replace(/\.00$/,''), nCont+' '+tr('حاوية'))+
+    _kpi('k2','💰', tr('إجمالي الشراء FOB')+' (SAR)', fmtD(totFob), '')+
+    _kpi('k3','🚚', tr('إجمالي أجور الشحن')+' (SAR)', fmtD(totFreight), '')+
+    _kpi('k4','📦', tr('إجمالي التكلفة الواصلة')+' (SAR)', fmtD(totLanded), '')+
+    _kpi('k5','📈', tr('نسبة التحميل على FOB'), fmtN(uplift)+'%', tr('الواصل مقابل الشراء'))+
+  '</div>';
+  // الأرصدة
+  h+='<div class="bal-row">'+
+    _bal(supBal, tr('رصيد المورد المستحق'))+
+    _bal(frtBal, tr('رصيد أجور الشحن المستحق'))+
+    _bal(commBal, tr('رصيد العمولة المستحق'))+
+  '</div>';
+  // لوحتان: توزيع التكلفة + أعلى الشحنات
+  h+='<div class="dash-grid-2">';
+  // توزيع التكلفة الواصلة
+  var parts=[['#245179',tr('شراء FOB'),totFob],['#c08a1e',tr('أجور الشحن'),totFreight],['#5b2d8a',tr('مصاريف أخرى'),otherC]];
+  var sumP=parts.reduce(function(s,p){return s+p[2];},0)||1;
+  var stack='<div class="stack">'+parts.map(function(p){ var w=p[2]/sumP*100; return w>0?'<span style="background:'+p[0]+';width:'+w.toFixed(1)+'%" title="'+p[1]+'">'+(w>9?Math.round(w)+'%':'')+'</span>':''; }).join('')+'</div>';
+  var leg='<div class="stack-lg">'+parts.map(function(p){ return '<span><b style="background:'+p[0]+'"></b>'+p[1]+': '+fmtD(p[2])+'</span>'; }).join('')+'</div>';
+  h+='<div class="dash-panel"><h3>📊 '+tr('توزيع التكلفة الواصلة')+'</h3>'+stack+leg+'</div>';
+  // أعلى الشحنات تكلفة
+  var top=perShip.slice().sort(function(a,b){return b.land-a.land;}).slice(0,6);
+  var mx=top.length?top[0].land||1:1;
+  var bars=top.map(function(r){ var w=(r.land/mx*100); return '<div class="dash-bar"><span class="bl" title="'+escH(r.no)+'">'+escH(r.no)+'</span><span class="bt"><span class="bf" style="width:'+Math.max(2,w).toFixed(1)+'%"></span></span><span class="bv">'+fmtD(r.land)+'</span></div>'; }).join('');
+  h+='<div class="dash-panel"><h3>🏆 '+tr('أعلى الشحنات تكلفةً (الواصل)')+'</h3>'+(bars||('<div class="dash-empty">'+tr('لا توجد بيانات')+'</div>'))+'</div>';
+  h+='</div>';
+  // جدولان: أحدث الشحنات + أعلى الموردين
+  h+='<div class="dash-grid-2">';
+  var latest=perShip.slice().sort(function(a,b){return (a.date<b.date?1:(a.date>b.date?-1:0));}).slice(0,6);
+  h+='<div class="dash-panel"><h3>🕑 '+tr('أحدث الشحنات')+'</h3><table class="dash-list"><thead><tr><th>'+tr('رقم الشحنة')+'</th><th>'+tr('التاريخ')+'</th><th>'+tr('المورد')+'</th><th style="text-align:end">'+tr('الواصل')+' (SAR)</th></tr></thead><tbody>'+
+    latest.map(function(r){ return '<tr><td><strong>'+escH(r.no)+'</strong></td><td>'+escH(r.date||'—')+'</td><td>'+escH(r.sup||'—')+'</td><td class="n">'+fmtD(r.land)+'</td></tr>'; }).join('')+
+    '</tbody></table></div>';
+  // أعلى الموردين بالشراء
+  var bySup={}; perShip.forEach(function(r){ var k=r.sup||('('+tr('بدون مورد')+')'); bySup[k]=(bySup[k]||0)+r.fob; });
+  var supRows=Object.keys(bySup).map(function(k){ return {name:k, v:bySup[k]}; }).sort(function(a,b){return b.v-a.v;}).slice(0,6);
+  var smx=supRows.length?supRows[0].v||1:1;
+  h+='<div class="dash-panel"><h3>🏭 '+tr('أعلى الموردين (شراء FOB)')+'</h3>'+
+    (supRows.map(function(r){ var w=r.v/smx*100; return '<div class="dash-bar"><span class="bl" title="'+escH(r.name)+'">'+escH(r.name)+'</span><span class="bt"><span class="bf" style="width:'+Math.max(2,w).toFixed(1)+'%;background:linear-gradient(90deg,#1b5e20,#2e8b3a)"></span></span><span class="bv">'+fmtD(r.v)+'</span></div>'; }).join('')||('<div class="dash-empty">'+tr('لا توجد بيانات')+'</div>'))+
+    '</div>';
+  h+='</div>';
+  el.innerHTML=h;
+}
+function _kpi(cls,ic,lbl,val,sub){ return '<div class="kpi '+cls+'"><span class="ic">'+ic+'</span><div class="k-lbl">'+lbl+'</div><div class="k-val">'+val+'</div>'+(sub?'<div class="k-sub">'+sub+'</div>':'')+'</div>'; }
+function _bal(v,lbl){ var cls=v>0.005?'pos':(Math.abs(v)<=0.005?'zero':''); var state=v>0.005?tr('مستحق'):(v<-0.005?tr('مدفوع بالزيادة'):tr('مسدَّد بالكامل')); return '<div class="bal-card '+cls+'"><div class="b-lbl">'+lbl+'</div><div class="b-val">'+fmtD(Math.abs(v))+' SAR</div><div class="b-sub">'+state+'</div></div>'; }
 
 // ═══════════════════════════════════════════
 // بحث الحاويات داخل صفحة الشحنة
@@ -4124,6 +4268,7 @@ function loadLogin(){ try{ var s=localStorage.getItem(REMEMBER_KEY); if(!s) retu
 function clearLogin(){ try{ localStorage.removeItem(REMEMBER_KEY); }catch(e){} }
 function rememberChecked(){ var c=document.getElementById('lg-remember'); return !c || c.checked; }
 const PERMS=[
+  ['dashboard','لوحة التحكم'],
   ['shipment','بيانات الشحنة'],
   ['costs','المصاريف'],
   ['results','تقرير التكاليف'],
@@ -4141,14 +4286,14 @@ const PERMS=[
   ['users','إدارة المستخدمين']
 ];
 // صلاحيات دقيقة جديدة ترث من الصلاحية الأعمّ عند عدم تحديدها (توافق مع المستخدمين القدامى)
-const PERM_FALLBACK={supacct:'payments', freight:'payments', commission:'payments', modelrep:'results', compare:'results'};
+const PERM_FALLBACK={dashboard:'results', supacct:'payments', freight:'payments', commission:'payments', modelrep:'results', compare:'results'};
 const ROLE_NAMES={admin:'مدير النظام',manager:'مدير',entry:'مدخل بيانات',viewer:'مشاهد',custom:'مخصص'};
 function permAll(v){ const o={}; PERMS.forEach(p=>o[p[0]]=v); return o; }
 function rolePreset(role){
   if(role==='admin')   return permAll(true);
   if(role==='manager'){ const o=permAll(true); o.users=false; return o; }
-  if(role==='entry')   return {shipment:true,costs:true,results:true,pricing:true,payments:true,archive:true,supacct:true,freight:true,commission:true,modelrep:true,compare:true,companies:false,settings:false,delete:false,users:false};
-  if(role==='viewer')  return {shipment:false,costs:false,results:true,pricing:false,payments:false,archive:true,supacct:true,freight:true,commission:true,modelrep:true,compare:true,companies:false,settings:false,delete:false,users:false};
+  if(role==='entry')   return {dashboard:true,shipment:true,costs:true,results:true,pricing:true,payments:true,archive:true,supacct:true,freight:true,commission:true,modelrep:true,compare:true,companies:false,settings:false,delete:false,users:false};
+  if(role==='viewer')  return {dashboard:true,shipment:false,costs:false,results:true,pricing:false,payments:false,archive:true,supacct:true,freight:true,commission:true,modelrep:true,compare:true,companies:false,settings:false,delete:false,users:false};
   return permAll(false);
 }
 function hashPw(s){ s=String(s); let h=5381; for(let i=0;i<s.length;i++){ h=((h<<5)+h)+s.charCodeAt(i); h|=0; } return 'h'+(h>>>0).toString(16); }
@@ -4364,7 +4509,7 @@ function applyPermsUI(){
   const nm=document.getElementById('current-user-name'); if(nm) nm.textContent = u?(u.name||u.username)+' · '+(ROLE_NAMES[u.role]||'')+(isReadonly()?' · 👁 قراءة فقط':''):'';
   document.body.classList.toggle('ro', isReadonly());
   // إظهار/إخفاء التبويبات حسب الصلاحية (كل تقرير/شاشة على حدة)
-  const tabPerm={'page-shipment':'shipment','page-costs':'costs','page-results':'results','page-pricing':'pricing','page-archive':'archive','page-payments':'payments','page-freight':'freight','page-supacct':'supacct','page-comm':'commission','page-modelrep':'modelrep','page-compare':'compare'};
+  const tabPerm={'page-dashboard':'dashboard','page-shipment':'shipment','page-costs':'costs','page-results':'results','page-pricing':'pricing','page-archive':'archive','page-payments':'payments','page-freight':'freight','page-supacct':'supacct','page-comm':'commission','page-modelrep':'modelrep','page-compare':'compare'};
   document.querySelectorAll('.tabs .tab').forEach(t=>{
     const oc=t.getAttribute('onclick')||''; const m=oc.match(/'(page-[a-z]+)'/);
     if(m){ t.style.display = can(tabPerm[m[1]]||'shipment') ? '' : 'none'; }
@@ -6485,7 +6630,7 @@ function exportPaymentsExcel(){
 // ═══════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════
-var APP_VERSION='v2026-10-29.28';   // رقم إصدار ظاهر للتحقق من تحميل أحدث نسخة (لا cache قديم)
+var APP_VERSION='v2026-10-29.29';   // رقم إصدار ظاهر للتحقق من تحميل أحدث نسخة (لا cache قديم)
 // ═══════════════════════════════════════════
 // 🌐 محرّك الترجمة الشامل (عربي / English / 中文) — قاموس + مسح DOM + مراقب تغييرات
 // ═══════════════════════════════════════════
@@ -7171,6 +7316,53 @@ Object.assign(TR.zh,{
 });
 Object.assign(TR.en,{'و':'&','نقد':'Cash'});
 Object.assign(TR.zh,{'و':'和','نقد':'现金'});
+// الدفعة التاسعة: لوحة التحكم
+Object.assign(TR.en,{
+ 'لوحة التحكم':'Dashboard',
+ 'آخر 30 يوماً':'Last 30 days',
+ 'آخر 90 يوماً':'Last 90 days',
+ 'آخر سنة':'Last year',
+ 'إجمالي الشراء FOB':'Total FOB purchase',
+ 'إجمالي أجور الشحن':'Total freight',
+ 'إجمالي التكلفة الواصلة':'Total landed cost',
+ 'نسبة التحميل على FOB':'Uplift over FOB',
+ 'الواصل مقابل الشراء':'Landed vs purchase',
+ 'رصيد المورد المستحق':'Supplier balance due',
+ 'رصيد أجور الشحن المستحق':'Freight balance due',
+ 'رصيد العمولة المستحق':'Commission balance due',
+ 'شراء FOB':'FOB purchase',
+ 'مصاريف أخرى':'Other expenses',
+ 'توزيع التكلفة الواصلة':'Landed cost breakdown',
+ 'أعلى الشحنات تكلفةً (الواصل)':'Top shipments by landed cost',
+ 'لا توجد بيانات':'No data',
+ 'أحدث الشحنات':'Latest shipments',
+ 'الواصل':'Landed',
+ 'بدون مورد':'No supplier',
+ 'أعلى الموردين (شراء FOB)':'Top suppliers (FOB purchase)'
+});
+Object.assign(TR.zh,{
+ 'لوحة التحكم':'仪表板',
+ 'آخر 30 يوماً':'最近30天',
+ 'آخر 90 يوماً':'最近90天',
+ 'آخر سنة':'最近一年',
+ 'إجمالي الشراء FOB':'FOB采购合计',
+ 'إجمالي أجور الشحن':'运费合计',
+ 'إجمالي التكلفة الواصلة':'到岸成本合计',
+ 'نسبة التحميل على FOB':'相对FOB加成',
+ 'الواصل مقابل الشراء':'到岸 对比 采购',
+ 'رصيد المورد المستحق':'应付供应商余额',
+ 'رصيد أجور الشحن المستحق':'应付运费余额',
+ 'رصيد العمولة المستحق':'应付佣金余额',
+ 'شراء FOB':'FOB采购',
+ 'مصاريف أخرى':'其他费用',
+ 'توزيع التكلفة الواصلة':'到岸成本构成',
+ 'أعلى الشحنات تكلفةً (الواصل)':'按到岸成本排名的装运',
+ 'لا توجد بيانات':'无数据',
+ 'أحدث الشحنات':'最新装运',
+ 'الواصل':'到岸',
+ 'بدون مورد':'无供应商',
+ 'أعلى الموردين (شراء FOB)':'供应商排名（FOB采购）'
+});
 var _trOrig=new WeakMap(), _trPh=new WeakMap(), _trTitle=new WeakMap(), _trBusy=false, _trObs=null, _trTimer=null;
 var _emojiLead=/^((?:[←-⇿⌀-➿⬀-⯿☀-⛿️\uD83C-􏰀-\uDFFF\s])+)/;
 function _trLook(lang,ar){ var d=TR[lang]; if(!d) return null; return (d[ar]!=null)?d[ar]:null; }
@@ -7289,6 +7481,8 @@ function initApp() {
       editProfile(activeId);
     }
   }
+  // تحميل لوحة التحكم إن كانت هي الصفحة الظاهرة
+  try{ var pd=document.getElementById('page-dashboard'); if(pd && pd.classList.contains('active')) renderDashboard(); }catch(e){}
 }
 
 window.onload = function() {
