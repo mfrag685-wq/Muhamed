@@ -517,7 +517,9 @@ table.exp-table th.exp-sort.on .srt{opacity:1}
 .edit-banner .eb-d{border-radius:999px;padding:1px 8px;font-weight:800;font-size:11.5px}
 .edit-banner .eb-d.up{background:#dcfce7;color:#166534}.edit-banner .eb-d.down{background:#fee2e2;color:#991b1b}
 .edit-banner .eb-dirty{color:#b45309;font-weight:800}.edit-banner .eb-clean{color:#64748b}
-.edit-banner .eb-act{display:flex;gap:8px}
+.edit-banner .eb-act{display:flex;flex-wrap:wrap;gap:8px}
+.doc-box .eb-hide{display:none!important}
+.doc-box.doc-editing .edit-banner{margin:0 0 10px}
 .wchips{display:flex;flex-wrap:wrap;align-items:center;gap:4px;margin-top:4px}
 .wchip{border:1px solid #cbd5e1;background:#fff;border-radius:999px;padding:1px 8px;font-size:11.5px;font-family:inherit;cursor:pointer;color:#334155}
 .wchip:hover{background:#1e293b;color:#fff;border-color:#1e293b}
@@ -2112,7 +2114,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-10-30-c';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-10-30-d';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -3808,9 +3810,15 @@ function docEditPaint(k,t){
   if(!box._ebHook){ box._ebHook=1; ['input','change'].forEach(function(ev){ box.addEventListener(ev,function(e){ if(draft[k]&&draft[k].editId&&!(e.target&&e.target.closest&&e.target.closest('.edit-banner'))) docEditPaint(k); }); }); }
   box.classList.toggle('doc-editing',on);
   var sb=box.querySelector('button[onclick="'+(k==='p'?'savePurchase()':'saveSale()')+'"]'); if(sb) sb.textContent=on?'💾 حفظ التعديلات':'حفظ الفاتورة';
-  if(!on){ if(ban) ban.remove(); return; }
+  var tbl=document.getElementById(k==='p'?'tbPLines':'tbSLines'), tsc=tbl?tbl.closest('.table-scroll'):null;
+  if(tsc&&tsc.parentNode!==box) tsc=null;
+  /* أثناء التعديل: إخفاء بيانات الرأس وخانات إضافة صنف (فوق الجدول) — تُعرض بزر عند الحاجة */
+  var hideTop=on&&!box.classList.contains('eb-showtop');
+  if(tsc){ for(var ch=box.firstElementChild; ch&&ch!==tsc; ch=ch.nextElementSibling){ if(ch.id!==k+'_editBanner') ch.classList.toggle('eb-hide',hideTop); } }
+  if(!on){ if(ban) ban.remove(); box.classList.remove('eb-showtop'); return; }
   var en=document.getElementById(k==='p'?'p_editing':'s_editing'); if(en) en.textContent='✏️ وضع التعديل — '+(val(k+'_no')?'فاتورة '+val(k+'_no'):'فاتورة بدون رقم');
-  if(!ban){ ban=document.createElement('div'); ban.id=k+'_editBanner'; ban.className='edit-banner'; box.insertBefore(ban,box.firstChild); }
+  if(!ban){ ban=document.createElement('div'); ban.id=k+'_editBanner'; ban.className='edit-banner'; }
+  if(tsc){ if(ban.nextElementSibling!==tsc) box.insertBefore(ban,tsc); } else if(ban.parentNode!==box) box.insertBefore(ban,box.firstChild);
   t=t||docTotals(k); var o=d.orig||{}, diff=round2(t.grand-(o.grand||0)), dirty=docDirty(k);
   var nf=document.getElementById(k+'_no'), nv=nf?nf.value:(o.no||''), bi=document.getElementById(k+'_noBanner');
   if(bi&&document.activeElement===bi){ docNoWarnPaint(k); return; }   /* لا تُعِد الرسم أثناء الكتابة في خانة الرقم */
@@ -3819,9 +3827,13 @@ function docEditPaint(k,t){
     +'<div class="eb-s">'+esc(o.party||'')+' · '+esc(o.date||'')+' · الإجمالي قبل التعديل: <b>'+money(o.grand||0)+'</b> ← الآن: <b>'+money(t.grand)+'</b>'
     +(Math.abs(diff)>0.004?' <span class="eb-d '+(diff>0?'up':'down')+'">'+(diff>0?'+':'−')+money(Math.abs(diff))+'</span>':'')
     +(dirty?' · <span class="eb-dirty">● تعديلات غير محفوظة</span>':' · <span class="eb-clean">لا تغييرات بعد</span>')+'</div></div></div>'
-    +'<div class="eb-act"><button type="button" class="btn-main" onclick="'+(k==='p'?'savePurchase()':'saveSale()')+'">💾 حفظ التعديلات</button>'
+    +'<div class="eb-act"><button type="button" class="btn" onclick="docToggleTop(\''+k+'\')" title="التاريخ والعميل/المورد والملاحظات وخانات إضافة صنف جديد">'+(hideTop?'⬆ بيانات الفاتورة وإضافة صنف':'⬇ إخفاء بيانات الفاتورة')+'</button>'
+    +'<button type="button" class="btn-main" onclick="'+(k==='p'?'savePurchase()':'saveSale()')+'">💾 حفظ التعديلات</button>'
     +'<button type="button" class="btn" onclick="docCancelEdit(\''+k+'\')">✖ إلغاء التعديل</button></div>';
 }
+function docToggleTop(k){ var box=docFormBox(k); if(!box) return; box.classList.toggle('eb-showtop'); docEditPaint(k);
+  var ban=document.getElementById(k+'_editBanner'); if(ban&&!box.classList.contains('eb-showtop')) ban.scrollIntoView({behavior:'smooth',block:'start'});
+  else if(box.classList.contains('eb-showtop')) box.scrollIntoView({behavior:'smooth',block:'start'}); }
 function docCancelEdit(k){ if(docDirty(k)&&!confirm(draft[k].editId?'توجد تعديلات غير محفوظة على هذه الفاتورة — هل تريد تجاهلها؟':'هل تريد مسح أصناف هذه الفاتورة الجديدة؟')) return; cancelDoc(k); }
 /* بعد الحفظ/الإلغاء: الرجوع إلى سطر الفاتورة في السجل وتمييزه */
 function regFocusInv(k,id){ setTimeout(function(){
@@ -3844,12 +3856,14 @@ function docLoad(k,r,asNew){
   renderDraft(k);
   if(!asNew){ draft[k].snap=docSnap(k); draft[k].orig={no:r.no,date:r.date,party:k==='p'?supName(r.supplierId):clientName(r.clientId),grand:docTotals(k).grand}; }   /* «قبل التعديل» = إجمالي الفاتورة كما فُتحت — فالفرق يعكس تعديلات المستخدم فقط */
   docEditPaint(k);
-  var box=docFormBox(k); if(box){ box.scrollIntoView({behavior:'smooth',block:'start'}); box.classList.remove('act-flash'); void box.offsetWidth; box.classList.add('act-flash'); }
+  var box=docFormBox(k); if(box){ box.classList.remove('eb-showtop'); docEditPaint(k);
+    var tgt=(!asNew&&document.getElementById(k+'_editBanner'))||box; tgt.scrollIntoView({behavior:'smooth',block:'start'});
+    box.classList.remove('act-flash'); void box.offsetWidth; box.classList.add('act-flash'); }
 }
 function editDoc(k,id){
   if(!guard('canEdit')) return;
   var r=byId(k==='p'?db.purchases:db.sales,id); if(!r) return;
-  if(draft[k]&&draft[k].editId===id){ var b0=docFormBox(k); if(b0) b0.scrollIntoView({behavior:'smooth',block:'start'}); return; }
+  if(draft[k]&&draft[k].editId===id){ var b0=document.getElementById(k+'_editBanner')||docFormBox(k); if(b0) b0.scrollIntoView({behavior:'smooth',block:'start'}); return; }
   if(docDirty(k)&&!confirm('لديك فاتورة '+(draft[k].editId?'قيد التعديل':'جديدة')+' لم تُحفظ بعد — هل تريد تجاهلها وفتح فاتورة '+(r.no||'#'+r.id)+' للتعديل؟')) return;
   docLoad(k,r,false);
 }
