@@ -534,6 +534,11 @@ input.no-dup{border-color:#dc2626!important;background:#fef2f2}
 .no-warn{color:#b91c1c;font-weight:700;margin-top:3px}
 .qno{display:inline-flex;align-items:center;gap:4px;background:#fff;border:1px solid #e2e8f0;border-radius:9px;padding:2px 6px}
 .qno input{width:120px;padding:3px 6px;border:1px solid #cbd5e1;border-radius:7px;font-family:inherit}
+tr.au-fail td{background:#fef2f2}
+.note.fail-ok{border-right-color:#16a34a}
+.note.fail-warn{border-right-color:#dc2626;background:#fff7f7}
+.note.fail-hot{background:#fee2e2}
+.fp-chip{display:inline-block;background:#fff;border:1px solid #fecaca;color:#991b1b;border-radius:999px;padding:1px 9px;font-size:12px;font-weight:700;margin:2px}
 /* أقسام قابلة للطي */
 details.fold{margin-top:16px;border:1px solid #bbf7d0;border-right:5px solid #16a34a;border-radius:10px;background:#fff}
 details.fold>summary.fold-sum{list-style:none;cursor:pointer;padding:9px 12px;background:#f0fdf4;border-radius:10px}
@@ -1818,7 +1823,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
     <div class="field"><label>المستخدم</label><select id="au_user" onchange="renderAudit()"></select></div>
     <div class="field"><label>نوع العملية</label><select id="au_action" onchange="renderAudit()">
       <option value="">الكل</option><option value="add">إضافة</option><option value="edit">تعديل</option>
-      <option value="delete">حذف</option><option value="auth">دخول/خروج</option><option value="data">بيانات</option></select></div>
+      <option value="delete">حذف</option><option value="auth">دخول/خروج</option><option value="fail">🚫 دخول فاشل</option><option value="data">بيانات</option></select></div>
     <div class="field"><label>من</label><input type="date" id="au_from" onchange="renderAudit()"></div>
     <div class="field"><label>إلى</label><input type="date" id="au_to" onchange="renderAudit()"></div>
     <button class="btn" onclick="exportTable('audit')">تصدير Excel</button>
@@ -2114,7 +2119,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-10-30-e';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-10-30-f';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -2614,7 +2619,34 @@ function log(action,entity,details){
   /* نُبقي حدّ القصّ متوافقاً مع سعة الدمج (AUDIT_KEEP) كي لا يقصّ سجلاً وحّده الدمج للتو */
   if(db.audit.length>AUDIT_KEEP+1000) db.audit=db.audit.slice(-AUDIT_KEEP);
 }
-var ACTIONS={add:'إضافة',edit:'تعديل',delete:'حذف',auth:'دخول/خروج',data:'بيانات'};
+var ACTIONS={add:'إضافة',edit:'تعديل',delete:'حذف',auth:'دخول/خروج',fail:'🚫 دخول فاشل',data:'بيانات'};
+/* ===== محاولات الدخول الفاشلة (ميزة أمان) =====
+   تُسجَّل في سجل الحركات على هذا الجهاز فوراً؛ وفي وضع السحابة (قبل المصادقة لا يمكن الكتابة للسحابة)
+   تُرفع تلقائياً مع أول دخول ناجح على الجهاز عبر دمج السجل — بتوقيتها الأصلي.
+   لا تُحفظ كلمة المرور المُدخلة إطلاقاً: فقط اسم المستخدم والسبب ونوع الجهاز. */
+function devLabel(){ var ua=navigator.userAgent||'';
+  var dev=/Mobi|Android|iPhone|iPad/i.test(ua)?'جوال':'كمبيوتر';
+  var os=/Windows/i.test(ua)?'Windows':/Android/i.test(ua)?'Android':/iPhone|iPad|iOS/i.test(ua)?'iOS':/Mac OS/i.test(ua)?'Mac':/Linux/i.test(ua)?'Linux':'';
+  var br=/Edg\//.test(ua)?'Edge':/OPR\//.test(ua)?'Opera':/Chrome\//.test(ua)?'Chrome':/Firefox\//.test(ua)?'Firefox':/Safari\//.test(ua)?'Safari':'';
+  return [dev,br,os].filter(Boolean).join(' · '); }
+function recordFailedLogin(username,reason){
+  try{
+    username=String(username||'').trim().slice(0,60);
+    var u=db.users.filter(function(x){ return (x.username||'').toLowerCase()===username.toLowerCase(); })[0];
+    db.audit.push({id:uid(),ts:nowTs(),userId:u?u.id:0,user:u?u.name:(username?'«'+username+'»':'—'),action:'fail',entity:'الدخول',
+      details:'محاولة دخول فاشلة — اسم المستخدم المُدخل: «'+(username||'فارغ')+'» — السبب: '+reason+' — الجهاز: '+devLabel()});
+    if(db.audit.length>AUDIT_KEEP+1000) db.audit=db.audit.slice(-AUDIT_KEEP);
+    persist();
+  }catch(e){}
+}
+/* ملخّص أمني للمدير: المحاولات الفاشلة خلال آخر 24 ساعة و7 أيام */
+function failedLoginStats(){ var d1=nowTs().slice(0,10), lim=new Date(Date.now()-7*864e5), w=new Date(lim.getTime()-lim.getTimezoneOffset()*60000).toISOString().slice(0,10);
+  var y=new Date(Date.now()-864e5), y1=new Date(y.getTime()-y.getTimezoneOffset()*60000).toISOString().slice(0,16).replace('T',' ');
+  var o={day:0,week:0,byName:{},byUser:{}};
+  (db.audit||[]).forEach(function(a){ if(!a||a.action!=='fail') return; var ts=String(a.ts||'');
+    if(ts.slice(0,10)>=w){ o.week++; if(a.userId) o.byUser[a.userId]=(o.byUser[a.userId]||0)+1; }
+    if(ts>=y1){ o.day++; var m=/المُدخل: «([^»]*)»/.exec(a.details||''); var n=m?m[1]:'—'; o.byName[n]=(o.byName[n]||0)+1; } });
+  return o; }
 
 /* ---------- الدخول والخروج ---------- */
 function doLogin(e){
@@ -2623,8 +2655,9 @@ function doLogin(e){
   if(cloudAccounts()){ cloudLogin(u,p); return; }   /* وضع الحسابات: الدخول عبر Firebase */
   var user=db.users.filter(function(x){return x.username.toLowerCase()===u.toLowerCase();})[0];
   var err=document.getElementById('loginErr');
-  if(!user||user.pass!==hash(p)){ err.textContent='اسم المستخدم أو كلمة المرور غير صحيحة'; err.style.display='block'; return; }
-  if(!Number(user.active)){ err.textContent='هذا الحساب موقوف. راجع مدير النظام.'; err.style.display='block'; return; }
+  if(!user||user.pass!==hash(p)){ recordFailedLogin(u,user?'كلمة مرور خاطئة':'اسم مستخدم غير موجود');
+    err.textContent='اسم المستخدم أو كلمة المرور غير صحيحة — تُسجَّل محاولات الدخول الفاشلة ويطّلع عليها المدير'; err.style.display='block'; return; }
+  if(!Number(user.active)){ recordFailedLogin(u,'الحساب موقوف'); err.textContent='هذا الحساب موقوف. راجع مدير النظام.'; err.style.display='block'; return; }
   err.style.display='none';
   user.lastLogin=nowTs(); ME=user;
   try{ sessionStorage.setItem(SKEY,String(user.id)); }catch(ex){}
@@ -7822,12 +7855,14 @@ function delUser(id){
   db.users=db.users.filter(function(x){return x.id!==id;}); persist(); renderUsers(); toast('تم الحذف');
 }
 function renderUsers(){
+  var _fst=null;
   document.getElementById('tbUsers').innerHTML=db.users.map(function(u){
-    var ops=db.audit.filter(function(a){return a.userId===u.id&&a.action!=='auth';}).length;
+    var ops=db.audit.filter(function(a){return a.userId===u.id&&a.action!=='auth'&&a.action!=='fail';}).length;
+    var fl=(_fst||(_fst=failedLoginStats())).byUser[u.id]||0;
     return '<tr><td class="name"><b>'+esc(u.name)+'</b></td><td>'+esc(u.username)+'</td>'
       +'<td><span class="pill '+(u.role==='admin'?'pill-bad':(u.role==='viewer'?'pill-info':'pill-ok'))+'">'+(ROLES[u.role]||'مخصص')+'</span></td>'
       +'<td>'+(Number(u.active)?'<span class="pill pill-ok">نشط</span>':'<span class="pill pill-warn">موقوف</span>')+'</td>'
-      +'<td class="muted">'+esc(u.lastLogin||'—')+'</td><td>'+ops+'</td>'
+      +'<td class="muted">'+esc(u.lastLogin||'—')+'</td><td>'+ops+(fl?' <span class="pill pill-bad" title="محاولات دخول فاشلة باسم هذا المستخدم خلال 7 أيام">🚫 '+fl+'</span>':'')+'</td>'
       +'<td><button class="btn-sm" onclick="editUser('+u.id+')">تعديل</button> '
       +'<button class="btn-sm btn-del" onclick="delUser('+u.id+')">حذف</button> '
       +(cloudAccounts()?'<button class="btn-sm" onclick="provisionUserAccount('+u.id+')" title="إنشاء أو تحديث حساب الدخول السحابي لهذا المستخدم ليدخل من أي جهاز">حساب سحابي'+(u.fbUid?' ✓':'')+'</button> ':'')
@@ -7853,15 +7888,29 @@ function renderAudit(){
     .map(function(z){ return z[0]; }).slice(0,600);   /* الأحدث أولاً بحسب الوقت فعلياً */
   var cb=document.getElementById('au_all'); if(cb) cb.checked=false;
   document.getElementById('tbAudit').innerHTML=rows.map(function(x){
-    var cls=x.action==='delete'?'pill-bad':(x.action==='edit'?'pill-warn':(x.action==='auth'?'pill-info':'pill-ok'));
-    return '<tr><td><input type="checkbox" class="au_ck" value="'+esc(String(x.id))+'" onclick="updateAuditSelCount()"></td>'
+    var cls=x.action==='delete'||x.action==='fail'?'pill-bad':(x.action==='edit'?'pill-warn':(x.action==='auth'?'pill-info':'pill-ok'));
+    return '<tr'+(x.action==='fail'?' class="au-fail"':'')+'><td><input type="checkbox" class="au_ck" value="'+esc(String(x.id))+'" onclick="updateAuditSelCount()"></td>'
       +'<td>'+esc(x.ts)+'</td><td class="name">'+esc(x.user)+'</td>'
       +'<td><span class="pill '+cls+'">'+(ACTIONS[x.action]||x.action)+'</span></td>'
       +'<td>'+esc(x.entity)+'</td><td class="name">'+esc(x.details)+'</td></tr>';
   }).join('')||'<tr><td colspan="6" class="empty">لا توجد حركات مطابقة.</td></tr>';
+  try{ renderFailPanel(); }catch(e){}
   var sc=document.getElementById('au_selCount');
   if(sc) sc.textContent='(المطابق للفلتر: '+all.length+' حركة'+(all.length>600?'، يُعرض أحدث 600':'')+')';
   updateAuditSelCount();
+}
+function renderFailPanel(){
+  var tb=document.getElementById('tbAudit'), wrap=tb?tb.closest('.table-scroll'):null; if(!wrap) return;
+  var box=document.getElementById('failPanel'); if(!box){ box=document.createElement('div'); box.id='failPanel'; wrap.parentNode.insertBefore(box,wrap); }
+  var st=failedLoginStats();
+  if(!st.week){ box.className='note fail-ok'; box.innerHTML='🛡️ لا توجد محاولات دخول فاشلة خلال آخر 7 أيام.'; return; }
+  var top=Object.keys(st.byName).sort(function(a,b){ return st.byName[b]-st.byName[a]; }).slice(0,5)
+    .map(function(n){ return '<span class="fp-chip"><bdi>'+esc(n)+'</bdi> — '+st.byName[n]+' مرة</span>'; }).join(' ');
+  box.className='note fail-warn'+(st.day>=5?' fail-hot':'');
+  box.innerHTML='<b>🚫 محاولات الدخول الفاشلة:</b> آخر 24 ساعة: <b>'+st.day+'</b> · آخر 7 أيام: <b>'+st.week+'</b>'
+    +(top?'<div style="margin-top:5px">أكثر الأسماء المُستهدفة (24 ساعة): '+top+'</div>':'')
+    +(st.day>=5?'<div style="margin-top:5px;font-weight:800">⚠ عدد مرتفع — تأكّد أن الموظفين يعرفون كلمات مرورهم، وغيّر كلمة مرور أي حساب مُستهدف.</div>':'')
+    +'<div style="margin-top:6px"><button type="button" class="btn-sm" onclick="setVal(\'au_action\',\'fail\');renderAudit()">عرض المحاولات الفاشلة فقط</button></div>';
 }
 function toggleAllAudit(cb){
   var list=document.querySelectorAll('#tbAudit .au_ck');
@@ -11299,12 +11348,12 @@ function afterCloudAuth(user,username){
   cloudAttach(function(err){
     cloudAuthBusy=false;
     var le=document.getElementById('loginErr');
-    if(err){ if(le){le.textContent='حسابك قيد المراجعة — لم تتم موافقة المدير على انضمامك بعد. حاول لاحقاً بعد الموافقة.';le.style.display='block';}
+    if(err){ recordFailedLogin(username,'الحساب قيد المراجعة (لم يوافق المدير)'); if(le){le.textContent='حسابك قيد المراجعة — لم تتم موافقة المدير على انضمامك بعد. حاول لاحقاً بعد الموافقة.';le.style.display='block';}
       cloudReady=false; try{ firebase.auth().signOut(); }catch(e){} setCloudStatus('auth'); return; }
     var u=db.users.filter(function(x){return x.fbUid===user.uid;})[0]
         || db.users.filter(function(x){return x.username.toLowerCase()===String(username).toLowerCase();})[0];
-    if(!u){ if(le){le.textContent='لا يوجد سجل مستخدم مطابق في بيانات المنشأة.';le.style.display='block';} return; }
-    if(!Number(u.active)){ if(le){le.textContent='هذا الحساب موقوف. راجع مدير النظام.';le.style.display='block';} return; }
+    if(!u){ recordFailedLogin(username,'لا يوجد سجل مستخدم مطابق في بيانات المنشأة'); if(le){le.textContent='لا يوجد سجل مستخدم مطابق في بيانات المنشأة.';le.style.display='block';} return; }
+    if(!Number(u.active)){ recordFailedLogin(username,'الحساب موقوف'); if(le){le.textContent='هذا الحساب موقوف. راجع مدير النظام.';le.style.display='block';} return; }
     if(u.fbUid!==user.uid){ u.fbUid=user.uid; }
     u.lastLogin=nowTs(); ME=u;
     cloudWriteMember(user.uid,u).catch(function(){});
@@ -11327,13 +11376,14 @@ function cloudLogin(username,password){
     .then(function(cred){ afterCloudAuth(cred.user,username); })
     .catch(function(e){
       var code=e&&e.code;
-      if(code==='auth/wrong-password'){ fail('كلمة المرور غير صحيحة'); return; }
+      if(code==='auth/wrong-password'){ recordFailedLogin(username,'كلمة مرور خاطئة'); fail('كلمة المرور غير صحيحة'); return; }
+      if(code==='auth/too-many-requests'){ recordFailedLogin(username,'محاولات كثيرة متتالية — حظر مؤقت من الخادم'); fail('محاولات كثيرة متتالية — أُوقف الدخول مؤقتاً لحماية الحساب. حاول بعد دقائق.'); return; }
       if(code==='auth/user-not-found'||code==='auth/invalid-credential'||code==='auth/invalid-login-credentials'){
         /* الحساب غير موجود سحابياً بعد: نتحقق محلياً لتفعيل أول مرة */
         if(appu&&appu.pass===hash(password)&&Number(appu.active)){
           if(appu.role==='admin') cloudBootstrapAdmin(appu,password,fail);
           else fail('حسابك السحابي غير مُفعّل بعد — اطلب من مدير النظام تفعيله من شاشة «المستخدمون».');
-        } else fail('اسم المستخدم أو كلمة المرور غير صحيحة');
+        } else { recordFailedLogin(username,appu?(Number(appu.active)?'كلمة مرور خاطئة':'الحساب موقوف'):'اسم مستخدم غير موجود أو كلمة مرور خاطئة'); fail('اسم المستخدم أو كلمة المرور غير صحيحة'); }
         return;
       }
       fail('تعذّر تسجيل الدخول السحابي: '+((e&&e.message)||''));
