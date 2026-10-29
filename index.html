@@ -676,6 +676,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
     <div class="rb-filters">
       <div class="field"><label>من تاريخ</label><input type="date" id="pf_from" onchange="renderPurchases()"></div>
       <div class="field"><label>إلى تاريخ</label><input type="date" id="pf_to" onchange="renderPurchases()"></div>
+      <div class="field"><label>رقم الفاتورة</label><input type="search" id="pf_no" autocomplete="off" oninput="renderPurchases()" placeholder="🔍 رقم الفاتورة" style="width:130px"></div>
       <div class="field"><label>بحث عن المورد</label><input type="text" id="pf_supplierSearch" list="dl_pfSup" autocomplete="off" oninput="filterListParty('pf')" placeholder="🔍 الاسم"><datalist id="dl_pfSup"></datalist></div>
       <div class="field"><label>المورد</label><select id="pf_supplier" onchange="renderPurchases()"></select></div>
       <div class="field"><label>الصنف</label><select id="pf_item" onchange="renderPurchases()"></select></div>
@@ -763,6 +764,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
     <div class="rb-filters">
       <div class="field"><label>من تاريخ</label><input type="date" id="sf_from" onchange="renderSales()"></div>
       <div class="field"><label>إلى تاريخ</label><input type="date" id="sf_to" onchange="renderSales()"></div>
+      <div class="field"><label>رقم الفاتورة</label><input type="search" id="sf_no" autocomplete="off" oninput="renderSales()" placeholder="🔍 رقم الفاتورة" style="width:130px"></div>
       <div class="field"><label>بحث عن العميل</label><input type="text" id="sf_clientSearch" list="dl_sfCl" autocomplete="off" oninput="filterListParty('sf')" placeholder="🔍 الاسم"><datalist id="dl_sfCl"></datalist></div>
       <div class="field"><label>العميل</label><select id="sf_client" onchange="renderSales()"></select></div>
       <div class="field"><label>الصنف</label><select id="sf_item" onchange="renderSales()"></select></div>
@@ -1952,7 +1954,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-10-28-a';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-10-29-a';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -5684,16 +5686,24 @@ function setPurchaseView(v){ purchaseView=v;
   if(a) a.classList.toggle('active',v==='summary'); if(b) b.classList.toggle('active',v==='detailed');
   renderPurchases();
 }
-function clearPurchaseFilters(){ ['pf_from','pf_to','pf_supplierSearch','pf_supplier','pf_item','pf_wh','pf_min','pf_max'].forEach(function(id){setVal(id,'');}); filterListParty('pf'); }
+function clearPurchaseFilters(){ ['pf_from','pf_to','pf_no','pf_supplierSearch','pf_supplier','pf_item','pf_wh','pf_min','pf_max'].forEach(function(id){setVal(id,'');}); filterListParty('pf'); }
+/* بحث برقم الفاتورة: يطابق جزءاً من الرقم ويتجاهل المسافات والشرطات والأرقام العربية/الهندية */
+function invNoKey(v){ return String(v==null?'':v).replace(/[\u0660-\u0669]/g,function(c){return c.charCodeAt(0)-0x660;})
+  .replace(/[\u06F0-\u06F9]/g,function(c){return c.charCodeAt(0)-0x6F0;}).replace(/[\s\-_\/#.]/g,'').toLowerCase(); }
+function invNoMatch(doc,q){ return !q||invNoKey(doc.no).indexOf(q)>=0; }
+/* عند تطابق فاتورة واحدة فقط تُفتح تفاصيلها تلقائياً في الملخّص */
+var regAutoQ={s:'',p:''};
+function regAutoOpen(k,q,invSet){ if(q===regAutoQ[k]) return; regAutoQ[k]=q; var ids=Object.keys(invSet); if(q&&ids.length===1) regOpen[k][ids[0]]=true; }
 /* يبني أسطر السجل (سطر لكل صنف) بعد تطبيق كل الفلاتر — مشترك بين العرض والتصدير */
 function purchaseRegistryRows(){
-  var f=val('pf_from'),t=val('pf_to'),sp=val('pf_supplier'),itemF=val('pf_item'),whF=val('pf_wh');
+  var f=val('pf_from'),t=val('pf_to'),sp=val('pf_supplier'),itemF=val('pf_item'),whF=val('pf_wh'),noQ=invNoKey(val('pf_no'));
   var minA=val('pf_min')!==''?+val('pf_min'):null, maxA=val('pf_max')!==''?+val('pf_max'):null;
   var out=[], invSet={};
   db.purchases.forEach(function(p){
     if(!canSeeRec(p)) return;   /* عزل: غير المدير يرى إدخالاته فقط */
     if(!inRange(p.date,f,t)) return;
     if(sp&&p.supplierId!==+sp) return;
+    if(!invNoMatch(p,noQ)) return;
     var g=docGrand(p);
     if(minA!=null&&g<minA-0.0001) return;
     if(maxA!=null&&g>maxA+0.0001) return;
@@ -5710,6 +5720,7 @@ function purchaseRegistryRows(){
   });
   out.sort(function(a,b){ return a.date===b.date?b.pid-a.pid:(a.date<b.date?1:-1); });
   var T={net:0,vat:0,grand:0,weight:0}; out.forEach(function(r){ T.net+=r.net;T.vat+=r.vat;T.grand+=r.grand;T.weight+=r.weight; });
+  regAutoOpen('p',noQ,invSet);
   return {rows:out, tot:T, invoices:Object.keys(invSet).length};
 }
 function renderPurchases(){
@@ -5786,16 +5797,17 @@ function setSalesView(v){ salesView=v;
   if(a) a.classList.toggle('active',v==='summary'); if(b) b.classList.toggle('active',v==='detailed');
   renderSales();
 }
-function clearSalesFilters(){ ['sf_from','sf_to','sf_clientSearch','sf_client','sf_item','sf_wh','sf_min','sf_max'].forEach(function(id){setVal(id,'');}); filterListParty('sf'); }
+function clearSalesFilters(){ ['sf_from','sf_to','sf_no','sf_clientSearch','sf_client','sf_item','sf_wh','sf_min','sf_max'].forEach(function(id){setVal(id,'');}); filterListParty('sf'); }
 /* أسطر السجل (سطر لكل صنف) بعد الفلاتر — مشترك بين العرض والتصدير */
 function salesRegistryRows(){
-  var f=val('sf_from'),t=val('sf_to'),cl=val('sf_client'),itemF=val('sf_item'),whF=val('sf_wh');
+  var f=val('sf_from'),t=val('sf_to'),cl=val('sf_client'),itemF=val('sf_item'),whF=val('sf_wh'),noQ=invNoKey(val('sf_no'));
   var minA=val('sf_min')!==''?+val('sf_min'):null, maxA=val('sf_max')!==''?+val('sf_max'):null;
   var out=[], invSet={};
   db.sales.forEach(function(s){
     if(!canSeeRec(s)) return;   /* عزل: غير المدير يرى إدخالاته فقط */
     if(!inRange(s.date,f,t)) return;
     if(cl&&s.clientId!==+cl) return;
+    if(!invNoMatch(s,noQ)) return;
     var g=docGrand(s);
     if(minA!=null&&g<minA-0.0001) return;
     if(maxA!=null&&g>maxA+0.0001) return;
@@ -5814,6 +5826,7 @@ function salesRegistryRows(){
   out.sort(function(a,b){ return a.date===b.date?b.sid-a.sid:(a.date<b.date?1:-1); });
   var T={net:0,vat:0,grand:0,weight:0,cost:0,gp:0};
   out.forEach(function(r){ T.net+=r.net;T.vat+=r.vat;T.grand+=r.grand;T.weight+=r.weight;T.cost+=r.cost;T.gp+=r.gp; });
+  regAutoOpen('s',noQ,invSet);
   return {rows:out, tot:T, invoices:Object.keys(invSet).length};
 }
 function renderSales(){
