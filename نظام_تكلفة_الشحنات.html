@@ -158,45 +158,74 @@ td.sar-equiv{font-size:.76rem!important;padding:4px 6px!important}
 .sum-card .sub{font-size:.7rem;color:rgba(255,255,255,.52);margin-top:1px}
 /* ── لوحة التحكم ── */
 .dash-head{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap;margin-bottom:14px}
-.dash-title{margin:0;font-size:1.25rem;color:var(--primary)}
+.dash-title{margin:0;font-size:1.3rem;color:var(--primary)}
 .dash-sub{font-size:.8rem;color:var(--muted);margin-top:3px}
 .dash-actions{display:flex;gap:7px;align-items:center;flex-wrap:wrap}
-.dash-range{padding:6px 10px;border:1px solid var(--line,#cfd8e3);border-radius:7px;font-size:.8rem;background:#fff;color:#1a2b3c}
-.kpi-row{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
-.kpi{flex:1;min-width:150px;border-radius:12px;padding:13px 15px;color:#fff;position:relative;overflow:hidden;box-shadow:0 2px 10px rgba(16,40,64,.10)}
-.kpi .ic{position:absolute;left:10px;top:8px;font-size:1.5rem;opacity:.22}
-.kpi .k-lbl{font-size:.72rem;opacity:.9;font-weight:600;margin-bottom:5px}
-.kpi .k-val{font-size:1.32rem;font-weight:800;line-height:1.1;letter-spacing:.2px}
-.kpi .k-sub{font-size:.68rem;opacity:.82;margin-top:3px}
-.kpi.k1{background:linear-gradient(135deg,#17304a,#245179)}
-.kpi.k2{background:linear-gradient(135deg,#1b5e20,#2e8b3a)}
-.kpi.k3{background:linear-gradient(135deg,#8a5a00,#c08a1e)}
-.kpi.k4{background:linear-gradient(135deg,#5b2d8a,#8148c0)}
-.kpi.k5{background:linear-gradient(135deg,#0f6b6b,#149a9a)}
-.bal-row{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
-.bal-card{flex:1;min-width:190px;background:#fff;border:1px solid var(--line,#e1e8f0);border-radius:11px;padding:12px 14px;border-inline-start:5px solid var(--primary)}
-.bal-card.pos{border-inline-start-color:#c62828}
-.bal-card.zero{border-inline-start-color:#1b7a33}
-.bal-card .b-lbl{font-size:.74rem;color:var(--muted);font-weight:600;margin-bottom:4px}
-.bal-card .b-val{font-size:1.12rem;font-weight:800;color:#17304a}
-.bal-card .b-sub{font-size:.68rem;color:var(--muted);margin-top:3px}
-.dash-grid-2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px}
-.dash-panel{background:#fff;border:1px solid var(--line,#e1e8f0);border-radius:11px;padding:13px 15px}
-.dash-panel h3{margin:0 0 10px;font-size:.92rem;color:var(--primary);display:flex;align-items:center;gap:6px}
-.dash-bar{display:flex;align-items:center;gap:8px;margin-bottom:7px;font-size:.76rem}
-.dash-bar .bl{width:34%;min-width:80px;color:#2c3e50;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.dash-bar .bt{flex:1;background:#eef2f7;border-radius:6px;height:16px;overflow:hidden}
-.dash-bar .bf{display:block;height:100%;min-width:2px;border-radius:6px;background:linear-gradient(90deg,#245179,#3a7bbf)}
-.dash-bar .bv{min-width:78px;text-align:end;font-weight:700;color:#17304a;font-variant-numeric:tabular-nums}
-.stack{display:flex;height:26px;border-radius:7px;overflow:hidden;margin:6px 0 10px;box-shadow:inset 0 0 0 1px rgba(0,0,0,.05)}
-.stack>span{display:flex;align-items:center;justify-content:center;color:#fff;font-size:.66rem;font-weight:700;min-width:0}
-.stack-lg{display:flex;gap:12px;flex-wrap:wrap;font-size:.72rem}
+.dash-range{padding:6px 10px;border:1px solid var(--border);border-radius:7px;font-size:.8rem;background:var(--card);color:var(--text)}
+.kpi-row{display:grid;grid-template-columns:repeat(5,1fr);gap:11px;margin-bottom:13px}
+.kpi{border-radius:14px;padding:14px 16px;color:#fff;position:relative;overflow:hidden;box-shadow:0 4px 16px rgba(16,40,64,.14)}
+.kpi::after{content:"";position:absolute;inset:0;background:radial-gradient(120px 80px at 110% -10%,rgba(255,255,255,.18),transparent)}
+.kpi>*{position:relative;z-index:1}
+.kpi .ic{position:absolute;inset-inline-start:11px;top:11px;font-size:1.7rem;opacity:.26;z-index:0}
+.kpi .k-lbl{font-size:.71rem;opacity:.92;font-weight:600;margin-bottom:6px;min-height:2em}
+.kpi .k-val{font-size:1.44rem;font-weight:800;line-height:1.05;letter-spacing:.2px;font-variant-numeric:tabular-nums}
+.kpi .k-sub{font-size:.67rem;opacity:.85;margin-top:4px}
+.kpi .k-trend{display:inline-flex;align-items:center;gap:3px;font-size:.66rem;font-weight:800;padding:2px 7px;border-radius:20px;margin-top:7px;background:rgba(255,255,255,.2)}
+.kpi .k-trend.up{background:rgba(255,255,255,.26)}
+.kpi .k-trend.down{background:rgba(0,0,0,.18)}
+.kpi.k1{background:linear-gradient(135deg,#16304b,#2b5a86)}
+.kpi.k2{background:linear-gradient(135deg,#145a24,#2e9d47)}
+.kpi.k3{background:linear-gradient(135deg,#8a5a00,#d19a27)}
+.kpi.k4{background:linear-gradient(135deg,#542a86,#8a4fcf)}
+.kpi.k5{background:linear-gradient(135deg,#0c6a6a,#15a3a3)}
+.bal-row{display:grid;grid-template-columns:repeat(3,1fr);gap:11px;margin-bottom:13px}
+.bal-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:13px 15px;border-inline-start:5px solid var(--primary);box-shadow:0 2px 8px rgba(16,40,64,.05)}
+.bal-card.pos{border-inline-start-color:var(--danger)}
+.bal-card.zero{border-inline-start-color:var(--success)}
+.bal-card .b-top{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.bal-card .b-lbl{font-size:.75rem;color:var(--muted);font-weight:600;margin-bottom:5px}
+.bal-card .b-val{font-size:1.18rem;font-weight:800;color:var(--text);font-variant-numeric:tabular-nums}
+.bal-card .b-sub{font-size:.67rem;color:var(--muted);margin-top:4px}
+.bal-card .b-prog{height:7px;border-radius:5px;background:rgba(120,140,160,.18);overflow:hidden;margin-top:8px}
+.bal-card .b-prog>span{display:block;height:100%;border-radius:5px;background:linear-gradient(90deg,var(--success),#39b06a)}
+.bal-card .b-pct{font-size:.64rem;color:var(--muted);margin-top:3px}
+.dash-grid-2{display:grid;grid-template-columns:1.5fr 1fr;gap:12px;margin-bottom:13px}
+.dash-grid-eq{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:13px}
+.dash-grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:13px}
+.dash-panel{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px 16px;box-shadow:0 2px 8px rgba(16,40,64,.05)}
+.dash-panel h3{margin:0 0 11px;font-size:.92rem;color:var(--primary);display:flex;align-items:center;gap:6px}
+.dash-panel h3 .h-side{margin-inline-start:auto;font-size:.72rem;font-weight:600;color:var(--muted)}
+.dash-bar{display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:.76rem}
+.dash-bar .bl{width:32%;min-width:78px;color:var(--text);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dash-bar .bt{flex:1;background:rgba(120,140,160,.14);border-radius:6px;height:17px;overflow:hidden}
+.dash-bar .bf{display:block;height:100%;min-width:3px;width:0;border-radius:6px;background:linear-gradient(90deg,#245179,#4a90d9);transition:width .7s cubic-bezier(.22,1,.36,1)}
+.dash-bar .bv{min-width:80px;text-align:end;font-weight:700;color:var(--text);font-variant-numeric:tabular-nums}
+.stack{display:flex;height:28px;border-radius:8px;overflow:hidden;margin:6px 0 10px;box-shadow:inset 0 0 0 1px rgba(0,0,0,.05)}
+.stack>span{display:flex;align-items:center;justify-content:center;color:#fff;font-size:.67rem;font-weight:700;min-width:0;transition:width .7s ease}
+.stack-lg{display:flex;gap:14px;flex-wrap:wrap;font-size:.72rem;color:var(--text)}
 .stack-lg b{display:inline-block;width:10px;height:10px;border-radius:2px;margin-inline-end:4px;vertical-align:middle}
 .dash-list{width:100%;border-collapse:collapse;font-size:.78rem}
-.dash-list th,.dash-list td{padding:6px 8px;border-bottom:1px solid #eef2f7;text-align:start}
+.dash-list th,.dash-list td{padding:7px 8px;border-bottom:1px solid var(--border);text-align:start}
 .dash-list th{color:var(--muted);font-weight:600;font-size:.72rem}
-.dash-list td.n{text-align:end;font-variant-numeric:tabular-nums;font-weight:700;color:#17304a}
+.dash-list td{color:var(--text)}
+.dash-list td.n{text-align:end;font-variant-numeric:tabular-nums;font-weight:700}
+.dash-list tr:last-child td{border-bottom:none}
 .dash-empty{text-align:center;color:var(--muted);padding:26px;font-size:.85rem}
+.ins-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:11px;margin-bottom:13px}
+.ins{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 13px;display:flex;gap:10px;align-items:flex-start;box-shadow:0 2px 8px rgba(16,40,64,.05)}
+.ins .ii{font-size:1.35rem;line-height:1;flex-shrink:0}
+.ins .it{font-size:.69rem;color:var(--muted);font-weight:600;margin-bottom:3px}
+.ins .iv{font-size:.9rem;color:var(--text);font-weight:800;line-height:1.25}
+.ins .iv small{font-weight:600;color:var(--muted);font-size:.7rem}
+.dchart{width:100%;height:auto;display:block;overflow:visible}
+.dchart .grid{stroke:var(--border);stroke-width:1;opacity:.6}
+.dchart .axlbl{fill:var(--muted);font-size:10px}
+.dchart .dot{fill:var(--card);stroke-width:2}
+.donut-wrap{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.donut-legend{flex:1;min-width:120px;font-size:.74rem}
+.donut-legend .dl{display:flex;align-items:center;gap:7px;margin-bottom:6px;color:var(--text)}
+.donut-legend .dl b{width:11px;height:11px;border-radius:3px;flex-shrink:0}
+.donut-legend .dl .dv{margin-inline-start:auto;font-weight:700;font-variant-numeric:tabular-nums}
 .vbox{padding:8px 12px;border-radius:7px;margin-bottom:11px;font-size:.81rem}
 .vok{background:#e8f5e9;color:#1b5e20;border:1px solid #a5d6a7}
 .vwarn{background:#fff3e0;color:#e65100;border:1px solid #ffcc80}
@@ -473,8 +502,10 @@ html[data-theme="dark"] .rt td.hl{background:#2e2814;color:var(--accent)}
 }
 @media (max-width:400px){
   .sum-card{min-width:100%}
-  .kpi{min-width:calc(50% - 7px)!important}
-  .dash-grid-2{grid-template-columns:1fr!important}
+  .kpi-row{grid-template-columns:repeat(2,1fr)!important}
+  .bal-row{grid-template-columns:1fr!important}
+  .ins-grid{grid-template-columns:repeat(2,1fr)!important}
+  .dash-grid-2,.dash-grid-eq,.dash-grid-3{grid-template-columns:1fr!important}
 }
 
 /* ☁️ حالة المزامنة السحابية */
@@ -3334,73 +3365,179 @@ function _dashRangeFilter(ships){
   var cut=new Date(); cut.setDate(cut.getDate()-days); var cutS=cut.toISOString().slice(0,10);
   return ships.filter(function(s){ return (s.shipmentDate||'')>=cutS; });
 }
+function _dashPrevWindow(all){
+  // نافذة الفترة السابقة المساوية (لمقارنة الاتجاه) — فقط عند اختيار فترة محددة
+  var v=(document.getElementById('dash-range')||{}).value||'all';
+  var days=parseInt(v,10)||0; if(v==='all'||!days) return null;
+  var now=new Date(); var curCut=new Date(); curCut.setDate(now.getDate()-days);
+  var prevCut=new Date(); prevCut.setDate(now.getDate()-2*days);
+  var a=prevCut.toISOString().slice(0,10), b=curCut.toISOString().slice(0,10);
+  return all.filter(function(s){ var d=s.shipmentDate||''; return d>=a && d<b; });
+}
 function renderDashboard(){
   var el=document.getElementById('dash-body'); if(!el) return;
   try{ var pn=(profilesLoad().find(function(p){return p.id===getActiveProfileId();})||{}).name||'—'; var dc=document.getElementById('dash-company'); if(dc) dc.textContent=pn; }catch(e){}
   var all=dbLoad(); var ships=_dashRangeFilter(all);
-  if(!ships.length){ el.innerHTML='<div class="dash-empty">'+tr('لا توجد شحنات محفوظة بعد')+'</div>'; return; }
-  // تجميعات
+  if(!all.length){ el.innerHTML='<div class="dash-empty">'+tr('لا توجد شحنات محفوظة بعد')+'</div>'; return; }
+  // تجميع الشحنات
   var nShip=ships.length, nCont=0, totFob=0, totFreight=0, totLanded=0;
-  var perShip=[];
+  var perShip=[], byMonth={}, byCur={}, byModel={};
   ships.forEach(function(s){
     var conts=((s.containers)||[]).length; nCont+=conts;
     var fob=shipFobSar(s)||0, frt=shipFreightSar(s)||0, land=_shipLandedTotal(s);
     totFob+=fob; totFreight+=frt; totLanded+=land;
     perShip.push({no:s.shipmentNo||'—', date:s.shipmentDate||'', sup:s.supplierName||'', fob:fob, land:land, conts:conts});
+    var ym=(s.shipmentDate||'').slice(0,7)||'—'; if(!byMonth[ym]) byMonth[ym]={land:0,fob:0,n:0}; byMonth[ym].land+=land; byMonth[ym].fob+=fob; byMonth[ym].n++;
+    // عملات الشراء
+    ((s.containers)||[]).forEach(function(c){ ((c.invoices)||[]).forEach(function(inv){ var cur=inv.purchCur||s.invCur||'USD'; var raw=((inv.items)||[]).reduce(function(a,it){return a+(parseFloat(it.qty)||0)*(parseFloat(it.unitPrice)||0);},0); var sar=toSar(raw,cur); byCur[cur]=(byCur[cur]||0)+sar; }); });
+    // موديلات
+    try{ snapLanded(s).forEach(function(r){ var k=(r.name||'—').trim()||'—'; byModel[k]=(byModel[k]||0)+(r.landedSar||0); }); }catch(e){}
   });
   var otherC=Math.max(0, totLanded-totFob-totFreight);
   var uplift=totFob>0?((totLanded-totFob)/totFob*100):0;
-  // الأرصدة (كل الفترات — مركز حساب)
-  var supBal=0; try{ var names={}; supLoad().forEach(function(x){ names[x.name]=1; }); all.forEach(function(s){ if(s.supplierName) names[s.supplierName]=1; });
-    Object.keys(names).forEach(function(nm){ try{ var L=supAcctLedger(nm,'',''); if(L.length) supBal+=L[L.length-1].bal||0; }catch(e){} }); }catch(e){}
-  var frtBal=0; try{ var FL=frtLedger('',''); if(FL.length) frtBal=FL[FL.length-1].bal||0; }catch(e){}
-  var commBal=0; try{ var CL=commLedger('',''); if(CL.length) commBal=CL[CL.length-1].bal||0; }catch(e){}
-  // KPIs
+  var avgShip=nShip?totLanded/nShip:0;
+  // مقارنة الفترة السابقة
+  var prev=_dashPrevWindow(all), pLand=0,pFob=0,pN=0;
+  if(prev){ prev.forEach(function(s){ pLand+=_shipLandedTotal(s); pFob+=(shipFobSar(s)||0); pN++; }); }
+  // الأرصدة + التحصيل (مركز حساب — كل الفترات)
+  var supDr=0,supCr=0, bySupBal={};
+  try{ var names={}; supLoad().forEach(function(x){ names[x.name]=1; }); all.forEach(function(s){ if(s.supplierName) names[s.supplierName]=1; });
+    Object.keys(names).forEach(function(nm){ try{ var L=supAcctLedger(nm,'',''); var dr=0,cr=0; L.forEach(function(r){ dr+=r.dr||0; cr+=r.cr||0; }); supDr+=dr; supCr+=cr; bySupBal[nm]=dr-cr; }catch(e){} }); }catch(e){}
+  var frtDr=0,frtCr=0; try{ frtLedger('','').forEach(function(r){ frtDr+=r.dr||0; frtCr+=r.cr||0; }); }catch(e){}
+  var commDr=0,commCr=0; try{ commLedger('','').forEach(function(r){ commDr+=r.dr||0; commCr+=r.cr||0; }); }catch(e){}
+  var supBal=supDr-supCr, frtBal=frtDr-frtCr, commBal=commDr-commCr;
+  var collOverall=(supDr+frtDr+commDr)>0? (supCr+frtCr+commCr)/(supDr+frtDr+commDr)*100 : 0;
+
+  // ═ KPIs مع اتجاه ═
   var h='<div class="kpi-row">'+
-    _kpi('k1','🚢', tr('عدد الشحنات'), fmtD(nShip).replace(/\.00$/,''), nCont+' '+tr('حاوية'))+
-    _kpi('k2','💰', tr('إجمالي الشراء FOB')+' (SAR)', fmtD(totFob), '')+
-    _kpi('k3','🚚', tr('إجمالي أجور الشحن')+' (SAR)', fmtD(totFreight), '')+
-    _kpi('k4','📦', tr('إجمالي التكلفة الواصلة')+' (SAR)', fmtD(totLanded), '')+
-    _kpi('k5','📈', tr('نسبة التحميل على FOB'), fmtN(uplift)+'%', tr('الواصل مقابل الشراء'))+
+    _kpi('k1','🚢', tr('عدد الشحنات'), nShip, '', nCont+' '+tr('حاوية'), (prev?_pct(nShip,pN):null))+
+    _kpi('k2','💰', tr('إجمالي الشراء FOB')+' (SAR)', totFob, 'm', '', (prev?_pct(totFob,pFob):null))+
+    _kpi('k3','🚚', tr('إجمالي أجور الشحن')+' (SAR)', totFreight, 'm', '', null)+
+    _kpi('k4','📦', tr('إجمالي التكلفة الواصلة')+' (SAR)', totLanded, 'm', '', (prev?_pct(totLanded,pLand):null))+
+    _kpi('k5','📈', tr('نسبة التحميل على FOB'), fmtN(uplift)+'%', 'raw', tr('الواصل مقابل الشراء'), null)+
   '</div>';
-  // الأرصدة
+
+  // ═ أرصدة + تحصيل ═
   h+='<div class="bal-row">'+
-    _bal(supBal, tr('رصيد المورد المستحق'))+
-    _bal(frtBal, tr('رصيد أجور الشحن المستحق'))+
-    _bal(commBal, tr('رصيد العمولة المستحق'))+
+    _bal(supBal, supCr, supDr, tr('رصيد المورد المستحق'))+
+    _bal(frtBal, frtCr, frtDr, tr('رصيد أجور الشحن المستحق'))+
+    _bal(commBal, commCr, commDr, tr('رصيد العمولة المستحق'))+
   '</div>';
-  // لوحتان: توزيع التكلفة + أعلى الشحنات
-  h+='<div class="dash-grid-2">';
-  // توزيع التكلفة الواصلة
-  var parts=[['#245179',tr('شراء FOB'),totFob],['#c08a1e',tr('أجور الشحن'),totFreight],['#5b2d8a',tr('مصاريف أخرى'),otherC]];
-  var sumP=parts.reduce(function(s,p){return s+p[2];},0)||1;
-  var stack='<div class="stack">'+parts.map(function(p){ var w=p[2]/sumP*100; return w>0?'<span style="background:'+p[0]+';width:'+w.toFixed(1)+'%" title="'+p[1]+'">'+(w>9?Math.round(w)+'%':'')+'</span>':''; }).join('')+'</div>';
-  var leg='<div class="stack-lg">'+parts.map(function(p){ return '<span><b style="background:'+p[0]+'"></b>'+p[1]+': '+fmtD(p[2])+'</span>'; }).join('')+'</div>';
-  h+='<div class="dash-panel"><h3>📊 '+tr('توزيع التكلفة الواصلة')+'</h3>'+stack+leg+'</div>';
-  // أعلى الشحنات تكلفة
+
+  // ═ الاتجاه الشهري (مساحة) + دونات التوزيع ═
+  var months=Object.keys(byMonth).filter(function(k){return k!=='—';}).sort();
+  if(months.length>12) months=months.slice(months.length-12);
+  var series=months.map(function(m){ return {label:m.slice(5)+'/'+m.slice(2,4), v:byMonth[m].land, n:byMonth[m].n}; });
+  var donutParts=[{c:'#2b6cb0',label:tr('شراء FOB'),v:totFob},{c:'#c08a1e',label:tr('أجور الشحن'),v:totFreight},{c:'#7a4fc0',label:tr('مصاريف أخرى'),v:otherC}];
+  h+='<div class="dash-grid-2">'+
+    '<div class="dash-panel"><h3>📈 '+tr('الاتجاه الشهري للتكلفة الواصلة')+'<span class="h-side">'+months.length+' '+tr('شهر')+'</span></h3>'+ _svgArea(series) +'</div>'+
+    '<div class="dash-panel"><h3>🧩 '+tr('توزيع التكلفة الواصلة')+'</h3>'+ _svgDonut(donutParts, tr('الواصل'), totLanded) +'</div>'+
+  '</div>';
+
+  // ═ رؤى سريعة ═
+  var topShip=perShip.slice().sort(function(a,b){return b.land-a.land;})[0]||{no:'—',land:0};
+  var topSupName='—',topSupBal=0; Object.keys(bySupBal).forEach(function(k){ if(bySupBal[k]>topSupBal){topSupBal=bySupBal[k];topSupName=k;} });
+  var topCur='—',topCurV=0,curSum=0; Object.keys(byCur).forEach(function(k){curSum+=byCur[k];}); Object.keys(byCur).forEach(function(k){ if(byCur[k]>topCurV){topCurV=byCur[k];topCur=k;} });
+  var curPct=curSum>0?(topCurV/curSum*100):0;
+  h+='<div class="ins-grid">'+
+    _ins('💎', tr('أغلى شحنة'), escH(topShip.no), fmtD(topShip.land)+' SAR')+
+    _ins('🏭', tr('أعلى مورد رصيداً'), escH(topSupName), fmtD(topSupBal)+' SAR')+
+    _ins('📐', tr('متوسط تكلفة الشحنة'), fmtD(avgShip)+' SAR', '')+
+    _ins('💱', tr('أكثر عملات الشراء'), escH(topCur), fmtN(curPct)+'% '+tr('من الشراء'))+
+  '</div>';
+
+  // ═ أعلى الشحنات + أعلى الموردين ═
   var top=perShip.slice().sort(function(a,b){return b.land-a.land;}).slice(0,6);
-  var mx=top.length?top[0].land||1:1;
-  var bars=top.map(function(r){ var w=(r.land/mx*100); return '<div class="dash-bar"><span class="bl" title="'+escH(r.no)+'">'+escH(r.no)+'</span><span class="bt"><span class="bf" style="width:'+Math.max(2,w).toFixed(1)+'%"></span></span><span class="bv">'+fmtD(r.land)+'</span></div>'; }).join('');
-  h+='<div class="dash-panel"><h3>🏆 '+tr('أعلى الشحنات تكلفةً (الواصل)')+'</h3>'+(bars||('<div class="dash-empty">'+tr('لا توجد بيانات')+'</div>'))+'</div>';
-  h+='</div>';
-  // جدولان: أحدث الشحنات + أعلى الموردين
-  h+='<div class="dash-grid-2">';
-  var latest=perShip.slice().sort(function(a,b){return (a.date<b.date?1:(a.date>b.date?-1:0));}).slice(0,6);
-  h+='<div class="dash-panel"><h3>🕑 '+tr('أحدث الشحنات')+'</h3><table class="dash-list"><thead><tr><th>'+tr('رقم الشحنة')+'</th><th>'+tr('التاريخ')+'</th><th>'+tr('المورد')+'</th><th style="text-align:end">'+tr('الواصل')+' (SAR)</th></tr></thead><tbody>'+
-    latest.map(function(r){ return '<tr><td><strong>'+escH(r.no)+'</strong></td><td>'+escH(r.date||'—')+'</td><td>'+escH(r.sup||'—')+'</td><td class="n">'+fmtD(r.land)+'</td></tr>'; }).join('')+
-    '</tbody></table></div>';
-  // أعلى الموردين بالشراء
+  var mx=top.length?(top[0].land||1):1;
+  h+='<div class="dash-grid-eq">'+
+    '<div class="dash-panel"><h3>🏆 '+tr('أعلى الشحنات تكلفةً (الواصل)')+'</h3>'+
+      (top.map(function(r){ return _hbar(r.no, r.land, r.land/mx*100, null); }).join('')||_emptyD())+'</div>';
   var bySup={}; perShip.forEach(function(r){ var k=r.sup||('('+tr('بدون مورد')+')'); bySup[k]=(bySup[k]||0)+r.fob; });
-  var supRows=Object.keys(bySup).map(function(k){ return {name:k, v:bySup[k]}; }).sort(function(a,b){return b.v-a.v;}).slice(0,6);
-  var smx=supRows.length?supRows[0].v||1:1;
+  var supRows=Object.keys(bySup).map(function(k){return {name:k,v:bySup[k]};}).sort(function(a,b){return b.v-a.v;}).slice(0,6);
+  var smx=supRows.length?(supRows[0].v||1):1;
   h+='<div class="dash-panel"><h3>🏭 '+tr('أعلى الموردين (شراء FOB)')+'</h3>'+
-    (supRows.map(function(r){ var w=r.v/smx*100; return '<div class="dash-bar"><span class="bl" title="'+escH(r.name)+'">'+escH(r.name)+'</span><span class="bt"><span class="bf" style="width:'+Math.max(2,w).toFixed(1)+'%;background:linear-gradient(90deg,#1b5e20,#2e8b3a)"></span></span><span class="bv">'+fmtD(r.v)+'</span></div>'; }).join('')||('<div class="dash-empty">'+tr('لا توجد بيانات')+'</div>'))+
-    '</div>';
-  h+='</div>';
+      (supRows.map(function(r){ return _hbar(r.name, r.v, r.v/smx*100, 'linear-gradient(90deg,#157a33,#34c05e)'); }).join('')||_emptyD())+'</div>'+
+  '</div>';
+
+  // ═ أعلى الموديلات + عملات الشراء ═
+  var modelRows=Object.keys(byModel).map(function(k){return {name:k,v:byModel[k]};}).sort(function(a,b){return b.v-a.v;}).slice(0,6);
+  var mmx=modelRows.length?(modelRows[0].v||1):1;
+  var curParts=Object.keys(byCur).sort(function(a,b){return byCur[b]-byCur[a];}).map(function(k,i){ var pal=['#2b6cb0','#c08a1e','#7a4fc0','#157a33','#c0392b','#0c9']; return {c:pal[i%6],label:k,v:byCur[k]}; });
+  h+='<div class="dash-grid-eq">'+
+    '<div class="dash-panel"><h3>🧱 '+tr('أعلى الموديلات تكلفةً (الواصل)')+'</h3>'+
+      (modelRows.map(function(r){ return _hbar(r.name, r.v, r.v/mmx*100, 'linear-gradient(90deg,#6a3fb0,#a06fe0)'); }).join('')||_emptyD())+'</div>'+
+    '<div class="dash-panel"><h3>💱 '+tr('توزيع عملات الشراء')+'</h3>'+ (curParts.length?_svgDonut(curParts, tr('الشراء'), curSum):_emptyD()) +'</div>'+
+  '</div>';
+
+  // ═ أحدث الشحنات ═
+  var latest=perShip.slice().sort(function(a,b){return (a.date<b.date?1:(a.date>b.date?-1:0));}).slice(0,7);
+  h+='<div class="dash-panel" style="margin-bottom:12px"><h3>🕑 '+tr('أحدث الشحنات')+'</h3><table class="dash-list"><thead><tr><th>'+tr('رقم الشحنة')+'</th><th>'+tr('التاريخ')+'</th><th>'+tr('المورد')+'</th><th>'+tr('الحاويات')+'</th><th style="text-align:end">'+tr('الشراء')+' (SAR)</th><th style="text-align:end">'+tr('الواصل')+' (SAR)</th></tr></thead><tbody>'+
+    latest.map(function(r){ return '<tr><td><strong>'+escH(r.no)+'</strong></td><td>'+escH(r.date||'—')+'</td><td>'+escH(r.sup||'—')+'</td><td>'+r.conts+'</td><td class="n">'+fmtD(r.fob)+'</td><td class="n" style="color:var(--success)">'+fmtD(r.land)+'</td></tr>'; }).join('')+
+    '</tbody></table></div>';
+
   el.innerHTML=h;
+  _animateDash(el);
 }
-function _kpi(cls,ic,lbl,val,sub){ return '<div class="kpi '+cls+'"><span class="ic">'+ic+'</span><div class="k-lbl">'+lbl+'</div><div class="k-val">'+val+'</div>'+(sub?'<div class="k-sub">'+sub+'</div>':'')+'</div>'; }
-function _bal(v,lbl){ var cls=v>0.005?'pos':(Math.abs(v)<=0.005?'zero':''); var state=v>0.005?tr('مستحق'):(v<-0.005?tr('مدفوع بالزيادة'):tr('مسدَّد بالكامل')); return '<div class="bal-card '+cls+'"><div class="b-lbl">'+lbl+'</div><div class="b-val">'+fmtD(Math.abs(v))+' SAR</div><div class="b-sub">'+state+'</div></div>'; }
+function _pct(cur,prev){ if(!prev) return null; return (cur-prev)/prev*100; }
+function _kpi(cls,ic,lbl,val,mode,sub,trendPct){
+  var vhtml = (mode==='raw') ? '<div class="k-val">'+val+'</div>'
+            : '<div class="k-val countup" data-to="'+val+'"'+(mode==='m'?'':' data-int="1"')+'>0</div>';
+  var tr2='';
+  if(trendPct!=null && isFinite(trendPct)){ var up=trendPct>=0; tr2='<span class="k-trend '+(up?'up':'down')+'">'+(up?'▲':'▼')+' '+fmtN(Math.abs(trendPct))+'% <small style="opacity:.8">'+tr('مقابل السابقة')+'</small></span>'; }
+  return '<div class="kpi '+cls+'"><span class="ic">'+ic+'</span><div class="k-lbl">'+lbl+'</div>'+vhtml+(sub?'<div class="k-sub">'+sub+'</div>':'')+tr2+'</div>';
+}
+function _bal(v,paid,debit,lbl){
+  var cls=v>0.005?'pos':(Math.abs(v)<=0.005?'zero':'');
+  var state=v>0.005?tr('مستحق'):(v<-0.005?tr('مدفوع بالزيادة'):tr('مسدَّد بالكامل'));
+  var pct=debit>0?Math.min(100,paid/debit*100):(Math.abs(v)<=0.005?100:0);
+  return '<div class="bal-card '+cls+'"><div class="b-top"><div class="b-lbl">'+lbl+'</div><div class="b-sub">'+state+'</div></div>'+
+    '<div class="b-val"><span class="countup" data-to="'+Math.abs(v)+'" data-suf=" SAR">0</span></div>'+
+    '<div class="b-prog"><span data-w="'+pct.toFixed(1)+'%"></span></div>'+
+    '<div class="b-pct">'+tr('مسدّد')+' '+fmtN(pct)+'% • '+tr('من')+' '+fmtD(debit)+' SAR</div></div>';
+}
+function _ins(ic,lbl,val,sub){ return '<div class="ins"><div class="ii">'+ic+'</div><div><div class="it">'+lbl+'</div><div class="iv">'+val+(sub?' <small>'+sub+'</small>':'')+'</div></div></div>'; }
+function _hbar(name,val,wpct,grad){ return '<div class="dash-bar"><span class="bl" title="'+escH(String(name))+'">'+escH(String(name))+'</span><span class="bt"><span class="bf" data-w="'+Math.max(2,wpct).toFixed(1)+'%"'+(grad?' style="background:'+grad+'"':'')+'></span></span><span class="bv">'+fmtD(val)+'</span></div>'; }
+function _emptyD(){ return '<div class="dash-empty">'+tr('لا توجد بيانات')+'</div>'; }
+// رسم بياني مساحي (SVG) للاتجاه الشهري
+function _svgArea(series){
+  if(!series.length) return _emptyD();
+  var W=640,H=210,padL=8,padR=8,padT=14,padB=26, iw=W-padL-padR, ih=H-padT-padB;
+  var mx=Math.max.apply(null, series.map(function(d){return d.v;}).concat([1]));
+  var n=series.length;
+  function X(i){ return padL + (n===1? iw/2 : iw*i/(n-1)); }
+  function Y(v){ return padT + ih - (v/mx*ih); }
+  var pts=series.map(function(d,i){ return [X(i),Y(d.v)]; });
+  var line=pts.map(function(p,i){ return (i?'L':'M')+p[0].toFixed(1)+' '+p[1].toFixed(1); }).join(' ');
+  var area=line+' L'+X(n-1).toFixed(1)+' '+(padT+ih)+' L'+X(0).toFixed(1)+' '+(padT+ih)+' Z';
+  var grid=''; for(var g=0;g<=2;g++){ var yy=padT+ih*g/2; grid+='<line class="grid" x1="'+padL+'" y1="'+yy.toFixed(1)+'" x2="'+(W-padR)+'" y2="'+yy.toFixed(1)+'"/>'; grid+='<text class="axlbl" x="'+(W-padR)+'" y="'+(yy-2).toFixed(1)+'" text-anchor="end">'+fmtD(mx*(2-g)/2).replace(/\.00$/,'')+'</text>'; }
+  var xl=series.map(function(d,i){ if(n>8 && (i%2)) return ''; return '<text class="axlbl" x="'+X(i).toFixed(1)+'" y="'+(H-8)+'" text-anchor="middle">'+d.label+'</text>'; }).join('');
+  var dots=pts.map(function(p,i){ return '<circle class="dot" cx="'+p[0].toFixed(1)+'" cy="'+p[1].toFixed(1)+'" r="3.5" stroke="#2b6cb0"><title>'+series[i].label+': '+fmtD(series[i].v)+'</title></circle>'; }).join('');
+  return '<svg class="dchart" viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none" style="height:210px">'+
+    '<defs><linearGradient id="dashArea" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2b6cb0" stop-opacity=".38"/><stop offset="1" stop-color="#2b6cb0" stop-opacity="0"/></linearGradient></defs>'+
+    grid+'<path d="'+area+'" fill="url(#dashArea)"/><path d="'+line+'" fill="none" stroke="#2b6cb0" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>'+dots+xl+'</svg>';
+}
+// دونات (SVG)
+function _svgDonut(parts, lblTop, total){
+  var sum=parts.reduce(function(s,p){return s+(p.v||0);},0);
+  var r=54,cx=70,cy=70,sw=22,C=2*Math.PI*r, off=0;
+  var segs=parts.map(function(p){ var frac=sum>0?(p.v/sum):0; var len=frac*C; var s='<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" stroke="'+p.c+'" stroke-width="'+sw+'" stroke-dasharray="'+len.toFixed(2)+' '+(C-len).toFixed(2)+'" stroke-dashoffset="'+(-off).toFixed(2)+'" transform="rotate(-90 '+cx+' '+cy+')"><title>'+p.label+': '+fmtD(p.v)+'</title></circle>'; off+=len; return s; }).join('');
+  var legend=parts.map(function(p){ var pc=sum>0?(p.v/sum*100):0; return '<div class="dl"><b style="background:'+p.c+'"></b>'+p.label+'<span class="dv">'+fmtN(pc)+'%</span></div>'; }).join('');
+  return '<div class="donut-wrap"><svg viewBox="0 0 140 140" style="width:140px;height:140px;flex-shrink:0">'+
+    '<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" stroke="var(--border)" stroke-width="'+sw+'" opacity=".4"/>'+segs+
+    '<text x="70" y="64" text-anchor="middle" style="fill:var(--muted);font-size:9px">'+lblTop+'</text>'+
+    '<text x="70" y="80" text-anchor="middle" style="fill:var(--text);font-size:13px;font-weight:800">'+fmtD(total).replace(/\.00$/,'')+'</text></svg>'+
+    '<div class="donut-legend">'+legend+'</div></div>';
+}
+// حركات: عدّاد تصاعدي + نمو الأشرطة
+function _animateDash(root){
+  try{ requestAnimationFrame(function(){ root.querySelectorAll('[data-w]').forEach(function(e){ e.style.width=e.getAttribute('data-w'); }); }); }catch(e){ root.querySelectorAll('[data-w]').forEach(function(e){ e.style.width=e.getAttribute('data-w'); }); }
+  var els=root.querySelectorAll('.countup'); var dur=680, t0=null;
+  function fmtv(e,val){ var isInt=e.getAttribute('data-int'); var suf=e.getAttribute('data-suf')||''; return (isInt?String(Math.round(val)):fmtD(val))+suf; }
+  function step(ts){ if(t0===null)t0=ts; var p=Math.min(1,(ts-t0)/dur); var e2=1-Math.pow(1-p,3);
+    els.forEach(function(e){ var to=parseFloat(e.getAttribute('data-to'))||0; e.textContent=fmtv(e,to*e2); });
+    if(p<1){ try{requestAnimationFrame(step);}catch(e){} } else { els.forEach(function(e){ e.textContent=fmtv(e,parseFloat(e.getAttribute('data-to'))||0); }); } }
+  try{ requestAnimationFrame(step); }catch(e){ els.forEach(function(e){ e.textContent=fmtv(e,parseFloat(e.getAttribute('data-to'))||0); }); }
+}
 
 // ═══════════════════════════════════════════
 // بحث الحاويات داخل صفحة الشحنة
@@ -6630,7 +6767,7 @@ function exportPaymentsExcel(){
 // ═══════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════
-var APP_VERSION='v2026-10-29.29';   // رقم إصدار ظاهر للتحقق من تحميل أحدث نسخة (لا cache قديم)
+var APP_VERSION='v2026-10-29.30';   // رقم إصدار ظاهر للتحقق من تحميل أحدث نسخة (لا cache قديم)
 // ═══════════════════════════════════════════
 // 🌐 محرّك الترجمة الشامل (عربي / English / 中文) — قاموس + مسح DOM + مراقب تغييرات
 // ═══════════════════════════════════════════
@@ -7363,6 +7500,31 @@ Object.assign(TR.zh,{
  'بدون مورد':'无供应商',
  'أعلى الموردين (شراء FOB)':'供应商排名（FOB采购）'
 });
+// الدفعة العاشرة: لوحة التحكم المطوّرة
+Object.assign(TR.en,{
+ 'الاتجاه الشهري للتكلفة الواصلة':'Monthly landed cost trend',
+ 'شهر':'months',
+ 'مقابل السابقة':'vs previous',
+ 'مسدّد':'Paid',
+ 'من الشراء':'of purchases',
+ 'أعلى الموديلات تكلفةً (الواصل)':'Top models by landed cost',
+ 'توزيع عملات الشراء':'Purchase currency mix',
+ 'الحاويات':'Containers',
+ 'الشراء':'Purchase'
+});
+Object.assign(TR.zh,{
+ 'الاتجاه الشهري للتكلفة الواصلة':'月度到岸成本趋势',
+ 'شهر':'个月',
+ 'مقابل السابقة':'对比上期',
+ 'مسدّد':'已付',
+ 'من الشراء':'占采购',
+ 'أعلى الموديلات تكلفةً (الواصل)':'按到岸成本排名的型号',
+ 'توزيع عملات الشراء':'采购货币构成',
+ 'الحاويات':'集装箱',
+ 'الشراء':'采购'
+});
+Object.assign(TR.en,{'أغلى شحنة':'Most expensive shipment','أعلى مورد رصيداً':'Highest supplier balance','متوسط تكلفة الشحنة':'Average shipment cost','أكثر عملات الشراء':'Top purchase currency'});
+Object.assign(TR.zh,{'أغلى شحنة':'最贵装运','أعلى مورد رصيداً':'供应商余额最高','متوسط تكلفة الشحنة':'平均装运成本','أكثر عملات الشراء':'主要采购货币'});
 var _trOrig=new WeakMap(), _trPh=new WeakMap(), _trTitle=new WeakMap(), _trBusy=false, _trObs=null, _trTimer=null;
 var _emojiLead=/^((?:[←-⇿⌀-➿⬀-⯿☀-⛿️\uD83C-􏰀-\uDFFF\s])+)/;
 function _trLook(lang,ar){ var d=TR[lang]; if(!d) return null; return (d[ar]!=null)?d[ar]:null; }
