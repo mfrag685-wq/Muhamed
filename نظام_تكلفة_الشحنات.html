@@ -6870,7 +6870,7 @@ function exportPaymentsExcel(){
 // ═══════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════
-var APP_VERSION='v2026-10-29.32';   // رقم إصدار ظاهر للتحقق من تحميل أحدث نسخة (لا cache قديم)
+var APP_VERSION='v2026-10-30.33';   // رقم إصدار ظاهر للتحقق من تحميل أحدث نسخة (لا cache قديم)
 // ═══════════════════════════════════════════
 // 🌐 محرّك الترجمة الشامل (عربي / English / 中文) — قاموس + مسح DOM + مراقب تغييرات
 // ═══════════════════════════════════════════
@@ -7661,6 +7661,8 @@ Object.assign(TR.zh,{
  'تم تكرار الفاتورة':'发票已复制',
  'تم تكرار الحاوية':'集装箱已复制'
 });
+Object.assign(TR.en,{'يتوفّر تحديث جديد':'A new update is available','اضغط للتحديث':'Click to update'});
+Object.assign(TR.zh,{'يتوفّر تحديث جديد':'有新版本可用','اضغط للتحديث':'点击更新'});
 var _trOrig=new WeakMap(), _trPh=new WeakMap(), _trTitle=new WeakMap(), _trBusy=false, _trObs=null, _trTimer=null;
 var _emojiLead=/^((?:[←-⇿⌀-➿⬀-⯿☀-⛿️\uD83C-􏰀-\uDFFF\s])+)/;
 function _trLook(lang,ar){ var d=TR[lang]; if(!d) return null; return (d[ar]!=null)?d[ar]:null; }
@@ -7807,7 +7809,29 @@ window.onload = function() {
   applyStoredTheme();
   cloudEnsureInit();
   authGate();
+  try{ setTimeout(_checkForUpdate, 4000); }catch(e){}
 };
+// ── إشعار توفّر نسخة أحدث (لتفادي النسخ المخزّنة قديماً في المتصفّح) ──
+var _lastUpdChk=0;
+function _checkForUpdate(){
+  try{
+    if(location.protocol==='file:') return;
+    var now=Date.now(); if(now-_lastUpdChk<120000) return; _lastUpdChk=now;
+    fetch(location.pathname+'?cb='+now,{cache:'no-store'}).then(function(r){return r.text();}).then(function(txt){
+      var m=txt.match(/APP_VERSION='([^']+)'/);
+      if(m && m[1] && typeof APP_VERSION!=='undefined' && m[1]!==APP_VERSION){ _showUpdateBanner(m[1]); }
+    }).catch(function(){});
+  }catch(e){}
+}
+function _showUpdateBanner(v){
+  if(document.getElementById('update-banner')) return;
+  var d=document.createElement('div'); d.id='update-banner';
+  d.style.cssText='position:fixed;bottom:16px;inset-inline-start:16px;z-index:10060;background:linear-gradient(135deg,#145a24,#2e9d47);color:#fff;padding:11px 16px;border-radius:11px;box-shadow:0 8px 24px rgba(0,0,0,.35);font-size:.85rem;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:12px;max-width:90vw';
+  d.innerHTML='🔄 '+tr('يتوفّر تحديث جديد')+' ('+v+') — '+tr('اضغط للتحديث')+' <span data-x="1" style="opacity:.75;font-weight:400;padding:0 4px">✕</span>';
+  d.onclick=function(e){ if(e.target && e.target.getAttribute && e.target.getAttribute('data-x')){ d.remove(); return; } try{ location.reload(true); }catch(err){ location.reload(); } };
+  document.body.appendChild(d);
+}
+try{ window.addEventListener('focus', function(){ try{ _checkForUpdate(); }catch(e){} }); }catch(e){}
 </script>
 </body>
 </html>
