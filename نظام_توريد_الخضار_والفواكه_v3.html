@@ -2122,7 +2122,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-10-31-c';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-10-31-d';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -3899,7 +3899,10 @@ function docEditPaint(k,t){
   var bi=gi(k+'_noBanner'), bd=gi(k+'_dateBanner'), bp=gi(k+'_partyBanner');
   if(idle(bi)&&bi.value!==val(k+'_no')) bi.value=val(k+'_no');
   if(idle(bd)&&bd.value!==dv) bd.value=dv;
-  var pv=val(k==='s'?'s_client':'p_supplier'); if(idle(bp)&&bp.value!==String(pv)) bp.value=String(pv);
+  var pv=val(k==='s'?'s_client':'p_supplier');
+  if(bp){ var plist=k==='s'?db.clients:db.suppliers; if(bp.options.length!==plist.length){   /* جهة أُضيفت أثناء التعديل (زر +) */
+    bp.innerHTML=plist.map(function(x){ return '<option value="'+x.id+'">'+esc(x.name)+'</option>'; }).join(''); bp.value=String(pv); } }
+  if(idle(bp)&&bp.value!==String(pv)) bp.value=String(pv);
   var dt=gi(k+'_ebDateTag'); if(dt) dt.innerHTML=(dv!==(o.date||'')?'<span class="eb-d up" title="التاريخ الأصلي">كان '+esc(o.date||'')+'</span> ':'')+(dLock?'<span class="eb-dirty">🔒 داخل فترة مقفلة</span>':'');
   var ptg=gi(k+'_ebPartyTag'); if(ptg) ptg.innerHTML=docPartyTagHtml(k,o);
   var sm=gi(k+'_ebSum'); if(sm) sm.innerHTML='الإجمالي قبل التعديل: <b>'+money(o.grand||0)+'</b> ← الآن: <b>'+money(t.grand)+'</b>'
