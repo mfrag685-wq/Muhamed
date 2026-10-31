@@ -542,6 +542,42 @@ tr.au-fail td{background:#fef2f2}
 .note.fail-warn{border-right-color:#dc2626;background:#fff7f7}
 .note.fail-hot{background:#fee2e2}
 .fp-chip{display:inline-block;background:#fff;border:1px solid #fecaca;color:#991b1b;border-radius:999px;padding:1px 9px;font-size:12px;font-weight:700;margin:2px}
+/* رسالة إقفال الشهر */
+.mc-card{position:relative;overflow:hidden;border-radius:16px;padding:16px 18px;margin:12px 0 6px;color:#fff;box-shadow:0 8px 26px rgba(15,23,42,.22)}
+.mc-card::before{content:'';position:absolute;inset:0;background:repeating-linear-gradient(135deg,rgba(255,255,255,.06) 0 14px,transparent 14px 28px);animation:mcStripes 6s linear infinite;pointer-events:none}
+@keyframes mcStripes{to{background-position:200px 0}}
+.mc-card.mc-near{background:linear-gradient(120deg,#b45309,#d97706 55%,#f59e0b)}
+.mc-card.mc-over{background:linear-gradient(120deg,#7f1d1d,#b91c1c 55%,#e11d48);animation:mcPulse 2.4s ease-in-out infinite}
+.mc-card.mc-review{background:linear-gradient(120deg,#065f46,#0f766e 55%,#0891b2)}
+@keyframes mcPulse{0%,100%{box-shadow:0 8px 26px rgba(185,28,28,.30)}50%{box-shadow:0 8px 34px rgba(225,29,72,.60)}}
+.mc-top{position:relative;display:flex;align-items:center;gap:12px}
+.mc-ic{font-size:30px;animation:mcIc 2s ease-in-out infinite;display:inline-block}
+@keyframes mcIc{0%,100%{transform:rotate(0)}50%{transform:rotate(-12deg) scale(1.08)}}
+.mc-ttl{flex:1}.mc-h{font-size:18px;font-weight:900}
+.mc-sub{font-size:12.5px;opacity:.92;margin-top:2px}
+.mc-badge{background:rgba(255,255,255,.22);border-radius:999px;padding:1px 10px;font-weight:800}
+.mc-ring{--p:0;width:58px;height:58px;border-radius:50%;flex:0 0 auto;display:grid;place-items:center;background:conic-gradient(#fff calc(var(--p)*1%),rgba(255,255,255,.25) 0)}
+.mc-ring span{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;background:rgba(15,23,42,.35);font-weight:900;font-size:14px}
+.mc-body{position:relative;margin-top:10px;font-size:14px;line-height:1.9;font-weight:600}
+.mc-steps{position:relative;display:flex;flex-wrap:wrap;align-items:center;gap:4px 6px;margin-top:10px}
+.mc-step{border-radius:999px;padding:3px 11px;font-size:12.5px;font-weight:800;background:rgba(255,255,255,.18)}
+.mc-step.ok{background:#fff;color:#065f46}.mc-step.todo{background:rgba(255,255,255,.92);color:#7f1d1d;animation:mcBlink 1.6s ease-in-out infinite}
+.mc-step.wait{background:rgba(255,255,255,.12);color:rgba(255,255,255,.85)}
+@keyframes mcBlink{50%{opacity:.6}}
+.mc-arr{opacity:.7;font-weight:900}
+.mc-person{position:relative;background:rgba(255,255,255,.95);color:#1e293b;border-radius:12px;padding:9px 12px;margin-top:10px}
+.mc-pn{font-weight:900;color:#0f172a;margin-bottom:3px}.mc-intro{font-weight:600;color:#475569}
+.mc-row{font-size:13px;line-height:1.8}
+.mc-more{position:relative;margin-top:8px;font-size:12.5px;font-weight:800;background:rgba(0,0,0,.18);border-radius:10px;padding:6px 10px}
+.mc-act{position:relative;display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:12px}
+.mc-lock{border:0;background:#fff;color:#0f172a;font-weight:900;font-family:inherit;border-radius:10px;padding:8px 16px;cursor:pointer;box-shadow:0 3px 10px rgba(0,0,0,.2)}
+.mc-lock:hover{transform:translateY(-1px)}
+.mc-minbtn{border:1px solid rgba(255,255,255,.6);background:transparent;color:#fff;font-family:inherit;border-radius:10px;padding:6px 12px;cursor:pointer;margin-inline-start:auto}
+.mc-note{font-size:12.5px;opacity:.95}
+.mc-mini{margin:10px 0 4px;border-radius:12px;padding:8px 14px;color:#fff;font-weight:800;font-size:13px;cursor:pointer}
+.mc-mini.mc-near{background:linear-gradient(90deg,#b45309,#f59e0b)}.mc-mini.mc-over{background:linear-gradient(90deg,#7f1d1d,#e11d48);animation:mcPulse 2.4s ease-in-out infinite}.mc-mini.mc-review{background:linear-gradient(90deg,#065f46,#0891b2)}
+@media print{.mc-card,.mc-mini{display:none}}
+@media (prefers-reduced-motion:reduce){.mc-card,.mc-card::before,.mc-ic,.mc-step.todo,.mc-mini{animation:none}}
 /* أقسام قابلة للطي */
 details.fold{margin-top:16px;border:1px solid #bbf7d0;border-right:5px solid #16a34a;border-radius:10px;background:#fff}
 details.fold>summary.fold-sum{list-style:none;cursor:pointer;padding:9px 12px;background:#f0fdf4;border-radius:10px}
@@ -2122,7 +2158,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-10-31-d';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-10-31-e';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -5998,8 +6034,102 @@ function staffCardHtml(a){
     +body+'</div>';
 }
 /* البانر العلوي العالمي لتأخّر الإدخالات — يظهر لكل المستخدمين على كل الشاشات وأعلى تنبيهات المخزون */
+/* ===== رسالة إقفال الشهر المالي =====
+   تظهر في آخر 3 أيام من الشهر، وبعد انتهائه ما لم يُقفَل (قفل الفترة يغطي آخر يوم فيه) — وتبقى حتى الإقفال.
+   تكتشف تلقائياً الناقص: أيام بلا مبيعات لكل عميل يومي، فجوة المشتريات، والمصروفات المتكرّرة شهرياً التي لم تُسجَّل. */
+var MC_NEAR_DAYS=3;
+function mcMonthEnd(ym){ var y=+ym.slice(0,4), m=+ym.slice(5,7); return ym+'-'+String(new Date(y,m,0).getDate()).padStart(2,'0'); }
+function mcPrevYM(ym,n){ var y=+ym.slice(0,4), m=+ym.slice(5,7)-(n||1); while(m<1){ m+=12; y--; } return y+'-'+String(m).padStart(2,'0'); }
+function mcDays(n){ n=+n; return n===1?'يوم واحد':(n===2?'يومان':(n>=3&&n<=10?n+' أيام':n+' يوماً')); }
+function mcMonthName(ym){ return (REG_MN[+ym.slice(5,7)-1]||ym.slice(5,7))+' '+ym.slice(0,4); }
+function mcHasActivity(ym){ var f=function(a){ return (a||[]).some(function(x){ return x&&String(x.date||'').slice(0,7)===ym; }); };
+  return f(db.sales)||f(db.purchases)||f(db.expenses); }
+function monthCloseTarget(){
+  if(!((db.sales&&db.sales.length)||(db.purchases&&db.purchases.length)||(db.expenses&&db.expenses.length))) return null;
+  var td=today(), cur=td.slice(0,7), lock=periodLockUntil(), locked=function(ym){ return !!lock&&lock>=mcMonthEnd(ym); };
+  /* الأشهر المنتهية غير المقفلة: بعد شهر القفل الأخير؛ وإن لم يُستخدم القفل إطلاقاً نكتفي بالشهر السابق (لا إزعاج بأشهر قديمة) */
+  var pend=[], start=lock?lock.slice(0,7):mcPrevYM(cur,1);
+  for(var ym=lock?start:mcPrevYM(cur,1), g=0; ym<cur&&g<24; ym=mcPrevYM(ym,-1), g++){ if(!locked(ym)&&mcHasActivity(ym)) pend.push(ym); }
+  if(pend.length){ var ym0=pend[0], over=Math.round((new Date(td)-new Date(mcMonthEnd(ym0)))/86400000);
+    return {ym:ym0,end:mcMonthEnd(ym0),phase:'ended',over:over,pending:pend}; }
+  var end=mcMonthEnd(cur), left=Math.round((new Date(end)-new Date(td))/86400000);
+  if(left<MC_NEAR_DAYS&&!locked(cur)) return {ym:cur,end:end,phase:'near',left:left,pending:[cur]};
+  return null;
+}
+function monthCloseGaps(T){
+  var cfg=entryCfg(), td=today(), from=T.ym+'-01', items=[], off=function(g){ return String(g)==='off'; };
+  /* اليوم الفعّال (مثل متابعة الإدخال): قبل ساعة الاستحقاق لا يُطالَب بإدخال اليوم نفسه */
+  var hr=+cfg.alertHour; if(!(hr>=0&&hr<=23)) hr=10; var eff=(new Date().getHours()<hr)?ivAddDays(td,-1):td;
+  var until=T.end<eff?T.end:eff;
+  var inM=function(d){ return d&&d>=from&&d<=until; };
+  /* 1) المبيعات: لكل عميل يومي — أيام الشهر بلا مبيعات (باستثناء إجازته المعتادة وما أُكّد «لا مبيعات فعلية») */
+  if(!off(cfg.salesGrace)){
+    var dc=dailySalesClients(), acks=noSalesAcks(), sl=[];
+    dc.forEach(function(cid){ var has={}, first=null;
+      (db.sales||[]).forEach(function(x){ if(+x.clientId!==cid||!x.date) return; if(!first||x.date<first) first=x.date; if(inM(x.date)) has[x.date]=1; });
+      if(!first) return; var offW=clientOffWeekdays(cid,td), ack=acks[cid]||{}, miss=[];
+      for(var d=(first>from?first:from), g2=0; d<=until&&g2<40; d=ivAddDays(d,1), g2++){ if(has[d]||ack[d]) continue; if(offW[(parseDate(d)||new Date(d)).getDay()]) continue; miss.push(d); }
+      if(miss.length) sl.push('«'+clientName(cid)+'»: '+mcDays(miss.length)+' بلا مبيعات ('+miss.slice(0,6).map(function(x){ return x.slice(8); }).join('، ')+(miss.length>6?'…':'')+')'); });
+    if(!dc.length){ var ls=''; (db.sales||[]).forEach(function(x){ if(inM(x.date)&&x.date>ls) ls=x.date; });
+      var gs=ls?Math.round((new Date(until)-new Date(ls))/86400000):99; if(gs>=2) sl.push(ls?'آخر مبيعات مسجّلة '+ls+' — '+mcDays(gs)+' بلا إدخال':'لا مبيعات مسجّلة في هذا الشهر'); }
+    items.push({key:'s',label:'المبيعات',ic:'💰',who:cfg.salesName,intro:cfg.salesIntro,ok:!sl.length,lines:sl});
+  }
+  /* 2) المشتريات: فجوة منذ آخر إدخال حتى نهاية الشهر (أو اليوم) */
+  if(!off(cfg.purchGrace)){
+    var lp=''; (db.purchases||[]).forEach(function(x){ if(inM(x.date)&&x.date>lp) lp=x.date; });
+    var gp=lp?Math.round((new Date(until)-new Date(lp))/86400000):99, pl=[], gr=Math.max(2,(+cfg.purchGrace||0)+1);
+    if(gp>=gr) pl.push(lp?'آخر مشتريات مسجّلة '+lp+' — '+mcDays(gp)+' بلا إدخال حتى '+until:'لا مشتريات مسجّلة في هذا الشهر');
+    items.push({key:'p',label:'المشتريات',ic:'🛒',who:cfg.purchName,intro:cfg.purchIntro,ok:!pl.length,lines:pl});
+  }
+  /* 3) المصروفات: تصنيفات تتكرّر شهرياً (في شهرين على الأقل من الثلاثة السابقة) ولم تُسجَّل هذا الشهر */
+  if(!off(cfg.expGrace)){
+    var cur={}, prev={}; [1,2,3].forEach(function(n){ var ym=mcPrevYM(T.ym,n); prev[ym]={}; });
+    (db.expenses||[]).forEach(function(x){ var ym=String(x.date||'').slice(0,7), c=x.cat||'أخرى'; if(ym===T.ym) cur[c]=1; else if(prev[ym]) prev[ym][c]=1; });
+    var cnt={}; Object.keys(prev).forEach(function(ym){ Object.keys(prev[ym]).forEach(function(c){ cnt[c]=(cnt[c]||0)+1; }); });
+    var rec=Object.keys(cnt).filter(function(c){ return cnt[c]>=2&&!cur[c]; }), el=rec.length?['مصروفات معتادة شهرياً لم تُسجَّل بعد: '+rec.join('، ')]:[];
+    items.push({key:'e',label:'المصروفات',ic:'💸',who:cfg.expName,intro:cfg.expIntro,ok:!el.length,lines:el});
+  }
+  return items;
+}
+function monthCloseHtml(){
+  var T=monthCloseTarget(); if(!T) return '';
+  var G=monthCloseGaps(T), done=G.filter(function(g){ return g.ok; }).length, all=G.length, allOk=done===all;
+  var mn=mcMonthName(T.ym), dept=deptName(db.activeDept), adm=isAdmin(), minKey='mcMin_'+T.ym, mini=false;
+  try{ mini=sessionStorage.getItem(minKey)==='1'; }catch(e){}
+  var tone=T.phase==='ended'?(allOk?'mc-review':'mc-over'):(allOk?'mc-review':'mc-near');
+  var badge=T.phase==='ended'?('انتهى منذ '+(T.over===2?'يومين':mcDays(T.over))):(T.left===0?'آخر يوم في الشهر':('متبقٍ '+mcDays(T.left)));
+  var pct=all?Math.round(done/all*100):100;
+  if(mini) return '<div class="mc-mini '+tone+'" onclick="mcToggleMin(\''+minKey+'\')" title="عرض رسالة إقفال الشهر">⏳ إقفال شهر '+esc(mn)+' — '+esc(badge)+' · اكتمل '+done+' من '+all+(T.pending.length>1?' · '+T.pending.length+' أشهر غير مقفلة':'')+' <b>عرض ▾</b></div>';
+  var head=T.phase==='ended'
+    ? (allOk?'✅ اكتملت إدخالات شهر '+mn+' — بانتظار المراجعة والإقفال':'⛔ انتهى شهر '+mn+' ولم يُقفَل بعد')
+    : (allOk?'✅ إدخالات شهر '+mn+' مكتملة حتى الآن':'⏳ اقتربت نهاية شهر '+mn);
+  var body=T.phase==='ended'
+    ? (allOk?'شكراً لتعاونكم — جميع إدخالات الشهر مكتملة. يتبقّى مراجعة الأرقام وإقفال الشهر المالي لاعتماد الموقف المالي لقسم «'+esc(dept)+'».'
+           :'لا يمكن اعتماد الموقف المالي لقسم «'+esc(dept)+'» قبل اكتمال إدخالات الشهر. نرجو <b>استكمال الناقص فوراً</b> ليتسنّى لنا المراجعة وإقفال الشهر.')
+    : (allOk?'الإدخالات مكتملة حتى اليوم — حافظوا على الإدخال أولاً بأول حتى آخر يوم، ثم نراجع ونقفل الشهر.'
+           :'نرجو <b>إكمال جميع الإدخالات</b> من مبيعات ومشتريات ومصروفات قبل نهاية الشهر، ليتسنّى لنا مراجعة الشهر وإقفاله ومعرفة الموقف المالي لقسم «'+esc(dept)+'» بدقة.');
+  var steps=G.map(function(g){ return '<span class="mc-step '+(g.ok?'ok':'todo')+'">'+(g.ok?'✅':g.ic)+' '+esc(g.label)+'</span>'; }).join('<span class="mc-arr">←</span>')
+    +'<span class="mc-arr">←</span><span class="mc-step '+(allOk?'todo':'wait')+'">🔍 المراجعة</span><span class="mc-arr">←</span><span class="mc-step wait">🔒 الإقفال</span>';
+  var byWho={}, order=[];
+  G.forEach(function(g){ if(g.ok) return; var w=(g.who&&String(g.who).trim())||'فريق الإدخال'; if(!byWho[w]){ byWho[w]={intro:g.who?entryIntro(g.intro,g.who):'',rows:[]}; order.push(w); }
+    g.lines.forEach(function(l){ byWho[w].rows.push(g.ic+' <b>'+esc(g.label)+':</b> '+esc(l)); }); });
+  var people=order.map(function(w){ var o=byWho[w]; return '<div class="mc-person"><div class="mc-pn">👤 '+esc(w)+(o.intro?' — <span class="mc-intro">'+esc(o.intro)+'</span>':'')+'</div>'+o.rows.map(function(r){ return '<div class="mc-row">• '+r+'</div>'; }).join('')+'</div>'; }).join('');
+  var more=T.pending.length>1?'<div class="mc-more">⚠ يوجد '+T.pending.length+' أشهر منتهية غير مقفلة: '+T.pending.map(mcMonthName).join('، ')+' — تُعالَج بالترتيب.</div>':'';
+  var act='<div class="mc-act">'+(adm?'<button type="button" class="mc-lock" onclick="mcGoLock(\''+T.end+'\')">🔒 مراجعة وإقفال شهر '+esc(mn)+'</button>':'<span class="mc-note">سيُقفِل مدير النظام الشهر بعد اكتمال الإدخالات والمراجعة.</span>')
+    +'<button type="button" class="mc-minbtn" onclick="mcToggleMin(\''+minKey+'\')">▴ تصغير</button></div>';
+  return '<div class="mc-card '+tone+'"><div class="mc-top"><span class="mc-ic">'+(T.phase==='ended'&&!allOk?'⛔':(allOk?'🗂️':'⏳'))+'</span><div class="mc-ttl"><div class="mc-h">'+head+'</div>'
+    +'<div class="mc-sub">قسم «'+esc(dept)+'» · <span class="mc-badge">'+esc(badge)+'</span> · نهاية الشهر '+esc(T.end)+'</div></div>'
+    +'<div class="mc-ring" style="--p:'+pct+'"><span>'+done+'/'+all+'</span></div></div>'
+    +'<div class="mc-body">'+body+'</div><div class="mc-steps">'+steps+'</div>'+people+more+act+'</div>';
+}
+function mcToggleMin(k){ try{ if(sessionStorage.getItem(k)==='1') sessionStorage.removeItem(k); else sessionStorage.setItem(k,'1'); }catch(e){} renderEntryAlerts(); }
+/* المدير: فتح شاشة قفل الفترة مع تعبئة آخر يوم في الشهر */
+function mcGoLock(end){ showTab('settings'); try{ renderPeriodLock(); }catch(e){} setVal('pl_until',end);
+  var b=document.getElementById('periodLockBox'); if(b){ b.scrollIntoView({behavior:'smooth',block:'center'}); b.classList.remove('act-flash'); void b.offsetWidth; b.classList.add('act-flash'); }
+  toast('راجع أرقام الشهر ثم أدخل كلمة مرور القفل واضغط حفظ — تاريخ القفل: '+end); }
 function renderEntryAlerts(){
   var box=document.getElementById('entryAlertsBox'); if(!box) return;
+  var mc=''; try{ mc=monthCloseHtml(); }catch(e){ try{ console.warn('monthClose',e); }catch(_){} }
   var A=entryDelayAlerts();
   try{ A=A.concat(stockReviewAlerts()); }catch(e){}   /* تنبيهات مراجعة/إقرار الأرصدة غير الطبيعية */
   /* توقيت الظهور: تنبيه الأرصدة دائم لمن يملك الإقرار (المدير/المسؤول)؛ لباقي المستخدمين يظهر دقيقة ثم يختفي */
@@ -6014,7 +6144,7 @@ function renderEntryAlerts(){
     return true;
   });
   A.sort(function(a,b){ return (a.sev==null?9:a.sev)-(b.sev==null?9:b.sev); });   /* الأعجل أولاً (فرز ثابت يُبقي تأخّر الإدخال فوق مراجعة الأرصدة عند تساوي الشدّة) */
-  box.innerHTML=A.length?('<div class="entry-alerts">'+A.map(staffCardHtml).join('')+'</div>'):'';
+  box.innerHTML=mc+(A.length?('<div class="entry-alerts">'+A.map(staffCardHtml).join('')+'</div>'):'');
 }
 /* تنبيهات تشغيلية للفترة الماضية فقط (داخل المستشار) — تأخّر «اليوم» انتقل للبانر العلوي */
 function operationalAlerts(from,to){
@@ -8201,7 +8331,7 @@ function savePeriodLock(){
   pl.until=until||'';
   _periodUnlocked=false; setVal('pl_pass','');
   log('data','الإعدادات','قفل فترة قسم '+deptName(db.activeDept)+' حتى '+(until||'—'));
-  commit('تم حفظ قفل الفترة'); renderSettingsForm();
+  commit('تم حفظ قفل الفترة'); renderSettingsForm(); try{ renderEntryAlerts(); }catch(e){}
 }
 function clearPeriodLock(){
   if(!isAdmin()){ alert('قفل الفترات لمدير النظام فقط.'); return; }
