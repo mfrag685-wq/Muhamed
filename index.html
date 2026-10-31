@@ -529,6 +529,7 @@ table.reg tr.inv-flash td{animation:invFlash 2.6s ease-out}
 @keyframes invFlash{0%,40%{background:#bbf7d0}100%{background:transparent}}
 select.gsel{max-width:230px;padding:4px 6px;border:1px solid #cbd5e1;border-radius:8px;font-family:inherit;font-size:12.5px;background:#fff;cursor:pointer}
 select.gsel:hover{border-color:#2563eb}
+.edit-banner input.eb-no.eb-date{width:150px;font-weight:700}
 .edit-banner input.eb-no{width:170px;padding:3px 8px;border:1.5px solid #f59e0b;border-radius:8px;font-family:inherit;font-weight:800;font-size:14px;background:#fff;margin-inline-start:4px}
 input.no-dup{border-color:#dc2626!important;background:#fef2f2}
 .no-warn{color:#b91c1c;font-weight:700;margin-top:3px}
@@ -2119,7 +2120,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-10-30-g';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-10-31-a';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -3871,10 +3872,15 @@ function docEditPaint(k,t){
   if(tsc){ if(ban.nextElementSibling!==tsc) box.insertBefore(ban,tsc); } else if(ban.parentNode!==box) box.insertBefore(ban,box.firstChild);
   t=t||docTotals(k); var o=d.orig||{}, diff=round2(t.grand-(o.grand||0)), dirty=docDirty(k);
   var nf=document.getElementById(k+'_no'), nv=nf?nf.value:(o.no||''), bi=document.getElementById(k+'_noBanner');
-  if(bi&&document.activeElement===bi){ docNoWarnPaint(k); return; }   /* لا تُعِد الرسم أثناء الكتابة في خانة الرقم */
+  var bd=document.getElementById(k+'_dateBanner');
+  if((bi&&document.activeElement===bi)||(bd&&document.activeElement===bd)){ docNoWarnPaint(k); return; }   /* لا تُعِد الرسم أثناء الكتابة في خانة الرقم/التاريخ */
+  var dv=val(k+'_date')||o.date||'', dLock=dv&&periodLocked(dv)&&!_periodUnlocked;
   ban.innerHTML='<div class="eb-main"><span class="eb-ic">✏️</span><div><div class="eb-t">وضع تعديل فاتورة '+(k==='p'?'شراء':'بيع')
-    +' — رقم الفاتورة: <input id="'+k+'_noBanner" class="eb-no" value="'+esc(nv)+'" placeholder="بدون رقم — اكتبه هنا" oninput="setVal(\''+k+'_no\',this.value);docNoWarnPaint(\''+k+'\')"></div>'
-    +'<div class="eb-s">'+esc(o.party||'')+' · '+esc(o.date||'')+' · الإجمالي قبل التعديل: <b>'+money(o.grand||0)+'</b> ← الآن: <b>'+money(t.grand)+'</b>'
+    +' — رقم الفاتورة: <input id="'+k+'_noBanner" class="eb-no" value="'+esc(nv)+'" placeholder="بدون رقم — اكتبه هنا" oninput="setVal(\''+k+'_no\',this.value);docNoWarnPaint(\''+k+'\')">'
+    +' · التاريخ: <input type="date" id="'+k+'_dateBanner" class="eb-no eb-date" value="'+esc(dv)+'" onchange="setVal(\''+k+'_date\',this.value);this.blur();docEditPaint(\''+k+'\')">'
+    +(dv!==(o.date||'')?' <span class="eb-d up" title="التاريخ الأصلي">كان '+esc(o.date||'')+'</span>':'')
+    +(dLock?' <span class="eb-dirty">🔒 داخل فترة مقفلة</span>':'')+'</div>'
+    +'<div class="eb-s">'+esc(o.party||'')+' · الإجمالي قبل التعديل: <b>'+money(o.grand||0)+'</b> ← الآن: <b>'+money(t.grand)+'</b>'
     +(Math.abs(diff)>0.004?' <span class="eb-d '+(diff>0?'up':'down')+'">'+(diff>0?'+':'−')+money(Math.abs(diff))+'</span>':'')
     +(dirty?' · <span class="eb-dirty">● تعديلات غير محفوظة</span>':' · <span class="eb-clean">لا تغييرات بعد</span>')+'</div></div></div>'
     +'<div class="eb-act"><button type="button" class="btn" onclick="docToggleTop(\''+k+'\')" title="التاريخ والعميل/المورد والملاحظات وخانات إضافة صنف جديد">'+(hideTop?'⬆ بيانات الفاتورة وإضافة صنف':'⬇ إخفاء بيانات الفاتورة')+'</button>'
