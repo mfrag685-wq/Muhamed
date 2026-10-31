@@ -2122,7 +2122,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-10-31-b';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-10-31-c';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -3627,15 +3627,21 @@ function dlStockWarn(i){
 function dlFocus(k,i,field){ setTimeout(function(){ var tb=document.getElementById(k==='p'?'tbPLines':'tbSLines'); if(!tb) return;
   var tr=tb.querySelectorAll('tr')[i], el=tr&&tr.querySelector('input[oninput*="\''+field+'\'"]'); if(el){ el.focus(); el.select&&el.select(); } },30); }
 /* ===== رقم الفاتورة: إضافة/تعديل سريع + كشف التكرار ===== */
-function docNoDup(k,no,exceptId){ no=String(no||'').trim(); if(!no) return null; var key=invNoKey(no);
-  return (k==='p'?db.purchases:db.sales).filter(function(x){ return x.id!==exceptId&&x.no&&invNoKey(x.no)===key; })[0]||null; }
+/* تكرار رقم الفاتورة يُفحص لنفس الجهة فقط: أرقام فواتير الموردين تتكرّر طبيعياً بين موردين مختلفين.
+   التكرار لنفس الجهة يكشف إدخال الفاتورة نفسها مرتين. */
+function docNoDup(k,no,exceptId,partyId){ no=String(no||'').trim(); if(!no) return null; var key=invNoKey(no);
+  if(partyId==null) partyId=+val(k==='p'?'p_supplier':'s_client');
+  return (k==='p'?db.purchases:db.sales).filter(function(x){ return x.id!==exceptId&&x.no&&invNoKey(x.no)===key&&(!partyId||+(k==='p'?x.supplierId:x.clientId)===+partyId); })[0]||null; }
 function docNoWarnPaint(k){ var inp=document.getElementById(k+'_no'); if(!inp) return;
   var w=document.getElementById(k+'_noWarn'); if(!w){ w=document.createElement('div'); w.id=k+'_noWarn'; w.className='mini no-warn'; inp.parentNode.appendChild(w); }
   var d=docNoDup(k,inp.value,draft[k]&&draft[k].editId);
-  w.innerHTML=d?('⚠ الرقم مستخدم في فاتورة '+(k==='p'?'شراء':'بيع')+' أخرى: '+esc(d.date)+' — '+esc(k==='p'?supName(d.supplierId):clientName(d.clientId))):'';
+  w.innerHTML=d?('⚠ الرقم مستخدم لنفس '+(k==='p'?'المورد':'العميل')+' في فاتورة أخرى: '+esc(d.date)+' — '+esc(k==='p'?supName(d.supplierId):clientName(d.clientId))):'';
   inp.classList.toggle('no-dup',!!d); }
-function docNoConfirm(k){ var no=val(k+'_no'), d=docNoDup(k,no,draft[k]&&draft[k].editId);
-  return !d||confirm('⚠ رقم الفاتورة «'+no+'» مستخدم في فاتورة '+(k==='p'?'شراء':'بيع')+' أخرى بتاريخ '+d.date+' — '+(k==='p'?supName(d.supplierId):clientName(d.clientId))+'.\n\nهل تحفظ بنفس الرقم؟'); }
+function docNoConfirm(k){ var no=val(k+'_no'), ed=draft[k]&&draft[k].editId;
+  if(ed){ var orig=byId(k==='p'?db.purchases:db.sales,ed), op=orig?(k==='p'?orig.supplierId:orig.clientId):null;
+    if(orig&&invNoKey(orig.no||'')===invNoKey(no)&&+op===+val(k==='p'?'p_supplier':'s_client')) return true; }   /* الرقم والجهة لم يتغيّرا ⇒ لا سؤال */
+  var d=docNoDup(k,no,ed);
+  return !d||confirm('⚠ رقم الفاتورة «'+no+'» مستخدم لنفس '+(k==='p'?'المورد':'العميل')+' في فاتورة أخرى بتاريخ '+d.date+' — '+(k==='p'?supName(d.supplierId):clientName(d.clientId))+'.\n\nهل تحفظ بنفس الرقم؟'); }
 /* حفظ رقم فاتورة محفوظة مباشرةً من تفاصيلها في السجل — دون فتح وضع التعديل */
 function setDocNo(k,id){
   if(!guard('canEdit')) return;
@@ -3643,7 +3649,7 @@ function setDocNo(k,id){
   var inp=document.getElementById('qno_'+k+'_'+id), v=inp?String(inp.value||'').trim():'';
   if(v===(r.no||'')){ toast('لم يتغيّر رقم الفاتورة'); return; }
   if(!periodGuard(r.date)) return;
-  var d=docNoDup(k,v,id); if(d&&!confirm('⚠ الرقم «'+v+'» مستخدم في فاتورة أخرى بتاريخ '+d.date+'. هل تحفظه؟')) return;
+  var d=docNoDup(k,v,id,k==='p'?r.supplierId:r.clientId); if(d&&!confirm('⚠ الرقم «'+v+'» مستخدم في فاتورة أخرى بتاريخ '+d.date+'. هل تحفظه؟')) return;
   var old=JSON.parse(JSON.stringify(r)), prev=r.no||'بدون رقم'; r.no=v; stampEdit(r,old);
   log('edit',k==='p'?'المشتريات':'المبيعات','تعديل رقم فاتورة '+(k==='p'?'شراء':'بيع')+': '+prev+' ← '+(v||'بدون رقم')+' — '+(k==='p'?supName(r.supplierId):clientName(r.clientId))+' بتاريخ '+r.date);
   if(draft[k]&&draft[k].editId===id){ setVal(k+'_no',v); if(draft[k].orig) draft[k].orig.no=v; }
@@ -3872,29 +3878,38 @@ function docEditPaint(k,t){
   var en=document.getElementById(k==='p'?'p_editing':'s_editing'); if(en) en.textContent='✏️ وضع التعديل — '+(val(k+'_no')?'فاتورة '+val(k+'_no'):'فاتورة بدون رقم');
   if(!ban){ ban=document.createElement('div'); ban.id=k+'_editBanner'; ban.className='edit-banner'; }
   if(tsc){ if(ban.nextElementSibling!==tsc) box.insertBefore(ban,tsc); } else if(ban.parentNode!==box) box.insertBefore(ban,box.firstChild);
+  /* الهيكل (الخانات والأزرار) يُبنى مرة واحدة لكل فاتورة؛ التحديثات اللاحقة تغيّر القيم والنصوص فقط.
+     إعادة بناء الأزرار أثناء النقر كانت تُسقط ضغطة «حفظ التعديلات» (حدث change عند مغادرة خلية يعيد الرسم بين الضغط والإفلات). */
+  if(ban.dataset.eid!==String(d.editId)){
+    ban.dataset.eid=String(d.editId); var sale=(k==='s'), plist=sale?db.clients:db.suppliers;
+    ban.innerHTML='<div class="eb-main"><span class="eb-ic">✏️</span><div><div class="eb-t">وضع تعديل فاتورة '+(sale?'بيع':'شراء')
+      +' — رقم الفاتورة: <input id="'+k+'_noBanner" class="eb-no" placeholder="بدون رقم — اكتبه هنا" oninput="setVal(\''+k+'_no\',this.value);docNoWarnPaint(\''+k+'\')" onchange="docEditPaint(\''+k+'\')">'
+      +' · التاريخ: <input type="date" id="'+k+'_dateBanner" class="eb-no eb-date" onchange="setVal(\''+k+'_date\',this.value);docEditPaint(\''+k+'\')">'
+      +' <span class="eb-tag" id="'+k+'_ebDateTag"></span></div>'
+      +'<div class="eb-t2">'+(sale?'العميل':'المورد')+': <select id="'+k+'_partyBanner" class="eb-no eb-party" onchange="docSetParty(\''+k+'\',+this.value)">'
+      +plist.map(function(x){ return '<option value="'+x.id+'">'+esc(x.name)+'</option>'; }).join('')+'</select> <span class="eb-tag" id="'+k+'_ebPartyTag"></span></div>'
+      +'<div class="eb-s" id="'+k+'_ebSum"></div></div></div>'
+      +'<div class="eb-act"><button type="button" class="btn" id="'+k+'_ebTop" onclick="docToggleTop(\''+k+'\')" title="التاريخ والعميل/المورد والملاحظات وخانات إضافة صنف جديد"></button>'
+      +'<button type="button" class="btn-main" onclick="'+(sale?'saveSale()':'savePurchase()')+'">💾 حفظ التعديلات</button>'
+      +'<button type="button" class="btn" onclick="docCancelEdit(\''+k+'\')">✖ إلغاء التعديل</button></div>';
+  }
   t=t||docTotals(k); var o=d.orig||{}, diff=round2(t.grand-(o.grand||0)), dirty=docDirty(k);
-  var nf=document.getElementById(k+'_no'), nv=nf?nf.value:(o.no||''), bi=document.getElementById(k+'_noBanner');
-  var bd=document.getElementById(k+'_dateBanner'), bp=document.getElementById(k+'_partyBanner');
-  if((bi&&document.activeElement===bi)||(bd&&document.activeElement===bd)||(bp&&document.activeElement===bp)){ docNoWarnPaint(k); return; }   /* لا تُعِد الرسم أثناء الكتابة في خانة الرقم/التاريخ */
+  var gi=function(id){ return document.getElementById(id); }, idle=function(el){ return el&&document.activeElement!==el; };
   var dv=val(k+'_date')||o.date||'', dLock=dv&&periodLocked(dv)&&!_periodUnlocked;
-  ban.innerHTML='<div class="eb-main"><span class="eb-ic">✏️</span><div><div class="eb-t">وضع تعديل فاتورة '+(k==='p'?'شراء':'بيع')
-    +' — رقم الفاتورة: <input id="'+k+'_noBanner" class="eb-no" value="'+esc(nv)+'" placeholder="بدون رقم — اكتبه هنا" oninput="setVal(\''+k+'_no\',this.value);docNoWarnPaint(\''+k+'\')">'
-    +' · التاريخ: <input type="date" id="'+k+'_dateBanner" class="eb-no eb-date" value="'+esc(dv)+'" onchange="setVal(\''+k+'_date\',this.value);this.blur();docEditPaint(\''+k+'\')">'
-    +(dv!==(o.date||'')?' <span class="eb-d up" title="التاريخ الأصلي">كان '+esc(o.date||'')+'</span>':'')
-    +(dLock?' <span class="eb-dirty">🔒 داخل فترة مقفلة</span>':'')+'</div>'
-    +'<div class="eb-t2">'+docPartyBannerHtml(k,o)+'</div>'
-    +'<div class="eb-s">الإجمالي قبل التعديل: <b>'+money(o.grand||0)+'</b> ← الآن: <b>'+money(t.grand)+'</b>'
+  var bi=gi(k+'_noBanner'), bd=gi(k+'_dateBanner'), bp=gi(k+'_partyBanner');
+  if(idle(bi)&&bi.value!==val(k+'_no')) bi.value=val(k+'_no');
+  if(idle(bd)&&bd.value!==dv) bd.value=dv;
+  var pv=val(k==='s'?'s_client':'p_supplier'); if(idle(bp)&&bp.value!==String(pv)) bp.value=String(pv);
+  var dt=gi(k+'_ebDateTag'); if(dt) dt.innerHTML=(dv!==(o.date||'')?'<span class="eb-d up" title="التاريخ الأصلي">كان '+esc(o.date||'')+'</span> ':'')+(dLock?'<span class="eb-dirty">🔒 داخل فترة مقفلة</span>':'');
+  var ptg=gi(k+'_ebPartyTag'); if(ptg) ptg.innerHTML=docPartyTagHtml(k,o);
+  var sm=gi(k+'_ebSum'); if(sm) sm.innerHTML='الإجمالي قبل التعديل: <b>'+money(o.grand||0)+'</b> ← الآن: <b>'+money(t.grand)+'</b>'
     +(Math.abs(diff)>0.004?' <span class="eb-d '+(diff>0?'up':'down')+'">'+(diff>0?'+':'−')+money(Math.abs(diff))+'</span>':'')
-    +(dirty?' · <span class="eb-dirty">● تعديلات غير محفوظة</span>':' · <span class="eb-clean">لا تغييرات بعد</span>')+'</div></div></div>'
-    +'<div class="eb-act"><button type="button" class="btn" onclick="docToggleTop(\''+k+'\')" title="التاريخ والعميل/المورد والملاحظات وخانات إضافة صنف جديد">'+(hideTop?'⬆ بيانات الفاتورة وإضافة صنف':'⬇ إخفاء بيانات الفاتورة')+'</button>'
-    +'<button type="button" class="btn-main" onclick="'+(k==='p'?'savePurchase()':'saveSale()')+'">💾 حفظ التعديلات</button>'
-    +'<button type="button" class="btn" onclick="docCancelEdit(\''+k+'\')">✖ إلغاء التعديل</button></div>';
+    +(dirty?' · <span class="eb-dirty">● تعديلات غير محفوظة</span>':' · <span class="eb-clean">لا تغييرات بعد</span>');
+  var tb=gi(k+'_ebTop'); if(tb){ var tx=hideTop?'⬆ بيانات الفاتورة وإضافة صنف':'⬇ إخفاء بيانات الفاتورة'; if(tb.textContent!==tx) tb.textContent=tx; }
 }
 /* تغيير العميل/المورد من شريط التعديل مباشرةً */
-function docPartyBannerHtml(k,o){
-  var sale=(k==='s'), cur=+val(sale?'s_client':'p_supplier'), list=sale?db.clients:db.suppliers;
-  var h=(sale?'العميل':'المورد')+': <select id="'+k+'_partyBanner" class="eb-no eb-party" onchange="docSetParty(\''+k+'\',+this.value);this.blur()">'
-    +list.map(function(x){ return '<option value="'+x.id+'"'+(x.id===cur?' selected':'')+'>'+esc(x.name)+'</option>'; }).join('')+'</select>';
+function docPartyTagHtml(k,o){
+  var sale=(k==='s'), cur=+val(sale?'s_client':'p_supplier'), h='';
   var curName=sale?clientName(cur):supName(cur);
   if(o.party&&curName!==o.party) h+=' <span class="eb-d up" title="'+(sale?'العميل':'المورد')+' الأصلي">كان '+esc(o.party)+'</span>';
   if(sale){ var bad=0, other={}; (draft.s.lines||[]).forEach(function(l){ var w=byId(db.warehouses,l.whId); if(w&&w.clientId&&w.clientId!==cur){ bad++; other[w.name]=1; } });
@@ -7330,7 +7345,7 @@ function niceMax(v){ if(v<=0) return 1;
 /* مسار عمود بطرف مُدوَّر بعيداً عن خط الأساس فقط (up=عمود موجب يُدوَّر أعلاه) */
 function barPath(x,y,w,h,up){
   x=+x;y=+y;w=+w;h=+h; var r=Math.max(0,Math.min(3.5,w/2,h));
-  if(h<=r+0.5) return '<rect x="'+x.toFixed(1)+'" y="'+y.toFixed(1)+'" width="'+w.toFixed(1)+'" height="'+h.toFixed(1)+'"/>';
+  if(h<=r+0.5) return 'M'+x.toFixed(1)+' '+y.toFixed(1)+' h'+w.toFixed(1)+' v'+h.toFixed(1)+' h'+(-w).toFixed(1)+' Z';   /* عمود صغير جداً: مستطيل كمسار صالح */
   return up
     ? 'M'+x.toFixed(1)+' '+(y+h).toFixed(1)+' V'+(y+r).toFixed(1)+' Q'+x.toFixed(1)+' '+y.toFixed(1)+' '+(x+r).toFixed(1)+' '+y.toFixed(1)+' H'+(x+w-r).toFixed(1)+' Q'+(x+w).toFixed(1)+' '+y.toFixed(1)+' '+(x+w).toFixed(1)+' '+(y+r).toFixed(1)+' V'+(y+h).toFixed(1)+' Z'
     : 'M'+x.toFixed(1)+' '+y.toFixed(1)+' H'+(x+w).toFixed(1)+' V'+(y+h-r).toFixed(1)+' Q'+(x+w).toFixed(1)+' '+(y+h).toFixed(1)+' '+(x+w-r).toFixed(1)+' '+(y+h).toFixed(1)+' H'+(x+r).toFixed(1)+' Q'+x.toFixed(1)+' '+(y+h).toFixed(1)+' '+x.toFixed(1)+' '+(y+h-r).toFixed(1)+' Z'; }
