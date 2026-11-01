@@ -236,7 +236,7 @@ tr:hover td{background:#f8fafc}
    ============================================================ */
 const KEY="inv_system_v2";
 /* رقم إصدار التطبيق — يُزاد مع كل تحديث؛ يُقارَن بالنسخة المنشورة لإظهار زر التحديث */
-const APP_VERSION="2026-11-01-03";
+const APP_VERSION="2026-11-01-04";
 let DB,ME;
 /* التحقق من توفّر نسخة أحدث بجلب الملف نفسه (بدون كاش) ومقارنة رقم الإصدار */
 function checkForUpdate(){
@@ -1073,12 +1073,12 @@ function pMove(){
     <div id="rowOut" style="margin-top:6px">
       <div class="formgrid">
         <div class="cell c3"><label>رقم فاتورة البيع ${simpleCo()?"(اختياري)":"* (إجباري)"}</label><input id="mInvoice" placeholder="${simpleCo()?"اختياري":"رقم الفاتورة"}"></div>
-        <div class="cell c3"><label>العمولة ﷼ (لكامل الفاتورة)</label><input id="mComm" type="number" inputmode="decimal" step="0.01" placeholder="0.00"></div>
+        ${simpleCo()?"":`<div class="cell c3"><label>العمولة ﷼ (لكامل الفاتورة)</label><input id="mComm" type="number" inputmode="decimal" step="0.01" placeholder="0.00"></div>
         <div class="cell c3"><label>🚚 رسوم تركيب/توصيل ﷼</label>
           <input id="mFeeVal" type="number" inputmode="decimal" step="0.01" placeholder="اتركه فارغاً = بدون رسوم">
           <div style="display:flex;align-items:center;gap:8px;margin-top:4px;flex-wrap:wrap">
             <button type="button" id="feeModeToggle" onclick="toggleFeeMode()" style="background:#eef2ff;color:#3730a3;border:1px solid #c7d2fe;border-radius:20px;padding:6px 12px;font-size:12.5px;font-weight:700;cursor:pointer">🔀 تحويل إلى: لكل صنف</button>
-            <span id="feeHint" style="font-size:11px;color:var(--muted)">مبلغ واحد لكامل الفاتورة</span></div></div>
+            <span id="feeHint" style="font-size:11px;color:var(--muted)">مبلغ واحد لكامل الفاتورة</span></div></div>`}
         <div class="cell c3"><label>${simpleCo()?"الجهة / المستلم (لمن خرجت)":"العنوان"}</label><input id="mAddress" placeholder="${simpleCo()?"اسم الجهة أو المستلم":"العنوان"}"></div>
         <div class="cell c3"><label>ملاحظات</label><input id="mNoteOut" placeholder="ملاحظة"></div>
       </div>
@@ -1132,7 +1132,7 @@ function setType(t){
   if(rin)rin.style.display=(t==="inbound")?"grid":"none";
   if(rout)rout.style.display=(t==="outbound")?"block":"none";
   if(wp)wp.style.display=(t==="adjustment")?"none":"block";
-  if(lp)lp.textContent=(t==="inbound")?"سعر التكلفة * ﷼":"سعر البيع ﷼";
+  if(lp)lp.textContent=(t==="inbound")?(simpleCo()?"سعر التكلفة (اختياري) ﷼":"سعر التكلفة * ﷼"):"سعر البيع ﷼";
   if(sb)sb.textContent=(t==="outbound")?"✓ حفظ الفاتورة":"✓ حفظ الحركة";
   renderCart();
   if($("#rfAll")&&(t==="inbound"||t==="outbound"))setRecentFilter(t);   // يفلتر آخر الحركات حسب النوع المختار
@@ -1222,8 +1222,8 @@ function saveMove(){
     if(!invNo&&!simpleCo())return show("أدخل رقم الفاتورة (إجباري للمنصرف).","err");
     if(invNo&&invoiceExists(invNo)&&!confirm(`⚠️ رقم الفاتورة «${invNo}» مُسجّل مسبقاً في فاتورة بيع أخرى.\nهل تريد المتابعة وحفظها على أي حال؟`))return;
     const gid="INV"+Date.now();
-    const comm=toNum($("#mComm").value),addr=$("#mAddress").value||"",note=$("#mNoteOut").value||"";
-    const feesInv=(feeType()==="inv")?toNum($("#mFeeVal").value):0;   // رسوم كامل الفاتورة تُضاف للسطر الأول
+    const comm=toNum($("#mComm")?.value),addr=$("#mAddress")?.value||"",note=$("#mNoteOut")?.value||"";
+    const feesInv=($("#mFeeVal")&&feeType()==="inv")?toNum($("#mFeeVal").value):0;   // رسوم كامل الفاتورة تُضاف للسطر الأول
     lines.forEach((l,idx)=>{const it=DB.items.find(x=>x.id===l.itemId);it.qty-=l.qty;
       const lineFee=(l.fee||0)+(idx===0?feesInv:0);
       DB.movements.unshift({id:nid("movement"),uid:uidGen(),companyId:CO,itemId:it.id,type:"outbound",qty:l.qty,price:l.price||0,
