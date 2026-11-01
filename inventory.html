@@ -202,6 +202,7 @@ tr:hover td{background:#f8fafc}
     <button class="navbtn" data-page="dashboard">📊 الأرصدة</button>
     <button class="navbtn" data-page="report">📅 تقرير فترة</button>
     <button class="navbtn" data-page="parties">👤 كشف العملاء والموردين</button>
+    <button class="navbtn" data-page="customers">🧑‍💼 العملاء</button>
     <button class="navbtn" data-page="ledger">📜 سجل حركة الصنف</button>
     <button class="navbtn" data-page="items">🏷️ الأصناف</button>
     <button class="navbtn" data-page="stock">🧮 جرد المخزون</button>
@@ -237,7 +238,7 @@ tr:hover td{background:#f8fafc}
    ============================================================ */
 const KEY="inv_system_v2";
 /* رقم إصدار التطبيق — يُزاد مع كل تحديث؛ يُقارَن بالنسخة المنشورة لإظهار زر التحديث */
-const APP_VERSION="2026-11-01-06";
+const APP_VERSION="2026-11-01-07";
 let DB,ME;
 /* التحقق من توفّر نسخة أحدث بجلب الملف نفسه (بدون كاش) ومقارنة رقم الإصدار */
 function checkForUpdate(){
@@ -296,6 +297,7 @@ function preset(role){
 function can(k){if(!ME||!ME.perms)return false;
   if(k==="stock")return can("dashboard")||can("items"); // الجرد متاح لمن يرى الأرصدة أو الأصناف
   if(k==="parties")return can("report")||can("dashboard"); // كشف العملاء والموردين متاح لمن يرى التقارير أو الأرصدة
+  if(k==="customers")return can("move")||can("import"); // إدارة العملاء متاحة لمن يسجّل الحركات أو يدير الموردين
   const o=ME.coPerms&&ME.coPerms[CO];if(o&&o[k]!==undefined)return !!o[k];return !!ME.perms[k];}
 function allowedCompanies(){if(!ME)return DB.companies;const a=ME.companies;return (a&&a.length)?DB.companies.filter(c=>a.includes(c.id)):DB.companies;}
 function mayAccessCompany(id){if(!ME)return true;const a=ME.companies;return !a||!a.length||a.includes(id);}
@@ -377,6 +379,7 @@ function stockOf(itemId){
 /* هل يُسمح بالبيع بالسالب؟ (إعداد) */
 function allowOversell(){return !!(DB.settings&&DB.settings.allowOversell);}
 function csups(){return DB.suppliers.filter(s=>s.companyId===CO);}
+function ccusts(){return (DB.customers||[]).filter(c=>c.companyId===CO).sort((a,b)=>String(a.name||"").localeCompare(String(b.name||""),"ar"));}
 function cpays(){return DB.payments.filter(p=>p.companyId===CO);}
 function curCompany(){return (DB.companies||[]).find(c=>c.id===CO)||DB.companies[0]||{name:"شركتي",logo:"",icon:"🏢"};}
 /* نمط «المتابعة فقط»: تتبّع الوارد والمنصرف بسهولة دون إلزام بالتكاليف/المستندات (اختيارية) */
@@ -409,11 +412,12 @@ function seed(){return{
 function ensureShape(){
   DB.users=DB.users||[];DB.items=DB.items||[];DB.movements=DB.movements||[];
   DB.suppliers=DB.suppliers||[];DB.shipments=DB.shipments||[];DB.activity=DB.activity||[];DB.payments=DB.payments||[];
-  DB.commPayments=DB.commPayments||[];
+  DB.commPayments=DB.commPayments||[];DB.customers=DB.customers||[];
   DB.tomb=DB.tomb||{};
   DB.seq=DB.seq||{user:0,supplier:0,shipment:0,item:0,movement:0,activity:0,company:0,payment:0};
   if(DB.seq.payment===undefined)DB.seq.payment=0;
   if(DB.seq.commpay===undefined)DB.seq.commpay=0;
+  if(DB.seq.customer===undefined)DB.seq.customer=0;
   DB.settings=DB.settings||{company:"شركتي",logo:""};
   if(!DB.settings.appName)DB.settings.appName="نظام إدارة المخزون";
   // تهيئة الشركات وترحيل البيانات القديمة لأول شركة
@@ -426,6 +430,10 @@ function ensureShape(){
   DB.items.forEach(i=>{if(i.companyId===undefined)i.companyId=firstCo;if(i.category)i.category=normCat(i.category);});
   DB.movements.forEach(m=>{if(m.companyId===undefined)m.companyId=firstCo;});
   DB.suppliers.forEach(s=>{if(s.companyId===undefined)s.companyId=firstCo;});
+  DB.customers.forEach(c=>{if(c.companyId===undefined)c.companyId=firstCo;if(c.name)c.name=String(c.name).replace(/\s+/g," ").trim();});
+  // ترحيل العملاء من أسماء الجهات/المستلمين المُدخلة سابقاً في المنصرف (مرة واحدة لكل اسم)
+  {const seen={};DB.customers.forEach(c=>seen[c.companyId+"|"+(c.name||"")]=1);
+   DB.movements.forEach(m=>{if(m.type==="outbound"){const a=(m.address||"").replace(/\s+/g," ").trim();if(a){const co=m.companyId||firstCo,k=co+"|"+a;if(!seen[k]){seen[k]=1;DB.customers.push({id:nid("customer"),companyId:co,name:a,phone:"",note:""});}}}});}
   DB.payments.forEach(p=>{if(p.companyId===undefined)p.companyId=firstCo;if(!p.kind)p.kind="payment";});
   if(!DB.companies.some(c=>c.id===CO))CO=DB.companies[0].id;
   const DIAL={"معاذ":"ye","عبد الرحمن جبريل":"ye","عبدالرحمن جبريل":"ye","ابو جنه":"eg","أبو جنة":"eg","ابو جنة":"eg","أبو جنه":"eg","ahmed":"eg","احمد":"eg","أحمد":"eg","mofarag":"eg"};
@@ -735,6 +743,7 @@ function mergeEntityRemap(remArr,locArr,nameFn){
 }
 function itemKey(it){return (itemModel(it)||"").trim().toLowerCase()+"|"+(it.companyId||"");}
 function supKey(s){return (s.name||"").trim().toLowerCase()+"|"+(s.companyId||"");}
+function custKey(c){return (c.name||"").trim().toLowerCase()+"|"+(c.companyId||"");}
 function userKey(u){return (u.username||"").trim().toLowerCase();}
 /* دمج قاعدتي بيانات دون فقدان سجلات أحد الطرفين، ثم إعادة احتساب أرصدة الأصناف من الحركات */
 function mergeDB(rem,loc){
@@ -749,6 +758,7 @@ function mergeDB(rem,loc){
   out.items=im.list;
   out.suppliers=sm.list;
   out.users=mergeEntityRemap(rem.users,out.users,userKey).list;
+  out.customers=mergeEntityRemap(rem.customers,out.customers||[],custKey).list;
   // دمج الشركات بالمعرّف حتى لا تُفقد شركة أُنشئت على جهاز آخر
   out.companies=mergeUnionById(rem.companies,out.companies);
   out.movements=dedupIds(mergeLog(rem.movements,out.movements,movSig));
@@ -764,6 +774,7 @@ function mergeDB(rem,loc){
   out.items=out.items.filter(x=>!isTombed(out.tomb,"items",x));
   out.suppliers=out.suppliers.filter(x=>!isTombed(out.tomb,"suppliers",x));
   out.users=out.users.filter(x=>!isTombed(out.tomb,"users",x));
+  out.customers=(out.customers||[]).filter(x=>!isTombed(out.tomb,"customers",x));
   // seq = الأعلى من الطرفين لتفادي تكرار المعرّفات
   out.seq=Object.assign({},loc.seq||{});
   const ks=new Set([...Object.keys(rem.seq||{}),...Object.keys(loc.seq||{})]);
@@ -1019,7 +1030,7 @@ function go(page,isBack){
   if(PAGE_HISTORY.length>50)PAGE_HISTORY.shift();
   CURRENT_PAGE=page;
   document.querySelectorAll(".navbtn").forEach(b=>b.classList.toggle("active",b.dataset.page===page));
-  ({move:pMove,dashboard:pDashboard,report:pReport,parties:pParties,ledger:pLedger,items:pItems,stock:pStock,import:pImport,employees:pEmployees,settings:pSettings}[page])();
+  ({move:pMove,dashboard:pDashboard,report:pReport,parties:pParties,customers:pCustomers,ledger:pLedger,items:pItems,stock:pStock,import:pImport,employees:pEmployees,settings:pSettings}[page])();
   const bb=$("#backBtn");if(bb)bb.style.display=PAGE_HISTORY.length?"inline-block":"none";
 }
 function goBack(){
@@ -1081,9 +1092,11 @@ function pMove(){
           <div style="display:flex;align-items:center;gap:8px;margin-top:4px;flex-wrap:wrap">
             <button type="button" id="feeModeToggle" onclick="toggleFeeMode()" style="background:#eef2ff;color:#3730a3;border:1px solid #c7d2fe;border-radius:20px;padding:6px 12px;font-size:12.5px;font-weight:700;cursor:pointer">🔀 تحويل إلى: لكل صنف</button>
             <span id="feeHint" style="font-size:11px;color:var(--muted)">مبلغ واحد لكامل الفاتورة</span></div></div>`}
-        <div class="cell c3"><label>${simpleCo()?"الجهة / المستلم (لمن خرجت)":"العنوان"}</label>
-          <input id="mAddress" list="custList" autocomplete="off" placeholder="${simpleCo()?"اكتب اسم العميل (يُحفظ تلقائياً)":"العنوان"}">
-          <datalist id="custList">${customerList().map(n=>`<option value="${esc(n)}">`).join("")}</datalist></div>
+        <div class="cell c3"><label>${simpleCo()?"العميل / المستلم (لمن خرجت) *":"العنوان"}</label>
+          ${simpleCo()
+            ? `<select id="mAddress"><option value="">— اختر العميل —</option>${ccusts().map(c=>`<option value="${esc(c.name)}">${esc(c.name)}</option>`).join("")}</select>
+               <div style="font-size:11px;color:var(--muted);margin-top:3px">لإضافة عميل جديد: <a onclick="go('customers')" style="color:var(--blue);cursor:pointer;font-weight:700">افتح شاشة العملاء 🧑‍💼</a></div>`
+            : `<input id="mAddress" placeholder="العنوان">`}</div>
         <div class="cell c3"><label>ملاحظات</label><input id="mNoteOut" placeholder="ملاحظة"></div>
       </div>
       <button class="btn blue" onclick="addToInvoice()">➕ أضِف الصنف الحالي إلى الفاتورة</button>
@@ -1220,6 +1233,8 @@ function saveMove(){
   if(mType==="outbound"){
     const lines=saleCart.slice();const cur=currentLine();if(cur)lines.push(cur);
     if(!lines.length)return show("أضِف صنفاً واحداً على الأقل للفاتورة.","err");
+    if(!simpleCo()&&lines.some(l=>!(l.price>0)))return show("أدخل سعر البيع لكل صنف.","err"); // النمط الكامل: سعر البيع إجباري
+    if(simpleCo()&&!(($("#mAddress")?.value||"").trim()))return show("اختر العميل الذي خرجت له البضاعة (أضِفه من شاشة العملاء إن لم يكن موجوداً).","err");
     const need={};lines.forEach(l=>need[l.itemId]=(need[l.itemId]||0)+l.qty);
     for(const id in need){const it=DB.items.find(x=>x.id===+id);const avail=stockOf(+id);if(!allowOversell()&&need[id]>avail)return show(`الرصيد غير كافٍ للصنف «${itemModel(it)}» (المتاح ${avail}). فعّل «السماح بالبيع بالسالب» من الإعدادات إن أردت.`,"err");}
     const invNo=($("#mInvoice").value||"").trim();
@@ -1409,8 +1424,9 @@ function invEditAdd(){
 }
 function invEditDel(idx){invEdit.splice(idx,1);renderInvEditRows();}
 function saveInvoiceEdit(gid){
-  const inv=($("#ie_inv").value||"").trim();if(!inv){$("#ie_msg").textContent="أدخل رقم الفاتورة.";return;}
+  const inv=($("#ie_inv").value||"").trim();if(!inv&&!simpleCo()){$("#ie_msg").textContent="أدخل رقم الفاتورة.";return;}
   if(!invEdit.length){$("#ie_msg").textContent="أضِف صنفاً واحداً على الأقل.";return;}
+  if(!simpleCo()&&invEdit.some(l=>!(l.price>0))){$("#ie_msg").textContent="أدخل سعر البيع لكل صنف.";return;}
   const old=DB.movements.filter(m=>m.invGid===gid&&m.type==="outbound");
   // أرجع مخزون البنود القديمة مؤقتاً لحساب التوفّر الصحيح
   const restore={};old.forEach(m=>{restore[m.itemId]=(restore[m.itemId]||0)+m.qty;});
@@ -1483,6 +1499,10 @@ function saveMovement(id){
   if(m.type==="outbound"&&!simpleCo()&&!($("#em_ref").value||"").trim()){
     if(oldIt)oldIt.qty+=isIn(m.type)?m.qty:-m.qty;
     $("#em_msg").textContent="أدخل رقم الفاتورة (إجباري للمنصرف).";return;
+  }
+  if(m.type==="outbound"&&!simpleCo()&&!(parseFloat($("#em_price").value)>0)){
+    if(oldIt)oldIt.qty+=isIn(m.type)?m.qty:-m.qty;
+    $("#em_msg").textContent="أدخل سعر البيع (إجباري في النمط الكامل).";return;
   }
   newIt.qty+=isIn(m.type)?nq:-nq;
   m.itemId=newIt.id;m.model=itemModel(newIt);m.qty=nq;m.price=parseFloat($("#em_price").value)||0;
@@ -1925,6 +1945,73 @@ function exportParty(){
   const totQty=list.reduce((s,m)=>s+m.qty,0),totVal=list.reduce((s,m)=>s+m.qty*(m.price||0),0);
   rows.push(["الإجمالي","",totQty,"","",totVal,"",""]);
   exportXLSX("كشف-"+(partyMode==="suppliers"?"مورد-":"عميل-")+partySel+".xlsx",["التاريخ","الموديل","الكمية",docLbl,"السعر","الإجمالي","الموظف","ملاحظة"],rows,"كشف حساب");
+}
+/* ============ إدارة العملاء (شاشة منفصلة — تمنع التكرار) ============ */
+function custExists(name,exceptId){name=(name||"").replace(/\s+/g," ").trim().toLowerCase();return ccusts().some(c=>c.id!==exceptId&&String(c.name||"").replace(/\s+/g," ").trim().toLowerCase()===name);}
+function custMoveCount(name){name=(name||"").trim();return cmoves().filter(m=>m.type==="outbound"&&(m.address||"").trim()===name).length;}
+function pCustomers(){
+  $("#view").innerHTML=`<div class="pagehead"><h1>🧑‍💼 العملاء</h1></div>
+  <div class="grid-2">
+    <div class="card"><div class="card-title">➕ إضافة عميل جديد</div>
+      <div class="field" style="margin-bottom:8px"><label>اسم العميل *</label><input id="cName" placeholder="اسم العميل" onkeydown="if(event.key==='Enter')addCustomer()"></div>
+      <div class="row"><div class="field"><label>الهاتف (اختياري)</label><input id="cPhone" placeholder="الهاتف"></div>
+        <div class="field"><label>ملاحظة (اختياري)</label><input id="cNote" placeholder="ملاحظة"></div></div>
+      <div id="cMsg" style="color:var(--red);font-size:13px;margin:6px 0"></div>
+      <button class="btn green" onclick="addCustomer()">💾 حفظ العميل</button>
+      <p style="font-size:12px;color:var(--muted);margin-top:8px">لتفادي تكرار العملاء، يُضاف العميل من هنا فقط، ثم يُختار من القائمة المنسدلة عند تسجيل المنصرف.</p>
+    </div>
+    <div class="card"><div class="card-title" style="display:flex;justify-content:space-between;align-items:center"><span>قائمة العملاء (${ccusts().length})</span>
+      <button class="btn green sm no-print" onclick="exportCustomers()">⬇ تصدير Excel</button></div>
+      <div class="field no-print" style="margin-bottom:8px"><input id="cSearch" placeholder="🔍 بحث بالاسم/الهاتف" oninput="renderCustomers()"></div>
+      <div class="table-wrap"><table><thead><tr><th>الاسم</th><th>الهاتف</th><th>ملاحظة</th><th>عدد الحركات</th><th class="no-print"></th></tr></thead><tbody id="cTbl"></tbody></table></div>
+    </div>
+  </div>`;
+  renderCustomers();
+}
+function renderCustomers(){
+  const tb=$("#cTbl");if(!tb)return;const q=($("#cSearch")?.value||"").toLowerCase().trim();
+  let list=ccusts();if(q)list=list.filter(c=>((c.name||"")+" "+(c.phone||"")+" "+(c.note||"")).toLowerCase().includes(q));
+  tb.innerHTML=list.map(c=>`<tr><td style="font-weight:700">${esc(c.name)}</td><td>${esc(c.phone||"")}</td><td style="color:var(--muted)">${esc(c.note||"")}</td><td>${custMoveCount(c.name)}</td>
+    <td class="no-print" style="white-space:nowrap">${can("canEdit")?`<button class="btn blue sm" onclick="editCustomer(${c.id})">تعديل</button>`:""}${can("canDelete")?`<button class="btn red sm" onclick="delCustomer(${c.id})">حذف</button>`:""}</td></tr>`).join("")
+    ||`<tr><td colspan="5" class="empty">لا عملاء بعد — أضِف أول عميل.</td></tr>`;
+}
+function addCustomer(){
+  if(!guard("customers"))return;
+  const name=($("#cName").value||"").replace(/\s+/g," ").trim();
+  if(!name){$("#cMsg").textContent="أدخل اسم العميل.";return;}
+  if(custExists(name)){$("#cMsg").textContent="⚠️ هذا العميل موجود بالفعل.";return;}
+  DB.customers.push({id:nid("customer"),companyId:CO,name,phone:($("#cPhone").value||"").trim(),note:($("#cNote").value||"").trim()});
+  logAct("إضافة عميل",name);save();toast("تمت إضافة العميل");pCustomers();
+}
+function editCustomer(id){
+  if(!guard("canEdit"))return;const c=(DB.customers||[]).find(x=>x.id===id);if(!c)return;
+  const m=document.createElement("div");m.className="modal";
+  m.innerHTML=`<div class="box" style="max-width:420px"><h3>✏️ تعديل العميل</h3>
+    <div class="field" style="margin-bottom:10px"><label>اسم العميل *</label><input id="ec_name" value="${esc(c.name||"")}"></div>
+    <div class="field" style="margin-bottom:10px"><label>الهاتف</label><input id="ec_phone" value="${esc(c.phone||"")}"></div>
+    <div class="field" style="margin-bottom:10px"><label>ملاحظة</label><input id="ec_note" value="${esc(c.note||"")}"></div>
+    <div id="ec_msg" style="color:var(--red);font-size:13px;margin-bottom:8px"></div>
+    <div style="display:flex;gap:8px"><button class="btn green" onclick="saveCustomerEdit(${id})">حفظ</button><button class="btn gray" onclick="this.closest('.modal').remove()">إلغاء</button></div>
+    <p style="font-size:12px;color:var(--muted);margin-top:10px">تغيير الاسم يُحدّثه تلقائياً في كل حركات المنصرف وكشوف هذا العميل.</p></div>`;
+  document.body.appendChild(m);
+}
+function saveCustomerEdit(id){
+  const c=(DB.customers||[]).find(x=>x.id===id);if(!c)return;
+  const name=($("#ec_name").value||"").replace(/\s+/g," ").trim();
+  if(!name){$("#ec_msg").textContent="أدخل الاسم.";return;}
+  if(custExists(name,id)){$("#ec_msg").textContent="يوجد عميل آخر بنفس الاسم.";return;}
+  const old=(c.name||"").trim();c.name=name;c.phone=($("#ec_phone").value||"").trim();c.note=($("#ec_note").value||"").trim();
+  if(old&&old!==name)DB.movements.forEach(m=>{if(m.type==="outbound"&&(m.address||"").trim()===old){m.address=name;m.editedAt=new Date().toISOString();}});
+  logAct("تعديل عميل",name);save();const md=document.querySelector(".modal");if(md)md.remove();toast("تم الحفظ");if(CURRENT_PAGE==="customers")renderCustomers();
+}
+function delCustomer(id){
+  if(!guard("canDelete"))return;const c=(DB.customers||[]).find(x=>x.id===id);if(!c)return;
+  if(custMoveCount(c.name)>0){alert("لا يمكن حذف عميل له حركات مسجّلة. يمكنك تعديله بدلاً من حذفه.");return;}
+  if(!confirm(`حذف العميل «${c.name}»؟`))return;
+  tombAdd("customers",c);DB.customers=DB.customers.filter(x=>x.id!==id);logAct("حذف عميل",c.name);save();pCustomers();
+}
+function exportCustomers(){
+  exportXLSX("العملاء.xlsx",["الاسم","الهاتف","ملاحظة","عدد الحركات"],ccusts().map(c=>[c.name,c.phone||"",c.note||"",custMoveCount(c.name)]),"العملاء");
 }
 /* ============ جرد المخزون ============ */
 let stockCounts={};
