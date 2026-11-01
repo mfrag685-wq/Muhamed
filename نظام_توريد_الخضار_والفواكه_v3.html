@@ -2158,7 +2158,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-10-31-e';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-01-a';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -5821,7 +5821,7 @@ function entryDelayAlerts(){
     if(gap===2) return {name:name,intro:intro,kindDef:kindDef,tier:'mid',sev:1,
       msg:'آخر يوم تم فيه إدخال '+kindDef+' هو '+last+' — الرجاء إدخال '+kindBare+' يوم '+nd+' (متأخّر يومان).'};
     return {name:name,intro:intro,kindDef:kindDef,tier:'urgent',sev:0,
-      msg:'آخر يوم تم فيه إدخال '+kindDef+' هو '+last+' — مضى '+gap+' أيام بلا إدخال. يُرجى استدراك الأيام الفائتة بدءاً من '+nd+'.'};
+      msg:'آخر يوم تم فيه إدخال '+kindDef+' هو '+last+' — مضى '+mcDays(gap)+' بلا إدخال. يُرجى استدراك الأيام الفائتة بدءاً من '+nd+'.'};
   }
   var off=function(g){ return String(g)==='off'; };   /* نوع مُخفى التنبيه لهذا القسم */
   /* عملاء المبيعات اليومية: كل عميل يُتابَع منفرداً — فلا يُخفي إدخالُ مبيعات عميلٍ نسيانَ مبيعات عميل آخر في نفس اليوم */
@@ -5874,8 +5874,10 @@ function dailyClientFollowUps(clients,cfg,td,realTd){
     (db.sales||[]).forEach(function(x){ if(+x.clientId!==cid||!x.date||x.date>realTd) return; has[x.date]=1; if(!first||x.date<first) first=x.date; });
     if(!first) return;   /* عميل جديد بلا أي مبيعات بعد */
     var offW=clientOffWeekdays(cid,realTd), ack=acks[cid]||{}, miss=[];
-    var d=ivAddDays(until,-13); if(d<first) d=first;
-    for(var guard=0; d<=until && guard<40; guard++, d=ivAddDays(d,1)){
+    var d=ivAddDays(until,-13), mcT=null; try{ mcT=monthCloseTarget(); }catch(e){}
+    if(mcT&&(mcT.ym+'-01')<d) d=mcT.ym+'-01';   /* شهر قيد الإقفال: تغطية كل أيامه الناقصة لا آخر أسبوعين فقط */
+    if(d<first) d=first;
+    for(var guard=0; d<=until && guard<75; guard++, d=ivAddDays(d,1)){
       if(has[d]||ack[d]) continue;
       if(offW[(parseDate(d)||new Date(d)).getDay()]) continue;
       miss.push(d);
@@ -6069,7 +6071,8 @@ function monthCloseGaps(T){
       (db.sales||[]).forEach(function(x){ if(+x.clientId!==cid||!x.date) return; if(!first||x.date<first) first=x.date; if(inM(x.date)) has[x.date]=1; });
       if(!first) return; var offW=clientOffWeekdays(cid,td), ack=acks[cid]||{}, miss=[];
       for(var d=(first>from?first:from), g2=0; d<=until&&g2<40; d=ivAddDays(d,1), g2++){ if(has[d]||ack[d]) continue; if(offW[(parseDate(d)||new Date(d)).getDay()]) continue; miss.push(d); }
-      if(miss.length) sl.push('«'+clientName(cid)+'»: '+mcDays(miss.length)+' بلا مبيعات ('+miss.slice(0,6).map(function(x){ return x.slice(8); }).join('، ')+(miss.length>6?'…':'')+')'); });
+      if(miss.length) sl.push('«'+clientName(cid)+'» ('+mcDays(miss.length)+')'); });
+    if(dc.length&&sl.length) sl=['أيام ناقصة '+(sl.length===1?'لعميل واحد':(sl.length===2?'لعميلين':(sl.length<=10?'لـ '+sl.length+' عملاء':'لـ '+sl.length+' عميلاً')))+': '+sl.join('، ')+' — التفاصيل وتأكيد «لا مبيعات فعلية» في بطاقة «متابعة الإدخال» أدناه'];
     if(!dc.length){ var ls=''; (db.sales||[]).forEach(function(x){ if(inM(x.date)&&x.date>ls) ls=x.date; });
       var gs=ls?Math.round((new Date(until)-new Date(ls))/86400000):99; if(gs>=2) sl.push(ls?'آخر مبيعات مسجّلة '+ls+' — '+mcDays(gs)+' بلا إدخال':'لا مبيعات مسجّلة في هذا الشهر'); }
     items.push({key:'s',label:'المبيعات',ic:'💰',who:cfg.salesName,intro:cfg.salesIntro,ok:!sl.length,lines:sl});
