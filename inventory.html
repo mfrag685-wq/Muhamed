@@ -9,9 +9,9 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="apple-touch-icon" href="icon-inv-180.png">
-<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
+<script defer src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+<script defer src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
+<script defer src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
 <style>
 :root{--bg:#f1f5f9;--card:#fff;--ink:#0f172a;--muted:#64748b;--line:#e2e8f0;
   --brand:#0d9488;--brand-d:#0f766e;--blue:#2563eb;--green:#16a34a;--amber:#d97706;--red:#dc2626;--sky:#0284c7;
@@ -240,7 +240,7 @@ html.lock-scroll,html.lock-scroll body{overflow:hidden!important;overscroll-beha
    ============================================================ */
 const KEY="inv_system_v2";
 /* رقم إصدار التطبيق — يُزاد مع كل تحديث؛ يُقارَن بالنسخة المنشورة لإظهار زر التحديث */
-const APP_VERSION="2026-11-01-08";
+const APP_VERSION="2026-11-01-09";
 let DB,ME;
 /* التحقق من توفّر نسخة أحدث بجلب الملف نفسه (بدون كاش) ومقارنة رقم الإصدار */
 function checkForUpdate(){
@@ -1004,7 +1004,11 @@ function provisionUserAccount(id){
   };
   if(ME&&id===ME.id)cloudChangeOwnPassword(p,cb);else cloudProvisionUser(u,p,cb);
 }
+let __cloudInited=false;
 function cloudInit(){
+  if(__cloudInited)return;
+  if(typeof firebase==="undefined"){setCloudStatus("connecting");return;} // لم تُحمّل مكتبة السحابة بعد
+  __cloudInited=true;
   if(!cloudEnabled()){setCloudStatus("off");return;}
   try{firebase.initializeApp(CLOUD_CONFIG);}catch(e){}
   if(cloudAccounts()){
@@ -2910,7 +2914,7 @@ function pEmployees(){
   <div class="grid-2">
     <div class="card"><div class="card-title">قائمة المستخدمين</div>
       <div class="table-wrap"><table><thead><tr><th>الاسم</th><th>اسم المستخدم</th><th>الصلاحية</th><th>آخر دخول</th><th>الحالة</th>${canManage?"<th></th>":""}</tr></thead>
-      <tbody>${DB.users.map(u=>`<tr><td>${esc(u.name)}</td><td style="font-family:monospace">${esc(u.username||"—")}</td>
+      <tbody>${DB.users.slice().sort((a,b)=>(b.id||0)-(a.id||0)).map(u=>`<tr><td>${esc(u.name)}</td><td style="font-family:monospace">${esc(u.username||"—")}</td>
         <td><span class="badge-role">${roleAr(u.role)}</span></td>
         <td style="font-size:12px;color:var(--muted)">${u.lastLogin?esc(fmt(u.lastLogin)):"—"}</td>
         <td>${Number(u.active)!==0?'<span class="tag inbound">نشط</span>':'<span class="tag outbound">موقوف</span>'}${u.fbUid?' ☁':''}</td>
@@ -3040,7 +3044,9 @@ function saveUser(id){
   if(id){const u=DB.users.find(x=>x.id===id);u.name=name;u.role=role;u.username=username;u.active=active;u.perms=perms;u.companies=companies;u.coPerms=coPerms;u.dialect=dialect;
     if(pass)u.pass=hash(pass);logAct("تعديل مستخدم",name);}
   else{DB.users.push({id:nid("user"),name,username,pass:hash(pass),role,active,perms,companies,coPerms,dialect,fbUid:"",lastLogin:""});logAct("إضافة مستخدم",name);}
-  save();document.querySelector(".modal").remove();pEmployees();
+  save();const md=document.querySelector(".modal");if(md)md.remove();pEmployees();
+  try{window.scrollTo({top:0,behavior:"smooth"});}catch(e){}
+  toast(id?"تم تحديث المستخدم":"✔ تمت إضافة المستخدم — يظهر أعلى القائمة");
 }
 function fillPreset(){
   const role=$("#u_role").value,p=preset(role);
@@ -3315,7 +3321,11 @@ $("#restoreFile").onchange=e=>{const f=e.target.files[0];if(!f)return;const r=ne
   r.onload=()=>{try{DB=JSON.parse(r.result);save();alert("تم الاسترجاع بنجاح.");go("dashboard");}catch{alert("ملف غير صالح.");}};r.readAsText(f);};
 
 /* ---------- Start ---------- */
-load();initLogin();applyBrand();cloudInit();
+// ⚡ اعرض شاشة الدخول فوراً من البيانات المحلية دون انتظار تحميل مكتبة السحابة (تُحمّل بالتوازي defer)
+load();initLogin();applyBrand();
+// ثم جهّز السحابة بمجرد جاهزية مكتبة firebase (تنفّذ قبل DOMContentLoaded)
+if(typeof firebase!=="undefined"&&firebase.initializeApp)cloudInit();
+else{document.addEventListener("DOMContentLoaded",cloudInit,{once:true});window.addEventListener("load",cloudInit,{once:true});}
 if(isStandalone())document.querySelectorAll(".installBtn").forEach(b=>b.style.display="none");
 </script>
 </body>
