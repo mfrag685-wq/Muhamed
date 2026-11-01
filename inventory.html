@@ -236,7 +236,7 @@ tr:hover td{background:#f8fafc}
    ============================================================ */
 const KEY="inv_system_v2";
 /* رقم إصدار التطبيق — يُزاد مع كل تحديث؛ يُقارَن بالنسخة المنشورة لإظهار زر التحديث */
-const APP_VERSION="2026-10-17-01";
+const APP_VERSION="2026-11-01-01";
 let DB,ME;
 /* التحقق من توفّر نسخة أحدث بجلب الملف نفسه (بدون كاش) ومقارنة رقم الإصدار */
 function checkForUpdate(){
@@ -348,6 +348,23 @@ function normCat(c){
   if(/مرات|مرتب/.test(s))return "مراتب";                 // مراتب وكل مشتقاتها
   if(/نوم|نون/.test(s)||/^(غرف|عرف|غرفة|عرفة)\b/.test(s))return "غرف نوم"; // غرف نوم/عرف نوم/غرف نون...
   return s;                                               // فئة أخرى غير معروفة تبقى كما هي
+}
+/* ===== حماية صحة المعطيات: كشف تكرار المستندات (فسح/فاتورة) قبل الحفظ ===== */
+/* هل رقم الفسح مستخدم من قبل لنفس الصنف؟ (يمنع تكرار إدخال نفس الشحنة) */
+function customsExists(itemId,customs,exceptId){
+  customs=(customs||"").trim();if(!customs)return false;
+  return uniqMovements().some(m=>m.type==="inbound"&&m.itemId===itemId&&String(m.customs||"").trim()===customs&&m.id!==exceptId);
+}
+/* هل رقم الفاتورة مستخدم في فاتورة بيع أخرى؟ */
+function invoiceExists(invNo,exceptGid){
+  invNo=(invNo||"").trim();if(!invNo)return false;
+  return uniqMovements().some(m=>m.type==="outbound"&&String(m.invoice||"").trim()===invNo&&m.invGid!==exceptGid);
+}
+/* تكلفة الوحدة للصنف: آخر سعر وارد، وإلا الحقل cost */
+function unitCost(i){
+  const li=(typeof lastInbound==="function")?lastInbound(i.id):null;
+  const c=li&&li.price>0?li.price:(+i.cost||0);
+  return c>0?c:0;
 }
 /* صافي حركة الصنف = مجموع (وارد/تسوية موجبة − منصرف) */
 function stockOf(itemId){
@@ -1185,6 +1202,7 @@ function saveMove(){
     for(const id in need){const it=DB.items.find(x=>x.id===+id);const avail=stockOf(+id);if(!allowOversell()&&need[id]>avail)return show(`الرصيد غير كافٍ للصنف «${itemModel(it)}» (المتاح ${avail}). فعّل «السماح بالبيع بالسالب» من الإعدادات إن أردت.`,"err");}
     const invNo=($("#mInvoice").value||"").trim();
     if(!invNo)return show("أدخل رقم الفاتورة (إجباري للمنصرف).","err");
+    if(invoiceExists(invNo)&&!confirm(`⚠️ رقم الفاتورة «${invNo}» مُسجّل مسبقاً في فاتورة بيع أخرى.\nهل تريد المتابعة وحفظها على أي حال؟`))return;
     const gid="INV"+Date.now();
     const comm=toNum($("#mComm").value),addr=$("#mAddress").value||"",note=$("#mNoteOut").value||"";
     const feesInv=(feeType()==="inv")?toNum($("#mFeeVal").value):0;   // رسوم كامل الفاتورة تُضاف للسطر الأول
@@ -1204,6 +1222,7 @@ function saveMove(){
   if(mType==="inbound"&&!(+($("#mSupplier")?.value)))return show("اختر المورد (إجباري للوارد).","err");
   if(mType==="inbound"&&!(parseFloat($("#mPrice").value)>0))return show("أدخل سعر التكلفة (إجباري للوارد).","err");
   if(mType==="inbound"&&!($("#mCustoms").value||"").trim())return show("أدخل رقم الفسح (إجباري للوارد).","err");
+  if(mType==="inbound"&&customsExists(picked.id,$("#mCustoms").value)&&!confirm(`⚠️ رقم الفسح «${($("#mCustoms").value||"").trim()}» مُسجّل مسبقاً لنفس الصنف.\nقد يؤدي تكراره إلى ازدواج الرصيد. هل تريد المتابعة؟`))return;
   const item=DB.items.find(i=>i.id===picked.id);
   item.qty+=qty;
   DB.movements.unshift({id:nid("movement"),uid:uidGen(),companyId:CO,itemId:item.id,type:mType,qty,price:parseFloat($("#mPrice").value)||0,
@@ -1434,6 +1453,9 @@ function saveMovement(id){
   if(m.type==="inbound"&&!($("#em_ref").value||"").trim()){
     if(oldIt)oldIt.qty+=isIn(m.type)?m.qty:-m.qty;
     $("#em_msg").textContent="أدخل رقم الفسح (إجباري للوارد).";return;
+  }
+  if(m.type==="inbound"&&customsExists(newItemId,$("#em_ref").value,m.id)&&!confirm(`⚠️ رقم الفسح «${($("#em_ref").value||"").trim()}» مُسجّل مسبقاً لنفس الصنف. هل تريد المتابعة؟`)){
+    if(oldIt)oldIt.qty+=isIn(m.type)?m.qty:-m.qty;return;
   }
   if(m.type==="outbound"&&!($("#em_ref").value||"").trim()){
     if(oldIt)oldIt.qty+=isIn(m.type)?m.qty:-m.qty;
@@ -1747,6 +1769,7 @@ function pDashboard(){
   CI.forEach(i=>{const c=normCat(i.category)||"غير مصنّف";if(byCat[c]==null)byCat[c]=0;byCat[c]+=Math.max(bal(i),0);});
   const catIcon={"غرف نوم":"🛏️","مراتب":"🛌"};
   const catCards=Object.keys(byCat).map(c=>`<div class="stat"><div class="lbl">${catIcon[c]||"📦"} المتاح — ${esc(c)}</div><div class="val" style="color:var(--green)">${byCat[c]}</div></div>`).join("");
+  const stockValue=CI.reduce((s,i)=>s+Math.max(bal(i),0)*unitCost(i),0); // قيمة المخزون بالتكلفة
   $("#view").innerHTML=`
   <div class="pagehead"><h1>📊 أرصدة الأصناف</h1><span class="pill">${fmt(new Date())}</span></div>
   <div class="grid-4" style="margin-bottom:12px">
@@ -1757,6 +1780,7 @@ function pDashboard(){
   </div>
   <div class="grid-4" style="margin-bottom:16px">
     ${catCards}
+    <div class="stat"><div class="lbl">💰 قيمة المخزون (بالتكلفة)</div><div class="val" style="color:var(--blue,#2563eb)">${money(stockValue)} <span style="font-size:11px;color:var(--muted)">﷼</span></div></div>
     <div class="stat"><div class="lbl">أصناف بالسالب</div><div class="val" style="color:var(--red)">${neg.length}</div></div>
   </div>
   <div class="card">
