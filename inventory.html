@@ -31,7 +31,7 @@ button{font-family:inherit;cursor:pointer}input,select{font-family:inherit}
 .menu-btn{background:#1e293b;border:0;color:#fff;width:42px;height:42px;border-radius:9px;font-size:20px}
 .backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:44}
 .sidebar{position:fixed;inset-inline-start:0;top:0;bottom:0;width:235px;background:#0f172a;color:#cbd5e1;
-  padding:16px;display:flex;flex-direction:column;gap:4px;z-index:45;overflow-y:auto}
+  padding:16px;display:flex;flex-direction:column;gap:4px;z-index:45;overflow-y:auto;overscroll-behavior:contain}
 .sidebar h2{color:#fff;font-size:17px;margin-bottom:14px;padding:0 6px}
 .navbtn{background:transparent;border:0;color:#cbd5e1;text-align:right;padding:13px 12px;border-radius:9px;
   font-size:15px;display:flex;align-items:center;gap:9px}
@@ -83,8 +83,10 @@ tr:hover td{background:#f8fafc}
   margin-top:4px;box-shadow:0 8px 24px rgba(0,0,0,.12);max-height:240px;overflow:auto;z-index:20;display:none}
 .ac-item{padding:12px;cursor:pointer;font-size:14px;border-bottom:1px solid #f1f5f9}
 .ac-item:hover{background:#f0fdfa}.ac-item b{color:var(--brand-d)}
-.modal{position:fixed;inset:0;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;z-index:60;padding:14px}
-.modal .box{background:#fff;border-radius:16px;padding:22px;width:100%;max-width:520px;max-height:92vh;overflow:auto}
+.modal{position:fixed;inset:0;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;z-index:60;padding:14px;overflow:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+.modal .box{background:#fff;border-radius:16px;padding:22px;width:100%;max-width:520px;max-height:92vh;overflow:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+/* قفل تمرير الخلفية عند فتح نافذة منبثقة أو القائمة الجانبية — يمنع تحرّك الشاشة الخلفية */
+html.lock-scroll,html.lock-scroll body{overflow:hidden!important;overscroll-behavior:none}
 .modal h3{margin-bottom:16px}
 .pill{display:inline-flex;gap:6px;align-items:center;background:#f1f5f9;padding:5px 10px;border-radius:20px;font-size:12px}
 .empty{color:var(--muted);text-align:center;padding:22px;font-size:14px}
@@ -145,8 +147,8 @@ tr:hover td{background:#f8fafc}
 .hidden{display:none!important}
 @keyframes wpop{from{transform:scale(.85);opacity:0}to{transform:scale(1);opacity:1}}
 @keyframes wshine{0%{left:-60%}60%,100%{left:130%}}
-#printModal{position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:120;display:flex;align-items:center;justify-content:center;padding:14px}
-#printModal .sheet{background:#fff;border-radius:14px;max-width:600px;width:100%;max-height:92vh;overflow:auto;padding:22px}
+#printModal{position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:120;display:flex;align-items:center;justify-content:center;padding:14px;overflow:auto;overscroll-behavior:contain}
+#printModal .sheet{background:#fff;border-radius:14px;max-width:600px;width:100%;max-height:92vh;overflow:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding:22px}
 #printArea h2{margin:6px 0}#printArea .co{display:flex;align-items:center;gap:10px;margin-bottom:8px}#printArea .co img{max-height:50px;border-radius:8px}
 #printArea table{width:100%;border-collapse:collapse;margin-top:12px}
 #printArea td,#printArea th{border:1px solid #cbd5e1;padding:9px;text-align:right;font-size:14px}#printArea th{background:#f1f5f9}
@@ -238,7 +240,7 @@ tr:hover td{background:#f8fafc}
    ============================================================ */
 const KEY="inv_system_v2";
 /* رقم إصدار التطبيق — يُزاد مع كل تحديث؛ يُقارَن بالنسخة المنشورة لإظهار زر التحديث */
-const APP_VERSION="2026-11-01-07";
+const APP_VERSION="2026-11-01-08";
 let DB,ME;
 /* التحقق من توفّر نسخة أحدث بجلب الملف نفسه (بدون كاش) ومقارنة رقم الإصدار */
 function checkForUpdate(){
@@ -1018,8 +1020,15 @@ function cloudInit(){
 }
 
 /* ---------- Mobile nav ---------- */
-function toggleNav(){$("#sidebar").classList.toggle("open");$("#backdrop").classList.toggle("open");}
-function closeNav(){$("#sidebar").classList.remove("open");$("#backdrop").classList.remove("open");}
+function toggleNav(){$("#sidebar").classList.toggle("open");$("#backdrop").classList.toggle("open");syncScrollLock();}
+function closeNav(){$("#sidebar").classList.remove("open");$("#backdrop").classList.remove("open");syncScrollLock();}
+/* قفل تمرير الصفحة الخلفية عند فتح أي نافذة منبثقة/القائمة الجانبية حتى لا تتحرك الخلفية */
+function overlayOpen(){
+  if(document.querySelector(".modal,#printModal,#welcome"))return true;
+  const sb=$("#sidebar");return !!(sb&&sb.classList.contains("open"));
+}
+function syncScrollLock(){try{document.documentElement.classList.toggle("lock-scroll",overlayOpen());}catch(e){}}
+try{new MutationObserver(syncScrollLock).observe(document.documentElement,{childList:true,subtree:true});}catch(e){}
 
 /* ---------- Router ---------- */
 let PAGE_HISTORY=[];
