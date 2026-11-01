@@ -236,7 +236,7 @@ tr:hover td{background:#f8fafc}
    ============================================================ */
 const KEY="inv_system_v2";
 /* رقم إصدار التطبيق — يُزاد مع كل تحديث؛ يُقارَن بالنسخة المنشورة لإظهار زر التحديث */
-const APP_VERSION="2026-11-01-01";
+const APP_VERSION="2026-11-01-02";
 let DB,ME;
 /* التحقق من توفّر نسخة أحدث بجلب الملف نفسه (بدون كاش) ومقارنة رقم الإصدار */
 function checkForUpdate(){
@@ -903,20 +903,36 @@ function cloudBootstrapAdmin(u,password,fail){
     }else fail("تعذّر تجهيز حساب المدير السحابي: "+((e&&e.message)||""));
   });
 }
+function backToLogin(msg){
+  ME=null;const a=$("#app"),l=$("#login");if(a)a.style.display="none";if(l)l.style.display="block";
+  if(msg)loginErr(msg);
+}
 function afterCloudAuth(user,username){
   if(cloudAuthBusy)return;cloudAuthBusy=true;
+  // ⚡ دخول سريع: إن كان مستخدماً عائداً سبق أن زامن هذا الجهاز، اعرض التطبيق فوراً من
+  // البيانات المحفوظة محلياً، وأجرِ تنزيل/مزامنة السحابة في الخلفية — بدل حجب الشاشة
+  // حتى يكتمل تنزيل كل البيانات. (الدفع للسحابة محميّ بـ cloudReady فلا تُفقد أي حركة.)
+  let synced=false;try{synced=(localStorage.getItem("inv_synced_wid")===cloudWid());}catch(e){}
+  let pre=DB.users.find(x=>x.fbUid===user.uid)||DB.users.find(x=>(x.username||"").toLowerCase()===String(username).toLowerCase());
+  let shownEarly=false;
+  if(pre&&Number(pre.active)&&synced&&Array.isArray(DB.movements)){
+    pre.fbUid=user.uid;pre.lastLogin=new Date().toISOString();ME=pre;
+    loginErr("");setCloudStatus("connecting");startApp();shownEarly=true;
+  }
   cloudAttach(function(err){
     cloudAuthBusy=false;
-    if(err){loginErr("حسابك قيد المراجعة — لم تتم موافقة المدير على انضمامك بعد.");
-      cloudReady=false;try{firebase.auth().signOut();}catch(e){}setCloudStatus("auth");return;}
+    if(err){cloudReady=false;try{firebase.auth().signOut();}catch(e){}
+      backToLogin("حسابك قيد المراجعة — لم تتم موافقة المدير على انضمامك بعد.");setCloudStatus("auth");return;}
     let u=DB.users.find(x=>x.fbUid===user.uid)||DB.users.find(x=>(x.username||"").toLowerCase()===String(username).toLowerCase());
-    if(!u){loginErr("لا يوجد سجل مستخدم مطابق في بيانات المنشأة.");return;}
-    if(!Number(u.active)){loginErr("هذا الحساب موقوف. راجع مدير النظام.");return;}
+    if(!u){backToLogin("لا يوجد سجل مستخدم مطابق في بيانات المنشأة.");return;}
+    if(!Number(u.active)){backToLogin("هذا الحساب موقوف. راجع مدير النظام.");return;}
     if(u.fbUid!==user.uid)u.fbUid=user.uid;
     u.lastLogin=new Date().toISOString();ME=u;
     cloudWriteMember(user.uid,u).catch(()=>{});
     logAct("تسجيل دخول","دخول سحابي");save();cloudFlush();
-    loginErr("");startApp();
+    loginErr("");
+    if(shownEarly){const busy=document.querySelector(".modal")||/^(INPUT|TEXTAREA|SELECT)$/.test((document.activeElement||{}).tagName||"");if(!busy)refreshView();}
+    else startApp();
   });
 }
 /* دخول طوارئ محلي للمدير عند عدم تطابق كلمة المرور مع الخادم — يسترجع البيانات المحفوظة بدون مزامنة */
