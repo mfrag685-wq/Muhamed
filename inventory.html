@@ -236,7 +236,7 @@ tr:hover td{background:#f8fafc}
    ============================================================ */
 const KEY="inv_system_v2";
 /* رقم إصدار التطبيق — يُزاد مع كل تحديث؛ يُقارَن بالنسخة المنشورة لإظهار زر التحديث */
-const APP_VERSION="2026-11-01-02";
+const APP_VERSION="2026-11-01-03";
 let DB,ME;
 /* التحقق من توفّر نسخة أحدث بجلب الملف نفسه (بدون كاش) ومقارنة رقم الإصدار */
 function checkForUpdate(){
@@ -377,6 +377,8 @@ function allowOversell(){return !!(DB.settings&&DB.settings.allowOversell);}
 function csups(){return DB.suppliers.filter(s=>s.companyId===CO);}
 function cpays(){return DB.payments.filter(p=>p.companyId===CO);}
 function curCompany(){return (DB.companies||[]).find(c=>c.id===CO)||DB.companies[0]||{name:"شركتي",logo:"",icon:"🏢"};}
+/* نمط «المتابعة فقط»: تتبّع الوارد والمنصرف بسهولة دون إلزام بالتكاليف/المستندات (اختيارية) */
+function simpleCo(){return !!curCompany().simple;}
 /* رصيد المورد المالي = قيمة التوريدات + الأرصدة الافتتاحية − المدفوعات */
 function supSupplies(id){return DB.movements.filter(m=>m.companyId===CO&&m.type==="inbound"&&m.supplierId===id).reduce((s,m)=>s+m.qty*m.price,0);}
 function supOpening(id){return DB.payments.filter(p=>p.companyId===CO&&p.supplierId===id&&p.kind==="opening").reduce((s,p)=>s+p.amount,0);}
@@ -1061,23 +1063,23 @@ function pMove(){
 
     <!-- حقول الوارد: المورد + الفسح -->
     <div class="formgrid" id="rowIn" style="margin-top:6px">
-      <div class="cell c4"><label>المورد * (إجباري للوارد)</label><select id="mSupplier"><option value="">— اختر المورد —</option>
+      <div class="cell c4"><label>المورد ${simpleCo()?"(اختياري)":"* (إجباري للوارد)"}</label><select id="mSupplier"><option value="">— اختر المورد —</option>
         ${csups().map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join("")}</select></div>
-      <div class="cell c4"><label>رقم الفسح الجمركي * (إجباري للوارد)</label><input id="mCustoms" placeholder="رقم الفسح"></div>
+      <div class="cell c4"><label>رقم الفسح الجمركي ${simpleCo()?"(اختياري)":"* (إجباري للوارد)"}</label><input id="mCustoms" placeholder="رقم الفسح"></div>
       <div class="cell c4"><label>ملاحظات</label><input id="mNoteIn" placeholder="ملاحظة"></div>
     </div>
 
     <!-- حقول المنصرف: فاتورة + عمولة + إمكانية عدة أصناف -->
     <div id="rowOut" style="margin-top:6px">
       <div class="formgrid">
-        <div class="cell c3"><label>رقم فاتورة البيع * (إجباري)</label><input id="mInvoice" placeholder="رقم الفاتورة"></div>
+        <div class="cell c3"><label>رقم فاتورة البيع ${simpleCo()?"(اختياري)":"* (إجباري)"}</label><input id="mInvoice" placeholder="${simpleCo()?"اختياري":"رقم الفاتورة"}"></div>
         <div class="cell c3"><label>العمولة ﷼ (لكامل الفاتورة)</label><input id="mComm" type="number" inputmode="decimal" step="0.01" placeholder="0.00"></div>
         <div class="cell c3"><label>🚚 رسوم تركيب/توصيل ﷼</label>
           <input id="mFeeVal" type="number" inputmode="decimal" step="0.01" placeholder="اتركه فارغاً = بدون رسوم">
           <div style="display:flex;align-items:center;gap:8px;margin-top:4px;flex-wrap:wrap">
             <button type="button" id="feeModeToggle" onclick="toggleFeeMode()" style="background:#eef2ff;color:#3730a3;border:1px solid #c7d2fe;border-radius:20px;padding:6px 12px;font-size:12.5px;font-weight:700;cursor:pointer">🔀 تحويل إلى: لكل صنف</button>
             <span id="feeHint" style="font-size:11px;color:var(--muted)">مبلغ واحد لكامل الفاتورة</span></div></div>
-        <div class="cell c3"><label>العنوان</label><input id="mAddress" placeholder="العنوان"></div>
+        <div class="cell c3"><label>${simpleCo()?"الجهة / المستلم (لمن خرجت)":"العنوان"}</label><input id="mAddress" placeholder="${simpleCo()?"اسم الجهة أو المستلم":"العنوان"}"></div>
         <div class="cell c3"><label>ملاحظات</label><input id="mNoteOut" placeholder="ملاحظة"></div>
       </div>
       <button class="btn blue" onclick="addToInvoice()">➕ أضِف الصنف الحالي إلى الفاتورة</button>
@@ -1217,8 +1219,8 @@ function saveMove(){
     const need={};lines.forEach(l=>need[l.itemId]=(need[l.itemId]||0)+l.qty);
     for(const id in need){const it=DB.items.find(x=>x.id===+id);const avail=stockOf(+id);if(!allowOversell()&&need[id]>avail)return show(`الرصيد غير كافٍ للصنف «${itemModel(it)}» (المتاح ${avail}). فعّل «السماح بالبيع بالسالب» من الإعدادات إن أردت.`,"err");}
     const invNo=($("#mInvoice").value||"").trim();
-    if(!invNo)return show("أدخل رقم الفاتورة (إجباري للمنصرف).","err");
-    if(invoiceExists(invNo)&&!confirm(`⚠️ رقم الفاتورة «${invNo}» مُسجّل مسبقاً في فاتورة بيع أخرى.\nهل تريد المتابعة وحفظها على أي حال؟`))return;
+    if(!invNo&&!simpleCo())return show("أدخل رقم الفاتورة (إجباري للمنصرف).","err");
+    if(invNo&&invoiceExists(invNo)&&!confirm(`⚠️ رقم الفاتورة «${invNo}» مُسجّل مسبقاً في فاتورة بيع أخرى.\nهل تريد المتابعة وحفظها على أي حال؟`))return;
     const gid="INV"+Date.now();
     const comm=toNum($("#mComm").value),addr=$("#mAddress").value||"",note=$("#mNoteOut").value||"";
     const feesInv=(feeType()==="inv")?toNum($("#mFeeVal").value):0;   // رسوم كامل الفاتورة تُضاف للسطر الأول
@@ -1235,10 +1237,10 @@ function saveMove(){
   // وارد / تسوية — صنف واحد
   if(!picked)return show("اختر صنفاً أولاً.","err");
   const qty=parseFloat($("#mQty").value);if(!qty||qty<=0)return show("أدخل كمية صحيحة.","err");
-  if(mType==="inbound"&&!(+($("#mSupplier")?.value)))return show("اختر المورد (إجباري للوارد).","err");
-  if(mType==="inbound"&&!(parseFloat($("#mPrice").value)>0))return show("أدخل سعر التكلفة (إجباري للوارد).","err");
-  if(mType==="inbound"&&!($("#mCustoms").value||"").trim())return show("أدخل رقم الفسح (إجباري للوارد).","err");
-  if(mType==="inbound"&&customsExists(picked.id,$("#mCustoms").value)&&!confirm(`⚠️ رقم الفسح «${($("#mCustoms").value||"").trim()}» مُسجّل مسبقاً لنفس الصنف.\nقد يؤدي تكراره إلى ازدواج الرصيد. هل تريد المتابعة؟`))return;
+  if(mType==="inbound"&&!simpleCo()&&!(+($("#mSupplier")?.value)))return show("اختر المورد (إجباري للوارد).","err");
+  if(mType==="inbound"&&!simpleCo()&&!(parseFloat($("#mPrice").value)>0))return show("أدخل سعر التكلفة (إجباري للوارد).","err");
+  if(mType==="inbound"&&!simpleCo()&&!($("#mCustoms").value||"").trim())return show("أدخل رقم الفسح (إجباري للوارد).","err");
+  if(mType==="inbound"&&($("#mCustoms").value||"").trim()&&customsExists(picked.id,$("#mCustoms").value)&&!confirm(`⚠️ رقم الفسح «${($("#mCustoms").value||"").trim()}» مُسجّل مسبقاً لنفس الصنف.\nقد يؤدي تكراره إلى ازدواج الرصيد. هل تريد المتابعة؟`))return;
   const item=DB.items.find(i=>i.id===picked.id);
   item.qty+=qty;
   DB.movements.unshift({id:nid("movement"),uid:uidGen(),companyId:CO,itemId:item.id,type:mType,qty,price:parseFloat($("#mPrice").value)||0,
@@ -1458,22 +1460,22 @@ function saveMovement(id){
     if(oldIt)oldIt.qty+=isIn(m.type)?m.qty:-m.qty;   // تراجع عن العكس
     $("#em_msg").textContent=`الرصيد غير كافٍ للصنف «${itemModel(newIt)}» (المتاح ${availNew}).`;return;
   }
-  if(m.type==="inbound"&&!(+($("#em_sup")?.value))){
+  if(m.type==="inbound"&&!simpleCo()&&!(+($("#em_sup")?.value))){
     if(oldIt)oldIt.qty+=isIn(m.type)?m.qty:-m.qty;   // تراجع عن العكس
     $("#em_msg").textContent="اختر المورد (إجباري للوارد).";return;
   }
-  if(m.type==="inbound"&&!(parseFloat($("#em_price").value)>0)){
+  if(m.type==="inbound"&&!simpleCo()&&!(parseFloat($("#em_price").value)>0)){
     if(oldIt)oldIt.qty+=isIn(m.type)?m.qty:-m.qty;
     $("#em_msg").textContent="أدخل سعر التكلفة (إجباري للوارد).";return;
   }
-  if(m.type==="inbound"&&!($("#em_ref").value||"").trim()){
+  if(m.type==="inbound"&&!simpleCo()&&!($("#em_ref").value||"").trim()){
     if(oldIt)oldIt.qty+=isIn(m.type)?m.qty:-m.qty;
     $("#em_msg").textContent="أدخل رقم الفسح (إجباري للوارد).";return;
   }
-  if(m.type==="inbound"&&customsExists(newItemId,$("#em_ref").value,m.id)&&!confirm(`⚠️ رقم الفسح «${($("#em_ref").value||"").trim()}» مُسجّل مسبقاً لنفس الصنف. هل تريد المتابعة؟`)){
+  if(m.type==="inbound"&&($("#em_ref").value||"").trim()&&customsExists(newItemId,$("#em_ref").value,m.id)&&!confirm(`⚠️ رقم الفسح «${($("#em_ref").value||"").trim()}» مُسجّل مسبقاً لنفس الصنف. هل تريد المتابعة؟`)){
     if(oldIt)oldIt.qty+=isIn(m.type)?m.qty:-m.qty;return;
   }
-  if(m.type==="outbound"&&!($("#em_ref").value||"").trim()){
+  if(m.type==="outbound"&&!simpleCo()&&!($("#em_ref").value||"").trim()){
     if(oldIt)oldIt.qty+=isIn(m.type)?m.qty:-m.qty;
     $("#em_msg").textContent="أدخل رقم الفاتورة (إجباري للمنصرف).";return;
   }
@@ -2884,6 +2886,9 @@ function pSettings(){
         <div style="margin-top:8px">${c.logo?`<img src="${c.logo}" class="brandlogo">`:`<span style="font-size:26px">${esc(c.icon||"🏢")}</span>`}</div></div>
       <label style="display:flex;align-items:center;gap:8px;margin:10px 0;font-size:13px;font-weight:600;cursor:pointer">
         <input type="checkbox" id="setOversell" ${DB.settings&&DB.settings.allowOversell?"checked":""} style="width:auto"> السماح بالبيع بالسالب (تجاوز الرصيد المتاح)</label>
+      <label style="display:flex;align-items:flex-start;gap:8px;margin:10px 0;font-size:13px;font-weight:600;cursor:pointer;background:var(--card2,rgba(0,0,0,.03));padding:10px;border-radius:9px">
+        <input type="checkbox" id="setSimple" ${c.simple?"checked":""} style="width:auto;margin-top:3px">
+        <span>📦 نمط «المتابعة فقط» لهذه الشركة<br><span style="font-weight:400;color:var(--muted);font-size:12px">تتبّع الوارد والمنصرف بسهولة — التكاليف والأسعار ورقم الفسح/الفاتورة تصبح <b>اختيارية</b> (مناسب لمخزون الجملة).</span></span></label>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <button class="btn green" onclick="saveSettings()">حفظ</button>
         ${c.logo?`<button class="btn gray" onclick="curCompany().logo='';save();applyBrand();pSettings();toast('تم حذف الشعار')">حذف الشعار</button>`:""}</div>
@@ -2910,6 +2915,7 @@ function saveSettings(){
   const c=curCompany();c.name=$("#setCompany").value.trim()||"شركتي";c.icon=$("#setIcon").value.trim()||"🏢";
   DB.settings.appName=$("#setApp").value.trim()||"نظام إدارة المخزون";
   DB.settings.allowOversell=!!($("#setOversell")&&$("#setOversell").checked);
+  c.simple=!!($("#setSimple")&&$("#setSimple").checked);
   if(_logoData){c.logo=_logoData;_logoData="";}
   if(DB.companies[0]&&DB.companies[0].id===c.id)DB.settings.company=c.name;
   logAct("تعديل هوية الشركة",c.name);save();applyBrand();toast("تم حفظ الإعدادات");pSettings();
