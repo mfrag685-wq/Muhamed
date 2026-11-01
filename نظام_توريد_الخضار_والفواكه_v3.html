@@ -568,6 +568,11 @@ tr.au-fail td{background:#fef2f2}
 .mc-person{position:relative;background:rgba(255,255,255,.95);color:#1e293b;border-radius:12px;padding:9px 12px;margin-top:10px}
 .mc-pn{font-weight:900;color:#0f172a;margin-bottom:3px}.mc-intro{font-weight:600;color:#475569}
 .mc-row{font-size:13px;line-height:1.8}
+.mc-sub2{padding-inline-start:16px;font-size:12.8px;line-height:1.75}
+.mc-acts{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.mc-go{border:1px solid #cbd5e1;background:#f8fafc;color:#0f172a;font-family:inherit;font-weight:800;font-size:12.5px;border-radius:9px;padding:4px 11px;cursor:pointer}
+.mc-go:hover{background:#0f172a;color:#fff}
+.mc-info{position:relative;margin-top:8px;font-size:12.5px;font-weight:700;background:rgba(255,255,255,.18);border-radius:10px;padding:6px 10px}
 .mc-more{position:relative;margin-top:8px;font-size:12.5px;font-weight:800;background:rgba(0,0,0,.18);border-radius:10px;padding:6px 10px}
 .mc-act{position:relative;display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:12px}
 .mc-lock{border:0;background:#fff;color:#0f172a;font-weight:900;font-family:inherit;border-radius:10px;padding:8px 16px;cursor:pointer;box-shadow:0 3px 10px rgba(0,0,0,.2)}
@@ -2158,7 +2163,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-01-a';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-01-b';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -6092,6 +6097,33 @@ function monthCloseGaps(T){
     var rec=Object.keys(cnt).filter(function(c){ return cnt[c]>=2&&!cur[c]; }), el=rec.length?['مصروفات معتادة شهرياً لم تُسجَّل بعد: '+rec.join('، ')]:[];
     items.push({key:'e',label:'المصروفات',ic:'💸',who:cfg.expName,intro:cfg.expIntro,ok:!el.length,lines:el});
   }
+  /* 4) مطابقة المخزون الفعلي بالمسجّل: جرد فعلي حول نهاية الشهر (من 5 أيام قبلها حتى 7 بعدها) */
+  if(!L) refreshLedger();
+  var hasStock=Object.keys(L.stock||{}).some(function(k){ var x=L.stock[k], it=byId(db.items,x.itemId); return !(it&&it.service)&&Math.abs(x.units)>0.001; });
+  if(hasStock){
+    var lo=ivAddDays(T.end,-5), hi=ivAddDays(T.end,7), cnt=null;
+    deptCountLog().forEach(function(o){ if(o&&o.when&&o.when>=lo&&o.when<=hi&&(!cnt||o.when>cnt.when)) cnt=o; });
+    var cl=[]; if(!cnt) cl.push(T.phase==='ended'
+      ? 'لم يُسجَّل جرد فعلي لنهاية الشهر — طابِق المخزون الفعلي بالمسجّل في النظام بتاريخ '+T.end+' (المخزون ← الجرد الفعلي)'
+      : 'جهّز الجرد الفعلي بتاريخ آخر يوم في الشهر ('+T.end+') لمطابقة المخزون الفعلي بالمسجّل في النظام');
+    items.push({key:'c',label:'الجرد الفعلي',ic:'📋',who:'مسؤول المخزون',intro:'',ok:!!cnt,lines:cl,act:'count',
+      info:cnt?('تم الجرد بتاريخ '+cnt.when+(cnt.by?' بواسطة '+cnt.by:'')+' — عجز '+money(+cnt.shortageVal||0)+' · زيادة '+money(+cnt.surplusVal||0)):''});
+  }
+  /* 5) أصناف حركتها غير طبيعية: أرصدة سالبة/مرتفعة غير مُقَرّة + ملاحظات فحص المخزون + نسبة الفاقد */
+  var rl=[];
+  try{ var raw=stockReviewRaw(), ak=stockReviewAcks();
+    var ng=raw.neg.filter(function(x){ return !stockReviewAckMatch(ak[x.id],x.u,'neg'); }), hg=raw.high.filter(function(x){ return !stockReviewAckMatch(ak[x.id],x.u,'high'); });
+    var nm=function(a){ return a.slice(0,4).map(function(x){ return itemName(x.id); }).join('، ')+(a.length>4?' +'+(a.length-4):''); };
+    if(ng.length) rl.push('أرصدة سالبة غير مُقَرّة ('+ng.length+'): '+nm(ng)+' — صحّحها بشراء/تحويل أو أقِرّها في بطاقة «مراجعة رصيد سالب»');
+    if(hg.length) rl.push('أرصدة مرتفعة/راكدة غير مُقَرّة ('+hg.length+'): '+nm(hg)+' — راجِع المبيعات أو أقِرّها في بطاقة «مراجعة/إقرار رصيد مرتفع»');
+  }catch(e){}
+  try{ if(!monthCloseGaps._a||monthCloseGaps._L!==L){ monthCloseGaps._a=inventoryAudit(); monthCloseGaps._L=L; }   /* الفحص ثقيل: مرة لكل إعادة بناء للدفتر */
+    monthCloseGaps._a.forEach(function(a){ if(a.lvl==='ok'||a.id==='neg') return;
+      rl.push((a.lvl==='err'?'⛔ ':'⚠ ')+a.title+' ('+a.rows.length+') — التفاصيل في «فحص الأصناف ← فحص السلامة المحاسبية»'); }); }catch(e){}
+  try{ var wv=0, sv=0; (db.waste||[]).forEach(function(w){ if(String(w.date||'').slice(0,7)===T.ym) wv+=(L.wasteCost[w.id]||0); });
+    (db.sales||[]).forEach(function(x){ if(String(x.date||'').slice(0,7)===T.ym) sv+=(+x.total||0); });
+    if(sv>0&&wv/sv>0.03) rl.push('الفاقد والتوالف هذا الشهر '+money(wv)+' = '+(wv/sv*100).toFixed(1)+'% من المبيعات — أعلى من المعتاد (3%)'); }catch(e){}
+  items.push({key:'r',label:'مراجعة الأصناف',ic:'🩺',who:'مسؤول المخزون',intro:'',ok:!rl.length,lines:rl,act:'diag'});
   return items;
 }
 function monthCloseHtml(){
@@ -6114,9 +6146,14 @@ function monthCloseHtml(){
   var steps=G.map(function(g){ return '<span class="mc-step '+(g.ok?'ok':'todo')+'">'+(g.ok?'✅':g.ic)+' '+esc(g.label)+'</span>'; }).join('<span class="mc-arr">←</span>')
     +'<span class="mc-arr">←</span><span class="mc-step '+(allOk?'todo':'wait')+'">🔍 المراجعة</span><span class="mc-arr">←</span><span class="mc-step wait">🔒 الإقفال</span>';
   var byWho={}, order=[];
-  G.forEach(function(g){ if(g.ok) return; var w=(g.who&&String(g.who).trim())||'فريق الإدخال'; if(!byWho[w]){ byWho[w]={intro:g.who?entryIntro(g.intro,g.who):'',rows:[]}; order.push(w); }
-    g.lines.forEach(function(l){ byWho[w].rows.push(g.ic+' <b>'+esc(g.label)+':</b> '+esc(l)); }); });
-  var people=order.map(function(w){ var o=byWho[w]; return '<div class="mc-person"><div class="mc-pn">👤 '+esc(w)+(o.intro?' — <span class="mc-intro">'+esc(o.intro)+'</span>':'')+'</div>'+o.rows.map(function(r){ return '<div class="mc-row">• '+r+'</div>'; }).join('')+'</div>'; }).join('');
+  var acts={count:'<button type="button" class="mc-go" onclick="mcGoCount(\''+T.end+'\')">📋 فتح الجرد الفعلي بتاريخ '+esc(T.end)+'</button>',
+    diag:'<button type="button" class="mc-go" onclick="mcGoDiag()">🩺 فتح فحص الأصناف</button>'};
+  G.forEach(function(g){ if(g.ok) return; var w=(g.who&&String(g.who).trim())||'فريق الإدخال'; if(!byWho[w]){ byWho[w]={intro:(g.who&&g.intro)?entryIntro(g.intro,g.who):'',rows:[],acts:[]}; order.push(w); }
+    if(g.lines.length===1) byWho[w].rows.push(g.ic+' <b>'+esc(g.label)+':</b> '+esc(g.lines[0]));
+    else if(g.lines.length) byWho[w].rows.push(g.ic+' <b>'+esc(g.label)+' ('+g.lines.length+' ملاحظات):</b><div class="mc-sub2">'+g.lines.map(function(l){ return '<div>◦ '+esc(l)+'</div>'; }).join('')+'</div>');
+    if(g.act&&acts[g.act]) byWho[w].acts.push(acts[g.act]); });
+  var infos=G.filter(function(g){ return g.info; }).map(function(g){ return '<div class="mc-info">✅ '+esc(g.info)+'</div>'; }).join('');
+  var people=order.map(function(w){ var o=byWho[w]; return '<div class="mc-person"><div class="mc-pn">👤 '+esc(w)+(o.intro?' — <span class="mc-intro">'+esc(o.intro)+'</span>':'')+'</div>'+o.rows.map(function(r){ return '<div class="mc-row">• '+r+'</div>'; }).join('')+(o.acts.length?'<div class="mc-acts">'+o.acts.join('')+'</div>':'')+'</div>'; }).join('')+infos;
   var more=T.pending.length>1?'<div class="mc-more">⚠ يوجد '+T.pending.length+' أشهر منتهية غير مقفلة: '+T.pending.map(mcMonthName).join('، ')+' — تُعالَج بالترتيب.</div>':'';
   var act='<div class="mc-act">'+(adm?'<button type="button" class="mc-lock" onclick="mcGoLock(\''+T.end+'\')">🔒 مراجعة وإقفال شهر '+esc(mn)+'</button>':'<span class="mc-note">سيُقفِل مدير النظام الشهر بعد اكتمال الإدخالات والمراجعة.</span>')
     +'<button type="button" class="mc-minbtn" onclick="mcToggleMin(\''+minKey+'\')">▴ تصغير</button></div>';
@@ -6125,6 +6162,8 @@ function monthCloseHtml(){
     +'<div class="mc-ring" style="--p:'+pct+'"><span>'+done+'/'+all+'</span></div></div>'
     +'<div class="mc-body">'+body+'</div><div class="mc-steps">'+steps+'</div>'+people+more+act+'</div>';
 }
+function mcGoCount(end){ showTab('stock'); setVal('sc_date',end); try{ renderStockCountUI(); }catch(e){} try{ actGo('stock','count'); }catch(e){} toast('أدخل الكميات الفعلية ثم «احتساب الفروقات» و«تطبيق التسوية» — تاريخ الجرد: '+end); }
+function mcGoDiag(){ showTab('itemdiag'); try{ renderInvAudit(); }catch(e){} }
 function mcToggleMin(k){ try{ if(sessionStorage.getItem(k)==='1') sessionStorage.removeItem(k); else sessionStorage.setItem(k,'1'); }catch(e){} renderEntryAlerts(); }
 /* المدير: فتح شاشة قفل الفترة مع تعبئة آخر يوم في الشهر */
 function mcGoLock(end){ showTab('settings'); try{ renderPeriodLock(); }catch(e){} setVal('pl_until',end);
