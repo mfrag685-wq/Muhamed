@@ -201,6 +201,7 @@ tr:hover td{background:#f8fafc}
     <button class="navbtn" data-page="move">➕ تسجيل حركة</button>
     <button class="navbtn" data-page="dashboard">📊 الأرصدة</button>
     <button class="navbtn" data-page="report">📅 تقرير فترة</button>
+    <button class="navbtn" data-page="parties">👤 كشف العملاء والموردين</button>
     <button class="navbtn" data-page="ledger">📜 سجل حركة الصنف</button>
     <button class="navbtn" data-page="items">🏷️ الأصناف</button>
     <button class="navbtn" data-page="stock">🧮 جرد المخزون</button>
@@ -236,7 +237,7 @@ tr:hover td{background:#f8fafc}
    ============================================================ */
 const KEY="inv_system_v2";
 /* رقم إصدار التطبيق — يُزاد مع كل تحديث؛ يُقارَن بالنسخة المنشورة لإظهار زر التحديث */
-const APP_VERSION="2026-11-01-04";
+const APP_VERSION="2026-11-01-05";
 let DB,ME;
 /* التحقق من توفّر نسخة أحدث بجلب الملف نفسه (بدون كاش) ومقارنة رقم الإصدار */
 function checkForUpdate(){
@@ -294,6 +295,7 @@ function preset(role){
 }
 function can(k){if(!ME||!ME.perms)return false;
   if(k==="stock")return can("dashboard")||can("items"); // الجرد متاح لمن يرى الأرصدة أو الأصناف
+  if(k==="parties")return can("report")||can("dashboard"); // كشف العملاء والموردين متاح لمن يرى التقارير أو الأرصدة
   const o=ME.coPerms&&ME.coPerms[CO];if(o&&o[k]!==undefined)return !!o[k];return !!ME.perms[k];}
 function allowedCompanies(){if(!ME)return DB.companies;const a=ME.companies;return (a&&a.length)?DB.companies.filter(c=>a.includes(c.id)):DB.companies;}
 function mayAccessCompany(id){if(!ME)return true;const a=ME.companies;return !a||!a.length||a.includes(id);}
@@ -1017,7 +1019,7 @@ function go(page,isBack){
   if(PAGE_HISTORY.length>50)PAGE_HISTORY.shift();
   CURRENT_PAGE=page;
   document.querySelectorAll(".navbtn").forEach(b=>b.classList.toggle("active",b.dataset.page===page));
-  ({move:pMove,dashboard:pDashboard,report:pReport,ledger:pLedger,items:pItems,stock:pStock,import:pImport,employees:pEmployees,settings:pSettings}[page])();
+  ({move:pMove,dashboard:pDashboard,report:pReport,parties:pParties,ledger:pLedger,items:pItems,stock:pStock,import:pImport,employees:pEmployees,settings:pSettings}[page])();
   const bb=$("#backBtn");if(bb)bb.style.display=PAGE_HISTORY.length?"inline-block":"none";
 }
 function goBack(){
@@ -1840,6 +1842,82 @@ function renderBalances(){
   }).join("")||`<tr><td colspan="9" class="empty">لا أصناف.</td></tr>`;
 }
 
+/* ============ كشف العملاء والموردين (من سحب/ورّد؟ متى؟ ماذا؟ كم؟ أي مستند؟) ============ */
+let partyMode="customers",partySel=null;
+function partyName(m){
+  if(partyMode==="suppliers"){const s=DB.suppliers.find(x=>x.id===m.supplierId);return s?s.name:"(بدون مورد)";}
+  return (m.address||"").trim()||"(بدون جهة)";
+}
+function pParties(){
+  $("#view").innerHTML=`<div class="pagehead"><h1>👤 كشف العملاء والموردين</h1>
+    <button class="btn ghost no-print" onclick="window.print()">🖨️ طباعة</button></div>
+  <div class="card no-print"><div class="formgrid">
+    <div class="cell c3"><label>النوع</label>
+      <select id="ptMode" onchange="partyMode=this.value;partySel=null;renderParties()">
+        <option value="customers">🧾 العملاء (المنصرف — لمن خرجت)</option>
+        <option value="suppliers">📦 الموردون (الوارد — من أين جاءت)</option></select></div>
+    <div class="cell c4"><label>بحث</label><input id="ptSearch" placeholder="اسم الجهة / الموديل / الفاتورة / الفسح" oninput="renderParties()"></div>
+    <div class="cell c2"><label>من تاريخ</label><input id="ptFrom" type="date" onchange="renderParties()"></div>
+    <div class="cell c2"><label>إلى تاريخ</label><input id="ptTo" type="date" onchange="renderParties()"></div>
+  </div></div>
+  <div id="ptOut"></div>`;
+  const sel=$("#ptMode");if(sel)sel.value=partyMode;
+  renderParties();
+}
+function partyGroups(){
+  const from=$("#ptFrom")?.value||"",to=$("#ptTo")?.value||"";
+  const type=partyMode==="suppliers"?"inbound":"outbound";
+  const groups={};
+  cmoves().filter(m=>m.type===type&&(!from||m.date>=from)&&(!to||m.date<=to))
+    .forEach(m=>{const k=partyName(m);(groups[k]=groups[k]||[]).push(m);});
+  return groups;
+}
+function renderParties(){
+  const out=$("#ptOut");if(!out)return;
+  const q=($("#ptSearch")?.value||"").toLowerCase().trim();
+  const groups=partyGroups();
+  const docLbl=partyMode==="suppliers"?"رقم الفسح":"رقم الفاتورة";
+  const partyLbl=partyMode==="suppliers"?"المورد":"العميل / الجهة";
+  // تفصيل جهة محددة
+  if(partySel&&groups[partySel]){
+    const list=groups[partySel].slice().sort((a,b)=>mvCmpAsc(b,a));
+    const totQty=list.reduce((s,m)=>s+m.qty,0),totVal=list.reduce((s,m)=>s+m.qty*(m.price||0),0);
+    out.innerHTML=`<div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+        <button class="btn ghost sm no-print" onclick="partySel=null;renderParties()">⟵ رجوع للقائمة</button>
+        <button class="btn green sm no-print" onclick="exportParty()">⬇ تصدير Excel</button></div>
+      <h2 style="margin:10px 0">${partyMode==="suppliers"?"المورد":"العميل"}: <span style="color:var(--brand)">${esc(partySel)}</span></h2>
+      <div class="grid-4" style="margin-bottom:12px">
+        <div class="stat"><div class="lbl">عدد الحركات</div><div class="val">${list.length}</div></div>
+        <div class="stat"><div class="lbl">إجمالي الكمية</div><div class="val" style="color:var(--green)">${totQty}</div></div>
+        <div class="stat"><div class="lbl">إجمالي القيمة ﷼</div><div class="val sm">${money(totVal)}</div></div></div>
+      <div class="table-wrap"><table><thead><tr><th>التاريخ</th><th>الموديل / الصنف</th><th>الكمية</th><th>${docLbl}</th><th>السعر</th><th>الإجمالي</th><th>الموظف</th><th>ملاحظة</th></tr></thead><tbody>
+      ${list.map(m=>{const it=DB.items.find(i=>i.id===m.itemId)||{};const doc=partyMode==="suppliers"?(m.customs||""):(m.invoice||"");
+        return `<tr><td>${esc(m.date||"")}</td><td style="font-weight:600">${esc(m.model||itemModel(it))}</td><td>${m.qty}</td><td>${esc(doc||"—")}</td><td>${m.price?money(m.price):"—"}</td><td>${m.price?money(m.qty*m.price):"—"}</td><td>${esc(m.userName||"")}</td><td>${esc(m.note||"")}</td></tr>`;}).join("")}
+      </tbody></table></div></div>`;
+    return;
+  }
+  // قائمة الجهات
+  let names=Object.keys(groups);
+  if(q)names=names.filter(n=>n.toLowerCase().includes(q)||groups[n].some(m=>{const it=DB.items.find(i=>i.id===m.itemId)||{};
+    return ((m.model||itemModel(it))+" "+(m.invoice||"")+" "+(m.customs||"")+" "+(m.userName||"")).toLowerCase().includes(q);}));
+  names.sort((a,b)=>a.localeCompare(b,"ar"));
+  if(!names.length){out.innerHTML=`<div class="card"><p class="empty">لا توجد ${partyMode==="suppliers"?"حركات وارد":"حركات منصرف"} مطابقة.</p></div>`;return;}
+  out.innerHTML=`<div class="card"><div class="table-wrap"><table><thead><tr><th>${partyLbl}</th><th>عدد الحركات</th><th>إجمالي الكمية</th><th>آخر حركة</th><th class="no-print"></th></tr></thead><tbody>
+    ${names.map(n=>{const g=groups[n];const tot=g.reduce((s,m)=>s+m.qty,0);const last=g.slice().sort((a,b)=>mvCmpAsc(b,a))[0];
+      return `<tr><td style="font-weight:700">${esc(n)}</td><td>${g.length}</td><td style="color:var(--green);font-weight:700">${tot}</td><td>${esc(last?last.date:"")}</td>
+        <td class="no-print"><button class="btn blue sm" data-n="${esc(n)}" onclick="partySel=this.dataset.n;renderParties()">عرض الكشف</button></td></tr>`;}).join("")}
+  </tbody></table></div></div>`;
+}
+function exportParty(){
+  const groups=partyGroups();const list=(groups[partySel]||[]).slice().sort((a,b)=>mvCmpAsc(b,a));
+  const docLbl=partyMode==="suppliers"?"رقم الفسح":"رقم الفاتورة";
+  const rows=list.map(m=>{const it=DB.items.find(i=>i.id===m.itemId)||{};const doc=partyMode==="suppliers"?(m.customs||""):(m.invoice||"");
+    return [m.date||"",m.model||itemModel(it),m.qty,doc,m.price||0,m.qty*(m.price||0),m.userName||"",m.note||""];});
+  const totQty=list.reduce((s,m)=>s+m.qty,0),totVal=list.reduce((s,m)=>s+m.qty*(m.price||0),0);
+  rows.push(["الإجمالي","",totQty,"","",totVal,"",""]);
+  exportXLSX("كشف-"+(partyMode==="suppliers"?"مورد-":"عميل-")+partySel+".xlsx",["التاريخ","الموديل","الكمية",docLbl,"السعر","الإجمالي","الموظف","ملاحظة"],rows,"كشف حساب");
+}
 /* ============ جرد المخزون ============ */
 let stockCounts={};
 function pStock(){
