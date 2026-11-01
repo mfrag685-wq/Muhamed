@@ -237,7 +237,7 @@ tr:hover td{background:#f8fafc}
    ============================================================ */
 const KEY="inv_system_v2";
 /* رقم إصدار التطبيق — يُزاد مع كل تحديث؛ يُقارَن بالنسخة المنشورة لإظهار زر التحديث */
-const APP_VERSION="2026-11-01-05";
+const APP_VERSION="2026-11-01-06";
 let DB,ME;
 /* التحقق من توفّر نسخة أحدث بجلب الملف نفسه (بدون كاش) ومقارنة رقم الإصدار */
 function checkForUpdate(){
@@ -1081,7 +1081,9 @@ function pMove(){
           <div style="display:flex;align-items:center;gap:8px;margin-top:4px;flex-wrap:wrap">
             <button type="button" id="feeModeToggle" onclick="toggleFeeMode()" style="background:#eef2ff;color:#3730a3;border:1px solid #c7d2fe;border-radius:20px;padding:6px 12px;font-size:12.5px;font-weight:700;cursor:pointer">🔀 تحويل إلى: لكل صنف</button>
             <span id="feeHint" style="font-size:11px;color:var(--muted)">مبلغ واحد لكامل الفاتورة</span></div></div>`}
-        <div class="cell c3"><label>${simpleCo()?"الجهة / المستلم (لمن خرجت)":"العنوان"}</label><input id="mAddress" placeholder="${simpleCo()?"اسم الجهة أو المستلم":"العنوان"}"></div>
+        <div class="cell c3"><label>${simpleCo()?"الجهة / المستلم (لمن خرجت)":"العنوان"}</label>
+          <input id="mAddress" list="custList" autocomplete="off" placeholder="${simpleCo()?"اكتب اسم العميل (يُحفظ تلقائياً)":"العنوان"}">
+          <datalist id="custList">${customerList().map(n=>`<option value="${esc(n)}">`).join("")}</datalist></div>
         <div class="cell c3"><label>ملاحظات</label><input id="mNoteOut" placeholder="ملاحظة"></div>
       </div>
       <button class="btn blue" onclick="addToInvoice()">➕ أضِف الصنف الحالي إلى الفاتورة</button>
@@ -1111,7 +1113,7 @@ function pMove(){
     </div>
     <div id="rcCount" style="font-size:12px;color:var(--muted);margin-bottom:8px"></div>
     <div class="table-wrap"><table><thead><tr><th>التاريخ</th><th>الصنف/الموديل</th><th>النوع</th><th>الكمية</th>
-      <th>الرصيد بعدها</th><th>فسح/فاتورة</th><th>المورد</th><th>الموظف</th><th></th></tr></thead>
+      <th>الرصيد بعدها</th><th>فسح/فاتورة</th><th>الجهة/المورد</th><th>الموظف</th><th>ملاحظة</th><th></th></tr></thead>
     <tbody id="recentMoves"></tbody></table></div>
   </div>`;
   setType(mType);setRecentFilter(recentType);renderCart();applyFeeMode();
@@ -1291,11 +1293,12 @@ function renderRecent(){
       <td><span class="tag ${m.type}">${typeAr(m.type)}</span></td>
       <td style="font-weight:700;color:${isIn(m.type)?'var(--green)':'var(--amber)'}">${isIn(m.type)?"+":"−"}${m.qty}</td>
       <td>${BAL[m.id]??m.balAfter??"—"}</td><td>${esc(m.type==="inbound"?(m.customs||""):(m.invoice||""))}</td>
-      <td>${esc(sup?sup.name:"")}</td><td>${esc(m.userName)}</td>
+      <td>${esc(m.type==="inbound"?(sup?sup.name:""):(m.address||""))}</td><td>${esc(m.userName)}</td>
+      <td style="color:var(--muted)">${esc(m.note||"")}</td>
       <td style="white-space:nowrap"><button class="btn ghost sm" onclick="printReceipt(${m.id})">🖨️</button>
         ${can("canEdit")?`<button class="btn blue sm" onclick="editMovement(${m.id})">تعديل</button>`:""}
         ${can("canDelete")?`<button class="btn red sm" onclick="delMovement(${m.id})">حذف</button>`:""}</td></tr>`;}).join("")
-    ||`<tr><td colspan="9" class="empty">لا حركات.</td></tr>`;
+    ||`<tr><td colspan="10" class="empty">لا حركات.</td></tr>`;
 }
 /* ---------- استيراد حركات وارد/منصرف من Excel ---------- */
 function downloadMovesTemplate(){
@@ -1844,6 +1847,11 @@ function renderBalances(){
 
 /* ============ كشف العملاء والموردين (من سحب/ورّد؟ متى؟ ماذا؟ كم؟ أي مستند؟) ============ */
 let partyMode="customers",partySel=null;
+/* قائمة العملاء = أسماء الجهات/المستلمين التي سبق إدخالها في المنصرف (تُبنى تلقائياً) */
+function customerList(){
+  const set={};cmoves().forEach(m=>{if(m.type==="outbound"){const a=(m.address||"").trim();if(a)set[a]=1;}});
+  return Object.keys(set).sort((a,b)=>a.localeCompare(b,"ar"));
+}
 function partyName(m){
   if(partyMode==="suppliers"){const s=DB.suppliers.find(x=>x.id===m.supplierId);return s?s.name:"(بدون مورد)";}
   return (m.address||"").trim()||"(بدون جهة)";
@@ -2748,14 +2756,14 @@ function renderSupStatement(id){
       ||`<tr><td colspan="3" class="empty">لا حركات.</td></tr>`}
       ${arr.length?`<tr style="background:#f1f5f9;font-weight:700"><td>الإجمالي</td><td>${tQty}</td><td>${money(tVal)}</td></tr>`:""}</tbody></table></div>`;
   }else{
-    csvHead=["التاريخ","الموديل","الكمية","السعر","القيمة","رقم الفسح","الموظف"];
-    csvRows=rows.map(m=>{const it=DB.items.find(i=>i.id===m.itemId)||{};return [m.date,m.model||itemModel(it),m.qty,m.price,m.qty*m.price,m.customs||"",m.userName];});
-    table=`<div class="table-wrap"><table><thead><tr><th>التاريخ</th><th>الموديل</th><th>الكمية</th><th>السعر</th><th>القيمة</th><th>رقم الفسح</th><th>الموظف</th></tr></thead>
+    csvHead=["التاريخ","الموديل","الكمية","السعر","القيمة","رقم الفسح","الموظف","ملاحظة"];
+    csvRows=rows.map(m=>{const it=DB.items.find(i=>i.id===m.itemId)||{};return [m.date,m.model||itemModel(it),m.qty,m.price,m.qty*m.price,m.customs||"",m.userName,m.note||""];});
+    table=`<div class="table-wrap"><table><thead><tr><th>التاريخ</th><th>الموديل</th><th>الكمية</th><th>السعر</th><th>القيمة</th><th>رقم الفسح</th><th>الموظف</th><th>ملاحظة</th></tr></thead>
       <tbody>${rows.map(m=>{const it=DB.items.find(i=>i.id===m.itemId)||{};
         return `<tr><td>${esc(m.date)}</td><td>${esc(m.model||itemModel(it))}</td><td style="color:var(--green);font-weight:700">${m.qty}</td>
-        <td>${money(m.price)}</td><td>${money(m.qty*m.price)}</td><td>${esc(m.customs||"")}</td><td>${esc(m.userName)}</td></tr>`;}).join("")
-        ||`<tr><td colspan="7" class="empty">لا حركات.</td></tr>`}
-      ${rows.length?`<tr style="background:#f1f5f9;font-weight:700"><td colspan="2">الإجمالي</td><td>${tQty}</td><td></td><td>${money(tVal)}</td><td colspan="2"></td></tr>`:""}</tbody></table></div>`;
+        <td>${money(m.price)}</td><td>${money(m.qty*m.price)}</td><td>${esc(m.customs||"")}</td><td>${esc(m.userName)}</td><td style="color:var(--muted)">${esc(m.note||"")}</td></tr>`;}).join("")
+        ||`<tr><td colspan="8" class="empty">لا حركات.</td></tr>`}
+      ${rows.length?`<tr style="background:#f1f5f9;font-weight:700"><td colspan="2">الإجمالي</td><td>${tQty}</td><td></td><td>${money(tVal)}</td><td colspan="3"></td></tr>`:""}</tbody></table></div>`;
   }
   window.__ssCSV={head:csvHead,rows:csvRows};
   $("#ssOut").innerHTML=stats+`<div class="card"><div class="card-title" style="display:flex;justify-content:space-between;align-items:center">
