@@ -240,7 +240,7 @@ html.lock-scroll,html.lock-scroll body{overflow:hidden!important;overscroll-beha
    ============================================================ */
 const KEY="inv_system_v2";
 /* رقم إصدار التطبيق — يُزاد مع كل تحديث؛ يُقارَن بالنسخة المنشورة لإظهار زر التحديث */
-const APP_VERSION="2026-11-02-01";
+const APP_VERSION="2026-11-02-02";
 let DB,ME;
 /* التحقق من توفّر نسخة أحدث بجلب الملف نفسه (بدون كاش) ومقارنة رقم الإصدار */
 function checkForUpdate(){
@@ -1162,7 +1162,7 @@ function setType(t){
   if(rin)rin.style.display=(t==="inbound")?"grid":"none";
   if(rout)rout.style.display=(t==="outbound")?"block":"none";
   if(wp)wp.style.display=(t==="adjustment")?"none":"block";
-  if(lp)lp.textContent=(t==="inbound")?(simpleCo()?"سعر التكلفة (اختياري) ﷼":"سعر التكلفة * ﷼"):"سعر البيع ﷼";
+  if(lp)lp.textContent=(t==="inbound")?(simpleCo()?"سعر التكلفة (اختياري) ﷼":"سعر التكلفة * ﷼"):(simpleCo()?"سعر البيع (اختياري) ﷼":"سعر البيع * (إجباري) ﷼");
   if(sb)sb.textContent=(t==="outbound")?"✓ حفظ الفاتورة":"✓ حفظ الحركة";
   renderCart();
   if($("#rfAll")&&(t==="inbound"||t==="outbound"))setRecentFilter(t);   // يفلتر آخر الحركات حسب النوع المختار
@@ -1222,6 +1222,7 @@ function currentLine(){
 function addToInvoice(){
   const msg=$("#mMsg");const show=(t,c)=>msg.innerHTML=`<div class="msg ${c}">${t}</div>`;
   const l=currentLine();if(!l)return show("اختر صنفاً وأدخل كمية أولاً.","err");
+  if(!simpleCo()&&!(l.price>0))return show("أدخل سعر البيع للصنف (إجباري في النمط الكامل).","err");
   saleCart.push(l);show("","ok");msg.innerHTML="";
   clearMove(false);
   if(feeType()==="line"&&$("#mFeeVal"))$("#mFeeVal").value=""; // رسوم كل صنف تُفرَّغ للصنف التالي
