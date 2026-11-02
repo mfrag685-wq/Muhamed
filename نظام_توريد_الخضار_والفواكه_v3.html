@@ -2163,7 +2163,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-02-b';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-02-c';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -5877,7 +5877,7 @@ function dailySalesClients(){
 function noSalesAcks(){ var d=dcur(); return d.noSalesAck||(d.noSalesAck={}); }
 function clientOffWeekdays(cid,td){
   var from=ivAddDays(td,-55), seen={}, n=0, wd={};
-  (db.sales||[]).forEach(function(x){ if(+x.clientId!==cid||!x.date||x.date<from||x.date>td||seen[x.date]) return; seen[x.date]=1; n++; wd[(parseDate(x.date)||new Date(x.date)).getDay()]=1; });
+  (db.sales||[]).forEach(function(x){ if(+x.clientId!==cid||!x.date||x.date<from||x.date>td||seen[x.date]) return; seen[x.date]=1; n++; wd[(parseDate(x.date)||new Date(x.date)).getUTCDay()]=1; });
   if(n<12) return {};   /* تاريخ غير كافٍ لاستنتاج أيام الإجازة */
   var off={}; for(var i=0;i<7;i++) if(!wd[i]) off[i]=1; return off;
 }
@@ -5894,7 +5894,7 @@ function dailyClientFollowUps(clients,cfg,td,realTd){
     if(d<first) d=first;
     for(var guard=0; d<=until && guard<75; guard++, d=ivAddDays(d,1)){
       if(has[d]||ack[d]) continue;
-      if(offW[(parseDate(d)||new Date(d)).getDay()]) continue;
+      if(offW[(parseDate(d)||new Date(d)).getUTCDay()]) continue;
       miss.push(d);
     }
     if(!miss.length) return;
@@ -6085,7 +6085,7 @@ function monthCloseGaps(T){
     dc.forEach(function(cid){ var has={}, first=null;
       (db.sales||[]).forEach(function(x){ if(+x.clientId!==cid||!x.date) return; if(!first||x.date<first) first=x.date; if(inM(x.date)) has[x.date]=1; });
       if(!first) return; var offW=clientOffWeekdays(cid,td), ack=acks[cid]||{}, miss=[];
-      for(var d=(first>from?first:from), g2=0; d<=until&&g2<40; d=ivAddDays(d,1), g2++){ if(has[d]||ack[d]) continue; if(offW[(parseDate(d)||new Date(d)).getDay()]) continue; miss.push(d); }
+      for(var d=(first>from?first:from), g2=0; d<=until&&g2<40; d=ivAddDays(d,1), g2++){ if(has[d]||ack[d]) continue; if(offW[(parseDate(d)||new Date(d)).getUTCDay()]) continue; miss.push(d); }
       if(miss.length) sl.push('«'+clientName(cid)+'» ('+mcDays(miss.length)+')'); });
     if(dc.length&&sl.length) sl=['أيام ناقصة '+(sl.length===1?'لعميل واحد':(sl.length===2?'لعميلين':(sl.length<=10?'لـ '+sl.length+' عملاء':'لـ '+sl.length+' عميلاً')))+': '+sl.join('، ')+' — التفاصيل وتأكيد «لا مبيعات فعلية» في بطاقة «متابعة الإدخال» أدناه'];
     if(!dc.length){ var ls=''; (db.sales||[]).forEach(function(x){ if(inM(x.date)&&x.date>ls) ls=x.date; });
@@ -6425,7 +6425,7 @@ function regHeadHtml(k,cols,thCls){ var o=regSort[k];
     var on=o.key===c.key;
     return '<th class="'+cls+' reg-sortable'+(on?' on':'')+'" title="ترتيب حسب '+esc(c.h)+'" onclick="regSetSort(\''+k+'\',\''+c.key+'\')">'+esc(c.h)+' <span class="srt">'+(on?(o.dir>0?'▲':'▼'):'⇅')+'</span></th>'; }).join('')+'</tr>'; }
 function regGroupLbl(m,key,partyLbl){
-  if(m==='day'){ var d=parseDate(key)||new Date(key); return '📅 '+esc(key)+(isNaN(d)?'':' — '+REG_WD[d.getDay()]); }
+  if(m==='day'){ var d=parseDate(key)||new Date(key); return '📅 '+esc(key)+(isNaN(d)?'':' — '+REG_WD[d.getUTCDay()]); }
   if(m==='month'){ var mo=+String(key).slice(5,7); return '🗓️ '+(REG_MN[mo-1]||'')+' '+esc(String(key).slice(0,4)); }
   return '👤 '+esc(key||('بدون '+partyLbl)); }
 /* جسم الملخّص: فواتير مرتّبة، ومجمّعة اختيارياً تحت رؤوس بإجماليات فرعية ونسبة من الإجمالي */
@@ -6836,7 +6836,7 @@ function renderConversions(){
   }).join('')||'<tr><td colspan="9" class="empty">لا توجد تحويلات بين الأصناف.</td></tr>';
 }
 /* ===== حركة قيمة المخزون خلال فترة — أداة تدقيق تفسّر تغيّر القيمة وتكشف أي فرق ===== */
-function ivAddDays(dstr,n){ var dt=parseDate(dstr)||new Date(); dt=new Date(dt.getTime()+n*86400000); return new Date(dt.getTime()-dt.getTimezoneOffset()*60000).toISOString().slice(0,10); }
+function ivAddDays(dstr,n){ var dt=parseDate(dstr)||parseDate(today()); return new Date(dt.getTime()+n*86400000).toISOString().slice(0,10); }   /* UTC بحت: صحيح في أي منطقة زمنية */
 function ivSumStockVal(snap){ var t=0; Object.keys(snap||{}).forEach(function(k){ t+=(+snap[k].cost||0); }); return t; }
 function ivThisMonth(){ var t=today(); setVal('iv_from',t.slice(0,8)+'01'); setVal('iv_to',t); renderInvValueMovement(); }
 /* معادلة حركة قيمة المخزون (أول المدة + الداخل − الخارج ± التسويات = آخر المدة) — مشتركة بين التقرير وفحص السلامة */
@@ -7843,7 +7843,7 @@ function renderDashCharts(pnlRows,pay,rec){
   /* 4) مقارنة الفروع/العملاء: مبيعات كل فرع لنفس الفترة من الشهر الحالي مقابل الشهر السابق */
   var branchCmp='';
   if(seeProfit && maxYM){
-    var curYM=maxYM, pd=new Date(curYM+'-01T00:00:00'); pd.setMonth(pd.getMonth()-1); var prevYM=pd.toISOString().slice(0,7);
+    var curYM=maxYM, prevYM=mcPrevYM(curYM,1);   /* حساب تقويمي — toISOString كان يُرجع الشهر قبل السابق بتوقيت السعودية */
     var anyBranch=db.clients.some(function(c){ return isBranch(c.id); });
     var bmap={};
     db.sales.forEach(function(s){ var ym=(s.date||'').slice(0,7); if(ym!==curYM&&ym!==prevYM) return; if(isPartial&&!inWin(s.date)) return;
@@ -7881,7 +7881,7 @@ function renderDashCharts(pnlRows,pay,rec){
   /* 6) المبيعات حسب أيام الأسبوع · 7) حصة العملاء · 8) أعلى الأصناف مبيعاً */
   var W7=[0,0,0,0,0,0,0], byCl={}, byIt={};
   db.sales.forEach(function(s){ if(!inRg(s.date)) return; var t=+s.total||0, dt=parseDate(s.date)||new Date(s.date);
-    if(!isNaN(dt)) W7[dt.getDay()]+=t; var cn=clientName(s.clientId); byCl[cn]=(byCl[cn]||0)+t;
+    if(!isNaN(dt)) W7[dt.getUTCDay()]+=t; var cn=clientName(s.clientId); byCl[cn]=(byCl[cn]||0)+t;
     (s.lines||[]).forEach(function(l){ var n=itemName(l.itemId); byIt[n]=(byIt[n]||0)+(+l.total||0); }); });
   wk=barChart('المبيعات حسب أيام الأسبوع','إجمالي مبيعات كل يوم من أيام الأسبوع خلال الفترة',REG_WD,[{name:'المبيعات',color:CHART_COLORS[2],vals:W7}]);
   clShare=donutChart('حصة العملاء من المبيعات','توزيع مبيعات الفترة على العملاء',Object.keys(byCl).map(function(k){ return {label:k,value:byCl[k]}; }));
@@ -8749,7 +8749,7 @@ function diagSettlementHtml(from,to){
 }
 var diagNegOpen=false;   /* مطويّ افتراضياً — لا حاجة للنزول عبر جدول طويل */
 /* أدوات الفترة لتشخيص الأصناف */
-function diagDayBefore(d){ try{ var x=new Date(d+'T00:00:00'); x.setDate(x.getDate()-1); return x.toISOString().slice(0,10); }catch(e){ return d; } }
+function diagDayBefore(d){ return d?ivAddDays(d,-1):d; }   /* كان يُرجع قبل يومين بتوقيت السعودية (منتصف الليل المحلي ← اليوم السابق UTC) */
 function diagRangeThisMonth(silent){ var t=today(); setVal('di_from',t.slice(0,8)+'01'); setVal('di_to',t); if(!silent) renderItemDiag(); }
 /* من اليوم التالي لآخر جرد فعلي مسجَّل (أو أول الشهر إن لم يوجد) */
 function diagRangeSinceCount(){
@@ -8758,7 +8758,7 @@ function diagRangeSinceCount(){
              (db.openingStock||[]).forEach(function(o){ if(/جرد|تصحيح|زيادة/.test(o.reason||'')&&o.date>last) last=o.date; }); }
   setVal('di_from', last?diagDayAfter(last):(today().slice(0,8)+'01')); setVal('di_to',today()); renderItemDiag();
 }
-function diagDayAfter(d){ try{ var x=new Date(d+'T00:00:00'); x.setDate(x.getDate()+1); return x.toISOString().slice(0,10); }catch(e){ return d; } }
+function diagDayAfter(d){ return d?ivAddDays(d,1):d; }   /* كان يُرجع نفس اليوم بتوقيت السعودية */
 /* ===== دمج الأصناف المكرّرة — نقل كل حركات صنف إلى صنف آخر لتصحيح الأرصدة السالبة ===== */
 function fillMergeSelects(){
   var o='<option value="">— اختر —</option>'+db.items.map(function(i){ return '<option value="'+i.id+'">'+esc(i.name)+(i.whId?' — '+esc(whName(i.whId)):'')+(i.active===0?' (متوقف)':'')+'</option>'; }).join('');
