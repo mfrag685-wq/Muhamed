@@ -2163,7 +2163,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-01-b';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-02-a';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -2935,7 +2935,12 @@ document.querySelectorAll('.tab-btn').forEach(function(b){ b.addEventListener('c
 function buildLedger(){
   var stock={},cogsLine={},cogsDoc={},srCost={},prCost={},wasteCost={},prodCost={},warn=[],moves=[],negSettle=[],costVar=[];
   /* neg: طابور الكميات المصروفة على المكشوف (رصيد سالب) بتكلفتها التقديرية والمستند الذي صرفها — لتسويتها لاحقاً */
-  function cell(w,i){ var k=w+'|'+i; if(!stock[k]) stock[k]={whId:w,itemId:i,units:0,cost:0,weight:0,neg:[]}; return stock[k]; }
+  /* سجل الوزن (wlog): تغيّر الوزن الفعلي لكل خلية بعد كل حركة — كي يُعاد بناء رصيد أي تاريخ سابق بوزنه الحقيقي
+     (لا بوزن بطاقة الصنف الافتراضي) فيتطابق مع الرصيد الآني. dirtyW: الخلايا التي لمستها حركات اليوم الحالي. */
+  var wlog=[], dirtyW={}, lastW={};
+  function cell(w,i){ var k=w+'|'+i; dirtyW[k]=1; if(!stock[k]) stock[k]={whId:w,itemId:i,units:0,cost:0,weight:0,neg:[]}; return stock[k]; }
+  function flushW(date,all){ Object.keys(all?stock:dirtyW).forEach(function(k){ var x=stock[k]; if(!x) return; var w=+x.weight||0, dw=w-(lastW[k]||0);
+      if(Math.abs(dw)>1e-9){ wlog.push({date:date,whId:x.whId,itemId:x.itemId,dw:dw}); lastW[k]=w; } }); dirtyW={}; }
   var curDate='';
   /* ===== تسوية الرصيد السالب (مبدأ محاسبي: صنف كميته صفر قيمته صفر) =====
      الصرف على المكشوف يُقدَّر بمتوسط الشراء؛ وعند دخول كمية تغطي العجز يُحسب الفرق بين التكلفة
@@ -3049,6 +3054,7 @@ function buildLedger(){
   ev.sort(function(a,b){ if(a.d!==b.d) return a.d<b.d?-1:1; if(a.t!==b.t) return a.t-b.t; return a.id-b.id; });
 
   ev.forEach(function(e){
+    if(curDate&&curDate!==e.d) flushW(curDate);
     var r=e.r; curDate=e.d;
     if(e.t===0){
       put(r.whId,r.itemId,+r.units||0,+r.total||0,(+r.units||0)*(+r.uw||0));
@@ -3179,8 +3185,10 @@ function buildLedger(){
     }
   });
   /* أي خلية انتهت بكمية صفرية تُقفل بقيمة صفر، ويُنظَّف «−0» العشري */
+  if(curDate) flushW(curDate);
   Object.keys(stock).forEach(function(k){ closeZero(stock[k]); delete stock[k].neg; });
-  return {stock:stock,cogsLine:cogsLine,cogsDoc:cogsDoc,srCost:srCost,prCost:prCost,wasteCost:wasteCost,prodCost:prodCost,warn:warn,moves:moves,negSettle:negSettle,costVar:costVar};
+  if(curDate) flushW(curDate,true);   /* إقفال الخلايا الصفرية في النهاية */
+  return {wlog:wlog,stock:stock,cogsLine:cogsLine,cogsDoc:cogsDoc,srCost:srCost,prCost:prCost,wasteCost:wasteCost,prodCost:prodCost,warn:warn,moves:moves,negSettle:negSettle,costVar:costVar};
 }
 var L=null;
 function refreshLedger(){ L=buildLedger(); }
@@ -5727,8 +5735,10 @@ function stockAsOf(to){
     s.units+=(+m.inU||0)-(+m.outU||0);
     s.cost +=((+m.inU||0)>0?(+m.val||0):0)-((+m.outU||0)>0?(+m.val||0):0)+(+m.adj||0);
   });
-  Object.keys(snap).forEach(function(k){ var s=snap[k];
-    if(Math.abs(s.units)<0.0001) s.units=0;
+  (L.wlog||[]).forEach(function(w){ if(w.date>to) return;
+    var k=w.whId+'|'+w.itemId, s=snap[k]||(snap[k]={whId:w.whId,itemId:w.itemId,units:0,cost:0}); s.weight=(s.weight||0)+w.dw; });
+  Object.keys(snap).forEach(function(k){ var s=snap[k]; if(s.weight==null) s.weight=0;
+    if(Math.abs(s.units)<0.0001){ s.units=0; s.weight=0; }
     if(Math.abs(s.cost)<0.0001||s.units===0) s.cost=(s.units===0?0:round2(s.cost)); });
   return snap;
 }
@@ -6908,7 +6918,7 @@ function renderStock(){
       so.innerHTML='📥 <b>رصيد افتتاحي مُرحّل</b> لأول شهر '+esc(moSel)+' = <b>'+money(openVal)+'</b> '
         +'<span class="muted">(قيمة المخزون كما في نهاية '+esc(openDate)+' — مُرحّل تلقائياً من الشهر السابق حسب المعايير المحاسبية؛ عرض فقط بلا قيد حتى لا يتضاعف المخزون)</span>'; }
   })();
-  var wtOf=function(s){ if(!asOf) return s.weight; return itemByKg(s.itemId)?s.units:s.units*(itemUW(s.itemId)||0); };
+  var wtOf=function(s){ return +s.weight||0; };   /* الوزن الفعلي المتتبَّع — نفس المصدر لكل الأشهر (الآني والتاريخي) */
   var keys=Object.keys(ST).filter(function(k){
     var s=ST[k];
     if(Math.abs(s.units)<0.001&&Math.abs(s.cost)<0.01) return false;
@@ -6921,13 +6931,13 @@ function renderStock(){
   var h='',tot=0,totW=0,low=0;
   keys.forEach(function(k){
     /* متوسط التكلفة = القيمة ÷ الكمية لأي رصيد غير صفري (والسالب له متوسط موجب = تكلفة العجز التقديرية للوحدة) */
-    var s=ST[k]; s.weight=wtOf(s); var avg=Math.abs(s.units)>0.0001?s.cost/s.units:0, avgK=Math.abs(s.weight)>0.0001?s.cost/s.weight:0;
+    var s=ST[k], sw=wtOf(s); var avg=Math.abs(s.units)>0.0001?s.cost/s.units:0, avgK=Math.abs(sw)>0.0001?s.cost/sw:0;
     var it=byId(db.items,s.itemId), isLow=it&&it.min>0&&s.units<it.min;
     if(isLow) low++;
-    tot+=s.cost; totW+=s.weight;
+    tot+=s.cost; totW+=sw;
     h+='<tr><td class="name">'+esc(whName(s.whId))+'</td><td class="name muted">'+(whClient(s.whId)?esc(clientName(whClient(s.whId))):'عام')+'</td>'
       +'<td class="name">'+esc(itemName(s.itemId))+(isLow?' <span class="pill pill-warn">تحت الحد</span>':'')+(s.units<0?' <span class="pill pill-bad">رصيد سالب</span>':'')+'</td>'
-      +'<td>'+qty(s.units)+' <span class="muted" style="font-size:11px">'+esc(it&&it.byKg?'كغ':(it?(it.unit||''):''))+'</span></td><td>'+qty(s.weight)+'</td><td>'+money(avg)+'</td><td>'+money(avgK)+'</td><td>'+money(s.cost)+'</td></tr>';
+      +'<td>'+qty(s.units)+' <span class="muted" style="font-size:11px">'+esc(it&&it.byKg?'كغ':(it?(it.unit||''):''))+'</span></td><td>'+qty(sw)+'</td><td>'+money(avg)+'</td><td>'+money(avgK)+'</td><td>'+money(s.cost)+'</td></tr>';
   });
   document.getElementById('tbStock').innerHTML=h?h+'<tr class="total-row"><td colspan="4">الإجمالي</td><td>'+qty(totW)+' كغ</td><td colspan="2"></td><td>'+money(tot)+'</td></tr>'
     :'<tr><td colspan="8" class="empty">لا يوجد رصيد مطابق. المخزون يزيد بالمشتريات وينقص بالمبيعات والفاقد.</td></tr>';
