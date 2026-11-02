@@ -2163,7 +2163,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-02-a';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-02-b';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -9694,23 +9694,38 @@ function renderReport(){
     }
   }
   else if(type==='item'){
-    title='كارت حركة الصنف';
-    head=['التاريخ','الحركة','المرجع','الجهة','المستودع','الصنف','وارد','منصرف','القيمة'];
-    var bal=0,inU=0,outU=0;
-    L.moves.filter(function(m){
-      if(!inRange(m.date,f,t)) return false;
-      if(fi&&m.itemId!==+fi) return false;
-      if(fw&&m.whId!==+fw) return false;
-      return true;
-    }).forEach(function(m){
-      bal+=m.inU-m.outU; inU+=m.inU; outU+=m.outU;
-      push('',[m.date,m.type,m.ref,m.party,whName(m.whId),itemName(m.itemId),
-        m.inU?qty(m.inU):'—',m.outU?qty(m.outU):'—',num(m.val)]);
+    /* كارت الصنف: رصيد أول المدة + وارد + منصرف + الرصيد الجاري بعد كل حركة (كمية وقيمة) + رصيد آخر المدة.
+       الرصيد يُحسب لكل صنف (ولمستودع واحد عند فلترة المستودع)؛ بدون صنف محدد يُعرض كل صنف في كتلة مستقلة. */
+    var selIt=fi?byId(db.items,+fi):null;
+    title='كارت حركة الصنف'+(selIt?'  ·  '+selIt.name:'')+(fw?'  ·  '+whName(+fw):'  ·  كل المستودعات')+'  ·  '+(f||'البداية')+' ← '+(t||'اليوم');
+    head=['التاريخ','الحركة','المرجع','الجهة','المستودع','الصنف','وارد','منصرف','الرصيد','قيمة الحركة','قيمة الرصيد'];
+    var ulOf=function(id){ var it=byId(db.items,id); return it&&it.byKg?'كغ':((it&&it.unit)||'وحدة'); };
+    var open={}, blocks={}, order=[];
+    if(f){ var os=stockAsOf(ivAddDays(f,-1));
+      Object.keys(os).forEach(function(k){ var c=os[k]; if(fi&&c.itemId!==+fi) return; if(fw&&c.whId!==+fw) return;
+        var o=open[c.itemId]||(open[c.itemId]={u:0,v:0}); o.u+=+c.units||0; o.v+=+c.cost||0; }); }
+    L.moves.forEach(function(m){
+      if(!inRange(m.date,f,t)) return; if(fi&&m.itemId!==+fi) return; if(fw&&m.whId!==+fw) return;
+      if(!blocks[m.itemId]){ blocks[m.itemId]=[]; order.push(m.itemId); } blocks[m.itemId].push(m); });
+    Object.keys(open).forEach(function(id){ id=+id; if(!blocks[id]&&(Math.abs(open[id].u)>0.0001||Math.abs(open[id].v)>0.005)){ blocks[id]=[]; order.push(id); } });
+    order.sort(function(a,b){ return itemName(a)<itemName(b)?-1:1; });
+    var G={ou:0,ov:0,iu:0,iv:0,xu:0,xv:0,cu:0,cv:0,n:0};
+    order.forEach(function(id){
+      var o=open[id]||{u:0,v:0}, bu=o.u, bv=o.v, ti=0, to=0, tiv=0, tov=0, ul=ulOf(id);
+      push('day-row',['رصيد أول المدة'+(f?' ('+ivAddDays(f,-1)+')':''),'','','','',itemName(id),'','',qty(bu)+' '+ul,'',num(bv)]);
+      blocks[id].forEach(function(m){
+        var iu=+m.inU||0, ou=+m.outU||0, dv=(iu>0?(+m.val||0):0)-(ou>0?(+m.val||0):0)+(+m.adj||0);
+        bu+=iu-ou; bv+=dv; ti+=iu; to+=ou; if(iu>0) tiv+=(+m.val||0); if(ou>0) tov+=(+m.val||0); G.n++;
+        push('',[m.date,m.type,m.ref,m.party,whName(m.whId),itemName(m.itemId),iu?qty(iu):'—',ou?qty(ou):'—',qty(bu),(dv<0?'-':'')+num(Math.abs(dv)),num(bv)]);
+      });
+      push('total-row',['رصيد آخر المدة — '+itemName(id),'','','','','',qty(ti)+' '+ul,qty(to)+' '+ul,qty(bu)+' '+ul,'',num(bv)]);
+      G.ou+=o.u; G.ov+=o.v; G.iu+=ti; G.iv+=tiv; G.xu+=to; G.xv+=tov; G.cu+=bu; G.cv+=bv;
     });
-    var selIt=fi?byId(db.items,+fi):null, uLbl=(selIt&&selIt.byKg)?'كغ':'وحدة';
-    cards=card('إجمالي الوارد',qty(inU)+' '+uLbl,'')+card('إجمالي المنصرف',qty(outU)+' '+uLbl,'')
-      +card('صافي الحركة',qty(inU-outU)+' '+uLbl,'')+card('عدد الحركات',String(rows.length),'');
-    if(!fi) cards=card('اختر صنفاً','—','لعرض كارت صنف محدد')+cards;
+    if(selIt){ var uL=ulOf(selIt.id);
+      cards=card('رصيد أول المدة',qty(G.ou)+' '+uL,money(G.ov))+card('إجمالي الوارد',qty(G.iu)+' '+uL,money(G.iv))
+        +card('إجمالي المنصرف',qty(G.xu)+' '+uL,money(G.xv))+card('رصيد آخر المدة',qty(G.cu)+' '+uL,money(G.cv),true)+card('عدد الحركات',String(G.n),''); }
+    else cards=card('قيمة أول المدة',money(G.ov),order.length+' صنف')+card('قيمة الوارد',money(G.iv),'')+card('قيمة المنصرف',money(G.xv),'')
+        +card('قيمة آخر المدة',money(G.cv),'لكل صنف رصيده الخاص أدناه',true)+card('عدد الحركات',String(G.n),'اختر صنفاً لعرض الكميات الإجمالية');
   }
   else if(type==='balClients'){
     var gf=fg?+fg:null;
