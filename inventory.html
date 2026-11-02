@@ -240,7 +240,7 @@ html.lock-scroll,html.lock-scroll body{overflow:hidden!important;overscroll-beha
    ============================================================ */
 const KEY="inv_system_v2";
 /* رقم إصدار التطبيق — يُزاد مع كل تحديث؛ يُقارَن بالنسخة المنشورة لإظهار زر التحديث */
-const APP_VERSION="2026-11-01-09";
+const APP_VERSION="2026-11-02-01";
 let DB,ME;
 /* التحقق من توفّر نسخة أحدث بجلب الملف نفسه (بدون كاش) ومقارنة رقم الإصدار */
 function checkForUpdate(){
@@ -2911,10 +2911,11 @@ function pEmployees(){
   const canManage=ME.role==="admin";
   $("#view").innerHTML=`<div class="pagehead"><h1>👥 الموظفون والصلاحيات</h1>
     ${canManage?`<button class="btn" onclick="userForm(0)">+ إضافة مستخدم</button>`:""}</div>
+  <div id="joinReqBox"></div>
   <div class="grid-2">
     <div class="card"><div class="card-title">قائمة المستخدمين</div>
       <div class="table-wrap"><table><thead><tr><th>الاسم</th><th>اسم المستخدم</th><th>الصلاحية</th><th>آخر دخول</th><th>الحالة</th>${canManage?"<th></th>":""}</tr></thead>
-      <tbody>${DB.users.slice().sort((a,b)=>(b.id||0)-(a.id||0)).map(u=>`<tr><td>${esc(u.name)}</td><td style="font-family:monospace">${esc(u.username||"—")}</td>
+      <tbody>${DB.users.map(u=>`<tr><td>${esc(u.name)}</td><td style="font-family:monospace">${esc(u.username||"—")}</td>
         <td><span class="badge-role">${roleAr(u.role)}</span></td>
         <td style="font-size:12px;color:var(--muted)">${u.lastLogin?esc(fmt(u.lastLogin)):"—"}</td>
         <td>${Number(u.active)!==0?'<span class="tag inbound">نشط</span>':'<span class="tag outbound">موقوف</span>'}${u.fbUid?' ☁':''}</td>
@@ -2940,8 +2941,7 @@ function pEmployees(){
         ${canManage?`<button class="btn amber sm" onclick="deleteFilteredActivity()">🗑️ حذف السجلات المعروضة (حسب الفلتر)</button>
         <button class="btn red sm" onclick="clearActivity()">🗑️ تفريغ السجل بالكامل</button>`:""}</div>
         ${canManage?`<p style="font-size:12px;color:var(--muted);margin-top:6px">لحذف سجلات موظف معيّن تحت بند معيّن (مثل «تسجيل الدخول»): اختر الموظف ونوع العملية من الفلاتر أعلاه ثم اضغط «حذف السجلات المعروضة».</p>`:""}</div>
-  </div>
-  <div id="joinReqBox"></div>`;
+  </div>`;
   renderActivity();
   if(canManage)renderJoinRequests();
 }
@@ -3045,8 +3045,7 @@ function saveUser(id){
     if(pass)u.pass=hash(pass);logAct("تعديل مستخدم",name);}
   else{DB.users.push({id:nid("user"),name,username,pass:hash(pass),role,active,perms,companies,coPerms,dialect,fbUid:"",lastLogin:""});logAct("إضافة مستخدم",name);}
   save();const md=document.querySelector(".modal");if(md)md.remove();pEmployees();
-  try{window.scrollTo({top:0,behavior:"smooth"});}catch(e){}
-  toast(id?"تم تحديث المستخدم":"✔ تمت إضافة المستخدم — يظهر أعلى القائمة");
+  toast(id?"تم تحديث المستخدم":"✔ تمت إضافة المستخدم");
 }
 function fillPreset(){
   const role=$("#u_role").value,p=preset(role);
