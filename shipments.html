@@ -578,6 +578,7 @@ html[data-theme="dark"] .rt td.hl{background:#2e2814;color:var(--accent)}
     <div id="lg-ok" style="display:none;color:#1e8e4e;background:#e9f8ef;border:1px solid #b7e6c9;border-radius:8px;padding:9px 11px;font-size:.82rem;margin-bottom:8px"></div>
     <button class="btn btn-accent" style="width:100%" id="lg-btn" onclick="submitLogin()">🔓 دخول</button>
     <div id="lg-toggle" style="text-align:center;margin-top:10px;font-size:.82rem"></div>
+    <button class="install-btn" id="btn-install-login" onclick="installApp()" style="display:none;width:100%;margin-top:12px;justify-content:center;padding:9px">📲 تثبيت التطبيق على جهازك</button>
   </div>
 </div>
 
@@ -6888,7 +6889,7 @@ function exportPaymentsExcel(){
 // ═══════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════
-var APP_VERSION='v2026-11-03.34';   // رقم إصدار ظاهر للتحقق من تحميل أحدث نسخة (لا cache قديم)
+var APP_VERSION='v2026-11-03.35';   // رقم إصدار ظاهر للتحقق من تحميل أحدث نسخة (لا cache قديم)
 // ═══════════════════════════════════════════
 // 🌐 محرّك الترجمة الشامل (عربي / English / 中文) — قاموس + مسح DOM + مراقب تغييرات
 // ═══════════════════════════════════════════
@@ -7714,6 +7715,25 @@ Object.assign(TR.zh,{
  'في الأعلى — وسيظهر التطبيق على شاشتك':'在顶部 — 应用将出现在屏幕上',
  'استخدم متصفّح Safari على الآيفون/الآيباد لإتمام التثبيت':'在 iPhone/iPad 上使用 Safari 完成安装'
 });
+// الدفعة 13: زر تثبيت في شاشة الدخول + تعليمات عامة
+Object.assign(TR.en,{
+ 'تثبيت التطبيق على جهازك':'Install the app on your device',
+ 'اضغط قائمة المتصفّح (⋮) أعلى اليمين':'Tap the browser menu (⋮) at the top right',
+ 'اضغط أيقونة التثبيت في شريط العنوان، أو قائمة المتصفّح (⋮)':'Click the install icon in the address bar, or the browser menu (⋮)',
+ 'اختر «تثبيت التطبيق» أو «إضافة إلى الشاشة الرئيسية»':'Choose Install app or Add to Home Screen',
+ 'اختر «تثبيت» أو Install':'Choose Install',
+ 'أكّد التثبيت — وسيظهر التطبيق على جهازك':'Confirm the install — the app will appear on your device',
+ 'استخدم متصفّح Chrome أو Edge لأفضل تجربة تثبيت':'Use Chrome or Edge for the best install experience'
+});
+Object.assign(TR.zh,{
+ 'تثبيت التطبيق على جهازك':'在您的设备上安装应用',
+ 'اضغط قائمة المتصفّح (⋮) أعلى اليمين':'点击右上角的浏览器菜单(⋮)',
+ 'اضغط أيقونة التثبيت في شريط العنوان، أو قائمة المتصفّح (⋮)':'点击地址栏中的安装图标，或浏览器菜单(⋮)',
+ 'اختر «تثبيت التطبيق» أو «إضافة إلى الشاشة الرئيسية»':'选择安装应用或添加到主屏幕',
+ 'اختر «تثبيت» أو Install':'选择安装',
+ 'أكّد التثبيت — وسيظهر التطبيق على جهازك':'确认安装 — 应用将出现在您的设备上',
+ 'استخدم متصفّح Chrome أو Edge لأفضل تجربة تثبيت':'使用 Chrome 或 Edge 浏览器以获得最佳安装体验'
+});
 var _trOrig=new WeakMap(), _trPh=new WeakMap(), _trTitle=new WeakMap(), _trBusy=false, _trObs=null, _trTimer=null;
 var _emojiLead=/^((?:[←-⇿⌀-➿⬀-⯿☀-⛿️\uD83C-􏰀-\uDFFF\s])+)/;
 function _trLook(lang,ar){ var d=TR[lang]; if(!d) return null; return (d[ar]!=null)?d[ar]:null; }
@@ -7862,18 +7882,36 @@ function initApp() {
 var _deferredInstall=null;
 function _isStandalone(){ try{ return (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone===true; }catch(e){ return false; } }
 function _isIOS(){ try{ var ua=navigator.userAgent||''; var iOS=/iphone|ipad|ipod/i.test(ua); var iPadOS=(/Mac/.test(navigator.platform||'') && navigator.maxTouchPoints>1); return iOS||iPadOS; }catch(e){ return false; } }
-window.addEventListener('beforeinstallprompt', function(e){ e.preventDefault(); _deferredInstall=e; try{ var b=document.getElementById('btn-install'); if(b && !_isStandalone()) b.style.display=''; }catch(err){} });
-window.addEventListener('appinstalled', function(){ _deferredInstall=null; try{ var b=document.getElementById('btn-install'); if(b) b.style.display='none'; }catch(e){} try{ toast('🎉 '+tr('تم تثبيت التطبيق بنجاح')); }catch(e){} });
+function _showInstall(show){ try{ ['btn-install','btn-install-login'].forEach(function(id){ var b=document.getElementById(id); if(b) b.style.display=show?'':'none'; }); }catch(e){} }
+window.addEventListener('beforeinstallprompt', function(e){ e.preventDefault(); _deferredInstall=e; if(!_isStandalone()) _showInstall(true); });
+window.addEventListener('appinstalled', function(){ _deferredInstall=null; _showInstall(false); try{ toast('🎉 '+tr('تم تثبيت التطبيق بنجاح')); }catch(e){} });
 function installApp(){
   if(_deferredInstall){
     try{ _deferredInstall.prompt();
-      _deferredInstall.userChoice.then(function(c){ if(c&&c.outcome==='accepted'){ try{ toast('✅ '+tr('جارِ تثبيت التطبيق')); }catch(e){} } _deferredInstall=null; var b=document.getElementById('btn-install'); if(b) b.style.display='none'; });
+      _deferredInstall.userChoice.then(function(c){ if(c&&c.outcome==='accepted'){ try{ toast('✅ '+tr('جارِ تثبيت التطبيق')); }catch(e){} } _deferredInstall=null; _showInstall(false); });
     }catch(e){}
     return;
   }
   if(_isIOS()){ showIOSInstall(); return; }
   if(_isStandalone()){ try{ toast('✅ '+tr('التطبيق مُثبَّت بالفعل')); }catch(e){} return; }
-  try{ toast(tr('للتثبيت: افتح قائمة المتصفّح (⋮) واختر «تثبيت التطبيق» أو «إضافة إلى الشاشة الرئيسية»')); }catch(e){}
+  showGenericInstall();
+}
+// تعليمات تثبيت عامة (أندرويد/كمبيوتر) عند عدم توفّر نافذة التثبيت التلقائية
+function showGenericInstall(){
+  var isAndroid=/android/i.test(navigator.userAgent||'');
+  var ov=document.getElementById('gen-install-modal');
+  var menuTxt=isAndroid? tr('اضغط قائمة المتصفّح (⋮) أعلى اليمين') : tr('اضغط أيقونة التثبيت في شريط العنوان، أو قائمة المتصفّح (⋮)');
+  var chooseTxt=isAndroid? tr('اختر «تثبيت التطبيق» أو «إضافة إلى الشاشة الرئيسية»') : tr('اختر «تثبيت» أو Install');
+  var html='<div class="modal" style="max-width:440px"><div class="modal-header" style="display:flex;justify-content:space-between;align-items:center;gap:8px">'+
+    '<span>📲 '+tr('تثبيت التطبيق على الجهاز')+'</span>'+
+    '<button class="del-btn" style="color:#fff" onclick="document.getElementById(\'gen-install-modal\').style.display=\'none\'">✕</button></div>'+
+    '<div class="modal-body"><div class="ios-steps">'+
+    '<div class="st"><b>1</b><span>'+menuTxt+'</span></div>'+
+    '<div class="st"><b>2</b><span>'+chooseTxt+'</span></div>'+
+    '<div class="st"><b>3</b><span>'+tr('أكّد التثبيت — وسيظهر التطبيق على جهازك')+'</span></div>'+
+    '</div><div class="alert ai" style="margin-top:8px;font-size:.8rem">💡 '+tr('استخدم متصفّح Chrome أو Edge لأفضل تجربة تثبيت')+'</div></div></div>';
+  if(!ov){ ov=document.createElement('div'); ov.id='gen-install-modal'; ov.className='modal-overlay'; ov.style.cssText='display:flex;z-index:10070'; ov.innerHTML=html; document.body.appendChild(ov); }
+  else { ov.innerHTML=html; ov.style.display='flex'; }
 }
 function showIOSInstall(){
   var ov=document.getElementById('ios-install-modal');
@@ -7892,9 +7930,10 @@ function showIOSInstall(){
 }
 function _initPWA(){
   try{
-    var b=document.getElementById('btn-install'); if(!b) return;
-    if(_isStandalone()){ b.style.display='none'; return; }
-    if(_isIOS()){ b.style.display=''; }       // iOS لا يطلق beforeinstallprompt — نعرض الزر لإظهار التعليمات
+    if(_isStandalone()){ _showInstall(false); return; }   // يعمل كتطبيق مثبّت — لا داعي للزر
+    // زر شاشة الدخول يظهر دائماً (طريقة مضمونة للتثبيت)؛ زر الرأس يظهر عند توفّر نافذة التثبيت أو على iOS
+    var lg=document.getElementById('btn-install-login'); if(lg) lg.style.display='';
+    var hb=document.getElementById('btn-install'); if(hb) hb.style.display=(_isIOS()||_deferredInstall)?'':'none';
   }catch(e){}
 }
 window.onload = function() {
