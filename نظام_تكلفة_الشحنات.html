@@ -6,6 +6,16 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
+<!-- PWA: تثبيت كتطبيق على الجوال/اللاب توب -->
+<link rel="manifest" href="manifest-shipments.json">
+<meta name="theme-color" content="#17304a">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="الشحنات">
+<link rel="apple-touch-icon" href="apple-touch-icon-ship.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-ship-192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="icon-ship-512.png">
 <title id="page-title">نظام تكلفة الشحنات</title>
 <style>
 :root{
@@ -423,6 +433,13 @@ body.ro [onclick*="duplicate"],body.ro .mini-btn{display:none!important}
 html{transition:none}
 body,.card,.modal-box,input,select,textarea,th,td,.card-body{transition:background .25s,color .25s,border-color .25s}
 .theme-toggle{background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.3);color:#fff;border-radius:7px;padding:5px 13px;cursor:pointer;font-size:.82rem;font-weight:600;white-space:nowrap;display:inline-flex;align-items:center;gap:5px}
+.install-btn{background:linear-gradient(135deg,#157a33,#2e9d47);border:1px solid rgba(255,255,255,.35);color:#fff;border-radius:7px;padding:5px 13px;cursor:pointer;font-size:.8rem;font-weight:800;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.22);animation:instpulse 2.4s ease-in-out infinite}
+.install-btn:hover{filter:brightness(1.08)}
+@keyframes instpulse{0%,100%{box-shadow:0 2px 8px rgba(0,0,0,.22)}50%{box-shadow:0 2px 16px rgba(46,157,71,.6)}}
+.ios-steps{line-height:2;font-size:.92rem;color:var(--text)}
+.ios-steps .st{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.ios-steps .st b{background:var(--primary);color:#fff;width:26px;height:26px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:.82rem;flex-shrink:0}
+.ios-steps .ic{font-size:1.3rem}
 .theme-toggle:hover{background:rgba(255,255,255,.26)}
 #quick-profile-switch option{color:#1a1a1a;background:#fff}
 #lang-switch{background:#0f2336;color:#fff !important;-webkit-appearance:menulist;appearance:menulist}
@@ -777,6 +794,7 @@ html[data-theme="dark"] .rt td.hl{background:#2e2814;color:var(--accent)}
       <button onclick="copyCompanyLink()" title="نسخ رابط داخلي لهذه الشركة"
         style="background:none;border:none;color:#fff;cursor:pointer;font-size:.85rem;padding:2px 4px">🔗</button>
     </div>
+    <button class="install-btn" id="btn-install" onclick="installApp()" title="تثبيت النظام كتطبيق على جهازك" style="display:none">📲 تثبيت التطبيق</button>
     <button class="profile-badge" onclick="openProfileModal()" id="active-profile-badge" title="إدارة النماذج / الشركات">🏢 ...</button>
     <button class="theme-toggle" onclick="toggleTheme()" id="theme-toggle-btn" title="تبديل الوضع الليلي / النهاري"><span id="theme-icon">🌙</span> <span id="theme-label">ليلي</span></button>
     <button class="cloud-badge" id="cloud-badge" onclick="openCloudModal()" title="المزامنة السحابية" style="display:none"><span class="cloud-dot" id="cloud-dot"></span><span id="cloud-label">سحابي</span></button>
@@ -6870,7 +6888,7 @@ function exportPaymentsExcel(){
 // ═══════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════
-var APP_VERSION='v2026-10-30.33';   // رقم إصدار ظاهر للتحقق من تحميل أحدث نسخة (لا cache قديم)
+var APP_VERSION='v2026-11-03.34';   // رقم إصدار ظاهر للتحقق من تحميل أحدث نسخة (لا cache قديم)
 // ═══════════════════════════════════════════
 // 🌐 محرّك الترجمة الشامل (عربي / English / 中文) — قاموس + مسح DOM + مراقب تغييرات
 // ═══════════════════════════════════════════
@@ -7663,6 +7681,39 @@ Object.assign(TR.zh,{
 });
 Object.assign(TR.en,{'يتوفّر تحديث جديد':'A new update is available','اضغط للتحديث':'Click to update'});
 Object.assign(TR.zh,{'يتوفّر تحديث جديد':'有新版本可用','اضغط للتحديث':'点击更新'});
+// الدفعة 12: تثبيت التطبيق PWA
+Object.assign(TR.en,{
+ 'تثبيت التطبيق':'Install app',
+ 'تثبيت النظام كتطبيق على جهازك':'Install the system as an app on your device',
+ 'تم تثبيت التطبيق بنجاح':'App installed successfully',
+ 'جارِ تثبيت التطبيق':'Installing the app',
+ 'التطبيق مُثبَّت بالفعل':'App is already installed',
+ 'للتثبيت: افتح قائمة المتصفّح (⋮) واختر «تثبيت التطبيق» أو «إضافة إلى الشاشة الرئيسية»':'To install: open the browser menu and choose Install app or Add to Home Screen',
+ 'تثبيت التطبيق على الجهاز':'Install the app on your device',
+ 'اضغط زر المشاركة':'Tap the Share button',
+ 'في شريط المتصفّح':'in the browser bar',
+ 'اختر':'Choose',
+ 'إضافة إلى الشاشة الرئيسية':'Add to Home Screen',
+ 'اضغط':'Tap',
+ 'في الأعلى — وسيظهر التطبيق على شاشتك':'at the top — the app will appear on your screen',
+ 'استخدم متصفّح Safari على الآيفون/الآيباد لإتمام التثبيت':'Use Safari on iPhone/iPad to complete the installation'
+});
+Object.assign(TR.zh,{
+ 'تثبيت التطبيق':'安装应用',
+ 'تثبيت النظام كتطبيق على جهازك':'将系统安装为设备上的应用',
+ 'تم تثبيت التطبيق بنجاح':'应用安装成功',
+ 'جارِ تثبيت التطبيق':'正在安装应用',
+ 'التطبيق مُثبَّت بالفعل':'应用已安装',
+ 'للتثبيت: افتح قائمة المتصفّح (⋮) واختر «تثبيت التطبيق» أو «إضافة إلى الشاشة الرئيسية»':'安装方法：打开浏览器菜单，选择安装应用或添加到主屏幕',
+ 'تثبيت التطبيق على الجهاز':'在设备上安装应用',
+ 'اضغط زر المشاركة':'点击分享按钮',
+ 'في شريط المتصفّح':'在浏览器栏中',
+ 'اختر':'选择',
+ 'إضافة إلى الشاشة الرئيسية':'添加到主屏幕',
+ 'اضغط':'点击',
+ 'في الأعلى — وسيظهر التطبيق على شاشتك':'在顶部 — 应用将出现在屏幕上',
+ 'استخدم متصفّح Safari على الآيفون/الآيباد لإتمام التثبيت':'在 iPhone/iPad 上使用 Safari 完成安装'
+});
 var _trOrig=new WeakMap(), _trPh=new WeakMap(), _trTitle=new WeakMap(), _trBusy=false, _trObs=null, _trTimer=null;
 var _emojiLead=/^((?:[←-⇿⌀-➿⬀-⯿☀-⛿️\uD83C-􏰀-\uDFFF\s])+)/;
 function _trLook(lang,ar){ var d=TR[lang]; if(!d) return null; return (d[ar]!=null)?d[ar]:null; }
@@ -7805,11 +7856,53 @@ function initApp() {
   try{ _setupInputUX(); refreshInputDatalists(); updateShipLive(); }catch(e){}
 }
 
+// ═══════════════════════════════════════════
+// 📲 تثبيت كتطبيق (PWA) — جوال / لاب توب
+// ═══════════════════════════════════════════
+var _deferredInstall=null;
+function _isStandalone(){ try{ return (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone===true; }catch(e){ return false; } }
+function _isIOS(){ try{ var ua=navigator.userAgent||''; var iOS=/iphone|ipad|ipod/i.test(ua); var iPadOS=(/Mac/.test(navigator.platform||'') && navigator.maxTouchPoints>1); return iOS||iPadOS; }catch(e){ return false; } }
+window.addEventListener('beforeinstallprompt', function(e){ e.preventDefault(); _deferredInstall=e; try{ var b=document.getElementById('btn-install'); if(b && !_isStandalone()) b.style.display=''; }catch(err){} });
+window.addEventListener('appinstalled', function(){ _deferredInstall=null; try{ var b=document.getElementById('btn-install'); if(b) b.style.display='none'; }catch(e){} try{ toast('🎉 '+tr('تم تثبيت التطبيق بنجاح')); }catch(e){} });
+function installApp(){
+  if(_deferredInstall){
+    try{ _deferredInstall.prompt();
+      _deferredInstall.userChoice.then(function(c){ if(c&&c.outcome==='accepted'){ try{ toast('✅ '+tr('جارِ تثبيت التطبيق')); }catch(e){} } _deferredInstall=null; var b=document.getElementById('btn-install'); if(b) b.style.display='none'; });
+    }catch(e){}
+    return;
+  }
+  if(_isIOS()){ showIOSInstall(); return; }
+  if(_isStandalone()){ try{ toast('✅ '+tr('التطبيق مُثبَّت بالفعل')); }catch(e){} return; }
+  try{ toast(tr('للتثبيت: افتح قائمة المتصفّح (⋮) واختر «تثبيت التطبيق» أو «إضافة إلى الشاشة الرئيسية»')); }catch(e){}
+}
+function showIOSInstall(){
+  var ov=document.getElementById('ios-install-modal');
+  if(!ov){
+    ov=document.createElement('div'); ov.id='ios-install-modal'; ov.className='modal-overlay'; ov.style.cssText='display:flex;z-index:10070';
+    ov.innerHTML='<div class="modal" style="max-width:440px"><div class="modal-header" style="display:flex;justify-content:space-between;align-items:center;gap:8px">'+
+      '<span>📲 '+tr('تثبيت التطبيق على الجهاز')+'</span>'+
+      '<button class="del-btn" style="color:#fff" onclick="document.getElementById(\'ios-install-modal\').style.display=\'none\'">✕</button></div>'+
+      '<div class="modal-body"><div class="ios-steps">'+
+      '<div class="st"><b>1</b><span>'+tr('اضغط زر المشاركة')+' <span class="ic">􀈂</span> <span class="ic">⬆️</span> '+tr('في شريط المتصفّح')+'</span></div>'+
+      '<div class="st"><b>2</b><span>'+tr('اختر')+' «<span class="ic">➕</span> '+tr('إضافة إلى الشاشة الرئيسية')+'»</span></div>'+
+      '<div class="st"><b>3</b><span>'+tr('اضغط')+' «'+tr('إضافة')+'» '+tr('في الأعلى — وسيظهر التطبيق على شاشتك')+'</span></div>'+
+      '</div><div class="alert ai" style="margin-top:8px;font-size:.8rem">💡 '+tr('استخدم متصفّح Safari على الآيفون/الآيباد لإتمام التثبيت')+'</div></div></div>';
+    document.body.appendChild(ov);
+  } else { ov.style.display='flex'; }
+}
+function _initPWA(){
+  try{
+    var b=document.getElementById('btn-install'); if(!b) return;
+    if(_isStandalone()){ b.style.display='none'; return; }
+    if(_isIOS()){ b.style.display=''; }       // iOS لا يطلق beforeinstallprompt — نعرض الزر لإظهار التعليمات
+  }catch(e){}
+}
 window.onload = function() {
   applyStoredTheme();
   cloudEnsureInit();
   authGate();
   try{ setTimeout(_checkForUpdate, 4000); }catch(e){}
+  try{ _initPWA(); }catch(e){}
 };
 // ── إشعار توفّر نسخة أحدث (لتفادي النسخ المخزّنة قديماً في المتصفّح) ──
 var _lastUpdChk=0;
