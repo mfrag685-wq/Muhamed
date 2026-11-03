@@ -14,9 +14,9 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="التوريدات">
-<link rel="apple-touch-icon" href="apple-touch-icon.png">
-<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
-<link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
+<link rel="apple-touch-icon" href="icon-supply-180.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-supply-192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="icon-supply-512.png">
 <!--
   ===========================================================
    نظام إدارة توريد الخضار والفواكه — المخزون والمحاسبة
@@ -641,7 +641,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 <!-- ======================= شاشة الدخول ======================= -->
 <div id="loginScreen">
   <form class="login-card" onsubmit="doLogin(event)">
-    <div class="mark" id="loginMark">🥬</div>
+    <div class="mark" id="loginMark"><img src="icon-supply-192.png" alt="توريد الخضار والفواكه"></div>
     <h2 id="loginCo">نظام توريد الخضار والفواكه</h2>
     <p class="lead">سجّل الدخول للمتابعة</p>
     <div class="login-err" id="loginErr"></div>
@@ -654,6 +654,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
         <input type="checkbox" id="lg_remember" checked style="width:auto;margin:0">
         <span>تذكّرني على هذا الجهاز (دخول تلقائي بلا كلمة مرور)</span></label>
       <button type="submit" class="btn-main" style="width:100%;margin-top:8px">دخول</button>
+      <button type="button" class="btn installBtn" style="width:100%;margin-top:8px" onclick="installApp()">📲 ثبّت النظام كتطبيق على الجوال أو اللاب توب</button>
     </div>
     <div id="joinFields" class="hidden">
       <div class="field"><label>الاسم الكامل</label><input type="text" id="jn_name"></div>
@@ -687,6 +688,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
     <button id="staleBadge" class="stale-badge no-print" style="display:none" onclick="openStaleModal()" title="أجهزة بحاجة إلى تحديث"><span class="sb-ic">⚠️</span><span id="staleBadgeN">0</span><span class="sb-tx">تحديث</span></button>
     <div class="userbox"><div class="avatar" id="uAvatar">م</div>
       <div><div class="un" id="uName">—</div><div class="ur" id="uRole">—</div></div></div>
+    <button class="btn-ghost installBtn" onclick="installApp()" title="تثبيت النظام كتطبيق على الجوال أو اللاب توب">📲 تثبيت التطبيق</button>
     <button class="btn-ghost" onclick="exportBackup()">نسخة احتياطية</button>
     <button class="btn-ghost" onclick="document.getElementById('importFile').click()">استعادة</button>
     <input type="file" id="importFile" accept=".json" class="hidden" onchange="importBackup(event)">
@@ -2163,7 +2165,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-02-c';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-03-b';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -8411,7 +8413,7 @@ function applyLogo(){
     if(lm) lm.innerHTML='<img src="'+logo+'" alt="شعار">';
     if(hm){ hm.innerHTML='<img src="'+logo+'" alt="شعار">'; hm.style.display='flex'; }
   } else {
-    if(lm) lm.innerHTML='🥬';
+    if(lm) lm.innerHTML='<img src="icon-supply-192.png" alt="توريد الخضار والفواكه">';
     if(hm){ hm.innerHTML=''; hm.style.display='none'; }
   }
   /* الشعار أعلى كل تقرير مطبوع */
@@ -8438,6 +8440,35 @@ function iconFromLogo(src,size,cb){
   img.onerror=function(){ cb(null); };
   img.src=src;
 }
+/* ===== تثبيت النظام كتطبيق (PWA) على الجوال أو اللاب توب ===== */
+var _pwaPrompt=null;
+window.addEventListener('beforeinstallprompt',function(e){ e.preventDefault(); _pwaPrompt=e; pwaPaint(); });
+window.addEventListener('appinstalled',function(){ _pwaPrompt=null; pwaPaint(); try{ toast('تم تثبيت التطبيق ✅ — تجده على الشاشة الرئيسية / سطح المكتب'); }catch(e){} });
+function pwaStandalone(){ try{ return (window.matchMedia&&window.matchMedia('(display-mode: standalone)').matches)||window.navigator.standalone===true; }catch(e){ return false; } }
+function pwaPaint(){ var hide=pwaStandalone(); [].forEach.call(document.querySelectorAll('.installBtn'),function(b){ b.style.display=hide?'none':''; }); }
+function installApp(){
+  if(_pwaPrompt){ var pr=_pwaPrompt; _pwaPrompt=null; try{ pr.prompt(); if(pr.userChoice) pr.userChoice.then(function(c){ if(c&&c.outcome==='accepted') toast('جارٍ تثبيت التطبيق…'); }).catch(function(){}); }catch(e){} return; }
+  var ua=navigator.userAgent||'', iOS=/iphone|ipad|ipod/i.test(ua)||(/Macintosh/.test(ua)&&'ontouchend' in document);
+  var iosOther=iOS&&/CriOS|FxiOS|EdgiOS|OPiOS/i.test(ua), android=/android/i.test(ua), samsung=/SamsungBrowser/i.test(ua), edge=/Edg\//.test(ua);
+  var steps;
+  if(iosOther) steps='<b>على iPhone/iPad يتم التثبيت من متصفح Safari فقط.</b><br>انسخ رابط النظام وافتحه في <b>Safari</b> ثم اتبع: زر المشاركة <b>⬆️</b> ← <b>«إضافة إلى الشاشة الرئيسية»</b> ← <b>«إضافة»</b>.';
+  else if(iOS) steps='1) اضغط زر المشاركة <b>⬆️</b> أسفل الشاشة (أو أعلاها في iPad).<br>2) اختر <b>«إضافة إلى الشاشة الرئيسية»</b>.<br>3) اضغط <b>«إضافة»</b> — تظهر أيقونة النظام على الشاشة.';
+  else if(samsung) steps='1) افتح القائمة <b>☰</b> أسفل الشاشة.<br>2) اختر <b>«إضافة صفحة إلى»</b> ← <b>«الشاشة الرئيسية»</b>.';
+  else if(android) steps='1) افتح قائمة المتصفح <b>⋮</b> أعلى الشاشة.<br>2) اختر <b>«تثبيت التطبيق»</b> أو <b>«إضافة إلى الشاشة الرئيسية»</b>.<br>3) أكّد — تظهر أيقونة النظام مع تطبيقاتك.';
+  else steps='<b>على اللاب توب (Chrome أو Edge):</b><br>1) اضغط أيقونة التثبيت <b>⊕</b> في نهاية شريط العنوان.<br>2) أو افتح القائمة <b>'+(edge?'…':'⋮')+'</b> ← <b>«'+(edge?'التطبيقات ← تثبيت هذا الموقع كتطبيق':'حفظ ومشاركة ← تثبيت الصفحة كتطبيق')+'»</b>.<br>3) يفتح النظام في نافذة مستقلة وتجد أيقونته على سطح المكتب وقائمة ابدأ.'
+    +'<div class="mini" style="margin-top:6px">في Safari على Mac: قائمة «ملف» ← «إضافة إلى Dock».</div>';
+  var old=document.getElementById('pwaModal'); if(old) old.remove();
+  var m=document.createElement('div'); m.id='pwaModal';
+  m.style.cssText='position:fixed;inset:0;z-index:99999;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;padding:16px';
+  m.onclick=function(e){ if(e.target===m) m.remove(); };
+  m.innerHTML='<div style="background:#fff;border-radius:16px;max-width:400px;width:100%;padding:20px 20px 16px;box-shadow:0 20px 50px rgba(0,0,0,.3);direction:rtl;text-align:right">'
+    +'<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px"><img src="icon-supply-192.png" alt="" style="width:46px;height:46px;border-radius:12px"><div><div style="font-weight:900;font-size:16px">📲 تثبيت النظام كتطبيق</div>'
+    +'<div class="mini">يفتح بأيقونة مستقلة ونافذة كاملة بلا شريط المتصفح — وتبقى بياناتك متزامنة كما هي</div></div></div>'
+    +'<div style="line-height:2;font-size:14px">'+steps+'</div>'
+    +'<button type="button" class="btn-main" style="width:100%;margin-top:14px" onclick="document.getElementById(\'pwaModal\').remove()">حسناً</button></div>';
+  document.body.appendChild(m);
+}
+try{ pwaPaint(); if(window.matchMedia) window.matchMedia('(display-mode: standalone)').addEventListener('change',pwaPaint); }catch(e){}
 function updateAppIcons(logo){
   if(!logo) return;   /* بلا شعار: تبقى الأيقونة الافتراضية (الورقة الخضراء) */
   iconFromLogo(logo,512,function(i512){ if(!i512) return;
@@ -8447,18 +8478,8 @@ function updateAppIcons(logo){
       setIcon('link[rel="apple-touch-icon"]',i1);
       var icons=document.querySelectorAll('link[rel="icon"]');
       for(var k=0;k<icons.length;k++) icons[k].href=(icons[k].sizes&&String(icons[k].sizes).indexOf('512')>-1)?i512:i1;
-      /* manifest ديناميكي بالشعار */
-      try{
-        var man={name:(db.settings.company||'نظام التوريدات'),short_name:(db.settings.company||'التوريدات').slice(0,12),
-          start_url:'./',scope:'./',display:'standalone',orientation:'portrait',
-          background_color:'#e9eee9',theme_color:'#152420',
-          icons:[{src:i192||i512,sizes:'192x192',type:'image/png',purpose:'any'},
-                 {src:i512,sizes:'512x512',type:'image/png',purpose:'any maskable'}]};
-        var blob=new Blob([JSON.stringify(man)],{type:'application/manifest+json'});
-        if(_mfManifestUrl) URL.revokeObjectURL(_mfManifestUrl);
-        _mfManifestUrl=URL.createObjectURL(blob);
-        var ml=document.querySelector('link[rel="manifest"]'); if(ml) ml.href=_mfManifestUrl;
-      }catch(e){}
+      /* لا نستبدل ملف manifest أثناء التشغيل (كما في نظام النقل): الملف الثابت الصالح شرطٌ لظهور «تثبيت التطبيق»
+         في Chrome/Edge — الاستبدال بـ blob كان يُفقد النظام قابلية التثبيت عند رفع شعار. الشعار يظهر في أيقونة iPhone والمتصفح. */
     });
   });
 }
