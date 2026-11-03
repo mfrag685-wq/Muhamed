@@ -8,7 +8,12 @@
 <meta name="theme-color" content="#0f172a">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="application-name" content="نظام المخزون">
+<meta name="apple-mobile-web-app-title" content="نظام المخزون">
 <link rel="apple-touch-icon" href="icon-inv-180.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-inv-192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="icon-inv-512.png">
 <script defer src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
 <script defer src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
 <script defer src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
@@ -240,7 +245,7 @@ html.lock-scroll,html.lock-scroll body{overflow:hidden!important;overscroll-beha
    ============================================================ */
 const KEY="inv_system_v2";
 /* رقم إصدار التطبيق — يُزاد مع كل تحديث؛ يُقارَن بالنسخة المنشورة لإظهار زر التحديث */
-const APP_VERSION="2026-11-02-03";
+const APP_VERSION="2026-11-03-01";
 let DB,ME;
 /* التحقق من توفّر نسخة أحدث بجلب الملف نفسه (بدون كاش) ومقارنة رقم الإصدار */
 function checkForUpdate(){
@@ -465,6 +470,7 @@ function applyBrand(){
   // يظهر اسم الشركة الحالية (مع رمزها) بالأعلى دائماً لتمييز كل نظام أثناء التنقل
   const tt=$("#topTitle");if(tt)tt.textContent=((c.icon||"")+" "+co).trim();
   document.title=co+" — "+appName;
+  try{updateAppIcons();}catch(e){} // تحديث أيقونة ومانيفست التطبيق باسم/شعار الشركة الحالية
 }
 function companySwitchHtml(){
   if(!DB.companies)return"";
@@ -3270,6 +3276,39 @@ window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();deferredPro
 window.addEventListener("appinstalled",()=>{deferredPrompt=null;
   document.querySelectorAll(".installBtn").forEach(b=>b.style.display="none");toast("تم تثبيت التطبيق ✅");});
 function isStandalone(){return window.matchMedia&&window.matchMedia("(display-mode: standalone)").matches||window.navigator.standalone===true;}
+/* ===== أيقونة ومانيفست ديناميكي لكل شركة — فتُثبَّت كتطبيق باسم الشركة وشعارها ===== */
+let _mfManifestUrl=null;
+function iconFromLogo(src,size,cb){
+  try{const img=new Image();
+    img.onload=function(){const cv=document.createElement("canvas");cv.width=size;cv.height=size;
+      const x=cv.getContext("2d");x.fillStyle="#ffffff";x.fillRect(0,0,size,size);
+      const pad=Math.round(size*0.12),box=size-pad*2,r=Math.min(box/img.width,box/img.height),w=img.width*r,h=img.height*r;
+      x.drawImage(img,(size-w)/2,(size-h)/2,w,h);try{cb(cv.toDataURL("image/png"));}catch(e){cb(null);}};
+    img.onerror=function(){cb(null);};img.src=src;
+  }catch(e){cb(null);}
+}
+function setManifest(icon192,icon512){
+  const c=curCompany(),name=((c.icon?c.icon+" ":"")+(c.name||"نظام المخزون")).trim();
+  const at=document.querySelector('link[rel="apple-touch-icon"]');if(at&&icon192)at.href=icon192;
+  document.querySelectorAll('link[rel="icon"]').forEach(el=>{el.href=(String(el.sizes||"").indexOf("512")>-1)?icon512:icon192;});
+  try{
+    const man={name:name,short_name:(c.name||"المخزون").slice(0,12),description:"نظام إدارة المخزون — "+(c.name||""),lang:"ar",dir:"rtl",
+      start_url:location.origin+location.pathname,scope:location.origin+"/",display:"standalone",orientation:"portrait",
+      background_color:"#f1f5f9",theme_color:"#0f172a",
+      icons:[{src:icon192,sizes:"192x192",type:"image/png",purpose:"any"},{src:icon512,sizes:"512x512",type:"image/png",purpose:"any maskable"}]};
+    const blob=new Blob([JSON.stringify(man)],{type:"application/manifest+json"});
+    if(_mfManifestUrl)URL.revokeObjectURL(_mfManifestUrl);
+    _mfManifestUrl=URL.createObjectURL(blob);
+    const ml=document.querySelector('link[rel="manifest"]');if(ml)ml.href=_mfManifestUrl;
+  }catch(e){}
+}
+function updateAppIcons(){
+  const c=curCompany(),logo=c.logo||"",abs=p=>{try{return new URL(p,location.href).href;}catch(e){return p;}};
+  const fallback=()=>setManifest(abs("icon-inv-192.png"),abs("icon-inv-512.png"));
+  if(!logo){fallback();return;}
+  iconFromLogo(logo,512,function(i512){if(!i512){fallback();return;}
+    iconFromLogo(logo,192,function(i192){setManifest(i192||i512,i512);});});
+}
 async function installApp(){
   if(deferredPrompt){deferredPrompt.prompt();try{await deferredPrompt.userChoice;}catch(e){}deferredPrompt=null;return;}
   const iOS=/iphone|ipad|ipod/i.test(navigator.userAgent);
@@ -3279,10 +3318,12 @@ async function installApp(){
       1) اضغط زر المشاركة <b>⬆️</b> بالأسفل.<br>
       2) اختر <b>«إضافة إلى الشاشة الرئيسية»</b>.<br>
       3) اضغط <b>«إضافة»</b> — تظهر أيقونة التطبيق.</p>`
-    :`<p style="line-height:2;font-size:14px">على أندرويد (متصفح Chrome):<br>
+    :`<p style="line-height:2;font-size:14px"><b>على أندرويد (Chrome):</b><br>
       1) افتح قائمة المتصفح <b>⋮</b> بالأعلى.<br>
       2) اختر <b>«تثبيت التطبيق»</b> أو <b>«إضافة إلى الشاشة الرئيسية»</b>.<br>
-      3) أكّد — تظهر أيقونة التطبيق.</p>`}
+      3) أكّد — تظهر أيقونة التطبيق.<br>
+      <br><b>على الكمبيوتر (Chrome/Edge):</b><br>
+      اضغط أيقونة التثبيت <b>⊕</b> في يسار شريط العنوان، أو قائمة <b>⋮</b> ← «تثبيت…».</p>`}
     <button class="btn green block" onclick="this.closest('.modal').remove()">حسناً</button></div>`;
   document.body.appendChild(m);
 }
