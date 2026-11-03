@@ -519,6 +519,10 @@ table.exp-table th.exp-sort.on .srt{opacity:1}
 .edit-banner .eb-dirty{color:#b45309;font-weight:800}.edit-banner .eb-clean{color:#64748b}
 .edit-banner .eb-act{display:flex;flex-wrap:wrap;gap:8px}
 .doc-box .eb-hide{display:none!important}
+.pwa-bar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:linear-gradient(90deg,#0c3b27,#1f7a4d);color:#fff;border-radius:14px;padding:10px 14px;margin:12px 0 0;box-shadow:0 4px 14px rgba(12,59,39,.25)}
+.pwa-bar img{width:42px;height:42px;border-radius:10px;flex:0 0 auto}
+.pwa-bar .pwa-tx{flex:1;min-width:200px;display:flex;flex-direction:column;gap:2px}.pwa-bar .pwa-tx b{font-size:14.5px}.pwa-bar .pwa-tx span{font-size:12px;opacity:.85}
+.pwa-bar .btn-main{background:#fff;color:#0c3b27;font-weight:900}.pwa-bar .btn{background:transparent;color:#fff;border:1px solid rgba(255,255,255,.5)}
 .doc-box.doc-editing .edit-banner{margin:0 0 10px}
 .wchips{display:flex;flex-wrap:wrap;align-items:center;gap:4px;margin-top:4px}
 .wchip{border:1px solid #cbd5e1;background:#fff;border-radius:999px;padding:1px 8px;font-size:11.5px;font-family:inherit;cursor:pointer;color:#334155}
@@ -726,6 +730,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
     <div style="margin-top:10px"><a href="#" onclick="hideStaleOverlay();return false" style="color:#64748b;font-size:12.5px;text-decoration:none">إغلاق مؤقّت للاطّلاع فقط (يبقى الإدخال موقوفاً)</a></div>
   </div>
 </div>
+<div id="pwaBanner" class="no-print" style="display:none"></div>
 <nav class="tabs" id="tabsNav">
   <button class="tab-btn active" data-tab="dash" data-perm="dash"><span class="tab-ic">📊</span>الملخص</button>
   <!-- العمليات اليومية -->
@@ -2165,7 +2170,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-03-b';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-03-c';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -2697,6 +2702,7 @@ function failedLoginStats(){ var d1=nowTs().slice(0,10), lim=new Date(Date.now()
 /* ---------- الدخول والخروج ---------- */
 function doLogin(e){
   e.preventDefault();
+  try{ pwaAutoOffer(); }catch(_e){}   /* ضغطة «دخول» = إذن المستخدم ⇒ يُعرض «تثبيت التطبيق» مرة واحدة لكل جهاز */
   var u=val('lg_user').trim(), p=val('lg_pass');
   if(cloudAccounts()){ cloudLogin(u,p); return; }   /* وضع الحسابات: الدخول عبر Firebase */
   var user=db.users.filter(function(x){return x.username.toLowerCase()===u.toLowerCase();})[0];
@@ -8445,9 +8451,29 @@ var _pwaPrompt=null;
 window.addEventListener('beforeinstallprompt',function(e){ e.preventDefault(); _pwaPrompt=e; pwaPaint(); });
 window.addEventListener('appinstalled',function(){ _pwaPrompt=null; pwaPaint(); try{ toast('تم تثبيت التطبيق ✅ — تجده على الشاشة الرئيسية / سطح المكتب'); }catch(e){} });
 function pwaStandalone(){ try{ return (window.matchMedia&&window.matchMedia('(display-mode: standalone)').matches)||window.navigator.standalone===true; }catch(e){ return false; } }
-function pwaPaint(){ var hide=pwaStandalone(); [].forEach.call(document.querySelectorAll('.installBtn'),function(b){ b.style.display=hide?'none':''; }); }
+function pwaPaint(){ var hide=pwaStandalone(); [].forEach.call(document.querySelectorAll('.installBtn'),function(b){ b.style.display=hide?'none':''; }); pwaBannerPaint(); }
+/* عرض تلقائي للتثبيت: المتصفحات لا تسمح بالتثبيت أو إنشاء اختصار سطح المكتب دون موافقة المستخدم؛
+   لذا نعرضه عند أول ضغطة «دخول» على الجهاز، وإن رُفض أو كان الدخول تلقائياً يظهر شريط علوي (يُؤجَّل 7 أيام بـ«لاحقاً»). */
+function pwaSnoozed(){ var t=+lsGet('pwaSnoozeUntil')||0; return t>Date.now(); }
+function pwaSnooze(days){ lsSet('pwaSnoozeUntil',String(Date.now()+days*864e5)); pwaBannerPaint(); }
+function pwaAutoOffer(){
+  if(!_pwaPrompt||pwaStandalone()||pwaSnoozed()||lsGet('pwaAutoAsked')==='1') return;
+  lsSet('pwaAutoAsked','1'); var pr=_pwaPrompt; _pwaPrompt=null;
+  try{ pr.prompt(); if(pr.userChoice) pr.userChoice.then(function(c){ if(!c||c.outcome!=='accepted') pwaSnooze(7); }).catch(function(){}); }catch(e){}
+  pwaBannerPaint();
+}
+function pwaBannerPaint(){
+  var b=document.getElementById('pwaBanner'); if(!b) return;
+  var ua=navigator.userAgent||'', ios=/iphone|ipad|ipod/i.test(ua), canShow=!pwaStandalone()&&!pwaSnoozed()&&(_pwaPrompt||ios);
+  if(!canShow){ b.style.display='none'; b.innerHTML=''; return; }
+  var mob=/android|iphone|ipad|ipod/i.test(ua);
+  b.style.display='';
+  b.innerHTML='<div class="pwa-bar"><img src="icon-supply-192.png" alt=""><div class="pwa-tx"><b>'+(mob?'ثبّت النظام على شاشة الجوال بنقرة واحدة':'ثبّت النظام على سطح المكتب بنقرة واحدة')+'</b>'
+    +'<span>أيقونة مستقلة '+(mob?'على الشاشة الرئيسية':'على سطح المكتب وقائمة ابدأ')+' — يفتح في نافذة كاملة وبياناتك متزامنة كما هي</span></div>'
+    +'<button type="button" class="btn-main" onclick="installApp()">📲 تثبيت</button><button type="button" class="btn" onclick="pwaSnooze(7)">لاحقاً</button></div>';
+}
 function installApp(){
-  if(_pwaPrompt){ var pr=_pwaPrompt; _pwaPrompt=null; try{ pr.prompt(); if(pr.userChoice) pr.userChoice.then(function(c){ if(c&&c.outcome==='accepted') toast('جارٍ تثبيت التطبيق…'); }).catch(function(){}); }catch(e){} return; }
+  if(_pwaPrompt){ var pr=_pwaPrompt; _pwaPrompt=null; try{ pr.prompt(); if(pr.userChoice) pr.userChoice.then(function(c){ if(c&&c.outcome==='accepted') toast('جارٍ تثبيت التطبيق…'); else pwaSnooze(7); }).catch(function(){}); }catch(e){} pwaBannerPaint(); return; }
   var ua=navigator.userAgent||'', iOS=/iphone|ipad|ipod/i.test(ua)||(/Macintosh/.test(ua)&&'ontouchend' in document);
   var iosOther=iOS&&/CriOS|FxiOS|EdgiOS|OPiOS/i.test(ua), android=/android/i.test(ua), samsung=/SamsungBrowser/i.test(ua), edge=/Edg\//.test(ua);
   var steps;
