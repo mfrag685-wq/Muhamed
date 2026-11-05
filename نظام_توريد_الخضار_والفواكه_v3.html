@@ -646,7 +646,22 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 .qc-pop{position:absolute;z-index:9999;background:var(--card,#fff);border:1px solid #c9d3df;border-radius:9px;box-shadow:0 8px 24px rgba(0,0,0,.15);max-height:300px;overflow:auto;display:none;font-size:14px}
 .qc-opt{padding:8px 12px;cursor:pointer}.qc-opt.on,.qc-opt:hover{background:#e8f0fb}.qc-opt b{color:#1f6b45}.qc-none{padding:8px 12px;color:#999}
 kbd{border:1px solid #bbb;border-bottom-width:2px;border-radius:4px;padding:0 4px;font-size:11px;background:#f7f7f7}
-.tt-req{margin:8px 0}.tt-sum{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}.tt-chip{cursor:pointer;padding:3px 10px;border-radius:14px;background:#fff4e0;border:1px solid #f0c98a;font-size:12.5px}
+.tt-req{margin:8px 0}
+.tt-title{font-size:15px}
+.tt-seg{display:inline-flex;border:1px solid #cfd8e3;border-radius:9px;overflow:hidden;margin-inline-start:8px}
+.tt-seg button{border:0;background:transparent;padding:5px 12px;font:inherit;font-size:12.5px;cursor:pointer}
+.tt-seg button.on{background:#1f6b45;color:#fff}
+.tt-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin:10px 0}
+.tt-tile{display:flex;gap:10px;align-items:center;padding:10px 12px;border-radius:11px;background:#f6f8fb;border:1px solid #e3e9f0}
+.tt-tile.t-bad{background:#fdecec;border-color:#f5c2c2}.tt-tile.t-warn{background:#fff4e0;border-color:#f0d3a0}
+.tt-ti{font-size:22px}.tt-tv{font-size:18px;font-weight:800;line-height:1.1}.tt-tl{font-size:11.5px;color:#667}
+.tt-bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:4px 0 8px}
+.tt-reqbtn{flex:1 1 320px;min-height:42px;font-size:14px}
+.tt-q{flex:1 1 220px;height:40px;padding:0 10px;border:1px solid #cfd8e3;border-radius:9px;font:inherit}
+.tt-allok{padding:12px;border-radius:10px;background:#e8f6ee;color:#1f6b45;font-weight:700;margin:8px 0}
+.tt-tb .tt-it{background:#f1f5f9;border-radius:7px;padding:2px 8px;margin:2px 0 2px 6px}
+.qb-editban{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:8px 10px;margin:-2px 0 8px;border-radius:9px;background:#fff7e0;border:1px solid #f0d08a;font-size:13px}
+.qb-card.qb-editing{border-right-color:#e0a019}.tt-sum{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}.tt-chip{cursor:pointer;padding:3px 10px;border-radius:14px;background:#fff4e0;border:1px solid #f0c98a;font-size:12.5px}
 .tt-tb tr.tt-grp td{text-align:right;background:#f3f6f9;border-top:2px solid #d9e1ea;padding:6px 8px}
 .tt-it{display:inline-block;margin:1px 0 1px 8px;white-space:nowrap}.tt-act{white-space:nowrap}
 #purchases.qb-only>*:not(#taxTrackBox):not(#quickBuyBox):not(.panel-title){display:none!important}
@@ -826,8 +841,8 @@ kbd{border:1px solid #bbb;border-bottom-width:2px;border-radius:4px;padding:0 4p
 <section id="purchases" class="panel">
   <div class="print-head"><span class="print-logo"></span><h3>سجل المشتريات</h3><p>إعداد محمد فرج</p></div>
   <div class="panel-title">فاتورة شراء <span class="hint">يمكن توزيع أصناف الفاتورة الواحدة على أكثر من مستودع</span></div>
-  <div class="no-print" id="taxTrackBox"></div>
   <div class="no-print hidden" id="quickBuyBox"></div>
+  <div class="no-print" id="taxTrackBox"></div>
   <div class="doc-box no-print" id="purchaseFormBox">
     <div class="grid">
       <div class="field"><label>التاريخ</label><input type="date" id="p_date"></div>
@@ -2210,7 +2225,7 @@ kbd{border:1px solid #bbb;border-bottom-width:2px;border-radius:4px;padding:0 4p
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-05-h';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-05-i';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -3937,46 +3952,57 @@ function renderTaxTrack(){
   var qb=document.getElementById('quickBuyBox');
   if(!ME||!(can('purchases')||can('quickBuy'))){ box.innerHTML=''; return; }
   var pan=document.getElementById('purchases'); if(pan) pan.classList.toggle('qb-only',qbOnly());
-  if(qbOnly()&&qb&&qb.classList.contains('hidden')){ if(!_qbRows.length) _qbRows=[{},{},{}]; qb.classList.remove('hidden'); qbPaint(); }
   if(!ttOn()){
     box.innerHTML=can('settings')?'<div class="tt-off"><span>📑 متابعة الفواتير الضريبية للموردين غير مفعّلة في قسم «'+esc(deptName(db.activeDept))+'»</span> <button class="btn-sm" onclick="ttToggle(true)">تفعيل لهذا القسم</button></div>':'';
-    if(qb&&!qbOnly()) qb.classList.add('hidden'); return; }
+    if(qb&&!qbOnly()) qb.classList.add('hidden'); if(qbOnly()) qbEnsureOpen(); return; }
+  /* الإدخال السريع مفتوح دائماً للموظف المختص، ولقسم التوريد المباشر — قبل قائمة الفواتير */
+  if(qbOnly()||(ptOn()&&qbAllowed())) qbEnsureOpen();
   var all=(db.purchases||[]).filter(function(r){ return ttSt(r); });
   var wait=all.filter(function(r){ return ttSt(r)==='wait'; });
   var list=_ttFilter==='wait'?wait:(_ttFilter==='got'?all.filter(function(r){ return ttSt(r)==='got'; }):all);
-  var g={}; list.forEach(function(r){ (g[r.supplierId]=g[r.supplierId]||[]).push(r); });
-  var sups=Object.keys(g).sort(function(a,b){ var ma=g[a].reduce(function(m,r){ return r.date<m?r.date:m; },'9'), mb=g[b].reduce(function(m,r){ return r.date<m?r.date:m; },'9'); return ma<mb?-1:1; });
+  var seeV=!qbOnly();
   var oldest=wait.reduce(function(m,r){ return Math.max(m,ttDays(r.date)); },0), wv=wait.reduce(function(t,r){ return t+(+r.total||0)+(+r.vat||0); },0);
-  var noPr=wait.filter(ttNoPrice).length; if(qbOnly()){ wv=0; noPr=0; }
-  var h='<div class="tt-card'+(wait.length?(oldest>=7?' tt-hot':' tt-warn'):' tt-ok')+'"><div class="tt-head"><b>📑 الفواتير الضريبية للموردين</b>'
-    +(wait.length?' <span class="pill pill-bad">لم تصل: '+wait.length+'</span> <span class="pill pill-warn">أقدمها '+(oldest?'منذ '+mcDays(oldest):'اليوم')+'</span>'+(qbOnly()?'':' <span class="pill pill-info">القيمة '+money(wv)+'</span>')+(noPr?' <span class="pill pill-bad">بلا سعر: '+noPr+'</span>':''):' <span class="pill pill-ok">كل الفواتير وصلت ✓</span>')
-    +'<span class="tt-tools"><button class="btn-sm'+(_ttFilter==='wait'?' active':'')+'" onclick="ttSetFilter(\'wait\')">لم تصل</button><button class="btn-sm'+(_ttFilter==='got'?' active':'')+'" onclick="ttSetFilter(\'got\')">وصلت</button><button class="btn-sm'+(_ttFilter==='all'?' active':'')+'" onclick="ttSetFilter(\'all\')">الكل</button>'
-    +'<button class="btn-sm btn-alt" onclick="qbOpen()">⚡ مشتريات اليوم — إدخال سريع</button>'+(can('settings')?'<button class="btn-sm" onclick="ttToggle(false)" title="إيقاف المتابعة لهذا القسم">إيقاف</button>':'')+'</span></div>'
-    +'<div class="mini tt-mode">'+(ptOn()?'📦 <b>توريد مباشر</b>: المشتريات لا تدخل المخزون — تكلفة كل صنف تُطابَق يومياً مع مبيعاته (تقرير «ربحية الأصناف اليومية»)'+(can('settings')?' <button class="btn-sm" onclick="ptToggle(false)">إيقاف</button>':''):'📦 المشتريات تدخل المخزون'+(can('settings')?' <button class="btn-sm" onclick="ptToggle(true)">تفعيل التوريد المباشر (بدون مخزون)</button>':''))
-    +(can('taxRecv')?'':' · 🔒 تأكيد وصول الفواتير: لمدير النظام أو الموظف المخوَّل')+'</div>';
-  if(!list.length) h+='<div class="mini" style="padding:6px 2px">'+(_ttFilter==='wait'?'لا توجد فواتير منتظرة ✓':'لا توجد سجلات.')+'</div>';
-  else {
-    var seeV=!qbOnly(), canOpen=can('canEdit');
-    if(wait.length) h+='<div class="tt-req"><button class="btn-alt" onclick="ttCopyReqAll()">📋 نسخ طلب كل الفواتير التي لم تصل ('+wait.length+') — لموظف المشتريات</button></div>';
-    h+='<div class="tt-sum">'+sups.map(function(sid){ return '<span class="tt-chip" onclick="var e=document.getElementById(\'tts_'+sid+'\');if(e)e.scrollIntoView({behavior:\'smooth\',block:\'center\'})">'+esc(supName(+sid))+' <b>'+g[sid].length+'</b></span>'; }).join('')+'</div>';
-    h+='<div class="table-scroll"><table class="tt-tb"><thead><tr><th>#</th><th>التاريخ</th><th class="name">الأصناف والكميات</th>'+(seeV?'<th>القيمة</th>':'')+'<th>الحالة</th><th>إجراء</th></tr></thead><tbody>';
+  var nSup={}; wait.forEach(function(r){ nSup[r.supplierId]=1; }); var noPr=wait.filter(ttNoPrice).length;
+  var tile=function(ic,lbl,v,cls){ return '<div class="tt-tile'+(cls?' '+cls:'')+'"><span class="tt-ti">'+ic+'</span><div><div class="tt-tv">'+v+'</div><div class="tt-tl">'+lbl+'</div></div></div>'; };
+  var seg=function(k,t){ return '<button class="'+(_ttFilter===k?'on':'')+'" onclick="ttSetFilter(\''+k+'\')">'+t+'</button>'; };
+  var h='<div class="tt-card'+(wait.length?(oldest>=7?' tt-hot':' tt-warn'):' tt-ok')+'">'
+    +'<div class="tt-head"><b class="tt-title">📑 الفواتير الضريبية للموردين</b>'
+    +'<span class="tt-seg">'+seg('wait','⏳ لم تصل'+(wait.length?' ('+wait.length+')':''))+seg('got','✅ وصلت')+seg('all','الكل')+'</span>'
+    +'<span class="tt-tools">'+(qb&&qb.classList.contains('hidden')&&qbAllowed()?'<button class="btn-sm btn-alt" onclick="qbOpen()">⚡ مشتريات اليوم</button>':'')
+    +(can('settings')?'<button class="btn-sm" onclick="ttToggle(false)" title="إيقاف متابعة الفواتير لهذا القسم">⚙ إيقاف</button>':'')+'</span></div>';
+  if(wait.length){
+    h+='<div class="tt-tiles">'+tile('⏳','فاتورة لم تصل',wait.length,'t-bad')+tile('📅','أقدمها',oldest?'منذ '+mcDays(oldest):'اليوم',oldest>=7?'t-bad':'t-warn')
+      +tile('🚚','مورد',Object.keys(nSup).length,'')+(seeV?tile('💰','قيمة المنتظر',money(wv),'')+(noPr?tile('⚠','بلا سعر',noPr,'t-bad'):''):'')+'</div>'
+      +'<div class="tt-bar"><button class="btn-alt tt-reqbtn" onclick="ttCopyReqAll()">📋 نسخ طلب كل الفواتير التي لم تصل — لموظف المشتريات</button>'
+      +'<input type="search" class="tt-q" placeholder="🔍 بحث بالمورد أو الصنف" oninput="ttFilterRows(this.value)"></div>';
+  } else h+='<div class="tt-allok">✅ كل الفواتير الضريبية وصلت — لا يوجد ما يُطلب</div>';
+  if(list.length&&!(wait.length===0&&_ttFilter==='wait')){
+    var byD={}; list.forEach(function(r){ (byD[r.date]=byD[r.date]||[]).push(r); });
+    var days=Object.keys(byD).sort(); if(_ttFilter!=='wait') days.reverse();
     var cols=seeV?6:5, n=0;
-    sups.forEach(function(sid){ var rs=g[sid].sort(function(a,b){ return a.date<b.date?-1:(a.date>b.date?1:0); });
-      var nw=rs.filter(function(r){ return ttSt(r)==='wait'; }).length, od=rs.reduce(function(m,r){ return ttSt(r)==='wait'?Math.max(m,ttDays(r.date)):m; },0);
-      h+='<tr class="tt-grp" id="tts_'+sid+'"><td colspan="'+cols+'"><b>🚚 '+esc(supName(+sid))+'</b> <span class="mini">'+rs.length+' فاتورة'+(nw?' · لم تصل '+nw+(od?' · أقدمها منذ '+mcDays(od):''):'')+'</span>'
-        +'</td></tr>';
-      rs.forEach(function(r){ var st=ttSt(r), d=ttDays(r.date), np=ttNoPrice(r); n++;
-        var items=(r.lines||[]).map(function(l){ var q=+l.boxes||+l.units||0; return '<span class="tt-it">'+esc(itemName(l.itemId))+' <b>'+qty(q)+'</b></span>'; }).join(' ');
-        h+='<tr><td class="mini">'+n+'</td><td>'+esc(r.date)+'</td><td class="name">'+items+'</td>'
+    h+='<div class="table-scroll"><table class="tt-tb"><thead><tr><th>#</th><th class="name">المورد</th><th class="name">الأصناف والكميات</th>'+(seeV?'<th>القيمة</th>':'')+'<th>الحالة</th><th>إجراء</th></tr></thead><tbody>';
+    days.forEach(function(d){ var rs=byD[d].sort(function(a,b){ return String(supName(a.supplierId)).localeCompare(String(supName(b.supplierId)),'ar'); });
+      var dd=ttDays(d), nw=rs.filter(function(r){ return ttSt(r)==='wait'; }).length;
+      h+='<tr class="tt-grp"><td colspan="'+cols+'"><b>📅 '+esc(dayNameAr(d))+' '+esc(d)+'</b> <span class="mini">'+rs.length+' فاتورة'+(nw&&_ttFilter!=='wait'?' · لم تصل '+nw:'')+(dd?' · منذ '+mcDays(dd):' · اليوم')+'</span></td></tr>';
+      rs.forEach(function(r){ var st=ttSt(r), np=ttNoPrice(r); n++;
+        var items=(r.lines||[]).map(function(l){ var q=+l.boxes||+l.units||0; return '<span class="tt-it">'+esc(itemName(l.itemId))+' <b>'+qty(q)+'</b></span>'; }).join('');
+        var key=arN(supName(r.supplierId)+' '+(r.lines||[]).map(function(l){ return itemName(l.itemId); }).join(' '));
+        h+='<tr class="tt-r" data-k="'+esc(key)+'"><td class="mini">'+n+'</td><td class="name"><b>'+esc(supName(r.supplierId))+'</b></td><td class="name">'+items+'</td>'
           +(seeV?'<td>'+(np?'<span class="pill pill-bad">بلا سعر</span>':money((+r.total||0)+(+r.vat||0)))+'</td>':'')
-          +'<td>'+(st==='wait'?'<span class="pill '+(d>=7?'pill-bad':'pill-warn')+'">⏳ '+(d?'منذ '+mcDays(d):'اليوم')+'</span>':'<span class="pill pill-ok">✅ '+esc(r.tax.no||r.no||'')+'</span>')+'</td>'
-          +'<td class="tt-act">'+(!can('taxRecv')?'':(st==='wait'?'<button class="btn-sm btn-alt" onclick="ttMarkGot('+r.id+')">✔ وصلت</button>':'<button class="btn-sm" onclick="ttMarkWait('+r.id+')" title="إرجاع إلى المنتظر">↺</button>'))
-          +(canOpen?' <button class="btn-sm" onclick="editDoc(\'p\','+r.id+')">فتح</button>':'')+'</td></tr>'; });
+          +'<td>'+(st==='wait'?'<span class="pill '+(dd>=7?'pill-bad':'pill-warn')+'">⏳ لم تصل</span>':'<span class="pill pill-ok">✅ '+esc(r.tax.no||r.no||'')+'</span>')+'</td>'
+          +'<td class="tt-act">'+(qbCanEdit(r)?'<button class="btn-sm" onclick="qbEdit('+r.id+')" title="تعديل في شاشة الإدخال">✏️ تعديل</button> ':'')
+          +(!can('taxRecv')?'':(st==='wait'?'<button class="btn-sm btn-alt" onclick="ttMarkGot('+r.id+')">✔ وصلت</button>':'<button class="btn-sm" onclick="ttMarkWait('+r.id+')" title="إرجاع إلى المنتظر">↺</button>'))
+          +(can('canEdit')&&!qbOnly()?' <button class="btn-sm" onclick="editDoc(\'p\','+r.id+')" title="فتح في فاتورة الشراء الكاملة">فتح</button>':'')+'</td></tr>'; });
     });
     h+='</tbody></table></div>';
-  }
+  } else if(_ttFilter!=='wait') h+='<div class="mini" style="padding:6px 2px">لا توجد سجلات.</div>';
+  if(can('settings')) h+='<div class="mini tt-mode">'+(ptOn()?'📦 <b>توريد مباشر</b>: المشتريات لا تدخل المخزون — تكلفة كل صنف تُطابَق يومياً مع مبيعاته (تقرير «ربحية الأصناف اليومية») <button class="btn-sm" onclick="ptToggle(false)">إيقاف</button>':'📦 المشتريات تدخل المخزون <button class="btn-sm" onclick="ptToggle(true)">تفعيل التوريد المباشر (بدون مخزون)</button>')+'</div>';
   box.innerHTML=h+'</div>';
 }
+function dayNameAr(d){ var x=parseDate(d); return x?['الأحد','الإثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'][x.getUTCDay()]:''; }
+function ttFilterRows(q){ var w=arN(q);
+  [].forEach.call(document.querySelectorAll('#taxTrackBox tr.tt-r'),function(tr){ tr.style.display=(!w||w.split(' ').every(function(x){ return tr.dataset.k.indexOf(x)>-1; }))?'':'none'; });
+  [].forEach.call(document.querySelectorAll('#taxTrackBox tr.tt-grp'),function(g){ var n=g.nextElementSibling, any=false; while(n&&!n.classList.contains('tt-grp')){ if(n.style.display!=='none') any=true; n=n.nextElementSibling; } g.style.display=any?'':'none'; }); }
 function ttSetFilter(f){ _ttFilter=f; renderTaxTrack(); }
 function ttToggle(on){ if(!guard('settings')) return; dcur().taxTrack=on?1:0; log('data','المشتريات',(on?'تفعيل':'إيقاف')+' متابعة الفواتير الضريبية في قسم '+deptName(db.activeDept)); commit(on?'تم تفعيل متابعة الفواتير الضريبية لهذا القسم':'تم الإيقاف'); renderTaxTrack(); }
 function ttMarkGot(id){
@@ -4023,13 +4049,31 @@ function arRank(name,q){ var n=arN(name), x=arN(q); return n===x?0:(n.indexOf(x)
 /* ===== مشتريات اليوم — إدخال سريع (مصمَّم لموظف بسيط) =====
    كل سطر: المورد ← الصنف ← الكمية — بلوحة المفاتيح فقط: Enter ينقل للخانة التالية، وEnter في الكمية ينزل لسطر جديد.
    Enter على خانة مورد فارغة = نفس مورد السطر السابق. الوزن والسعر اختياريان ويظهران لمن يملك الصلاحية. */
-var _qbRows=[], _qbExtra=null;
+var _qbRows=[], _qbExtra=null, _qbEdit=null;
+function qbEnsureOpen(){ var qb=document.getElementById('quickBuyBox'); if(!qb||!qb.classList.contains('hidden')) return; if(!_qbRows.length) _qbRows=[{},{},{}]; qb.classList.remove('hidden'); qbPaint(); }
+function qbIsQuick(r){ return !!(r&&(r.qb||r.note==='إدخال سريع')); }
+/* الموظف يعدّل إدخاله هو (قبل وصول الفاتورة) من نفس شاشة الإدخال؛ المدير/من يملك التعديل يعدّل أي إدخال سريع */
+function qbCanEdit(r){ if(!ME||!r||ttSt(r)!=='wait'||!qbIsQuick(r)||!qbAllowed()) return false; return ME.role==='admin'||can('canEdit')||r.uid===ME.id; }
+function qbEdit(id){ var r=byId(db.purchases,id); if(!qbCanEdit(r)){ toast('لا يمكن تعديل هذا الإدخال'); return; }
+  if(!periodGuard(r.date)) return;
+  if(_qbRows.some(function(x){ return x.sup||x.item||x.q; })&&!_qbEdit&&!confirm('لديك أسطر لم تُحفظ في الإدخال — تجاهلها وفتح الإدخال للتعديل؟')) return;
+  _qbEdit={id:r.id,sup:r.supplierId,date:r.date};
+  _qbRows=(r.lines||[]).map(function(l){ return {sup:r.supplierId,item:l.itemId,q:(l.boxes!=null?l.boxes:l.units),w:(l.boxW!=null?l.boxW:l.uw),p:(l.ep!=null?l.ep:l.price)||''}; });
+  _qbRows.push({sup:r.supplierId}); _qbRows.date=r.date; _qbRows.wh=(r.lines&&r.lines[0]&&r.lines[0].whId)||null;
+  var qb=document.getElementById('quickBuyBox'); if(qb) qb.classList.remove('hidden'); qbPaint();
+  if(qb) qb.scrollIntoView({behavior:'smooth',block:'start'}); qbFocus(0,'q'); }
+function qbCancelEdit(){ _qbEdit=null; _qbRows=[{},{},{}]; qbPaint(); }
+function qbDeleteEdit(){ if(!_qbEdit) return; var r=byId(db.purchases,_qbEdit.id); if(!qbCanEdit(r)) return;
+  if(!confirm('حذف إدخال «'+supName(r.supplierId)+'» بتاريخ '+r.date+' نهائياً؟')) return;
+  db.purchases=db.purchases.filter(function(x){ return x.id!==r.id; });
+  log('delete','المشتريات','حذف إدخال سريع — '+supName(r.supplierId)+' بتاريخ '+r.date);
+  _qbEdit=null; _qbRows=[{},{},{}]; commit('تم حذف الإدخال'); renderTaxTrack(); qbPaint(); }
 function qbAllowed(){ return can('canAdd')||can('quickBuy'); }
 function qbOnly(){ return !!(ME&&ME.role!=='admin'&&can('quickBuy')&&!can('purchases')); }
 function qbShowExtra(){ if(qbOnly()) return false; if(_qbExtra!=null) return _qbExtra; return !ptOn(); }
 function qbOpen(){ if(!qbAllowed()){ toast('لا تملك صلاحية إدخال المشتريات'); return; } var qb=document.getElementById('quickBuyBox'); if(!qb) return;
   if(!_qbRows.length) _qbRows=[{},{},{}]; qb.classList.remove('hidden'); qbPaint(); qb.scrollIntoView({behavior:'smooth',block:'start'}); qbFocus(0,'sup'); }
-function qbClose(){ if(qbOnly()){ _qbRows=[{},{},{}]; qbPaint(); return; } _qbRows=[]; var qb=document.getElementById('quickBuyBox'); if(qb){ qb.classList.add('hidden'); qb.innerHTML=''; } }
+function qbClose(){ _qbEdit=null; if(qbOnly()||(ptOn()&&ttOn())){ _qbRows=[{},{},{}]; qbPaint(); return; } _qbRows=[]; var qb=document.getElementById('quickBuyBox'); if(qb){ qb.classList.add('hidden'); qb.innerHTML=''; } }
 function qbList(k){ return k==='sup'?(db.suppliers||[]):(db.items||[]).filter(function(x){ return !x.service; }); }
 function qbName(k,id){ var x=byId(qbList(k),+id); return x?x.name:''; }
 function qbFocus(i,f){ var go=function(){ var e=document.querySelector('#quickBuyBox [data-qr="'+i+'"][data-qf="'+f+'"]'); if(e){ e.focus(); if(e.select) e.select(); return true; } return false; };
@@ -4038,7 +4082,8 @@ function qbPaint(){
   var qb=document.getElementById('quickBuyBox'); if(!qb) return;
   var whs=db.warehouses||[], wh0=_qbRows.wh||(whs[0]&&whs[0].id), ex=qbShowExtra();
   var whOpts=whs.map(function(w){ return '<option value="'+w.id+'"'+(+wh0===w.id?' selected':'')+'>'+esc(w.name)+'</option>'; }).join('');
-  var h='<div class="qb-card"><div class="tt-head"><b>⚡ مشتريات اليوم</b> <span class="mini">اكتب أي جزء من اسم المورد أو الصنف ← <kbd>Enter</kbd> ← الكمية ← <kbd>Enter</kbd> لسطر جديد</span>'
+  var eb=_qbEdit?'<div class="qb-editban">✏️ تعديل إدخال <b>'+esc(supName(_qbEdit.sup))+'</b> بتاريخ <b>'+esc(_qbEdit.date)+'</b> — عدّل الكميات أو الأصناف ثم احفظ <span class="tt-tools"><button class="btn-sm btn-del" onclick="qbDeleteEdit()">🗑 حذف الإدخال</button><button class="btn-sm" onclick="qbCancelEdit()">إلغاء التعديل</button></span></div>':'';
+  var h='<div class="qb-card'+(_qbEdit?' qb-editing':'')+'">'+eb+'<div class="tt-head"><b>⚡ مشتريات اليوم</b> <span class="mini">اكتب أي جزء من اسم المورد أو الصنف ← <kbd>Enter</kbd> ← الكمية ← <kbd>Enter</kbd> لسطر جديد</span>'
     +(qbOnly()?'':'<span class="tt-tools"><button class="btn-sm" onclick="_qbExtra=!qbShowExtra();qbPaint()">'+(ex?'إخفاء الوزن والسعر':'＋ الوزن والسعر')+'</button></span>')+'</div>'
     +'<div class="qb-top"><label>📅 التاريخ <input type="date" id="qb_date" value="'+esc(_qbRows.date||today())+'" onchange="_qbRows.date=this.value"></label>'
     +(whs.length>1?'<label>🏬 المستودع <select id="qb_wh" onchange="_qbRows.wh=+this.value">'+whOpts+'</select></label>':'<input type="hidden" id="qb_wh" value="'+esc(wh0||'')+'">')+'</div>'
@@ -4055,7 +4100,7 @@ function qbPaint(){
       +'<button class="btn-sm btn-del qb-del" tabindex="-1" onclick="qbDel('+i+')" title="حذف السطر">✕</button></div>'; });
   var nOk=_qbRows.filter(function(r){ return r.sup&&r.item&&+r.q>0; }).length;
   h+='</div><div class="form-foot"><button class="btn-sm" onclick="_qbRows.push({});qbPaint();qbFocus(_qbRows.length-1,\'sup\')">➕ سطر</button> '
-    +'<button class="btn-alt" id="qbSaveBtn" onclick="qbSave()">💾 حفظ مشتريات اليوم'+(nOk?' ('+nOk+')':'')+'</button>'+(qbOnly()?'':' <button class="btn-sm" onclick="qbClose()">إغلاق</button>')
+    +'<button class="btn-alt" id="qbSaveBtn" onclick="qbSave()">💾 '+(_qbEdit?'حفظ التعديل':'حفظ مشتريات اليوم')+(nOk?' ('+nOk+')':'')+'</button>'+(qbOnly()||_qbEdit||(ptOn()&&ttOn())?'':' <button class="btn-sm" onclick="qbClose()">إغلاق</button>')
     +'<span class="mini">Enter في خانة مورد فارغة = نفس مورد السطر السابق.</span></div></div>';
   qb.innerHTML=h;
 }
@@ -4110,25 +4155,30 @@ function qbSave(){
   if(!qbAllowed()){ toast('لا تملك صلاحية إدخال المشتريات'); return; }
   var date=val('qb_date')||today(), wh=+val('qb_wh')||((db.warehouses||[])[0]||{}).id; if(!wh){ toast('لا يوجد مستودع — أضفه من البيانات الأساسية'); return; }
   if(!periodGuard(date)) return;
-  var rows=_qbRows.filter(function(r){ return r.sup||r.item||r.q; }), bad=[];
+  var rows=_qbRows.filter(function(r){ return r.item||r.q; }), bad=[];   /* سطر فيه مورد فقط (مُعبّأ تلقائياً) لا يُعدّ */
   rows.forEach(function(r){ var i=_qbRows.indexOf(r), it=byId(db.items,+r.item), bw=+(r.w!=null&&r.w!==''?r.w:(it?((itemBoxWeights(it.id)||[])[0]||it.uw||0):0));
     if(!r.sup||!it||!(+r.q>0)) bad.push(i+1); else if(it.byKg&&!(bw>0)&&!ptOn()) bad.push(i+1); r._w=bw; });
   if(!rows.length){ toast('أضف سطراً واحداً على الأقل'); return; }
   if(bad.length){ toast('أكمل المورد والصنف والكمية في السطر: '+bad.join('، ')); return; }
   var by={}; rows.forEach(function(r){ (by[r.sup]=by[r.sup]||[]).push(r); });
-  var n=0, rate=vatRate();
+  var n=0, rate=vatRate(), E=_qbEdit, orig=E?byId(db.purchases,E.id):null;
+  if(E&&!qbCanEdit(orig)){ toast('لا يمكن تعديل هذا الإدخال (ربما وصلت فاتورته)'); return; }
+  var editSid=E?(by[orig.supplierId]?String(orig.supplierId):Object.keys(by)[0]):null;
   Object.keys(by).forEach(function(sid){
     var lines=by[sid].map(function(r){ var it=byId(db.items,+r.item); var l=lineBuild(it.id,wh,{q:+r.q,w:r._w,ep:+r.p||0,eb:'unit'},it.byKg?'كيلو':itemUnit(it.id),false);
       if(it.byKg&&r._w>0) rememberBoxWeight(it.id,r._w); return l; });
     var pv=applyVat(lines,rate,'add'), wt=0; pv.lines.forEach(function(l){ wt+=(+l.units||0)*(+l.uw||0); });
-    var rec={id:uid(),no:'',date:date,supplierId:+sid,note:'إدخال سريع',paid:0,lines:pv.lines,total:pv.net,weight:wt,vatRate:rate,vatMode:'add',vat:pv.vat,uid:ME.id,ts:nowTs(),tax:{st:'wait'}};
+    var rec={id:uid(),no:'',date:date,supplierId:+sid,note:'إدخال سريع',qb:1,paid:0,lines:pv.lines,total:pv.net,weight:wt,vatRate:rate,vatMode:'add',vat:pv.vat,uid:ME.id,ts:nowTs(),tax:{st:'wait'}};
+    if(E&&sid===editSid){ var oi=db.purchases.indexOf(orig); rec.id=orig.id; rec.uid=orig.uid||ME.id; rec.vatRate=orig.vatRate!=null?orig.vatRate:rate; stampEdit(rec,orig); db.purchases[oi]=rec; n++;
+      log('edit','المشتريات','تعديل إدخال سريع — '+supName(+sid)+' بتاريخ '+date+': '+by[sid].map(function(r){ return itemName(+r.item)+' '+r.q; }).join('، ')); return; }
     db.purchases.push(rec); n++;
     log('add','المشتريات','مشتريات اليوم (إدخال سريع) — '+supName(+sid)+': '+by[sid].map(function(r){ return itemName(+r.item)+' '+r.q; }).join('، ')+' — بانتظار الفاتورة الضريبية');
   });
-  var d0=_qbRows.date, w0=_qbRows.wh; _qbRows=[{},{},{}]; _qbRows.date=d0; _qbRows.wh=w0;
-  if(!qbOnly()){ _qbRows=[]; var qb=document.getElementById('quickBuyBox'); if(qb){ qb.classList.add('hidden'); qb.innerHTML=''; } }
-  commit('✅ تم حفظ مشتريات '+n+' مورد'+(ptOn()?' (توريد مباشر)':'')+' — بانتظار فواتيرهم الضريبية'); renderTaxTrack();
-  if(qbOnly()){ qbPaint(); qbFocus(0,'sup'); }
+  var wasEdit=!!E; _qbEdit=null;
+  var d0=wasEdit?null:_qbRows.date, w0=_qbRows.wh; _qbRows=[{},{},{}]; _qbRows.date=d0; _qbRows.wh=w0;
+  if(!qbOnly()&&!(ptOn()&&ttOn())){ _qbRows=[]; var qb=document.getElementById('quickBuyBox'); if(qb){ qb.classList.add('hidden'); qb.innerHTML=''; } }
+  commit(wasEdit?'✅ تم حفظ التعديل':('✅ تم حفظ مشتريات '+n+' مورد'+(ptOn()?' (توريد مباشر)':'')+' — بانتظار فواتيرهم الضريبية')); renderTaxTrack();
+  if(qbOnly()||(ptOn()&&ttOn())){ qbPaint(); qbFocus(0,'sup'); }
 }
 function savePurchase(){
   if(!guard('canAdd')) return;
