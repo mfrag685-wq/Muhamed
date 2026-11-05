@@ -2170,7 +2170,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-05-a';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-05-b';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -10770,12 +10770,18 @@ function exportBackup(){
 }
 function importBackup(ev){
   var f=ev.target.files[0]; if(!f) return;
-  if(!confirm('سيتم استبدال كل البيانات الحالية بمحتوى الملف. تأكد من وجود نسخة احتياطية حديثة. المتابعة؟')){ ev.target.value=''; return; }
+  if(!confirm('سيتم استبدال كل البيانات الحالية بمحتوى الملف (مع الإبقاء على المستخدمين الحاليين وحسابات دخولهم). تأكد من وجود نسخة احتياطية حديثة. المتابعة؟')){ ev.target.value=''; return; }
   var rd=new FileReader();
   rd.onload=function(e){
     try{
       var d=JSON.parse(e.target.result);
       if(!d.settings||!Array.isArray(d.users)) throw 0;
+      /* المستخدمون مشتركون بين كل الأقسام ومرتبطون بحسابات الدخول السحابية: الاستعادة تُبقي
+         المستخدمين الحاليين كما هم وتضيف فقط من في النسخة وغير موجود — كي لا تُغلق حسابات الموظفين */
+      var keepUsers=(db.users||[]).slice(), unm=function(x){ return String(x&&x.username||'').trim().toLowerCase(); };
+      d.users.forEach(function(bu){ if(!bu) return; var hit=keepUsers.some(function(cu){ return (bu.fbUid&&cu.fbUid===bu.fbUid)||(unm(bu)&&unm(cu)===unm(bu))||(bu.id!=null&&cu.id===bu.id); });
+        if(!hit) keepUsers.push(bu); });
+      d.users=keepUsers;
       db=d; ensureDbShape();   /* يعالج البنية القديمة والأقسام تلقائياً */ resetKnownIds();
       db.meta=db.meta||{}; db.meta.author=AUTHOR;
       var me=byId(db.users,ME?ME.id:0);
