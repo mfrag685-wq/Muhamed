@@ -646,7 +646,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 .qc-pop{position:absolute;z-index:9999;background:var(--card,#fff);border:1px solid #c9d3df;border-radius:9px;box-shadow:0 8px 24px rgba(0,0,0,.15);max-height:300px;overflow:auto;display:none;font-size:14px}
 .qc-opt{padding:8px 12px;cursor:pointer}.qc-opt.on,.qc-opt:hover{background:#e8f0fb}.qc-opt b{color:#1f6b45}.qc-none{padding:8px 12px;color:#999}
 kbd{border:1px solid #bbb;border-bottom-width:2px;border-radius:4px;padding:0 4px;font-size:11px;background:#f7f7f7}
-.tt-sum{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}.tt-chip{cursor:pointer;padding:3px 10px;border-radius:14px;background:#fff4e0;border:1px solid #f0c98a;font-size:12.5px}
+.tt-req{margin:8px 0}.tt-sum{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}.tt-chip{cursor:pointer;padding:3px 10px;border-radius:14px;background:#fff4e0;border:1px solid #f0c98a;font-size:12.5px}
 .tt-tb tr.tt-grp td{text-align:right;background:#f3f6f9;border-top:2px solid #d9e1ea;padding:6px 8px}
 .tt-it{display:inline-block;margin:1px 0 1px 8px;white-space:nowrap}.tt-act{white-space:nowrap}
 #purchases.qb-only>*:not(#taxTrackBox):not(#quickBuyBox):not(.panel-title){display:none!important}
@@ -2210,7 +2210,7 @@ kbd{border:1px solid #bbb;border-bottom-width:2px;border-radius:4px;padding:0 4p
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-05-g';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-05-h';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -3957,13 +3957,14 @@ function renderTaxTrack(){
   if(!list.length) h+='<div class="mini" style="padding:6px 2px">'+(_ttFilter==='wait'?'لا توجد فواتير منتظرة ✓':'لا توجد سجلات.')+'</div>';
   else {
     var seeV=!qbOnly(), canOpen=can('canEdit');
+    if(wait.length) h+='<div class="tt-req"><button class="btn-alt" onclick="ttCopyReqAll()">📋 نسخ طلب كل الفواتير التي لم تصل ('+wait.length+') — لموظف المشتريات</button></div>';
     h+='<div class="tt-sum">'+sups.map(function(sid){ return '<span class="tt-chip" onclick="var e=document.getElementById(\'tts_'+sid+'\');if(e)e.scrollIntoView({behavior:\'smooth\',block:\'center\'})">'+esc(supName(+sid))+' <b>'+g[sid].length+'</b></span>'; }).join('')+'</div>';
     h+='<div class="table-scroll"><table class="tt-tb"><thead><tr><th>#</th><th>التاريخ</th><th class="name">الأصناف والكميات</th>'+(seeV?'<th>القيمة</th>':'')+'<th>الحالة</th><th>إجراء</th></tr></thead><tbody>';
     var cols=seeV?6:5, n=0;
     sups.forEach(function(sid){ var rs=g[sid].sort(function(a,b){ return a.date<b.date?-1:(a.date>b.date?1:0); });
       var nw=rs.filter(function(r){ return ttSt(r)==='wait'; }).length, od=rs.reduce(function(m,r){ return ttSt(r)==='wait'?Math.max(m,ttDays(r.date)):m; },0);
       h+='<tr class="tt-grp" id="tts_'+sid+'"><td colspan="'+cols+'"><b>🚚 '+esc(supName(+sid))+'</b> <span class="mini">'+rs.length+' فاتورة'+(nw?' · لم تصل '+nw+(od?' · أقدمها منذ '+mcDays(od):''):'')+'</span>'
-        +(nw?' <button class="btn-sm" onclick="ttCopyReq('+sid+')">📋 نص مطالبة المورد</button>':'')+'</td></tr>';
+        +'</td></tr>';
       rs.forEach(function(r){ var st=ttSt(r), d=ttDays(r.date), np=ttNoPrice(r); n++;
         var items=(r.lines||[]).map(function(l){ var q=+l.boxes||+l.units||0; return '<span class="tt-it">'+esc(itemName(l.itemId))+' <b>'+qty(q)+'</b></span>'; }).join(' ');
         h+='<tr><td class="mini">'+n+'</td><td>'+esc(r.date)+'</td><td class="name">'+items+'</td>'
@@ -3991,6 +3992,18 @@ function ttMarkGot(id){
 }
 function ttMarkWait(id){ if(!guard('taxRecv','لمدير النظام أو الموظف المخوَّل فقط')) return; var r=byId(db.purchases,id); if(!r||!confirm('إرجاع الفاتورة إلى «لم تصل»؟')) return;
   var old=JSON.parse(JSON.stringify(r)); r.tax={st:'wait'}; stampEdit(r,old); log('edit','المشتريات','إرجاع فاتورة '+(r.no||'#'+r.id)+' إلى «لم تصل»'); commit('تم'); }
+/* طلب واحد مجمّع بكل الفواتير التي لم تصل — مرتّب حسب التاريخ ثم المورد — يُرسَل لموظف المشتريات مرة واحدة */
+function ttCopyReqAll(){
+  var rs=(db.purchases||[]).filter(function(r){ return ttSt(r)==='wait'; }).sort(function(a,b){ return a.date<b.date?-1:(a.date>b.date?1:(supName(a.supplierId)<supName(b.supplierId)?-1:1)); });
+  if(!rs.length){ toast('لا توجد فواتير منتظرة'); return; }
+  var byD={}; rs.forEach(function(r){ (byD[r.date]=byD[r.date]||[]).push(r); });
+  var n=0, t='السلام عليكم\nنرجو إحضار الفواتير الضريبية التالية التي لم تصل بعد ('+rs.length+' فاتورة):\n';
+  Object.keys(byD).sort().forEach(function(d){ t+='\n📅 '+d+'\n';
+    byD[d].forEach(function(r){ n++; t+=n+') '+supName(r.supplierId)+': '+(r.lines||[]).map(function(l){ return itemName(l.itemId)+' '+qty(+l.boxes||+l.units||0); }).join('، ')+'\n'; }); });
+  t+='\nوشكراً — قسم '+deptName(db.activeDept);
+  var done=function(){ toast('تم نسخ الطلب ('+rs.length+' فاتورة) — الصقه في واتساب موظف المشتريات'); };
+  try{ navigator.clipboard.writeText(t).then(done,function(){ prompt('انسخ النص:',t); }); }catch(e){ prompt('انسخ النص:',t); }
+}
 function ttCopyReq(sid){
   var rs=(db.purchases||[]).filter(function(r){ return r.supplierId===+sid&&ttSt(r)==='wait'; }).sort(function(a,b){ return a.date<b.date?-1:1; });
   var t='السلام عليكم ورحمة الله\nنرجو التكرّم بتزويدنا بالفواتير الضريبية للمشتريات التالية:\n'
