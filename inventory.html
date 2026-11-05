@@ -245,7 +245,7 @@ html.lock-scroll,html.lock-scroll body{overflow:hidden!important;overscroll-beha
    ============================================================ */
 const KEY="inv_system_v2";
 /* رقم إصدار التطبيق — يُزاد مع كل تحديث؛ يُقارَن بالنسخة المنشورة لإظهار زر التحديث */
-const APP_VERSION="2026-11-03-02";
+const APP_VERSION="2026-11-05-01";
 let DB,ME;
 /* التحقق من توفّر نسخة أحدث بجلب الملف نفسه (بدون كاش) ومقارنة رقم الإصدار */
 function checkForUpdate(){
@@ -579,6 +579,7 @@ function startApp(){
   checkForUpdate();
   if(!window._updTimer)window._updTimer=setInterval(checkForUpdate,5*60*1000);
   if(!window._updVis){window._updVis=1;document.addEventListener("visibilitychange",function(){if(!document.hidden)checkForUpdate();});}
+  setTimeout(function(){try{showInstallBanner();}catch(e){}},2000); // دعوة التثبيت بعد الدخول (آيفون/أندرويد)
 }
 function printScreen(){window.print();}
 function dayPart(){const h=new Date().getHours();return (h>=5&&h<12)?"صباح":"مساء";}
@@ -3277,16 +3278,19 @@ window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();deferredPro
 window.addEventListener("appinstalled",()=>{deferredPrompt=null;
   document.querySelectorAll(".installBtn").forEach(b=>b.style.display="none");
   const bn=document.getElementById("installBanner");if(bn)bn.remove();toast("تم تثبيت التطبيق على جهازك ✅");});
-/* شريط دعوة تلقائي للتثبيت (يظهر عندما يسمح المتصفح بالتثبيت) — تثبيته ينشئ اختصاراً على سطح المكتب */
+function isIOS(){return /iphone|ipad|ipod/i.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);}
+/* شريط دعوة للتثبيت: يظهر عند إتاحة التثبيت (أندرويد/كمبيوتر) أو على آيفون (تثبيت يدوي عبر Safari) */
 function showInstallBanner(){
-  if(isStandalone()||!deferredPrompt)return;
+  if(isStandalone())return;
+  if(!deferredPrompt&&!isIOS())return;   // لا متصفح يدعم التثبيت ولا آيفون
   try{if(localStorage.getItem("inv_install_dismissed")==="1")return;}catch(e){}
   if(document.getElementById("installBanner"))return;
   const nm=(curCompany&&curCompany().name)||"النظام";
   const b=document.createElement("div");b.id="installBanner";
   b.style.cssText="position:fixed;left:0;right:0;bottom:0;z-index:290;background:linear-gradient(135deg,#0d9488,#0f3b34);color:#fff;padding:12px 16px;display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;box-shadow:0 -4px 16px rgba(0,0,0,.3);font-weight:700";
-  b.innerHTML=`<span>📲 ثبّت «${esc(nm)}» كتطبيق — يظهر اختصاره على سطح المكتب والجوال</span>
-    <button onclick="doInstallFromBanner()" style="background:#fff;color:#0f766e;border:0;border-radius:9px;padding:9px 20px;font-weight:800;cursor:pointer">تثبيت الآن</button>
+  const label=deferredPrompt?"تثبيت الآن":"طريقة التثبيت";
+  b.innerHTML=`<span>📲 ثبّت «${esc(nm)}» كتطبيق على جهازك</span>
+    <button onclick="doInstallFromBanner()" style="background:#fff;color:#0f766e;border:0;border-radius:9px;padding:9px 20px;font-weight:800;cursor:pointer">${label}</button>
     <button onclick="dismissInstallBanner()" style="background:transparent;color:#fff;border:1px solid rgba(255,255,255,.5);border-radius:9px;padding:9px 14px;cursor:pointer">لاحقاً</button>`;
   document.body.appendChild(b);
 }
@@ -3320,10 +3324,11 @@ function setManifest(icon192,icon512){
   }catch(e){}
 }
 function updateAppIcons(){
-  const c=curCompany(),logo=c.logo||"",abs=p=>{try{return new URL(p,location.href).href;}catch(e){return p;}};
-  const fallback=()=>setManifest(abs("icon-inv-192.png"),abs("icon-inv-512.png"));
-  if(!logo){fallback();return;}
-  iconFromLogo(logo,512,function(i512){if(!i512){fallback();return;}
+  // بلا شعار: نُبقي المانيفست الثابت (manifest.inventory.json) والأيقونة الافتراضية —
+  // وهو الأضمن للتثبيت. نُخصّص المانيفست بالشعار فقط عند وجوده (كنظام تكلفة الشحنات).
+  const c=curCompany(),logo=c.logo||"";
+  if(!logo)return;
+  iconFromLogo(logo,512,function(i512){if(!i512)return;
     iconFromLogo(logo,192,function(i192){setManifest(i192||i512,i512);});});
 }
 async function installApp(){
