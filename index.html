@@ -733,6 +733,7 @@ kbd{border:1px solid #bbb;border-bottom-width:2px;border-radius:4px;padding:0 4p
     <h2 id="loginCo">نظام توريد الخضار والفواكه</h2>
     <p class="lead">سجّل الدخول للمتابعة</p>
     <div class="login-err" id="loginErr"></div>
+    <div class="mini" id="loginBuild" style="text-align:center;opacity:.7;margin:4px 0"></div>
     <div class="login-err" id="bootError" style="display:none;text-align:right;line-height:1.7"></div>
     <div id="joinMsg" style="display:none;background:var(--leaf-soft);color:var(--leaf-dark);border-radius:8px;padding:10px;font-size:13px;margin-bottom:12px;text-align:right;line-height:1.7"></div>
     <div id="loginFields">
@@ -2273,7 +2274,7 @@ kbd{border:1px solid #bbb;border-bottom-width:2px;border-radius:4px;padding:0 4p
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-05-p';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-05-q';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -12171,6 +12172,12 @@ function cloudAttach(cb){
     cloudAttaching=false;
     var v=snap.val(); var vd=cloudRemoteData(v); cloudCheckBuild(v);
     if(vd&&Array.isArray(vd.users)){ cloudApplyRemote(vd); cloudReady=true; }
+    else if(v&&v.data!=null){
+      /* بيانات موجودة في السحابة لكنها غير قابلة للقراءة: لا نكتب فوقها أبداً (حماية من مسح بيانات المنشأة) */
+      cloudAttaching=false; cloudLastError='بيانات السحابة غير قابلة للقراءة — أُوقف الرفع حمايةً لها'; setCloudStatus('err');
+      try{ console.error('cloud root unreadable'); }catch(e){}
+      if(cb) cb('unreadable'); return;
+    }
     else { cloudReady=true; cloudPush(JSON.stringify(serializeDB())); }
     setCloudStatus('ok');
     cloudWatchConnection();   /* رفع تلقائي للمعلّق عند عودة الاتصال */
@@ -12262,6 +12269,10 @@ function afterCloudAuth(user,username){
       .set({name:String(username).trim(),username:String(username).trim(),ts:nowTs(),uid:user.uid,restore:1}).then(go,go); }catch(_){ go(); } };
   cloudAttach(function(err){
     cloudAuthBusy=false;
+    if(err&&err!==true&&!/permission/i.test(String(err.code||err.message||err))){
+      /* ليس رفض صلاحية: خطأ اتصال أو بيانات — لا نعامله كحساب محذوف ولا نرسل طلب تفعيل */
+      var ec=err==='unreadable'?'بيانات السحابة غير قابلة للقراءة':String(err.code||err.message||err);
+      reject('تعذّر الاتصال بالسحابة ('+ec+')','تعذّر الاتصال ببيانات المنشأة ('+ec+') — تحقّق من الإنترنت وحاول مجدداً. الإصدار '+APP_BUILD); return; }
     if(err){
       /* كلمة المرور صحيحة (نجحت المصادقة) لكن لا عضوية في المنشأة — غالباً حُذف المستخدم أو لم يُوافَق عليه:
          نرسل للمدير طلب إعادة تفعيل تلقائياً (دون كلمة المرور) ليوافق عليه بضغطة من شاشة المستخدمين */
@@ -12283,7 +12294,7 @@ function afterCloudAuth(user,username){
         ME=u2; log('data','المستخدمون','استعادة سجل المستخدم «'+mem.username+'» تلقائياً من عضوية السحابة (كان مفقوداً من بيانات المنشأة) — الدور: '+(ROLES[role]||role)+'. راجِع صلاحياته من شاشة المستخدمين');
       }
       finishCloudLogin(user,u2,le);
-    }).catch(function(){ reject('لا يوجد سجل مستخدم مطابق في بيانات المنشأة','لا يوجد سجل مستخدم مطابق في بيانات المنشأة.'); });
+    }).catch(function(e){ var c=(e&&(e.code||e.message))||'خطأ'; reject('تعذّر قراءة عضوية الحساب ('+c+')','تعذّر التحقق من حسابك ('+c+') — تأكّد من الاتصال وحاول مجدداً. الإصدار '+APP_BUILD); });
   });
   function finishCloudLogin(user,u,le){
     if(!Number(u.active)){ reject('الحساب موقوف','هذا الحساب موقوف. راجع مدير النظام.'); return; }
@@ -12292,7 +12303,11 @@ function afterCloudAuth(user,username){
     cloudWriteMember(user.uid,u).catch(function(){});
     log('auth','الدخول',auto?'استئناف جلسة سحابية':'تسجيل دخول سحابي'); persist();
     if(le) le.style.display='none';
-    startApp();
+    try{ startApp(); }
+    catch(ex){ try{ console.error('startApp',ex); }catch(_){}
+      /* خطأ في عرض الشاشات لا يعني أن الحساب غير موجود — أظهر النظام ونبّه بالخطأ الحقيقي بدل رفض الدخول */
+      try{ document.getElementById('loginScreen').classList.add('hidden'); document.getElementById('app').classList.remove('hidden'); }catch(_){}
+      setTimeout(function(){ alert('تم الدخول، لكن حدث خطأ تقني أثناء عرض بعض الشاشات:\n'+((ex&&ex.message)||ex)+'\n\nالإصدار '+APP_BUILD+' — أرسل هذه الرسالة للدعم.'); },300); }
   }
 }
 function cloudLogin(username,password){
@@ -12589,6 +12604,7 @@ function cloudInit(){
    التشغيل
    ========================================================================== */
 (function init(){
+  try{ var lb=document.getElementById('loginBuild'); if(lb) lb.textContent='الإصدار '+APP_BUILD; }catch(e){}
   refreshLedger();
   cloudInit();
   applyLogo();
