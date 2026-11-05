@@ -646,7 +646,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 .tt-newnames{margin:8px 0;padding:7px 10px;border-radius:9px;background:#eef5ff;border:1px solid #c9dcf5;font-size:12.5px}
 .qb-in:focus{outline:2px solid #2f6fb5;border-color:#2f6fb5}
 .qc-pop{position:absolute;z-index:9999;background:var(--card,#fff);border:1px solid #c9d3df;border-radius:9px;box-shadow:0 8px 24px rgba(0,0,0,.15);max-height:300px;overflow:auto;display:none;font-size:14px}
-.qc-opt{padding:8px 12px;cursor:pointer}.qc-opt.on,.qc-opt:hover{background:#e8f0fb}.qc-opt b{color:#1f6b45}.qc-none{padding:8px 12px;color:#999}
+.qc-opt{padding:8px 12px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.qc-opt.on,.qc-opt:hover{background:#e8f0fb}.qc-opt b{color:#1f6b45}.qc-none{padding:8px 12px;color:#999}
 kbd{border:1px solid #bbb;border-bottom-width:2px;border-radius:4px;padding:0 4px;font-size:11px;background:#f7f7f7}
 .tt-req{margin:8px 0}
 .tt-title{font-size:15px}
@@ -666,7 +666,7 @@ kbd{border:1px solid #bbb;border-bottom-width:2px;border-radius:4px;padding:0 4p
 .qb-card.qb-editing{border-right-color:#e0a019}.tt-sum{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}.tt-chip{cursor:pointer;padding:3px 10px;border-radius:14px;background:#fff4e0;border:1px solid #f0c98a;font-size:12.5px}
 .tt-tb tr.tt-grp td{text-align:right;background:#f3f6f9;border-top:2px solid #d9e1ea;padding:6px 8px}
 .tt-it{display:inline-block;margin:1px 0 1px 8px;white-space:nowrap}.tt-act{white-space:nowrap}
-#purchases.qb-only>*:not(#taxTrackBox):not(#quickBuyBox):not(.panel-title){display:none!important}
+#purchases.qb-only>*:not(#taxTrackBox):not(#quickBuyBox){display:none!important}
 /* الجوال: كل سطر بطاقة بنفس الشبكة تماماً (خانات متوازية بالترتيب نفسه: المورد ← الملاحظة ← الصنف ← الكمية والسعر) */
 @media (max-width:700px){
   .qb-card{padding:10px 8px}
@@ -690,7 +690,8 @@ kbd{border:1px solid #bbb;border-bottom-width:2px;border-radius:4px;padding:0 4p
   .qb-card .form-foot{position:sticky;bottom:0;z-index:5;background:var(--card,#fff);padding:8px 0 4px;margin-top:8px;display:flex;flex-wrap:wrap;gap:6px;border-top:1px solid #e3e9f0}
   .qb-card .form-foot .btn-alt{flex:1 1 60%;min-height:46px;font-size:15px}
   .qb-card .form-foot .mini{flex-basis:100%}
-  .qc-pop{max-height:45vh;font-size:16px}.qc-opt{padding:12px 14px}
+  .qc-pop{font-size:16px;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.22)}.qc-opt{padding:12px 14px;border-bottom:1px solid #eef2f6}.qc-opt:last-child{border-bottom:0}
+  .qb-top label{flex-direction:row;align-items:center;justify-content:space-between}.qb-top input,.qb-top select{width:62%;height:42px}
   .qb-editban{font-size:12.5px}
   /* قائمة الفواتير على الجوال */
   .tt-tiles{grid-template-columns:repeat(auto-fit,minmax(105px,1fr))}.tt-tile{padding:8px}.tt-tv{font-size:16px}
@@ -2265,7 +2266,7 @@ kbd{border:1px solid #bbb;border-bottom-width:2px;border-radius:4px;padding:0 4p
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-05-m';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-05-n';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -4180,8 +4181,21 @@ function qcInput(el,onFocus){
   if(!L.length){ p.innerHTML='<div class="qc-none">لا يوجد اسم مطابق لـ «'+esc(q)+'»</div>'; }
   else p.innerHTML=L.map(function(x,j){ return '<div class="qc-opt'+(x.add?' qc-add':'')+(j===0?' on':'')+'" onmousedown="event.preventDefault();qcPick('+j+')">'
     +(x.add?'➕ إضافة «<b>'+esc(x.name)+'</b>» '+(k==='sup'?'كمورد جديد':'كصنف جديد'):qcHi(x.name,q))+'</div>'; }).join('');
-  var rc=el.getBoundingClientRect(); p.style.top=(rc.bottom+window.scrollY+2)+'px'; p.style.left=(rc.left+window.scrollX)+'px'; p.style.minWidth=Math.max(rc.width,200)+'px'; p.style.display='block';
+  p.style.display='block'; qcPlace(p,el);
 }
+/* تموضع القائمة داخل الشاشة دائماً: محاذاة لحافة الخانة اليمنى (عربي)، لا تتجاوز عرض الشاشة،
+   ولا تختفي خلف لوحة مفاتيح الجوال (تُفتح فوق الخانة إن لم تتسع تحتها) */
+function qcPlace(p,el){
+  var rc=el.getBoundingClientRect(), vw=document.documentElement.clientWidth, vv=window.visualViewport;
+  var vTop=vv?vv.offsetTop:0, vH=vv?vv.height:window.innerHeight;
+  var w=Math.min(Math.max(rc.width,vw<=700?Math.min(320,vw-16):220),vw-16);
+  var left=Math.min(Math.max(8,rc.right-w),vw-w-8);
+  p.style.minWidth=''; p.style.width=w+'px'; p.style.left=(left+window.scrollX)+'px';
+  var below=vTop+vH-rc.bottom-8, above=rc.top-vTop-8, n=(p._L||[]).length||1, need=Math.min(300,n*46+8);
+  if(below>=Math.min(need,170)||below>=above){ p.style.maxHeight=Math.max(120,Math.min(300,below))+'px'; p.style.top=(rc.bottom+window.scrollY+3)+'px'; p.classList.remove('qc-up'); }
+  else { var h=Math.max(120,Math.min(300,above)); p.style.maxHeight=h+'px'; p.style.top=(rc.top+window.scrollY-Math.min(h,need)-3)+'px'; p.classList.add('qc-up'); }
+}
+try{ ['resize','scroll'].forEach(function(ev){ (window.visualViewport||window).addEventListener(ev,function(){ var p=document.getElementById('qcPop'); if(p&&p.style.display==='block'&&p._el&&document.activeElement===p._el) qcPlace(p,p._el); }); }); }catch(e){}
 function qcHi(name,q){ var w=arN(q).split(' ')[0]; if(!w) return esc(name); var n=String(name), nn=arN(n);
   var ix=nn.indexOf(w); if(ix<0||nn.length!==n.length) return esc(n);
   return esc(n.slice(0,ix))+'<b>'+esc(n.slice(ix,ix+w.length))+'</b>'+esc(n.slice(ix+w.length)); }
