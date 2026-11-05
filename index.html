@@ -641,7 +641,9 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 .qb-row.qb-ok{background:rgba(31,157,87,.07);border-color:rgba(31,157,87,.25)}
 .qb-n{width:22px;text-align:center;color:#888;font-size:12px}
 .qb-in{height:40px;font-size:15px;padding:0 10px;border:1px solid var(--line,#ccc);border-radius:8px;min-width:0}
-.qb-sup,.qb-item{flex:1 1 200px}.qb-q{flex:0 0 110px;font-weight:700}.qb-x{flex:0 0 100px}.qb-p{flex:0 0 130px}
+.qb-sup,.qb-item{flex:1 1 200px}.qb-q{flex:0 0 110px;font-weight:700}.qb-x{flex:0 0 100px}.qb-p{flex:0 0 130px}.qb-note{flex:0 1 160px}
+.qc-add{color:#1f6b45;border-top:1px dashed #cfd8e3}.tt-note{color:#8a5a00;font-style:normal;font-size:12px}
+.tt-newnames{margin:8px 0;padding:7px 10px;border-radius:9px;background:#eef5ff;border:1px solid #c9dcf5;font-size:12.5px}
 .qb-in:focus{outline:2px solid #2f6fb5;border-color:#2f6fb5}
 .qc-pop{position:absolute;z-index:9999;background:var(--card,#fff);border:1px solid #c9d3df;border-radius:9px;box-shadow:0 8px 24px rgba(0,0,0,.15);max-height:300px;overflow:auto;display:none;font-size:14px}
 .qc-opt{padding:8px 12px;cursor:pointer}.qc-opt.on,.qc-opt:hover{background:#e8f0fb}.qc-opt b{color:#1f6b45}.qc-none{padding:8px 12px;color:#999}
@@ -2225,7 +2227,7 @@ kbd{border:1px solid #bbb;border-bottom-width:2px;border-radius:4px;padding:0 4p
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-05-j';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-05-k';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -2815,7 +2817,18 @@ function finishLogout(){
   document.getElementById('loginScreen').classList.remove('hidden');
   setVal('lg_pass','');
 }
+/* تنبيه دائم لمن يفتح ملفاً محفوظاً (نسخة مُنزَّلة) — لا يصله أي تحديث؛ الرابط الرسمي يتحدّث تلقائياً */
+function fileCopyBanner(){
+  if(!isFileCopy()||document.getElementById('fileCopyBan')) return;
+  var b=document.createElement('div'); b.id='fileCopyBan';
+  b.style.cssText='position:sticky;top:0;z-index:9998;background:#b42318;color:#fff;padding:10px 14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:14px;font-weight:700';
+  b.innerHTML='⚠️ أنت تفتح نسخة ملف محفوظة على هذا الجهاز (إصدار '+APP_BUILD+') ولا تصلها التحديثات. استخدم الرابط الرسمي دائماً واحذف هذا الملف.'
+    +' <a href="'+LIVE_URL+'" style="background:#fff;color:#b42318;padding:6px 14px;border-radius:8px;text-decoration:none">🔗 افتح النظام من الرابط الرسمي</a>';
+  document.body.insertBefore(b,document.body.firstChild);
+}
+try{ document.addEventListener('DOMContentLoaded',fileCopyBanner); setTimeout(fileCopyBanner,500); }catch(e){}
 function startApp(){
+  try{ fileCopyBanner(); }catch(e){}
   document.getElementById('loginScreen').classList.add('hidden');
   document.getElementById('app').classList.remove('hidden');
   document.getElementById('uName').textContent=ME.name;
@@ -3985,8 +3998,9 @@ function renderTaxTrack(){
       var dd=ttDays(d), nw=rs.filter(function(r){ return ttSt(r)==='wait'; }).length;
       h+='<tr class="tt-grp"><td colspan="'+cols+'"><b>📅 '+esc(dayNameAr(d))+' '+esc(d)+'</b> <span class="mini">'+rs.length+' فاتورة'+(nw&&_ttFilter!=='wait'?' · لم تصل '+nw:'')+(dd?' · منذ '+mcDays(dd):' · اليوم')+'</span></td></tr>';
       rs.forEach(function(r){ var st=ttSt(r), np=ttNoPrice(r); n++;
-        var items=(r.lines||[]).map(function(l){ var q=+l.boxes||+l.units||0; return '<span class="tt-it">'+esc(itemName(l.itemId))+' <b>'+qty(q)+'</b></span>'; }).join('');
-        var key=arN(supName(r.supplierId)+' '+(r.lines||[]).map(function(l){ return itemName(l.itemId); }).join(' '));
+        var items=(r.lines||[]).map(function(l){ var q=+l.boxes||+l.units||0, pr=(l.ep!=null?+l.ep:+l.price)||0;
+          return '<span class="tt-it">'+esc(itemName(l.itemId))+' <b>'+qty(q)+(pr>0?' × '+num(pr):'')+'</b>'+(l.note?' <i class="tt-note">📝 '+esc(l.note)+'</i>':'')+'</span>'; }).join('');
+        var key=arN(supName(r.supplierId)+' '+(r.lines||[]).map(function(l){ return itemName(l.itemId)+' '+(l.note||''); }).join(' '));
         h+='<tr class="tt-r" data-k="'+esc(key)+'"><td class="mini">'+n+'</td><td class="name"><b>'+esc(supName(r.supplierId))+'</b></td><td class="name">'+items+'</td>'
           +(seeV?'<td>'+(np?'<span class="pill pill-bad">بلا سعر</span>':money((+r.total||0)+(+r.vat||0)))+'</td>':'')
           +'<td>'+(st==='wait'?'<span class="pill '+(dd>=7?'pill-bad':'pill-warn')+'">⏳ لم تصل</span>':'<span class="pill pill-ok">✅ '+esc(r.tax.no||r.no||'')+'</span>')+'</td>'
@@ -3996,9 +4010,14 @@ function renderTaxTrack(){
     });
     h+='</tbody></table></div>';
   } else if(_ttFilter!=='wait') h+='<div class="mini" style="padding:6px 2px">لا توجد سجلات.</div>';
+  var nS=(db.suppliers||[]).filter(function(x){ return x.qbNew; }), nI=(db.items||[]).filter(function(x){ return x.qbNew; });
+  if((nS.length||nI.length)&&can('master')) h+='<div class="tt-newnames">🆕 أضافها الموظف من مشتريات اليوم — راجِعها من «البيانات الأساسية»: '
+    +nS.map(function(x){ return '<span class="pill pill-info">🚚 '+esc(x.name)+'</span>'; }).join(' ')+' '+nI.map(function(x){ return '<span class="pill pill-info">🏷️ '+esc(x.name)+'</span>'; }).join(' ')
+    +' <button class="btn-sm" onclick="qbAckNew()">✓ تمت المراجعة</button></div>';
   if(can('settings')) h+='<div class="mini tt-mode">'+(ptOn()?'📦 <b>توريد مباشر</b>: المشتريات لا تدخل المخزون — تكلفة كل صنف تُطابَق يومياً مع مبيعاته (تقرير «ربحية الأصناف اليومية») <button class="btn-sm" onclick="ptToggle(false)">إيقاف</button>':'📦 المشتريات تدخل المخزون <button class="btn-sm" onclick="ptToggle(true)">تفعيل التوريد المباشر (بدون مخزون)</button>')+'</div>';
   box.innerHTML=h+'</div>';
 }
+function qbAckNew(){ (db.suppliers||[]).forEach(function(x){ delete x.qbNew; }); (db.items||[]).forEach(function(x){ delete x.qbNew; }); commit('تم'); renderTaxTrack(); }
 function dayNameAr(d){ var x=parseDate(d); return x?['الأحد','الإثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'][x.getUTCDay()]:''; }
 function ttFilterRows(q){ var w=arN(q);
   [].forEach.call(document.querySelectorAll('#taxTrackBox tr.tt-r'),function(tr){ tr.style.display=(!w||w.split(' ').every(function(x){ return tr.dataset.k.indexOf(x)>-1; }))?'':'none'; });
@@ -4025,7 +4044,7 @@ function ttCopyReqAll(){
   var byD={}; rs.forEach(function(r){ (byD[r.date]=byD[r.date]||[]).push(r); });
   var n=0, t='السلام عليكم\nنرجو إحضار الفواتير الضريبية التالية التي لم تصل بعد ('+rs.length+' فاتورة):\n';
   Object.keys(byD).sort().forEach(function(d){ t+='\n📅 '+d+'\n';
-    byD[d].forEach(function(r){ n++; t+=n+') '+supName(r.supplierId)+': '+(r.lines||[]).map(function(l){ return itemName(l.itemId)+' '+qty(+l.boxes||+l.units||0); }).join('، ')+'\n'; }); });
+    byD[d].forEach(function(r){ n++; t+=n+') '+supName(r.supplierId)+': '+(r.lines||[]).map(function(l){ var pr=(l.ep!=null?+l.ep:+l.price)||0; return itemName(l.itemId)+' '+qty(+l.boxes||+l.units||0)+(pr>0?'×'+num(pr):'')+(l.note?' ('+l.note+')':''); }).join('، ')+'\n'; }); });
   t+='\nوشكراً — قسم '+deptName(db.activeDept);
   var done=function(){ toast('تم نسخ الطلب ('+rs.length+' فاتورة) — الصقه في واتساب موظف المشتريات'); };
   try{ navigator.clipboard.writeText(t).then(done,function(){ prompt('انسخ النص:',t); }); }catch(e){ prompt('انسخ النص:',t); }
@@ -4058,7 +4077,7 @@ function qbEdit(id){ var r=byId(db.purchases,id); if(!qbCanEdit(r)){ toast('لا
   if(!periodGuard(r.date)) return;
   if(_qbRows.some(function(x){ return x.sup||x.item||x.q; })&&!_qbEdit&&!confirm('لديك أسطر لم تُحفظ في الإدخال — تجاهلها وفتح الإدخال للتعديل؟')) return;
   _qbEdit={id:r.id,sup:r.supplierId,date:r.date};
-  _qbRows=(r.lines||[]).map(function(l){ return {sup:r.supplierId,item:l.itemId,q:(l.boxes!=null?l.boxes:l.units),w:(l.boxW!=null?l.boxW:l.uw),p:(l.ep!=null?l.ep:l.price)||''}; });
+  _qbRows=(r.lines||[]).map(function(l){ return {sup:r.supplierId,item:l.itemId,q:(l.boxes!=null?l.boxes:l.units),w:(l.boxW!=null?l.boxW:l.uw),p:(l.ep!=null?l.ep:l.price)||'',n:l.note||''}; });
   _qbRows.push({sup:r.supplierId}); _qbRows.date=r.date; _qbRows.wh=(r.lines&&r.lines[0]&&r.lines[0].whId)||null;
   var qb=document.getElementById('quickBuyBox'); if(qb) qb.classList.remove('hidden'); qbPaint();
   if(qb) qb.scrollIntoView({behavior:'smooth',block:'start'}); qbFocus(0,'q'); }
@@ -4083,7 +4102,7 @@ function qbPaint(){
   var whs=db.warehouses||[], wh0=_qbRows.wh||(whs[0]&&whs[0].id), ex=qbShowExtra();
   var whOpts=whs.map(function(w){ return '<option value="'+w.id+'"'+(+wh0===w.id?' selected':'')+'>'+esc(w.name)+'</option>'; }).join('');
   var eb=_qbEdit?'<div class="qb-editban">✏️ تعديل إدخال <b>'+esc(supName(_qbEdit.sup))+'</b> بتاريخ <b>'+esc(_qbEdit.date)+'</b> — عدّل الكميات أو الأصناف ثم احفظ <span class="tt-tools"><button class="btn-sm btn-del" onclick="qbDeleteEdit()">🗑 حذف الإدخال</button><button class="btn-sm" onclick="qbCancelEdit()">إلغاء التعديل</button></span></div>':'';
-  var h='<div class="qb-card'+(_qbEdit?' qb-editing':'')+'">'+eb+'<div class="tt-head"><b>⚡ مشتريات اليوم</b> <span class="mini">المورد ← <kbd>Enter</kbd> ← الصنف ← <kbd>Enter</kbd> ← الكمية ← <kbd>Enter</kbd> ← السعر (اختياري) ← <kbd>Enter</kbd> سطر جديد</span>'
+  var h='<div class="qb-card'+(_qbEdit?' qb-editing':'')+'">'+eb+'<div class="tt-head"><b>⚡ مشتريات اليوم</b> <span class="mini">المورد ← <kbd>Enter</kbd> ← ملاحظة ← <kbd>Enter</kbd> ← الصنف ← <kbd>Enter</kbd> ← الكمية ← <kbd>Enter</kbd> ← السعر (اختياري) ← <kbd>Enter</kbd> سطر جديد</span>'
     +(qbOnly()?'':'<span class="tt-tools"><button class="btn-sm" onclick="_qbExtra=!qbShowExtra();qbPaint()">'+(ex?'إخفاء الوزن':'＋ وزن الوحدة')+'</button></span>')+'</div>'
     +'<div class="qb-top"><label>📅 التاريخ <input type="date" id="qb_date" value="'+esc(_qbRows.date||today())+'" onchange="_qbRows.date=this.value"></label>'
     +(whs.length>1?'<label>🏬 المستودع <select id="qb_wh" onchange="_qbRows.wh=+this.value">'+whOpts+'</select></label>':'<input type="hidden" id="qb_wh" value="'+esc(wh0||'')+'">')+'</div>'
@@ -4093,6 +4112,7 @@ function qbPaint(){
     var ok=r.sup&&r.item&&+r.q>0;
     h+='<div class="qb-row'+(ok?' qb-ok':'')+'"><span class="qb-n">'+(i+1)+'</span>'
       +'<input class="qb-in qb-sup" data-qr="'+i+'" data-qf="sup" data-qk="sup" placeholder="🔍 المورد" autocomplete="off" value="'+esc(qbName('sup',r.sup))+'" oninput="qcInput(this)" onkeydown="qbKey(event,this)" onfocus="qcInput(this,1)" onblur="qcBlur(this)">'
+      +'<input class="qb-in qb-note" data-qr="'+i+'" data-qf="n" placeholder="📝 ملاحظة" autocomplete="off" value="'+esc(r.n||'')+'" oninput="qbSet('+i+',\'n\',this.value)" onkeydown="qbKey(event,this)">'
       +'<input class="qb-in qb-item" data-qr="'+i+'" data-qf="item" data-qk="item" placeholder="🔍 الصنف" autocomplete="off" value="'+esc(qbName('item',r.item))+'" oninput="qcInput(this)" onkeydown="qbKey(event,this)" onfocus="qcInput(this,1)" onblur="qcBlur(this)">'
       +'<input class="qb-in qb-q" data-qr="'+i+'" data-qf="q" type="number" min="0" step="1" inputmode="decimal" placeholder="الكمية" value="'+esc(r.q||'')+'" oninput="qbSet('+i+',\'q\',this.value)" onkeydown="qbKey(event,this)">'
       +(ex?'<input class="qb-in qb-x" data-qr="'+i+'" data-qf="w" type="number" min="0" step="0.01" inputmode="decimal" placeholder="وزن الوحدة" title="وزن الوحدة (كغ) — اختياري" value="'+esc(bw)+'" oninput="qbSet('+i+',\'w\',this.value)" onkeydown="qbKey(event,this)">':'')
@@ -4114,9 +4134,12 @@ function qcInput(el,onFocus){
   if(!cur&&q) L.sort(function(a,b){ return arRank(a.name,q)-arRank(b.name,q)||String(a.name).localeCompare(String(b.name),'ar'); });
   else L.sort(function(a,b){ return String(a.name).localeCompare(String(b.name),'ar'); });
   L=L.slice(0,9);
+  var exact=qbList(k).some(function(x){ return arN(x.name)===arN(q); });
+  if(q.trim()&&!cur&&!exact&&qbAllowed()) L.push({add:1,name:q.trim()});   /* إضافة اسم جديد مباشرة */
   var p=qcPop(); p._el=el; p._ix=0; p._L=L;
   if(!L.length){ p.innerHTML='<div class="qc-none">لا يوجد اسم مطابق لـ «'+esc(q)+'»</div>'; }
-  else p.innerHTML=L.map(function(x,j){ return '<div class="qc-opt'+(j===0?' on':'')+'" onmousedown="event.preventDefault();qcPick('+j+')">'+qcHi(x.name,q)+'</div>'; }).join('');
+  else p.innerHTML=L.map(function(x,j){ return '<div class="qc-opt'+(x.add?' qc-add':'')+(j===0?' on':'')+'" onmousedown="event.preventDefault();qcPick('+j+')">'
+    +(x.add?'➕ إضافة «<b>'+esc(x.name)+'</b>» '+(k==='sup'?'كمورد جديد':'كصنف جديد'):qcHi(x.name,q))+'</div>'; }).join('');
   var rc=el.getBoundingClientRect(); p.style.top=(rc.bottom+window.scrollY+2)+'px'; p.style.left=(rc.left+window.scrollX)+'px'; p.style.minWidth=Math.max(rc.width,200)+'px'; p.style.display='block';
 }
 function qcHi(name,q){ var w=arN(q).split(' ')[0]; if(!w) return esc(name); var n=String(name), nn=arN(n);
@@ -4124,12 +4147,30 @@ function qcHi(name,q){ var w=arN(q).split(' ')[0]; if(!w) return esc(name); var 
   return esc(n.slice(0,ix))+'<b>'+esc(n.slice(ix,ix+w.length))+'</b>'+esc(n.slice(ix+w.length)); }
 function qcBlur(el){ setTimeout(function(){ var p=document.getElementById('qcPop'); if(p&&p._el===el) p.style.display='none';
   var r=_qbRows[+el.dataset.qr], k=el.dataset.qk; if(r&&!r[k]&&el.value){ var L=qbList(k).filter(function(x){ return arN(x.name)===arN(el.value); }); if(L.length===1){ qbChoose(+el.dataset.qr,k,L[0].id,true); } } },120); }
-function qcPick(j){ var p=qcPop(), el=p._el, x=p._L&&p._L[j]; if(!el||!x) return; p.style.display='none'; qbChoose(+el.dataset.qr,el.dataset.qk,x.id); }
+function qcPick(j){ var p=qcPop(), el=p._el, x=p._L&&p._L[j]; if(!el||!x) return; p.style.display='none';
+  if(x.add){ var nid=qbAddNew(el.dataset.qk,x.name); if(nid) qbChoose(+el.dataset.qr,el.dataset.qk,nid); return; }
+  qbChoose(+el.dataset.qr,el.dataset.qk,x.id); }
+/* إضافة مورد/صنف جديد من شاشة الإدخال (للموظف المختص) — يُعلَّم للمراجعة ويُسجَّل في سجل الحركات */
+function qbAddNew(k,name){
+  if(!qbAllowed()){ toast('لا تملك صلاحية الإضافة'); return null; }
+  name=String(name||'').trim(); if(name.length<2){ toast('الاسم قصير جداً'); return null; }
+  if(!confirm('إضافة «'+name+'» '+(k==='sup'?'كمورد جديد':'كصنف جديد')+'؟\nتأكّد أنه غير موجود باسم آخر قريب.')) return null;
+  var id=uid(), by=ME?ME.name:'';
+  if(k==='sup'){ db.suppliers.push({id:id,name:name,phone:'',note:'أُضيف من مشتريات اليوم',qbNew:1,addedBy:by});
+    log('add','البيانات الأساسية','إضافة مورد من مشتريات اليوم: '+name); }
+  else {
+    var its=(db.items||[]).filter(function(x){ return !x.service; }), kg=its.filter(function(x){ return x.byKg; }).length>=its.length/2;
+    var u0=(db.units&&db.units[0]&&db.units[0].name)||'صندوق';
+    db.items.push(kg?{id:id,name:name,unit:'كيلو',byKg:1,uw:1,min:0,active:1,qbNew:1,addedBy:by}:{id:id,name:name,unit:u0,uw:1,min:0,active:1,qbNew:1,addedBy:by});
+    log('add','البيانات الأساسية','إضافة صنف من مشتريات اليوم: '+name+' — يُرجى مراجعة بياناته (الوحدة/الوزن)'); }
+  persist(); try{ fillAllSelects(); renderMaster(); }catch(e){}
+  toast('تمت إضافة «'+name+'»'); return id;
+}
 function qbChoose(i,k,id,silent){ var r=_qbRows[i]; if(!r) return; r[k]=id; if(k==='item'){ r.w=null; }
   var el=document.querySelector('#quickBuyBox [data-qr="'+i+'"][data-qf="'+k+'"]'); if(el) el.value=qbName(k,id);
   if(silent) return;
   if(k==='item'&&qbShowExtra()){ qbPaint(); }
-  qbFocus(i,k==='sup'?'item':'q'); }
+  qbFocus(i,k==='sup'?'n':'q'); }
 function qbSet(i,k,v){ var r=_qbRows[i]; if(!r) return; r[k]=v;
   var row=document.querySelector('#quickBuyBox [data-qr="'+i+'"][data-qf="q"]'); if(row) row.parentNode.classList.toggle('qb-ok',!!(r.sup&&r.item&&+r.q>0)); }
 function qbKey(e,el){
@@ -4141,9 +4182,10 @@ function qbKey(e,el){
   var r=_qbRows[i];
   if(f==='sup'||f==='item'){
     if(f==='sup'&&!el.value.trim()&&i>0&&_qbRows[i-1].sup){ if(open) p.style.display='none'; qbChoose(i,'sup',_qbRows[i-1].sup); return; }
-    if(r[f]&&el.value===qbName(f,r[f])){ if(open) p.style.display='none'; qbFocus(i,f==='sup'?'item':'q'); return; }
+    if(r[f]&&el.value===qbName(f,r[f])){ if(open) p.style.display='none'; qbFocus(i,f==='sup'?'n':'q'); return; }
     if(open&&p._L&&p._L.length){ qcPick(p._ix||0); return; }
     toast(f==='sup'?'اكتب جزءاً من اسم المورد ثم اختر من القائمة':'اكتب جزءاً من اسم الصنف ثم اختر من القائمة'); return; }
+  if(f==='n'){ qbFocus(i,'item'); return; }   /* المورد ← الملاحظة ← الصنف */
   if(f==='q'){ qbFocus(i,qbShowExtra()?'w':'p'); return; }   /* الكمية ← السعر (اختياري) ← سطر جديد */
   if(f==='w'){ qbFocus(i,'p'); return; }
   /* الكمية (أو السعر): انزل لسطر جديد */
@@ -4155,7 +4197,7 @@ function qbSave(){
   if(!qbAllowed()){ toast('لا تملك صلاحية إدخال المشتريات'); return; }
   var date=val('qb_date')||today(), wh=+val('qb_wh')||((db.warehouses||[])[0]||{}).id; if(!wh){ toast('لا يوجد مستودع — أضفه من البيانات الأساسية'); return; }
   if(!periodGuard(date)) return;
-  var rows=_qbRows.filter(function(r){ return r.item||r.q; }), bad=[];   /* سطر فيه مورد فقط (مُعبّأ تلقائياً) لا يُعدّ */
+  var rows=_qbRows.filter(function(r){ return r.item||r.q||(r.n&&String(r.n).trim()); }), bad=[];   /* سطر فيه مورد فقط (مُعبّأ تلقائياً) لا يُعدّ */
   rows.forEach(function(r){ var i=_qbRows.indexOf(r), it=byId(db.items,+r.item), bw=+(r.w!=null&&r.w!==''?r.w:(it?((itemBoxWeights(it.id)||[])[0]||it.uw||0):0));
     if(!r.sup||!it||!(+r.q>0)) bad.push(i+1); else if(it.byKg&&!(bw>0)&&!ptOn()) bad.push(i+1); r._w=bw; });
   if(!rows.length){ toast('أضف سطراً واحداً على الأقل'); return; }
@@ -4166,8 +4208,8 @@ function qbSave(){
   var editSid=E?(by[orig.supplierId]?String(orig.supplierId):Object.keys(by)[0]):null;
   Object.keys(by).forEach(function(sid){
     var lines=by[sid].map(function(r){ var it=byId(db.items,+r.item); var l=lineBuild(it.id,wh,{q:+r.q,w:r._w,ep:+r.p||0,eb:'unit'},it.byKg?'كيلو':itemUnit(it.id),false);
-      if(it.byKg&&r._w>0) rememberBoxWeight(it.id,r._w); return l; });
-    var pv=applyVat(lines,rate,'add'), wt=0; pv.lines.forEach(function(l){ wt+=(+l.units||0)*(+l.uw||0); });
+      if(it.byKg&&r._w>0) rememberBoxWeight(it.id,r._w); if(r.n&&String(r.n).trim()) l.note=String(r.n).trim(); return l; });
+    var pv=applyVat(lines,rate,'add'), wt=0; pv.lines.forEach(function(l,ix){ wt+=(+l.units||0)*(+l.uw||0); if(lines[ix]&&lines[ix].note) l.note=lines[ix].note; });
     var rec={id:uid(),no:'',date:date,supplierId:+sid,note:'إدخال سريع',qb:1,paid:0,lines:pv.lines,total:pv.net,weight:wt,vatRate:rate,vatMode:'add',vat:pv.vat,uid:ME.id,ts:nowTs(),tax:{st:'wait'}};
     if(E&&sid===editSid){ var oi=db.purchases.indexOf(orig); rec.id=orig.id; rec.uid=orig.uid||ME.id; rec.vatRate=orig.vatRate!=null?orig.vatRate:rate; stampEdit(rec,orig); db.purchases[oi]=rec; n++;
       log('edit','المشتريات','تعديل إدخال سريع — '+supName(+sid)+' بتاريخ '+date+': '+by[sid].map(function(r){ return itemName(+r.item)+' '+r.q; }).join('، ')); return; }
@@ -11168,6 +11210,13 @@ function handleImport(ev){
 function exportUserPackage(userId){
   if(!guard('users','تصدير نسخة لمستخدم يتطلب صلاحية إدارة المستخدمين')) return;
   var u=byId(db.users,userId); if(!u) return;
+  if(cloudAccounts()){
+    /* النظام سحابي: الملف المُنزَّل يتجمّد على إصداره ولا يتحدّث — الأفضل إرسال الرابط الرسمي */
+    if(confirm('النظام يعمل سحابياً — الملف المُنزَّل يبقى على إصدار قديم ولا تصله التحديثات.\n\nاضغط «موافق» لنسخ الرابط الرسمي وإرساله للموظف (موصى به).\nاضغط «إلغاء» لتنزيل ملف مستقل رغم ذلك.')){
+      var t='رابط النظام: '+LIVE_URL+'\nاسم المستخدم: '+u.username;
+      try{ navigator.clipboard.writeText(t).then(function(){ toast('تم نسخ الرابط واسم المستخدم — أرسله للموظف'); },function(){ prompt('انسخ:',t); }); }catch(e){ prompt('انسخ:',t); }
+      return; }
+  }
   var autoLogin=confirm(
     'تصدير نسخة نظام مستقلة باسم "'+u.name+'".\n\n'+
     'اضغط "موافق" لتضمين دخول تلقائي: تفتح النسخة مباشرة بصلاحيات هذا المستخدم دون طلب كلمة مرور.\n'+
@@ -11723,7 +11772,10 @@ function showStaleOverlay(){
 }
 function hideStaleOverlay(){ var o=document.getElementById('staleOverlay'); if(o) o.style.display='none'; }
 /* إعادة تحميل تتجاوز ذاكرة المتصفح (خاصة الجوال): تغيير مَعلمة الرابط يجبر جلب أحدث نسخة */
+var LIVE_URL='https://muhamed.mfrag685.workers.dev/';
+function isFileCopy(){ try{ return location.protocol==='file:'; }catch(e){ return false; } }
 function reloadNow(){
+  if(isFileCopy()){ location.href=LIVE_URL; return; }   /* نسخة ملف محفوظة لا تتحدّث — افتح الرابط الرسمي */
   try{
     var u=new URL(location.href); u.searchParams.set('_v', Date.now().toString(36));
     location.replace(u.toString()); return;
