@@ -650,6 +650,8 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 .qc-opt{padding:8px 12px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.qc-opt.on,.qc-opt:hover{background:#e8f0fb}.qc-opt b{color:#1f6b45}.qc-none{padding:8px 12px;color:#999}
 kbd{border:1px solid #bbb;border-bottom-width:2px;border-radius:4px;padding:0 4px;font-size:11px;background:#f7f7f7}
 .tt-req{margin:8px 0}
+.login-info{display:none;background:#eef5ff;border:1px solid #c9dcf5;color:#1d4f91;border-radius:10px;padding:9px 12px;margin:8px 0;font-size:13.5px;text-align:center}
+#loginFields button[disabled]{opacity:.75;cursor:wait}
 .ld-wrap{border:1px solid var(--line,#ddd);border-right:5px solid #2f6fb5;border-radius:12px;padding:10px 12px;margin:0 0 12px;background:var(--card,#fff)}
 .ld-hint{margin:6px 0}.ld-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,520px),1fr));gap:12px;margin-top:8px}
 .ld-card{border:1px solid #d9e1ea;border-radius:12px;padding:8px;background:#fbfcfe}
@@ -2303,7 +2305,7 @@ kbd{border:1px solid #bbb;border-bottom-width:2px;border-radius:4px;padding:0 4p
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-05-t';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-05-u';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -12087,7 +12089,7 @@ var cloudReady=false, cloudRef=null, cloudPushTimer=null, cloudLastPushed='', cl
 function setCloudStatus(state){
   var el=document.getElementById('cloudStatus'); if(!el) return;
   var map={off:['غير مفعّل','off'],auth:['بانتظار الدخول','connecting'],connecting:['يتصل…','connecting'],
-    ok:['متصل ☁','ok'],sync:['يُزامن…','sync'],pending:['بانتظار الرفع ⏳','sync'],err:['تعذّر الاتصال','err']};
+    ok:['متصل ☁','ok'],sync:['يُزامن…','sync'],loading:['يحمّل البيانات…','sync'],pending:['بانتظار الرفع ⏳','sync'],err:['تعذّر الاتصال','err']};
   var m=map[state]||map.off; el.textContent=m[0]; el.className='cloud-status '+m[1];
 }
 function cloudEnabled(){ return !!(CLOUD_CONFIG&&CLOUD_CONFIG.apiKey&&typeof firebase!=='undefined'); }
@@ -12170,7 +12172,7 @@ function cloudDiag(){
   var parts=[]; try{ var d=serializeDB(); ['audit','users','tombstones','settings','interTransfers'].forEach(function(k){ parts.push([k==='audit'?'سجل الحركات ('+(d.audit||[]).length+')':k==='tombstones'?'شواهد الحذف ('+Object.keys(d.tombstones||{}).length+')':k==='settings'?'الإعدادات والشعار':k==='users'?'المستخدمون':'التحويلات بين الأقسام',utf8Bytes(JSON.stringify(d[k]||''))]); });
     Object.keys(d.departments||{}).forEach(function(k){ parts.push(['قسم «'+deptName(k)+'»',utf8Bytes(JSON.stringify(d.departments[k]))]); }); }catch(e){}
   var tot=0; parts.forEach(function(x){ tot+=x[1]; }); parts.sort(function(a,b){ return b[1]-a[1]; });
-  alert('حالة المزامنة\n\nالحالة: '+(cloudReady?'متصل':'غير متصل')+'\nآخر خطأ: '+(cloudLastError?cloudErrText()+' ['+cloudLastError+']':'لا يوجد')+'\nآخر رفع ناجح: '+(cloudLastOkTs||'—')
+  alert('حالة المزامنة\n\nالحالة: '+(cloudReady?'متصل':'غير متصل')+'\nآخر خطأ: '+(cloudLastError?cloudErrText()+' ['+cloudLastError+']':'لا يوجد')+'\nآخر رفع ناجح: '+(cloudLastOkTs||'—')+(cloudLoadMs?'\nزمن تحميل البيانات عند الدخول: '+(cloudLoadMs/1000).toFixed(1)+' ث':'')
     +'\n\nحجم البيانات: '+mb(tot)+' من حد 10 MB\n'+parts.map(function(x){ return '• '+x[0]+': '+mb(x[1]); }).join('\n'));
 }
 function setCloudErrTip(msg){ var el=document.getElementById('cloudStatus'); if(!el) return;
@@ -12448,10 +12450,13 @@ function mergeCloud(localDb,remote){
   return remote;
 }
 /* تطبيق بيانات وردت من السحابة — بالدمج مع المحلي (لا استبدال) حفاظاً على الإدخالات */
-function cloudApplyRemote(remote){
+function cloudApplyRemote(remote,rawStr){
   if(!remote||typeof remote!=='object'||!Array.isArray(remote.users)) return;
   var localSnap=null; try{ localSnap=JSON.parse(JSON.stringify(serializeDB())); }catch(e){}
-  var remoteStr=JSON.stringify(remote);
+  var remoteStr=rawStr||JSON.stringify(remote);
+  /* خط الأساس: نسخة السحابة وحدها بعد نفس التهيئة — للمقارنة العادلة (كانت المقارنة النصية الحرفية تختلف دائماً
+     بسبب ترتيب/تهيئة الحقول فيُعاد رفع القاعدة كاملة بعد كل تحديث ⇒ «يزامن» لا ينتهي وتباطؤ كل الأجهزة) */
+  var baseStr=''; try{ var _keep=db; db=JSON.parse(remoteStr); ensureDbShape(); baseStr=JSON.stringify(serializeDB()); db=_keep; }catch(e){ baseStr=''; }
   if(localSnap) remote=mergeCloud(localSnap,remote);
   db=remote; ensureDbShape();
   var s=JSON.stringify(serializeDB()); _lastLocalStr=s; lsSet(KEY,s);
@@ -12462,7 +12467,8 @@ function cloudApplyRemote(remote){
     updateDeptUI(); applyPerms(); scheduleFullRender();   /* تحديث مؤجَّل مجمَّع — يمنع تعليق المزامنة عند تتابع التحديثات */
   }
   /* إن أضاف الدمج سجلّات محلية أو شواهد حذف غير موجودة في السحابة → ارفع النسخة المدموجة كي تظهر للجميع */
-  if(s!==remoteStr){ cloudLastPushed=''; cloudPush(); } else { cloudLastPushed=s; }
+  if(s===remoteStr||s===baseStr){ cloudLastPushed=s; if(!cloudInflight) setCloudStatus('ok'); }
+  else { cloudLastPushed=''; cloudPush(); }   /* الدمج أضاف فعلاً سجلّات محلية/شواهد حذف ⇒ ارفع */
 }
 /* تحديث كامل مؤجَّل ومجمَّع (الشاشات + البيانات الأساسية/المستخدمين) — يُستخدم عند ورود تحديثات السحابة
    كي لا تتسبّب سلسلة تحديثات متتابعة في إعادة رسم كامل متكرّر يُجمّد الواجهة */
@@ -12475,20 +12481,28 @@ function scheduleFullRender(){
   }, 120);
 }
 /* الاشتراك في عقدة البيانات وتبنّي ما فيها أو رفع المحلي إن كانت فارغة */
+var _attachCbs=[], cloudAppliedStr='', cloudLoadMs=0;
 function cloudAttach(cb){
   if(cloudReady){ if(cb) cb(); return; }
-  if(cloudAttaching){ if(cb) cb(); return; }   /* منع محاولات ربط متزامنة (تسرّب مستمعين) */
-  cloudAttaching=true;
+  /* ربط جارٍ بالفعل (مثلاً استئناف الجلسة تلقائياً): انتظر نتيجته — كان يُستدعى فوراً قبل وصول البيانات
+     فيبحث الدخول عن المستخدم في نسخة الجهاز القديمة/الفارغة ⇒ «لا يوجد سجل» أو نسخة مكرّرة من المستخدم */
+  if(cb) _attachCbs.push(cb);
+  if(cloudAttaching) return;
+  cloudAttaching=true; setCloudStatus('loading');
+  var done=function(err){ var L=_attachCbs; _attachCbs=[]; L.forEach(function(f){ try{ f(err); }catch(e){ try{console.error(e);}catch(_){} } }); };
   cloudRef=firebase.database().ref('workspaces/'+cloudWid()+'/root');
+  var t0=Date.now(), finished=false;
+  var to=setTimeout(function(){ if(finished) return; finished=true; cloudAttaching=false; setCloudStatus('err'); cloudLastError='timeout'; done({code:'timeout',message:'انتهت مهلة تحميل بيانات المنشأة (اتصال بطيء)'}); },75000);
   cloudRef.once('value').then(function(snap){
-    cloudAttaching=false;
+    if(finished) return; finished=true; clearTimeout(to);
+    cloudAttaching=false; cloudLoadMs=Date.now()-t0;
     var v=snap.val(); var vd=cloudRemoteData(v); cloudCheckBuild(v);
-    if(vd&&Array.isArray(vd.users)){ cloudApplyRemote(vd); cloudReady=true; }
+    if(vd&&Array.isArray(vd.users)){ cloudAppliedStr=cloudRemoteStr(v); cloudApplyRemote(vd,cloudAppliedStr); cloudReady=true; }
     else if(v&&v.data!=null){
       /* بيانات موجودة في السحابة لكنها غير قابلة للقراءة: لا نكتب فوقها أبداً (حماية من مسح بيانات المنشأة) */
       cloudAttaching=false; cloudLastError='بيانات السحابة غير قابلة للقراءة — أُوقف الرفع حمايةً لها'; setCloudStatus('err');
       try{ console.error('cloud root unreadable'); }catch(e){}
-      if(cb) cb('unreadable'); return;
+      done('unreadable'); return;
     }
     else { cloudReady=true; cloudPush(JSON.stringify(serializeDB())); }
     setCloudStatus('ok');
@@ -12497,12 +12511,12 @@ function cloudAttach(cb){
     cloudRef.on('value',function(s2){
       var val=s2.val(); cloudCheckBuild(val);
       var rs=cloudRemoteStr(val); if(!rs) return;
-      if(rs===cloudLastPushed||rs===_lastLocalStr) return; /* تجاهل صدى كتابتنا نحن (بلا إعادة تسلسل ثقيلة) */
+      if(rs===cloudLastPushed||rs===_lastLocalStr||rs===cloudAppliedStr) return; /* صدى كتابتنا أو نسخة طُبّقت للتو (كانت تُدمج مرتين عند الدخول) */
       var rd=cloudRemoteData(val); if(!rd||!Array.isArray(rd.users)) return;
-      cloudApplyRemote(rd);
+      cloudAppliedStr=rs; cloudApplyRemote(rd,rs);
     });
-    if(cb) cb();
-  }).catch(function(err){ cloudAttaching=false; setCloudStatus('err'); if(cb) cb(err||true); });
+    done();
+  }).catch(function(err){ if(finished) return; finished=true; clearTimeout(to); cloudAttaching=false; setCloudStatus('err'); done(err||true); });
 }
 function cloudDetach(){ if(cloudRef){ try{cloudRef.off();}catch(e){} }
   try{ if(cloudConnWatched) firebase.database().ref('.info/connected').off(); }catch(e){}
@@ -12572,6 +12586,7 @@ function afterCloudAuth(user,username){
   /* فشل بعد المصادقة: خروج كامل وفصل السحابة كي تبدأ المحاولة التالية من الصفر ببيانات جديدة
      (كان يُبقي cloudReady=true والجلسة مفتوحة فتُعاد المحاولة على حالة قديمة وتتكرّر الإخفاقات) */
   var reject=function(reason,msg){
+    loginBusy._on=false; loginBusy(false);
     if(!auto){ recordFailedLogin(username,reason); if(le){ le.textContent=msg; le.style.display='block'; } }
     try{ cloudDetach(); }catch(e){} try{ firebase.auth().signOut(); }catch(e){} cloudRef=null; setCloudStatus('auth'); };
   var noMember=function(){
@@ -12615,6 +12630,7 @@ function afterCloudAuth(user,username){
     cloudWriteMember(user.uid,u).catch(function(){});
     log('auth','الدخول',auto?'استئناف جلسة سحابية':'تسجيل دخول سحابي'); persist();
     if(le) le.style.display='none';
+    loginBusy._on=false; loginBusy(false);
     try{ startApp(); }
     catch(ex){ try{ console.error('startApp',ex); }catch(_){}
       /* خطأ في عرض الشاشات لا يعني أن الحساب غير موجود — أظهر النظام ونبّه بالخطأ الحقيقي بدل رفض الدخول */
@@ -12622,9 +12638,18 @@ function afterCloudAuth(user,username){
       setTimeout(function(){ alert('تم الدخول، لكن حدث خطأ تقني أثناء عرض بعض الشاشات:\n'+((ex&&ex.message)||ex)+'\n\nالإصدار '+APP_BUILD+' — أرسل هذه الرسالة للدعم.'); },300); }
   }
 }
+function loginBusy(on,msg){
+  var b=document.querySelector('#loginFields button[type=submit]'); if(b){ b.disabled=!!on; b.textContent=on?'⏳ جارٍ الدخول…':'دخول'; }
+  var m=document.getElementById('loginInfo');
+  if(!m){ var le=document.getElementById('loginErr'); if(le){ m=document.createElement('div'); m.id='loginInfo'; m.className='login-info'; le.parentNode.insertBefore(m,le.nextSibling); } }
+  if(m){ m.textContent=on?(msg||''):''; m.style.display=on&&msg?'block':'none'; }
+  clearTimeout(loginBusy._t); if(on) loginBusy._t=setTimeout(function(){ if(m&&m.style.display!=='none') m.textContent='⏳ ما زال التحميل جارياً — الاتصال بطيء أو البيانات كبيرة، انتظر قليلاً ولا تضغط مرة أخرى…'; },15000);
+}
 function cloudLogin(username,password){
   var le=document.getElementById('loginErr');
-  function fail(m){ if(le){le.textContent=m;le.style.display='block';} setCloudStatus('auth'); }
+  if(loginBusy._on) return;   /* منع الضغط المزدوج أثناء محاولة جارية */
+  loginBusy._on=true; if(le) le.style.display='none'; loginBusy(true,'⏳ جارٍ التحقق من كلمة المرور…');
+  function fail(m){ loginBusy._on=false; loginBusy(false); if(le){le.textContent=m;le.style.display='block';} setCloudStatus('auth'); }
   cloudInteractive=true; setCloudStatus('connecting');
   var appu=db.users.filter(function(x){return x.username.toLowerCase()===String(username).toLowerCase();})[0];
   var email=appu?emailForUser(appu):synthEmail(username);
@@ -12633,7 +12658,7 @@ function cloudLogin(username,password){
   var persist=(function(){ try{ return firebase.auth().setPersistence(remOn?firebase.auth.Auth.Persistence.LOCAL:firebase.auth.Auth.Persistence.SESSION); }catch(e){ return null; } })();
   var proceed=function(){ return firebase.auth().signInWithEmailAndPassword(email,password); };
   (persist&&persist.then?persist.then(proceed):proceed())
-    .then(function(cred){ afterCloudAuth(cred.user,username); })
+    .then(function(cred){ loginBusy(true,'✅ كلمة المرور صحيحة — ⏳ جارٍ تحميل بيانات المنشأة…'); afterCloudAuth(cred.user,username); })
     .catch(function(e){
       var code=e&&e.code;
       if(code==='auth/wrong-password'){ recordFailedLogin(username,'كلمة مرور خاطئة'); fail('كلمة المرور غير صحيحة'); return; }
