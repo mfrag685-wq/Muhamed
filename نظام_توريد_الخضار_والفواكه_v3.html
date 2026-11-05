@@ -2170,7 +2170,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-03-c';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-05-a';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -11634,22 +11634,44 @@ function cloudBootstrapAdmin(u,password,fail){
 }
 function afterCloudAuth(user,username){
   if(cloudAuthBusy) return; cloudAuthBusy=true;
+  var auto=!username;   /* استئناف جلسة محفوظة عند فتح الصفحة (ليس محاولة دخول من المستخدم) */
+  var le=document.getElementById('loginErr');
+  /* فشل بعد المصادقة: خروج كامل وفصل السحابة كي تبدأ المحاولة التالية من الصفر ببيانات جديدة
+     (كان يُبقي cloudReady=true والجلسة مفتوحة فتُعاد المحاولة على حالة قديمة وتتكرّر الإخفاقات) */
+  var reject=function(reason,msg){
+    if(!auto){ recordFailedLogin(username,reason); if(le){ le.textContent=msg; le.style.display='block'; } }
+    try{ cloudDetach(); }catch(e){} try{ firebase.auth().signOut(); }catch(e){} cloudRef=null; setCloudStatus('auth'); };
   cloudAttach(function(err){
     cloudAuthBusy=false;
-    var le=document.getElementById('loginErr');
-    if(err){ recordFailedLogin(username,'الحساب قيد المراجعة (لم يوافق المدير)'); if(le){le.textContent='حسابك قيد المراجعة — لم تتم موافقة المدير على انضمامك بعد. حاول لاحقاً بعد الموافقة.';le.style.display='block';}
-      cloudReady=false; try{ firebase.auth().signOut(); }catch(e){} setCloudStatus('auth'); return; }
-    var u=db.users.filter(function(x){return x.fbUid===user.uid;})[0]
-        || db.users.filter(function(x){return x.username.toLowerCase()===String(username).toLowerCase();})[0];
-    if(!u){ recordFailedLogin(username,'لا يوجد سجل مستخدم مطابق في بيانات المنشأة'); if(le){le.textContent='لا يوجد سجل مستخدم مطابق في بيانات المنشأة.';le.style.display='block';} return; }
-    if(!Number(u.active)){ recordFailedLogin(username,'الحساب موقوف'); if(le){le.textContent='هذا الحساب موقوف. راجع مدير النظام.';le.style.display='block';} return; }
+    if(err){ reject('الحساب قيد المراجعة (لم يوافق المدير)','حسابك قيد المراجعة — لم تتم موافقة المدير على انضمامك بعد. حاول لاحقاً بعد الموافقة.'); return; }
+    var byName=function(n){ n=String(n||'').trim().toLowerCase(); return n?db.users.filter(function(x){ return String(x.username||'').trim().toLowerCase()===n; })[0]:null; };
+    var u=db.users.filter(function(x){return x.fbUid===user.uid;})[0]||byName(username);
+    if(u){ finishCloudLogin(user,u,le); return; }
+    /* سجل المستخدم غير موجود في بيانات المنشأة رغم صحة كلمة المرور: نعتمد سجل العضوية السحابي
+       (members/<uid>: اسم المستخدم والدور والحالة) — فإن وُجد مستخدم بنفس الاسم يُربط، وإلا يُعاد إنشاء سجله تلقائياً */
+    firebase.database().ref('workspaces/'+cloudWid()+'/members/'+user.uid).once('value').then(function(ms){
+      var mem=ms.val();
+      if(!mem||!mem.username){ reject('لا يوجد سجل مستخدم مطابق في بيانات المنشأة','لا يوجد سجل مستخدم مطابق في بيانات المنشأة.'); return; }
+      if(!Number(mem.active)){ reject('الحساب موقوف','هذا الحساب موقوف. راجع مدير النظام.'); return; }
+      var u2=byName(mem.username);
+      if(!u2){
+        var role=ROLES[mem.role]&&mem.role!=='custom'?mem.role:'viewer';
+        u2={id:uid(),name:mem.username,username:mem.username,pass:'',role:role,active:1,perms:preset(role),depts:Object.keys(db.departments||{}),lastLogin:'',fbUid:user.uid};
+        db.users.push(u2);
+        ME=u2; log('data','المستخدمون','استعادة سجل المستخدم «'+mem.username+'» تلقائياً من عضوية السحابة (كان مفقوداً من بيانات المنشأة) — الدور: '+(ROLES[role]||role)+'. راجِع صلاحياته من شاشة المستخدمين');
+      }
+      finishCloudLogin(user,u2,le);
+    }).catch(function(){ reject('لا يوجد سجل مستخدم مطابق في بيانات المنشأة','لا يوجد سجل مستخدم مطابق في بيانات المنشأة.'); });
+  });
+  function finishCloudLogin(user,u,le){
+    if(!Number(u.active)){ reject('الحساب موقوف','هذا الحساب موقوف. راجع مدير النظام.'); return; }
     if(u.fbUid!==user.uid){ u.fbUid=user.uid; }
     u.lastLogin=nowTs(); ME=u;
     cloudWriteMember(user.uid,u).catch(function(){});
-    log('auth','الدخول','تسجيل دخول سحابي'); persist();
+    log('auth','الدخول',auto?'استئناف جلسة سحابية':'تسجيل دخول سحابي'); persist();
     if(le) le.style.display='none';
     startApp();
-  });
+  }
 }
 function cloudLogin(username,password){
   var le=document.getElementById('loginErr');
