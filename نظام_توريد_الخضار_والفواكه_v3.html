@@ -1879,6 +1879,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 
   <div class="sec-title warn">سجل حركات المستخدمين</div>
   <div class="filters no-print">
+    <div class="field"><label>القسم</label><select id="au_dept" onchange="renderAudit()"><option value="cur">القسم الحالي</option></select></div>
     <div class="field"><label>المستخدم</label><select id="au_user" onchange="renderAudit()"></select></div>
     <div class="field"><label>نوع العملية</label><select id="au_action" onchange="renderAudit()">
       <option value="">الكل</option><option value="add">إضافة</option><option value="edit">تعديل</option>
@@ -2178,7 +2179,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-05-c';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-05-d';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -2341,7 +2342,11 @@ function deptCountLog(){ var d=dcur(); if(!Array.isArray(d.stockCountLog)) d.sto
 /* الشكل المحفوظ: بيانات مشتركة + أقسام (دون تكرار مصفوفات العمل) */
 function serializeDB(){
   syncActiveDept();
-  return {meta:db.meta,settings:db.settings,users:db.users,audit:db.audit,units:db.units,
+  var _us=db.users;
+  /* أمان: في وضع الحسابات السحابية تتحقق Firebase من كلمة المرور — فلا تُنشر بصمة كلمة مرور أي مستخدم مرتبط
+     داخل البيانات المشتركة (يقرؤها كل الموظفين ويمكن تخمين كلمات المرور منها) */
+  try{ if(typeof cloudAccounts==='function'&&cloudAccounts()) _us=db.users.map(function(u){ if(!u||!u.fbUid||!u.pass) return u; var c={}; for(var k in u) c[k]=u[k]; c.pass=''; return c; }); }catch(e){}
+  return {meta:db.meta,settings:db.settings,users:_us,audit:db.audit,units:db.units,
     interTransfers:db.interTransfers,activeDept:db.activeDept,departments:db.departments,tombstones:db.tombstones||{}};
 }
 /* ===== شواهد الحذف (tombstones): معرّفات السجلّات المحذوفة كي لا يعيدها الدمج =====
@@ -2674,10 +2679,13 @@ function fillReportTypes(){
 
 /* ---------- سجل الحركات ---------- */
 function log(action,entity,details){
-  db.audit.push({id:uid(),ts:nowTs(),userId:ME?ME.id:0,user:ME?ME.name:'—',action:action,entity:entity,details:details});
+  var _g=(action==='auth'||action==='fail'||AUDIT_GENERAL[entity])?1:0;
+  db.audit.push({id:uid(),ts:nowTs(),userId:ME?ME.id:0,user:ME?ME.name:'—',action:action,entity:entity,details:details,dept:db.activeDept||'',g:_g});
   /* نُبقي حدّ القصّ متوافقاً مع سعة الدمج (AUDIT_KEEP) كي لا يقصّ سجلاً وحّده الدمج للتو */
   if(db.audit.length>AUDIT_KEEP+1000) db.audit=db.audit.slice(-AUDIT_KEEP);
 }
+/* شاشات عامة (غير تابعة لقسم): الدخول والمستخدمون والنسخ الاحتياطي */
+var AUDIT_GENERAL={'الدخول':1,'المستخدمون':1,'النسخ الاحتياطي':1};
 var ACTIONS={add:'إضافة',edit:'تعديل',delete:'حذف',auth:'دخول/خروج',fail:'🚫 دخول فاشل',data:'بيانات'};
 /* ===== محاولات الدخول الفاشلة (ميزة أمان) =====
    تُسجَّل في سجل الحركات على هذا الجهاز فوراً؛ وفي وضع السحابة (قبل المصادقة لا يمكن الكتابة للسحابة)
@@ -8122,15 +8130,62 @@ function renderUsers(){
   if(cloudAccounts()&&can('users')) renderJoinRequests();
 }
 /* الحركات المطابقة للفلتر الحالي (المستخدم/النوع/المدة) — دون سقف الصفوف */
+/* ===== ربط السجل بالأقسام وصلاحيات الموظف =====
+   كل حركة جديدة تحمل قسمها (dept). الحركات القديمة (قبل هذه الميزة) يُستنتج قسمها:
+   (1) أسماء الموردين/العملاء/المستودعات الواردة في التفاصيل والموجودة في قسم واحد فقط؛
+   (2) موظف مسموح له بقسم واحد؛ (3) استبعاد الأقسام التي لم تكن أُنشئت بعد وقت الحركة (المعرّف يحمل وقت الإنشاء).
+   الحركات العامة (الدخول/المستخدمون/النسخ) تظهر في القسم فقط إن كان منفّذها يملك صلاحية ذلك القسم. */
+var _auDeptCache=null;
+function deptCreatedTs(k){ var m=/^dept_(\d+)$/.exec(k); return m?Math.floor(+m[1]/1000):0; }
+function auditDeptsOf(a){
+  if(!a) return [];
+  var all=Object.keys(db.departments||{});
+  if(a.dept&&!a.g) return [a.dept];
+  var uu=byId(db.users,a.userId), ud=(uu&&uu.role!=='admin'&&Array.isArray(uu.depts)&&uu.depts.length)?uu.depts.filter(function(k){ return all.indexOf(k)>-1; }):all;
+  if(a.g||a.action==='auth'||a.action==='fail'||AUDIT_GENERAL[a.entity]) return ud;   /* عامة: أقسام منفّذها */
+  /* سجل قديم بلا قسم: استنتاج (مخزَّن مؤقتاً) */
+  if(!_auDeptCache||_auDeptCache.n!==all.join(',')){
+    var nm={}; all.forEach(function(k){ var d=db.departments[k]||{};
+      ['suppliers','clients','warehouses'].forEach(function(b){ (d[b]||[]).forEach(function(r){ var n=String(r&&r.name||'').trim(); if(n.length<3) return; (nm[n]=nm[n]||{})[k]=1; }); }); });
+    var uniq=Object.keys(nm).filter(function(n){ return Object.keys(nm[n]).length===1; }).sort(function(x,y){ return y.length-x.length; });
+    _auDeptCache={n:all.join(','),uniq:uniq,nm:nm,res:{}};
+  }
+  var C=_auDeptCache; if(a.id!=null&&C.res[a.id]) return C.res[a.id];
+  var det=String(a.details||''), hit=null;
+  for(var i=0;i<C.uniq.length;i++){ if(det.indexOf(C.uniq[i])>-1){ hit=Object.keys(C.nm[C.uniq[i]])[0]; break; } }
+  var out;
+  if(hit) out=[hit];
+  else { var t=parseTsMs(a.ts); out=ud.filter(function(k){ var c=deptCreatedTs(k); return !c||!t||c<=t+60000; }); }
+  if(a.id!=null) C.res[a.id]=out; return out;
+}
+function parseTsMs(ts){ var m=/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/.exec(String(ts||'')); if(!m) return 0;
+  return new Date(+m[1],+m[2]-1,+m[3],+m[4],+m[5]).getTime(); }
+/* نطاق القسم المختار في فلتر السجل: القسم الحالي (افتراضي) أو قسم محدد أو كل الأقسام المسموح بها */
+function auditScopeDepts(){
+  var allowed=userDepts(), v=val('au_dept')||'cur';
+  if(v==='all') return allowed;
+  if(v==='cur') return [curDept||db.activeDept];
+  return allowed.indexOf(v)>-1?[v]:[curDept||db.activeDept];
+}
+function auditInScope(a,scope){ var ds=auditDeptsOf(a); for(var i=0;i<ds.length;i++) if(scope.indexOf(ds[i])>-1) return true; return false; }
+function fillAuditDeptSel(){
+  var sel=document.getElementById('au_dept'); if(!sel) return; var cur=sel.value||'cur', al=userDepts();
+  sel.innerHTML='<option value="cur">القسم الحالي ('+esc(deptName(curDept||db.activeDept))+')</option>'
+    +al.map(function(k){ return '<option value="'+esc(k)+'">'+esc(deptName(k))+'</option>'; }).join('')
+    +(al.length>1?'<option value="all">كل الأقسام المسموح بها</option>':'');
+  sel.value=[].slice.call(sel.options).some(function(o){ return o.value===cur; })?cur:'cur';
+}
 function auditFiltered(){
-  var u=val('au_user'),a=val('au_action'),f=val('au_from'),t=val('au_to');
+  var u=val('au_user'),a=val('au_action'),f=val('au_from'),t=val('au_to'), scope=auditScopeDepts();
   return db.audit.filter(function(x){
+    if(!auditInScope(x,scope)) return false;
     if(u&&x.userId!==+u) return false;
     if(a&&x.action!==a) return false;
     return inRange((x.ts||'').slice(0,10),f,t);
   });
 }
 function renderAudit(){
+  try{ fillAuditDeptSel(); }catch(e){}
   var all=auditFiltered();
   var rows=all.map(function(a,i){ return [a,i]; }).sort(function(x,y){ return tsCmp(String(y[0].ts||''),String(x[0].ts||''))||(y[1]-x[1]); })
     .map(function(z){ return z[0]; }).slice(0,600);   /* الأحدث أولاً بحسب الوقت فعلياً */
@@ -8198,11 +8253,11 @@ function deleteFilteredAudit(){
 }
 function clearAudit(){
   if(!guard('users')) return;
-  if(!confirm('تفريغ سجل الحركات نهائياً؟ يُنصح بتصديره أولاً.')) return;
-  /* شواهد حذف لكل الحركات كي لا تعيدها المزامنة من الأجهزة الأخرى */
+  var scope=auditScopeDepts(), names=scope.map(deptName).join('، ');
+  if(!confirm('تفريغ سجل حركات '+(scope.length>1?'الأقسام: ':'قسم «')+names+(scope.length>1?'':'»')+' نهائياً؟ (سجلات الأقسام الأخرى لا تتأثر) يُنصح بتصديره أولاً.')) return;
   if(!db.tombstones||typeof db.tombstones!=='object') db.tombstones={};
-  var now=Date.now(); db.audit.forEach(function(a){ if(a&&a.id!=null) db.tombstones[a.id]=now; });
-  db.audit=[]; log('data','المستخدمون','تفريغ سجل الحركات'); persist(); renderAudit(); toast('تم تفريغ السجل');
+  var now0=Date.now(); db.audit=db.audit.filter(function(a){ if(a&&a.id!=null&&auditInScope(a,scope)&&!(a.g||a.action==='auth'||a.action==='fail'||AUDIT_GENERAL[a.entity])){ db.tombstones[a.id]=now0; return false; } return true; });
+  log('data','المستخدمون','تفريغ سجل حركات: '+names); persist(); renderAudit(); toast('تم تفريغ سجل '+names);
 }
 function renderSettingsForm(){
   setVal('set_company',db.settings.company); setVal('set_currency',db.settings.currency);
@@ -10354,7 +10409,7 @@ function tableData(kind){
       rows.push([c.name,x.rev,x.ret,x.net_rev,x.cogs,x.gp,x.waste,x.direct,x.shared,x.net]); }); }
   else if(kind==='audit'){ title='سجل حركات المستخدمين';
     head=['التاريخ والوقت','المستخدم','العملية','الشاشة','التفاصيل'];
-    db.audit.forEach(function(a){ rows.push([a.ts,a.user,ACTIONS[a.action]||a.action,a.entity,a.details]); }); }
+    auditFiltered().forEach(function(a){ rows.push([a.ts,a.user,ACTIONS[a.action]||a.action,a.entity,a.details]); }); }   /* القسم والفلتر الحاليان فقط */
   else if(kind==='accounts'){ title='أرصدة الموردين والعملاء';
     head=['الجهة','النوع','الإجمالي شامل الضريبة','المرتجعات','الرصيد الافتتاحي','المسدد/المحصّل','خصومات','الرصيد الحالي'];
     var pt=partyTotals();
