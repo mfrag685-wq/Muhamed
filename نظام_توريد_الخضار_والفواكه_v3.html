@@ -2305,7 +2305,7 @@ kbd{border:1px solid #bbb;border-bottom-width:2px;border-radius:4px;padding:0 4p
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-05-v';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-05-w';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -12118,7 +12118,7 @@ var cloudReady=false, cloudRef=null, cloudPushTimer=null, cloudLastPushed='', cl
 function setCloudStatus(state){
   var el=document.getElementById('cloudStatus'); if(!el) return;
   var map={off:['غير مفعّل','off'],auth:['بانتظار الدخول','connecting'],connecting:['يتصل…','connecting'],
-    ok:['متصل ☁','ok'],sync:['يُزامن…','sync'],loading:['يحمّل البيانات…','sync'],pending:['بانتظار الرفع ⏳','sync'],err:['تعذّر الاتصال','err']};
+    ok:['متصل ☁','ok'],sync:['يُزامن…','sync'],loading:['يحمّل البيانات…','sync'],offline:['غير متصل — سيُرفع عند عودة الإنترنت','err'],pending:['بانتظار الرفع ⏳','sync'],err:['تعذّر الاتصال','err']};
   var m=map[state]||map.off; el.textContent=m[0]; el.className='cloud-status '+m[1];
 }
 function cloudEnabled(){ return !!(CLOUD_CONFIG&&CLOUD_CONFIG.apiKey&&typeof firebase!=='undefined'); }
@@ -12148,13 +12148,14 @@ function cloudFlush(){
   }
   cloudLastSize=by;
   if(by>CLOUD_HARD_BYTES){ cloudInflight=false; cloudDirty=true; cloudLastError='size'; setCloudStatus('pending'); syncAlertPaint(); return; }
-  setCloudStatus('sync');
+  setCloudStatus('sync'); cloudInflightAt=Date.now();
+  cloudPushLog.push({t:Date.now(),b:by,why:cloudPushWhy||'تعديل محلي'}); cloudPushWhy=''; if(cloudPushLog.length>60) cloudPushLog=cloudPushLog.slice(-60);
   /* نخزّن القاعدة كسلسلة نصية واحدة: قيم النص لا تخضع لقيود مفاتيح Firebase
      (النقطة/$ /# /[ /] ممنوعة في المفاتيح فقط) فينتفي فشل الرفع بسبب اسم مستخدم
      أو مفتاح يحوي حرفاً ممنوعاً، ويصبح الرفع كتلة واحدة موثوقة. */
   var payload={data:s,fmt:'str',build:APP_BUILD,updatedAt:firebase.database.ServerValue.TIMESTAMP,updatedBy:(ME?ME.name:'')};
   return cloudRef.set(payload).then(function(){
-    cloudInflight=false; cloudLastPushed=s; cloudRetry=0; cloudLastError=''; cloudLastOkTs=nowTs();
+    cloudInflight=false; cloudLastPushed=s; cloudRetry=0; cloudLastError=''; cloudLastOkTs=nowTs(); cloudLastOkMs=Date.now()-cloudInflightAt;
     setCloudErrTip(''); syncAlertPaint();
     if(cloudDirty) cloudFlush();          /* وردت حركة أثناء الرفع → ارفعها */
     else setCloudStatus('ok');
@@ -12177,6 +12178,7 @@ function cloudRemoteData(val){ if(!val||val.data==null) return null;
 function cloudRemoteStr(val){ if(!val||val.data==null) return '';
   return (typeof val.data==='string')?val.data:JSON.stringify(val.data); }
 /* ===== تنبيه مزامنة واضح: لا يبقى «بانتظار الرفع» صامتاً — يظهر السبب الحقيقي والحجم وزر إعادة المحاولة ===== */
+var cloudPushWhy='', cloudLastOkMs=0;
 var CLOUD_MAX_BYTES=9000000, CLOUD_HARD_BYTES=9900000, cloudLastSize=0, cloudLastOkTs='', cloudFailCount=0;
 function utf8Bytes(str){ try{ return new Blob([str]).size; }catch(e){ return unescape(encodeURIComponent(str)).length; } }
 function mb(b){ return (b/1048576).toFixed(2)+' MB'; }
@@ -12202,6 +12204,12 @@ function cloudDiag(){
     Object.keys(d.departments||{}).forEach(function(k){ parts.push(['قسم «'+deptName(k)+'»',utf8Bytes(JSON.stringify(d.departments[k]))]); }); }catch(e){}
   var tot=0; parts.forEach(function(x){ tot+=x[1]; }); parts.sort(function(a,b){ return b[1]-a[1]; });
   alert('حالة المزامنة\n\nالحالة: '+(cloudReady?'متصل':'غير متصل')+'\nآخر خطأ: '+(cloudLastError?cloudErrText()+' ['+cloudLastError+']':'لا يوجد')+'\nآخر رفع ناجح: '+(cloudLastOkTs||'—')+(cloudLoadMs?'\nزمن تحميل البيانات عند الدخول: '+(cloudLoadMs/1000).toFixed(1)+' ث':'')
+    +(cloudLastOkMs?'\nزمن آخر رفع: '+(cloudLastOkMs/1000).toFixed(1)+' ث':'')
+    +'\nالاتصال بالإنترنت: '+(cloudOnline?'متصل':'منقطع')+' · رفع جارٍ: '+(cloudInflight?'نعم منذ '+Math.round((Date.now()-cloudInflightAt)/1000)+' ث':'لا')+' · تعديلات معلّقة: '+(cloudDirty?'نعم':'لا')
+    +'\nعدد مرات الرفع آخر 10 دقائق: '+cloudPushLog.filter(function(x){ return Date.now()-x.t<600000; }).length
+    +(cloudLastRemoteBy?'\nآخر من رفع للسحابة: '+cloudLastRemoteBy:'')
+    +(cloudLoopInfo?'\n⚠ '+cloudLoopInfo:'')
+    +'\nإصدار هذا الجهاز: '+APP_BUILD
     +'\n\nحجم البيانات: '+mb(tot)+' من حد 10 MB\n'+parts.map(function(x){ return '• '+x[0]+': '+mb(x[1]); }).join('\n'));
 }
 function setCloudErrTip(msg){ var el=document.getElementById('cloudStatus'); if(!el) return;
@@ -12391,10 +12399,14 @@ function cloudPush(s){
   cloudPushTimer=setTimeout(cloudFlush,600);   /* تجميع الحفظات المتتابعة */
 }
 /* مراقبة الاتصال: عند عودته ارفع أي تغييرات معلّقة فوراً */
+var cloudOnline=true, cloudInflightAt=0, cloudPushLog=[], cloudMergePushes=[], cloudLoopUntil=0, cloudLoopInfo='';
 function cloudWatchConnection(){
   if(cloudConnWatched) return; cloudConnWatched=true;
   try{ firebase.database().ref('.info/connected').on('value',function(c){
-    if(c.val()===true && cloudDirty){ cloudRetry=0; cloudFlush(); }
+    cloudOnline=c.val()===true;
+    if(cloudOnline){ if(cloudInflight&&Date.now()-cloudInflightAt>5000){ cloudInflight=false; cloudDirty=true; }   /* رفع عالق من قبل الانقطاع ⇒ أعِد إرساله */
+      if(cloudDirty){ cloudRetry=0; cloudFlush(); } else if(!cloudInflight) setCloudStatus('ok'); }
+    else if(cloudReady) setCloudStatus('offline');
   }); }catch(e){ cloudConnWatched=false; }
 }
 /* دمج سجلّين حسب المعرّف id: أساسه القادم من السحابة + يُضاف إليه ما هو موجود محلياً فقط
@@ -12497,7 +12509,19 @@ function cloudApplyRemote(remote,rawStr){
   }
   /* إن أضاف الدمج سجلّات محلية أو شواهد حذف غير موجودة في السحابة → ارفع النسخة المدموجة كي تظهر للجميع */
   if(s===remoteStr||s===baseStr){ cloudLastPushed=s; if(!cloudInflight) setCloudStatus('ok'); }
-  else { cloudLastPushed=''; cloudPush(); }   /* الدمج أضاف فعلاً سجلّات محلية/شواهد حذف ⇒ ارفع */
+  else {
+    var nowT=Date.now(); cloudMergePushes=cloudMergePushes.filter(function(t){ return nowT-t<120000; }); cloudMergePushes.push(nowT);
+    if(nowT<cloudLoopUntil){ cloudLastPushed=s; if(!cloudInflight) setCloudStatus('ok'); }
+    else if(cloudMergePushes.length>5){
+      /* حلقة رفع/تنزيل متبادلة مع جهاز آخر: أوقف الرفع الناتج عن الدمج 10 دقائق، وسجّل ما يختلف للتشخيص */
+      cloudLoopUntil=nowT+600000;
+      try{ var a=JSON.parse(s), b2=JSON.parse(baseStr||remoteStr), diff=Object.keys(a).filter(function(k){ return JSON.stringify(a[k])!==JSON.stringify(b2[k]); });
+        cloudLoopInfo=nowTs()+' — اختلاف متكرر مع السحابة في: '+diff.join('، ')+' — آخر من رفع: '+(cloudLastRemoteBy||'—'); }catch(e){ cloudLoopInfo=nowTs()+' — حلقة رفع متكررة'; }
+      try{ console.warn('sync loop stopped',cloudLoopInfo); }catch(e){}
+      cloudLastPushed=s; if(!cloudInflight) setCloudStatus('ok');
+    }
+    else { cloudLastPushed=''; cloudPushWhy='دمج بيانات جهاز آخر'; cloudPush(); }   /* الدمج أضاف فعلاً سجلّات محلية/شواهد حذف ⇒ ارفع */
+  }
 }
 /* تحديث كامل مؤجَّل ومجمَّع (الشاشات + البيانات الأساسية/المستخدمين) — يُستخدم عند ورود تحديثات السحابة
    كي لا تتسبّب سلسلة تحديثات متتابعة في إعادة رسم كامل متكرّر يُجمّد الواجهة */
@@ -12510,7 +12534,7 @@ function scheduleFullRender(){
   }, 120);
 }
 /* الاشتراك في عقدة البيانات وتبنّي ما فيها أو رفع المحلي إن كانت فارغة */
-var _attachCbs=[], cloudAppliedStr='', cloudLoadMs=0;
+var _attachCbs=[], cloudAppliedStr='', cloudLoadMs=0, cloudLastRemoteBy='';
 function cloudAttach(cb){
   if(cloudReady){ if(cb) cb(); return; }
   /* ربط جارٍ بالفعل (مثلاً استئناف الجلسة تلقائياً): انتظر نتيجته — كان يُستدعى فوراً قبل وصول البيانات
@@ -12538,7 +12562,7 @@ function cloudAttach(cb){
     cloudWatchConnection();   /* رفع تلقائي للمعلّق عند عودة الاتصال */
     cloudMarkPresence(); cloudWatchDevices(); cloudWatchReloadReq();   /* بصمة هذا الجهاز + مراقبة الفريق + استقبال أوامر التحديث */
     cloudRef.on('value',function(s2){
-      var val=s2.val(); cloudCheckBuild(val);
+      var val=s2.val(); cloudCheckBuild(val); try{ if(val&&val.updatedBy) cloudLastRemoteBy=val.updatedBy+(val.build?' (إصدار '+val.build+')':''); }catch(e){}
       var rs=cloudRemoteStr(val); if(!rs) return;
       if(rs===cloudLastPushed||rs===_lastLocalStr||rs===cloudAppliedStr) return; /* صدى كتابتنا أو نسخة طُبّقت للتو (كانت تُدمج مرتين عند الدخول) */
       var rd=cloudRemoteData(val); if(!rd||!Array.isArray(rd.users)) return;
@@ -12944,7 +12968,9 @@ function cloudWatchdog(){
     if(!cloudEnabled()) return;
     var user=(firebase.auth&&firebase.auth().currentUser)||null;
     if(!cloudReady){ if(user||!cloudAccounts()) cloudAttach(); return; }   /* غير متصل → أعد الربط */
+    if(cloudInflight&&Date.now()-cloudInflightAt>60000){ cloudInflight=false; cloudDirty=true; cloudLastError=cloudOnline?'تأخّر تأكيد السحابة':'offline'; }   /* رفع عالق > دقيقة ⇒ أعِد إرساله */
     if(cloudDirty&&!cloudInflight){ cloudRetry=0; cloudFlush(); }           /* معلّق لم يُرفع → ادفعه */
+    else if(!cloudDirty&&!cloudInflight&&cloudOnline){ var st=document.getElementById('cloudStatus'); if(st&&/sync/.test(st.className)) setCloudStatus('ok'); }   /* لا شيء معلّق ⇒ لا تبقَ «يزامن» */
     cloudMarkPresence(); cloudWatchDevices(); cloudWatchReloadReq();       /* نبض حضور + مراقبة + استقبال أوامر التحديث */
   }catch(e){}
 }
