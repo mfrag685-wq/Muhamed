@@ -673,7 +673,7 @@ kbd{border:1px solid #bbb;border-bottom-width:2px;border-radius:4px;padding:0 4p
 .ld-chip-b{background:#e8f0fb;color:#1d4f91}.ld-chip-g{background:#e8f6ee;color:#1f6b45}.ld-chip-r{background:#fdecec;color:#b42318}.ld-chip-w{background:#fff4e0;color:#9a5b00}
 .ld-day{margin-top:8px;font-size:13.5px}
 @media (max-width:700px){.ld-hdr{font-size:10.5px}.ld-wrap{padding:8px 6px}.ld-row .qb-in::placeholder{color:transparent}.ld-row .qb-in{height:44px;padding:0 3px}.ld-card{padding:6px 4px}}
-.ds-modal{position:fixed;inset:0;z-index:9990;background:rgba(10,20,15,.55);display:none;padding:16px;overflow-y:auto;overflow-x:hidden;box-sizing:border-box}
+.ds-modal{position:fixed;inset:0;z-index:10000;background:rgba(10,20,15,.55);display:none;padding:16px;overflow-y:auto;overflow-x:hidden;box-sizing:border-box}
 .ds-box{background:var(--card,#fff);border-radius:14px;max-width:960px;width:100%;margin:0 auto;box-shadow:0 20px 60px rgba(0,0,0,.3);overflow:hidden;box-sizing:border-box}
 .ds-bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:10px 12px;border-bottom:1px solid #e3e9f0;position:sticky;top:0;background:var(--card,#fff);border-radius:14px 14px 0 0}
 .ds-nav{display:inline-flex;gap:4px;align-items:center}.ds-nav input{height:34px}.ds-acts{margin-inline-start:auto;display:flex;gap:5px;flex-wrap:wrap}
@@ -2305,7 +2305,7 @@ kbd{border:1px solid #bbb;border-bottom-width:2px;border-radius:4px;padding:0 4p
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-05-u';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-05-v';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -4218,7 +4218,7 @@ function renderLoads(){
   var day=ldDay(), recv=ldCanRecv();
   var h='<div class="ld-wrap"><div class="tt-head"><b class="tt-title">🚚 تحميل البرادات</b>'
     +'<span class="ds-nav"><button class="btn-sm" onclick="_ldDate=ivAddDays(_ldDate,-1);renderLoads()">→</button><input type="date" value="'+esc(_ldDate)+'" onchange="_ldDate=this.value;renderLoads()"><button class="btn-sm" onclick="_ldDate=ivAddDays(_ldDate,1);renderLoads()">←</button></span>'
-    +'<span class="tt-tools">'+(qbAllowed()?'<button class="btn-alt" onclick="ldNew()">➕ براد جديد</button>':'')+(day.length?'<button class="btn-sm" onclick="ldImage()">📤 صورة البرادات</button>':'')+'</span></div>'
+    +'<span class="tt-tools">'+(qbAllowed()?'<button class="btn-alt" onclick="ldNew()">➕ براد جديد</button>':'')+(day.length?'<button class="btn-sm" onclick="ldOpenSheet(null)">🖨 طباعة / صورة كل البرادات</button>':'')+'</span></div>'
     +'<div class="mini ld-hint">الصنف ← <kbd>Enter</kbd> ← عدد الطبالي ← <kbd>Enter</kbd> ← العدد في الطبلية ← <kbd>Enter</kbd> سطر جديد · يُحفظ تلقائياً'+(recv?' · خانتا «المستلم» و«المرتجع» تُملآن لاحقاً عند الاستلام':'')+'</div>';
   if(!day.length) h+='<div class="tt-allok" style="background:#f3f6f9;color:#556">لا توجد برادات في '+esc(_ldDate)+' — اضغط «➕ براد جديد»</div>';
   h+='<div class="ld-grid">';
@@ -4226,6 +4226,7 @@ function renderLoads(){
     h+='<div class="ld-card"><div class="ld-ch"><span class="ld-badge">🚚 براد رقم <input class="ld-no" data-ld="'+L.id+'" data-lf="no" value="'+esc(L.no)+'" oninput="ldSet(this)"'+ro+'></span>'
       +'<input class="ld-note" data-ld="'+L.id+'" data-lf="note" placeholder="📝 ملاحظة (السائق/الوجهة)" value="'+esc(L.note||'')+'" oninput="ldSet(this)"'+ro+'>'
       +'<select class="ld-unit" data-ld="'+L.id+'" data-lf="unit" onchange="ldSet(this);ldPaintTotals()"'+(ed?'':' disabled')+'>'+LD_UNITS.map(function(u){ return '<option'+((L.unit||'كرتون')===u?' selected':'')+'>'+u+'</option>'; }).join('')+'</select>'
+      +'<button class="btn-sm" onclick="ldOpenSheet('+L.id+')" title="طباعة / صورة / مشاركة محتويات هذا البراد">🖨 طباعة</button>'
       +(ed?'<button class="btn-sm btn-del" onclick="ldDel('+L.id+')" title="حذف البراد">🗑</button>':'')+'</div>'
       +'<div class="ld-hdr'+(recv?' has-r':'')+'"><span>الصنف</span><span>طبالي</span><span>× العدد</span><span>= المجموع</span>'+(recv?'<span>مستلم</span><span>مرتجع</span>':'')+'<span></span></div>';
     L.lines.forEach(function(l,i){ var a='data-ld="'+L.id+'" data-li="'+i+'"';
@@ -4243,13 +4244,14 @@ function renderLoads(){
   if(keep){ var e=document.querySelector('[data-ld="'+keep.ld+'"]'+(keep.li!=null?'[data-li="'+keep.li+'"]':'')+'[data-lf="'+keep.lf+'"]'); if(e&&e!==document.activeElement) e.focus(); }
 }
 /* صورة البرادات لليوم (للإرسال) */
-function ldImage(){
-  var day=ldDay(); if(!day.length) return; var S=2, pad=24, F='Tahoma, Arial, sans-serif', colW=[230,90,100,110], cw=colW.reduce(function(a,b){ return a+b; },0), W=cw+pad*2, rowH=34;
-  var H=110+pad; day.forEach(function(L){ H+=50+30+L.lines.filter(ldLineOk).length*rowH+40+16; });
+function ldCanvas(day){
+  var S=2, pad=24, F='Tahoma, Arial, sans-serif', colW=[230,90,100,110], cw=colW.reduce(function(a,b){ return a+b; },0), W=cw+pad*2, rowH=34;
+  var H=110+pad+24; day.forEach(function(L){ H+=50+30+L.lines.filter(ldLineOk).length*rowH+40+16; });
   var cv=document.createElement('canvas'); cv.width=W*S; cv.height=H*S; var c=cv.getContext('2d'); c.scale(S,S);
   c.fillStyle='#fff'; c.fillRect(0,0,W,H); c.fillStyle='#2f6fb5'; c.fillRect(0,0,W,8); c.direction='rtl'; c.textBaseline='middle';
   c.fillStyle='#163a2a'; c.font='bold 22px '+F; c.textAlign='right'; c.fillText('🚚 تحميل البرادات — قسم '+deptName(db.activeDept),W-pad,40);
-  c.fillStyle='#667'; c.font='15px '+F; c.fillText(dayNameAr(_ldDate)+' '+_ldDate+' · '+ldDaySumHtml().replace(/<[^>]+>/g,''),W-pad,72);
+  var sp=0,su=0; day.forEach(function(L){ var T=ldCardTotals(L); sp+=T.pal; su+=T.u; });
+  c.fillStyle='#667'; c.font='15px '+F; c.fillText(dayNameAr(_ldDate)+' '+_ldDate+' · '+(day.length>1?day.length+' براد · ':'')+qty(sp)+' طبلية · '+qty(su)+' '+(day.length===1?(day[0].unit||'كرتون'):'وحدة'),W-pad,72);
   var y=100;
   day.forEach(function(L){ var ls=L.lines.filter(ldLineOk), T=ldCardTotals(L), un=L.unit||'كرتون';
     dsRound(c,pad,y,cw,44,8,'#163a2a'); c.fillStyle='#fff'; c.font='bold 17px '+F; c.textAlign='right'; c.fillText('براد رقم '+L.no+(L.note?' — '+L.note:''),W-pad-12,y+22);
@@ -4262,10 +4264,37 @@ function ldImage(){
       c.font='bold 16px '+F; c.fillText(qty(ldTot(l)),(X[3][0]+X[3][1])/2,y+rowH/2); y+=rowH; });
     c.fillStyle='#e8f0fb'; c.fillRect(pad,y,cw,36); c.fillStyle='#1d4f91'; c.font='bold 15px '+F; c.textAlign='right'; c.fillText('إجمالي البراد',X[0][1]-10,y+18);
     c.textAlign='center'; c.fillText(qty(T.pal),(X[1][0]+X[1][1])/2,y+18); c.fillText(qty(T.u),(X[3][0]+X[3][1])/2,y+18); y+=40+16; });
-  cv.toBlob(function(b){ if(!b) return; var name='برادات_'+_ldDate+'.png', file=null; try{ file=new File([b],name,{type:'image/png'}); }catch(e){}
-    if(file&&navigator.canShare&&navigator.canShare({files:[file]})){ navigator.share({files:[file],title:'برادات '+_ldDate}).catch(function(){}); return; }
-    dsDownload(b,name); },'image/png');
+  c.fillStyle='#889'; c.font='13px '+F; c.textAlign='right'; c.direction='rtl'; c.fillText('أُعدّت بواسطة '+(ME?ME.name:'')+' · '+nowTs(),W-pad,y+6);
+  /* قصّ الارتفاع على المحتوى الفعلي (بلا فراغ أبيض أسفل الصورة) */
+  var Hc=Math.min(H,Math.ceil(y+28)), out=document.createElement('canvas'); out.width=W*S; out.height=Hc*S;
+  out.getContext('2d').drawImage(cv,0,0); return out;
 }
+/* نافذة معاينة/طباعة/مشاركة لبراد واحد أو لكل برادات اليوم — بنفس أسلوب «ورقة مشتريات اليوم» */
+var _ldSheet=null;
+function ldOpenSheet(id){
+  var day=id?ldDay().filter(function(L){ return L.id===id; }):ldDay();
+  day=day.filter(function(L){ return L.lines.some(ldLineOk); });
+  if(!day.length){ toast('لا توجد أصناف مكتملة لطباعتها'); return; }
+  try{ var qp=document.getElementById('qcPop'); if(qp) qp.style.display='none'; if(document.activeElement) document.activeElement.blur(); }catch(e){}
+  var cv=ldCanvas(day), nm=id?('براد_'+day[0].no+'_'+_ldDate):('برادات_'+_ldDate);
+  _ldSheet={cv:cv,name:nm+'.png',title:id?('براد رقم '+day[0].no+' — '+_ldDate):('برادات '+_ldDate)};
+  var m=document.getElementById('dsModal');
+  if(!m){ m=document.createElement('div'); m.id='dsModal'; m.className='ds-modal'; m.onclick=function(e){ if(e.target===m) dsClose(); }; document.body.appendChild(m); }
+  m.innerHTML='<div class="ds-box"><div class="ds-bar"><b>🚚 '+esc(_ldSheet.title)+'</b><span class="ds-acts">'
+    +'<button class="btn-alt" onclick="ldSheetOut(\'share\')">📤 مشاركة / واتساب</button><button class="btn-sm" onclick="ldSheetOut(\'save\')">🖼 حفظ كصورة</button>'
+    +'<button class="btn-sm" onclick="ldSheetOut(\'copy\')">📋 نسخ الصورة</button><button class="btn-sm" onclick="ldSheetOut(\'print\')">🖨 طباعة</button><button class="btn-sm" onclick="dsClose()">✕ إغلاق</button></span></div>'
+    +'<div class="ds-prev"><img class="ds-img" alt="" src="'+cv.toDataURL('image/png')+'"></div></div>';
+  m.style.display='block';
+}
+function ldSheetOut(mode){ var S=_ldSheet; if(!S) return;
+  if(mode==='print'){ var w=window.open('','_blank'); if(!w){ toast('اسمح بالنوافذ المنبثقة للطباعة'); return; }
+    w.document.write('<!doctype html><html dir="rtl"><head><meta charset="utf-8"><title>'+esc(S.title)+'</title><style>@page{size:A4;margin:8mm}body{margin:0}img{width:100%;display:block}</style></head><body><img src="'+S.cv.toDataURL('image/png')+'"><script>window.onload=function(){setTimeout(function(){print()},200)}<\/script></body></html>'); w.document.close(); return; }
+  S.cv.toBlob(function(b){ if(!b){ toast('تعذّر إنشاء الصورة'); return; } var file=null; try{ file=new File([b],S.name,{type:'image/png'}); }catch(e){}
+    if(mode==='share'&&file&&navigator.canShare&&navigator.canShare({files:[file]})){ navigator.share({files:[file],title:S.title}).catch(function(){}); return; }
+    if(mode==='copy'&&window.ClipboardItem&&navigator.clipboard&&navigator.clipboard.write){ navigator.clipboard.write([new ClipboardItem({'image/png':b})]).then(function(){ toast('تم نسخ الصورة — الصقها في واتساب'); },function(){ dsDownload(b,S.name); }); return; }
+    dsDownload(b,S.name); },'image/png'); }
+function ldImage(){ ldOpenSheet(null); }
+
 var _qbRows=[], _qbExtra=null, _qbEdit=null, _qbDrafts={};
 /* مسودة «مشتريات اليوم» خاصة بكل قسم — لا تنتقل أسطر قسم إلى قسم آخر عند التبديل */
 /* ===== ورقة مشتريات اليوم — مرجع مطبوع/صورة منسّقة لإرسالها لمدير المشتريات =====
