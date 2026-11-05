@@ -1833,6 +1833,14 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 <section id="users" class="panel">
   <div class="panel-title">المستخدمون والصلاحيات</div>
   <div class="note">كل عملية إضافة أو تعديل أو حذف تُسجَّل باسم المستخدم وتاريخها في سجل الحركات أسفل الصفحة.</div>
+  <div id="userRecoverSection" class="hidden">
+    <div class="sec-title warn">♻️ مستخدمون محذوفون أو مفقودون — قابلون للاستعادة <button class="btn btn-sm no-print" onclick="renderUserRecovery(true)">فحص</button>
+      <span class="hint">اكتُشفوا من سجل الحركات وعضويات الدخول السحابية. الاستعادة تعيدهم بنفس المعرّف فتعود حركاتهم مرتبطة بهم، وتعيد صلاحية دخولهم إن كان حسابهم السحابي معروفاً.</span></div>
+    <div class="table-scroll"><table>
+      <thead><tr><th class="name">الاسم</th><th>اسم المستخدم</th><th>الدور</th><th>المصدر</th><th>عدد الحركات</th><th>آخر ظهور</th><th>إجراء</th></tr></thead>
+      <tbody id="tbUserRecover"></tbody></table></div>
+    <div class="row-actions" style="margin-top:6px"><button class="btn btn-sm" onclick="restoreAllUsers()">استعادة الكل</button></div>
+  </div>
   <div id="joinReqSection" class="hidden">
     <div class="sec-title warn">طلبات الانضمام المعلّقة <button class="btn btn-sm no-print" onclick="renderJoinRequests()">تحديث</button>
       <span class="hint">مستخدمون سجّلوا عبر الرابط بانتظار موافقتك — بعد القبول عدّل دورهم وصلاحياتهم من الجدول أدناه.</span></div>
@@ -2170,7 +2178,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-05-b';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-05-c';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -5836,6 +5844,7 @@ function entryDelayAlerts(){
     if(!days.length) return {name:name,intro:intro,kindDef:kindDef,tier:'mid',sev:1,
       msg:'لم تُسجَّل '+kindBare+' بعد — الرجاء البدء بإدخال '+kindBare+' يوم '+td+'.'};
     days.sort(); var last=days[days.length-1];
+    var lkU=periodLockUntil(); if(lkU&&last<lkU) last=lkU;   /* الفترة المقفلة تُعدّ مكتملة الإدخال */
     if(last>=td) return null;   /* محدَّث حتى اليوم الفعّال */
     var nd=ivAddDays(last,1), gap=Math.round((new Date(td)-new Date(last))/86400000);
     if(gap<=grace) return null;   /* ضمن مهلة السماح */
@@ -5900,6 +5909,7 @@ function dailyClientFollowUps(clients,cfg,td,realTd){
     var d=ivAddDays(until,-13), mcT=null; try{ mcT=monthCloseTarget(); }catch(e){}
     if(mcT&&(mcT.ym+'-01')<d) d=mcT.ym+'-01';   /* شهر قيد الإقفال: تغطية كل أيامه الناقصة لا آخر أسبوعين فقط */
     if(d<first) d=first;
+    var lkU=periodLockUntil(); if(lkU&&d<=lkU) d=ivAddDays(lkU,1);   /* الفترة المقفلة مكتملة — لا مطالبة بأيامها */
     for(var guard=0; d<=until && guard<75; guard++, d=ivAddDays(d,1)){
       if(has[d]||ack[d]) continue;
       if(offW[(parseDate(d)||new Date(d)).getUTCDay()]) continue;
@@ -8087,9 +8097,12 @@ function delUser(id){
   if(!confirm('حذف المستخدم "'+u.name+'"؟ ستبقى حركاته في السجل.')) return;
   if(cloudAccounts()&&u.fbUid){ firebase.database().ref('workspaces/'+cloudWid()+'/members/'+u.fbUid).remove().catch(function(){}); }  /* إلغاء وصوله السحابي */
   log('delete','المستخدمون','حذف المستخدم '+u.name+' ('+u.username+')');
+  if(!db.tombstones||typeof db.tombstones!=='object') db.tombstones={};
+  db.tombstones['user:'+id]=Date.now();   /* شاهد حذف مقصود — كي لا يعيده دمج المزامنة */
   db.users=db.users.filter(function(x){return x.id!==id;}); persist(); renderUsers(); toast('تم الحذف');
 }
 function renderUsers(){
+  try{ setTimeout(function(){ renderUserRecovery(false); },0); }catch(e){}
   var _fst=null;
   document.getElementById('tbUsers').innerHTML=db.users.map(function(u){
     var ops=db.audit.filter(function(a){return a.userId===u.id&&a.action!=='auth'&&a.action!=='fail';}).length;
@@ -11493,6 +11506,14 @@ function unionAudit(remoteArr,localArr,tomb){
 }
 /* يدمج دفاتر الحركات لكل قسم (والتحويلات بين الأقسام) من النسخة المحلية داخل نسخة السحابة،
    مع احترام شواهد الحذف من الطرفين (السجل المحذوف في أي جهاز يُستبعَد ولا يعود) */
+function unionUsers(base,extra,tomb){
+  base=Array.isArray(base)?base.slice():[]; tomb=tomb||{};
+  var nm=function(u){ return String(u&&u.username||'').trim().toLowerCase(); };
+  (extra||[]).forEach(function(u){ if(!u||u.id==null||tomb['user:'+u.id]) return;
+    var hit=base.some(function(b){ return b&&(b.id===u.id||(u.fbUid&&b.fbUid===u.fbUid)||(nm(u)&&nm(b)===nm(u))); });
+    if(!hit) base.push(u); });
+  return base.filter(function(u){ return u&&!tomb['user:'+u.id]; });
+}
 function mergeCloud(localDb,remote){
   if(!localDb) return remote;
   /* دمج شواهد الحذف من الطرفين (أحدث توقيت) */
@@ -11521,6 +11542,9 @@ function mergeCloud(localDb,remote){
     if(Array.isArray(rd.notes)) rd.notes=alive(rd.notes);
     if(Array.isArray(rd.stockCountLog)) rd.stockCountLog=alive(rd.stockCountLog); });
   remote.interTransfers=alive(unionById(remote.interTransfers, localDb.interTransfers));
+  /* المستخدمون: النسخة السحابية هي الأساس لكل مستخدم، ويُضاف كل مستخدم موجود محلياً فقط
+     (لم يُحذف حذفاً مقصوداً) — كي لا تُسقط مزامنةٌ أو استعادةٌ مستخدمين فتُغلق حسابات الدخول */
+  remote.users=unionUsers(remote.users, localDb.users, tomb);
   /* سجل الحركات مشترك وتراكمي: وحّده بدل استبداله كي لا تختفي حركات الدخول/الإدخال،
      مع احترام شواهد الحذف (حركة حذفها المدير لا تعود) */
   remote.audit=unionAudit(remote.audit, localDb.audit, tomb);
@@ -11647,9 +11671,17 @@ function afterCloudAuth(user,username){
   var reject=function(reason,msg){
     if(!auto){ recordFailedLogin(username,reason); if(le){ le.textContent=msg; le.style.display='block'; } }
     try{ cloudDetach(); }catch(e){} try{ firebase.auth().signOut(); }catch(e){} cloudRef=null; setCloudStatus('auth'); };
+  var noMember=function(){
+    var go=function(){ reject('لا عضوية في المنشأة — أُرسل طلب إعادة تفعيل للمدير','كلمة المرور صحيحة لكن حسابك غير مفعّل في المنشأة (ربما حُذف). أُرسل طلب إعادة تفعيل تلقائياً لمدير النظام — حاول الدخول بعد موافقته.'); };
+    if(auto||!username){ go(); return; }
+    try{ firebase.database().ref('workspaces/'+cloudWid()+'/requests/'+user.uid)
+      .set({name:String(username).trim(),username:String(username).trim(),ts:nowTs(),uid:user.uid,restore:1}).then(go,go); }catch(_){ go(); } };
   cloudAttach(function(err){
     cloudAuthBusy=false;
-    if(err){ reject('الحساب قيد المراجعة (لم يوافق المدير)','حسابك قيد المراجعة — لم تتم موافقة المدير على انضمامك بعد. حاول لاحقاً بعد الموافقة.'); return; }
+    if(err){
+      /* كلمة المرور صحيحة (نجحت المصادقة) لكن لا عضوية في المنشأة — غالباً حُذف المستخدم أو لم يُوافَق عليه:
+         نرسل للمدير طلب إعادة تفعيل تلقائياً (دون كلمة المرور) ليوافق عليه بضغطة من شاشة المستخدمين */
+      noMember(); return; }
     var byName=function(n){ n=String(n||'').trim().toLowerCase(); return n?db.users.filter(function(x){ return String(x.username||'').trim().toLowerCase()===n; })[0]:null; };
     var u=db.users.filter(function(x){return x.fbUid===user.uid;})[0]||byName(username);
     if(u){ finishCloudLogin(user,u,le); return; }
@@ -11657,7 +11689,7 @@ function afterCloudAuth(user,username){
        (members/<uid>: اسم المستخدم والدور والحالة) — فإن وُجد مستخدم بنفس الاسم يُربط، وإلا يُعاد إنشاء سجله تلقائياً */
     firebase.database().ref('workspaces/'+cloudWid()+'/members/'+user.uid).once('value').then(function(ms){
       var mem=ms.val();
-      if(!mem||!mem.username){ reject('لا يوجد سجل مستخدم مطابق في بيانات المنشأة','لا يوجد سجل مستخدم مطابق في بيانات المنشأة.'); return; }
+      if(!mem||!mem.username){ noMember(); return; }
       if(!Number(mem.active)){ reject('الحساب موقوف','هذا الحساب موقوف. راجع مدير النظام.'); return; }
       var u2=byName(mem.username);
       if(!u2){
@@ -11772,7 +11804,7 @@ function renderJoinRequests(){
     sec.classList.remove('hidden');
     document.getElementById('tbJoinReq').innerHTML=keys.map(function(ruid){
       var r=v[ruid]||{};
-      return '<tr><td>'+esc(r.ts||'')+'</td><td class="name"><b>'+esc(r.name||'')+'</b></td><td>'+esc(r.username||'')+'</td>'
+      return '<tr><td>'+esc(r.ts||'')+'</td><td class="name"><b>'+esc(r.name||'')+'</b>'+(r.restore?' <span class="pill pill-warn">طلب إعادة تفعيل</span>':'')+'</td><td>'+esc(r.username||'')+'</td>'
         +'<td><button class="btn-sm" onclick="approveJoinRequest(\''+ruid+'\')">موافقة</button> '
         +'<button class="btn-sm btn-del" onclick="rejectJoinRequest(\''+ruid+'\')">رفض</button></td></tr>';
     }).join('');
@@ -11782,8 +11814,18 @@ function approveJoinRequest(ruid){
   if(!guard('users')) return;
   var cache=window.__joinReqCache||{}, r=cache[ruid];
   if(!r){ toast('حدّث القائمة ثم أعد المحاولة'); return; }
-  if(db.users.filter(function(x){return x.username.toLowerCase()===String(r.username).toLowerCase();}).length){
-    toast('اسم المستخدم "'+r.username+'" مستخدم بالفعل — ارفض الطلب أو اطلب منه اسماً آخر'); return; }
+  var ex=db.users.filter(function(x){return String(x.username||'').toLowerCase()===String(r.username).toLowerCase();})[0];
+  if(ex){
+    if(ex.fbUid&&ex.fbUid!==ruid&&!r.restore){ toast('اسم المستخدم "'+r.username+'" مستخدم بالفعل — ارفض الطلب أو اطلب منه اسماً آخر'); return; }
+    /* طلب إعادة تفعيل لمستخدم موجود/مستعاد: يُربط حسابه السحابي به مع الإبقاء على دوره وصلاحياته */
+    ex.fbUid=ruid; ex.active=1;
+    cloudWriteMember(ruid,ex).catch(function(){});
+    firebase.database().ref('workspaces/'+cloudWid()+'/requests/'+ruid).remove().catch(function(){});
+    log('edit','المستخدمون','إعادة تفعيل دخول المستخدم '+ex.name+' ('+ex.username+') وربط حسابه السحابي');
+    commit('تمت إعادة تفعيل '+ex.name+' بدوره وصلاحياته السابقة'); renderUsers(); renderJoinRequests(); return;
+  }
+  var dr=userRecoveryCandidates().filter(function(c){ return c.username&&c.username.toLowerCase()===String(r.username).toLowerCase(); })[0];
+  if(dr){ restoreUserCandidate(dr,ruid); commit('تمت استعادة '+dr.name+' وإعادة تفعيل دخوله'); renderUsers(); firebase.database().ref('workspaces/'+cloudWid()+'/requests/'+ruid).remove().catch(function(){}); renderJoinRequests(); return; }
   db.users.push({id:uid(),name:r.name||r.username,username:r.username,pass:hash('cloud-'+ruid),
     role:'entry',active:1,perms:preset('entry'),fbUid:ruid,lastLogin:''});
   firebase.database().ref('workspaces/'+cloudWid()+'/members/'+ruid).set({username:r.username,role:'entry',active:1}).catch(function(){});
@@ -11798,6 +11840,73 @@ function rejectJoinRequest(ruid){
   firebase.database().ref('workspaces/'+cloudWid()+'/requests/'+ruid).remove().catch(function(){});
   log('delete','المستخدمون','رفض طلب انضمام'+(r?': '+(r.name||r.username):''));
   persist(); renderJoinRequests(); toast('تم رفض الطلب');
+}
+/* ===== استعادة المستخدمين المحذوفين/المفقودين =====
+   المصادر: (1) سجل الحركات — كل حركة تحمل معرّف منفّذها واسمه، وسجلّا «إضافة مستخدم»/«تعديل المستخدم»
+   يحملان اسم الدخول والدور؛ (2) عضويات الدخول السحابية (members) — اسم الدخول والدور والمعرّف السحابي.
+   الاستعادة بنفس المعرّف الأصلي فتعود كل حركاته مرتبطة به. لا تُستعاد أي كلمة مرور (حسابه السحابي يبقى كما هو). */
+var _recMembers=null;
+function userRecoveryCandidates(){
+  var have={}, haveNm={}, haveFb={}, nm=function(x){ return String(x||'').trim().toLowerCase(); };
+  db.users.forEach(function(u){ have[u.id]=1; haveNm[nm(u.username)]=1; haveNm[nm(u.name)]=1; if(u.fbUid) haveFb[u.fbUid]=1; });
+  var byName={}, roleOf={}, c={};
+  (db.audit||[]).forEach(function(a){ if(!a) return; var d=String(a.details||''), m;
+    if(a.entity==='المستخدمون'){
+      if((m=d.match(/^إضافة مستخدم: (.+) \(([^)]+)\) — الدور: (.+)$/))){ byName[m[1].trim()]=m[2].trim(); roleOf[m[1].trim()]=m[3].trim(); }
+      else if((m=d.match(/^حذف المستخدم (.+) \(([^)]+)\)$/))){ byName[m[1].trim()]=m[2].trim(); }
+      else if((m=d.match(/^تعديل المستخدم (.+) — الدور: ([^—]+?)( مع تغيير كلمة المرور)?$/))){ roleOf[m[1].trim()]=m[2].trim(); }
+      else if((m=d.match(/^قبول طلب انضمام: (.+) \(([^)]+)\)/))){ byName[m[1].trim()]=m[2].trim(); }
+    }
+    if(a.action==='fail'||!a.userId||have[a.userId]) return;
+    var k='id:'+a.userId, x=c[k]||(c[k]={id:a.userId,name:'',username:'',role:'',fbUid:'',src:{},n:0,last:''});
+    if(a.user&&a.user!=='—') x.name=a.user; x.n++; x.src.audit=1; if(String(a.ts||'')>x.last) x.last=String(a.ts||'');
+  });
+  var roleKey=function(t){ var r=''; Object.keys(ROLES).forEach(function(k){ if(ROLES[k]===t) r=k; }); return r; };
+  Object.keys(c).forEach(function(k){ var x=c[k]; x.username=byName[x.name]||''; x.role=roleKey(roleOf[x.name]||'')||''; });
+  /* عضويات السحابة غير المرتبطة بأي مستخدم */
+  if(_recMembers) Object.keys(_recMembers).forEach(function(fb){ var m=_recMembers[fb]||{}; if(!m.username||haveFb[fb]||haveNm[nm(m.username)]) return;
+    var hit=null; Object.keys(c).forEach(function(k){ var x=c[k]; if(nm(x.username)===nm(m.username)||nm(x.name)===nm(m.username)) hit=x; });
+    if(!hit) hit=c['fb:'+fb]={id:null,name:m.username,username:m.username,role:'',fbUid:'',src:{},n:0,last:''};
+    hit.username=hit.username||m.username; hit.fbUid=fb; hit.src.member=1; if(ROLES[m.role]&&m.role!=='custom') hit.role=m.role; });
+  return Object.keys(c).map(function(k){ var x=c[k]; if(!x.username) x.username=x.name; if(!x.role) x.role='entry'; return x; })
+    .filter(function(x){ return x.name&&!haveNm[nm(x.username)]; })
+    .sort(function(a,b){ return b.n-a.n; });
+}
+function renderUserRecovery(force){
+  var sec=document.getElementById('userRecoverSection'); if(!sec) return;
+  if(!ME||!can('users')){ sec.classList.add('hidden'); return; }
+  var paint=function(){
+    var L=userRecoveryCandidates(); window.__recCache=L;
+    if(!L.length){ sec.classList.add('hidden'); if(force) toast('لا يوجد مستخدمون مفقودون'); return; }
+    sec.classList.remove('hidden');
+    document.getElementById('tbUserRecover').innerHTML=L.map(function(x,i){
+      var src=[x.src.audit?'سجل الحركات':'',x.src.member?'عضوية سحابية ✓':''].filter(Boolean).join(' + ');
+      return '<tr><td class="name"><b>'+esc(x.name)+'</b></td><td>'+esc(x.username)+'</td><td>'+esc(ROLES[x.role]||x.role)+'</td><td class="muted">'+src+'</td>'
+        +'<td>'+x.n+'</td><td class="muted">'+esc(x.last||'—')+'</td><td><button class="btn-sm" onclick="restoreUserAt('+i+')">استعادة</button></td></tr>';
+    }).join('');
+  };
+  paint();
+  if(cloudAccounts()&&(force||!_recMembers)){ try{ firebase.database().ref('workspaces/'+cloudWid()+'/members').once('value')
+    .then(function(sn){ _recMembers=sn.val()||{}; paint(); }).catch(function(){}); }catch(e){} }
+}
+function restoreUserCandidate(x,fbUid){
+  var id=(x.id!=null&&!byId(db.users,x.id))?x.id:uid(), role=ROLES[x.role]&&x.role!=='custom'?x.role:'entry';
+  if(db.tombstones) delete db.tombstones['user:'+id];
+  var u={id:id,name:x.name,username:x.username,pass:'',role:role,active:1,perms:preset(role),depts:Object.keys(db.departments||{}),lastLogin:'',fbUid:fbUid||x.fbUid||''};
+  db.users.push(u);
+  if(u.fbUid&&cloudAccounts()) cloudWriteMember(u.fbUid,u).catch(function(){});
+  log('add','المستخدمون','استعادة مستخدم محذوف: '+u.name+' ('+u.username+') — الدور: '+(ROLES[role]||role)+(u.fbUid?' — أُعيد ربط حسابه السحابي':' — يدخل بكلمة مروره المعتادة فيصل طلب إعادة تفعيل للموافقة'));
+  return u;
+}
+function restoreUserAt(i){
+  if(!guard('users')) return; var x=(window.__recCache||[])[i]; if(!x) return;
+  if(!confirm('استعادة المستخدم «'+x.name+'» ('+x.username+') بدور '+(ROLES[x.role]||x.role)+'؟\nتعود حركاته مرتبطة به، ويمكنك تعديل دوره وصلاحياته بعدها.')) return;
+  restoreUserCandidate(x); commit('تمت استعادة '+x.name); renderUsers(); renderJoinRequests();
+}
+function restoreAllUsers(){
+  if(!guard('users')) return; var L=window.__recCache||[]; if(!L.length) return;
+  if(!confirm('استعادة '+L.length+' مستخدم: '+L.map(function(x){return x.name;}).join('، ')+'؟')) return;
+  L.forEach(function(x){ restoreUserCandidate(x); }); commit('تمت استعادة '+L.length+' مستخدم'); renderUsers(); renderJoinRequests();
 }
 /* حارس دوري يضمن «التخزين المحلي ثم الرفع»: يعيد الاتصال إن انقطع، ويرفع أي
    إدخالات محفوظة على الجهاز ولم تُرفع بعد — فلا تضيع بيانات ولو تعذّر الرفع لفترة */
