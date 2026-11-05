@@ -641,7 +641,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 .qb-row.qb-ok{background:rgba(31,157,87,.07);border-color:rgba(31,157,87,.25)}
 .qb-n{width:22px;text-align:center;color:#888;font-size:12px}
 .qb-in{height:40px;font-size:15px;padding:0 10px;border:1px solid var(--line,#ccc);border-radius:8px;min-width:0}
-.qb-sup,.qb-item{flex:1 1 200px}.qb-q{flex:0 0 110px;font-weight:700}.qb-x{flex:0 0 100px}
+.qb-sup,.qb-item{flex:1 1 200px}.qb-q{flex:0 0 110px;font-weight:700}.qb-x{flex:0 0 100px}.qb-p{flex:0 0 130px}
 .qb-in:focus{outline:2px solid #2f6fb5;border-color:#2f6fb5}
 .qc-pop{position:absolute;z-index:9999;background:var(--card,#fff);border:1px solid #c9d3df;border-radius:9px;box-shadow:0 8px 24px rgba(0,0,0,.15);max-height:300px;overflow:auto;display:none;font-size:14px}
 .qc-opt{padding:8px 12px;cursor:pointer}.qc-opt.on,.qc-opt:hover{background:#e8f0fb}.qc-opt b{color:#1f6b45}.qc-none{padding:8px 12px;color:#999}
@@ -2225,7 +2225,7 @@ kbd{border:1px solid #bbb;border-bottom-width:2px;border-radius:4px;padding:0 4p
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-05-i';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-05-j';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -4083,8 +4083,8 @@ function qbPaint(){
   var whs=db.warehouses||[], wh0=_qbRows.wh||(whs[0]&&whs[0].id), ex=qbShowExtra();
   var whOpts=whs.map(function(w){ return '<option value="'+w.id+'"'+(+wh0===w.id?' selected':'')+'>'+esc(w.name)+'</option>'; }).join('');
   var eb=_qbEdit?'<div class="qb-editban">✏️ تعديل إدخال <b>'+esc(supName(_qbEdit.sup))+'</b> بتاريخ <b>'+esc(_qbEdit.date)+'</b> — عدّل الكميات أو الأصناف ثم احفظ <span class="tt-tools"><button class="btn-sm btn-del" onclick="qbDeleteEdit()">🗑 حذف الإدخال</button><button class="btn-sm" onclick="qbCancelEdit()">إلغاء التعديل</button></span></div>':'';
-  var h='<div class="qb-card'+(_qbEdit?' qb-editing':'')+'">'+eb+'<div class="tt-head"><b>⚡ مشتريات اليوم</b> <span class="mini">اكتب أي جزء من اسم المورد أو الصنف ← <kbd>Enter</kbd> ← الكمية ← <kbd>Enter</kbd> لسطر جديد</span>'
-    +(qbOnly()?'':'<span class="tt-tools"><button class="btn-sm" onclick="_qbExtra=!qbShowExtra();qbPaint()">'+(ex?'إخفاء الوزن والسعر':'＋ الوزن والسعر')+'</button></span>')+'</div>'
+  var h='<div class="qb-card'+(_qbEdit?' qb-editing':'')+'">'+eb+'<div class="tt-head"><b>⚡ مشتريات اليوم</b> <span class="mini">المورد ← <kbd>Enter</kbd> ← الصنف ← <kbd>Enter</kbd> ← الكمية ← <kbd>Enter</kbd> ← السعر (اختياري) ← <kbd>Enter</kbd> سطر جديد</span>'
+    +(qbOnly()?'':'<span class="tt-tools"><button class="btn-sm" onclick="_qbExtra=!qbShowExtra();qbPaint()">'+(ex?'إخفاء الوزن':'＋ وزن الوحدة')+'</button></span>')+'</div>'
     +'<div class="qb-top"><label>📅 التاريخ <input type="date" id="qb_date" value="'+esc(_qbRows.date||today())+'" onchange="_qbRows.date=this.value"></label>'
     +(whs.length>1?'<label>🏬 المستودع <select id="qb_wh" onchange="_qbRows.wh=+this.value">'+whOpts+'</select></label>':'<input type="hidden" id="qb_wh" value="'+esc(wh0||'')+'">')+'</div>'
     +'<div class="qb-rows">';
@@ -4095,8 +4095,8 @@ function qbPaint(){
       +'<input class="qb-in qb-sup" data-qr="'+i+'" data-qf="sup" data-qk="sup" placeholder="🔍 المورد" autocomplete="off" value="'+esc(qbName('sup',r.sup))+'" oninput="qcInput(this)" onkeydown="qbKey(event,this)" onfocus="qcInput(this,1)" onblur="qcBlur(this)">'
       +'<input class="qb-in qb-item" data-qr="'+i+'" data-qf="item" data-qk="item" placeholder="🔍 الصنف" autocomplete="off" value="'+esc(qbName('item',r.item))+'" oninput="qcInput(this)" onkeydown="qbKey(event,this)" onfocus="qcInput(this,1)" onblur="qcBlur(this)">'
       +'<input class="qb-in qb-q" data-qr="'+i+'" data-qf="q" type="number" min="0" step="1" inputmode="decimal" placeholder="الكمية" value="'+esc(r.q||'')+'" oninput="qbSet('+i+',\'q\',this.value)" onkeydown="qbKey(event,this)">'
-      +(ex?'<input class="qb-in qb-x" data-qr="'+i+'" data-qf="w" type="number" min="0" step="0.01" inputmode="decimal" placeholder="وزن الوحدة" title="وزن الوحدة (كغ) — اختياري" value="'+esc(bw)+'" oninput="qbSet('+i+',\'w\',this.value)" onkeydown="qbKey(event,this)">'
-        +'<input class="qb-in qb-x" data-qr="'+i+'" data-qf="p" type="number" min="0" step="0.01" inputmode="decimal" placeholder="السعر" title="سعر الوحدة — اختياري" value="'+esc(r.p||'')+'" oninput="qbSet('+i+',\'p\',this.value)" onkeydown="qbKey(event,this)">':'')
+      +(ex?'<input class="qb-in qb-x" data-qr="'+i+'" data-qf="w" type="number" min="0" step="0.01" inputmode="decimal" placeholder="وزن الوحدة" title="وزن الوحدة (كغ) — اختياري" value="'+esc(bw)+'" oninput="qbSet('+i+',\'w\',this.value)" onkeydown="qbKey(event,this)">':'')
+      +'<input class="qb-in qb-x qb-p" data-qr="'+i+'" data-qf="p" type="number" min="0" step="0.01" inputmode="decimal" placeholder="السعر (اختياري)" title="سعر الوحدة — اختياري، يُستكمل عند وصول الفاتورة إن تُرك فارغاً" value="'+esc(r.p||'')+'" oninput="qbSet('+i+',\'p\',this.value)" onkeydown="qbKey(event,this)">'
       +'<button class="btn-sm btn-del qb-del" tabindex="-1" onclick="qbDel('+i+')" title="حذف السطر">✕</button></div>'; });
   var nOk=_qbRows.filter(function(r){ return r.sup&&r.item&&+r.q>0; }).length;
   h+='</div><div class="form-foot"><button class="btn-sm" onclick="_qbRows.push({});qbPaint();qbFocus(_qbRows.length-1,\'sup\')">➕ سطر</button> '
@@ -4144,7 +4144,7 @@ function qbKey(e,el){
     if(r[f]&&el.value===qbName(f,r[f])){ if(open) p.style.display='none'; qbFocus(i,f==='sup'?'item':'q'); return; }
     if(open&&p._L&&p._L.length){ qcPick(p._ix||0); return; }
     toast(f==='sup'?'اكتب جزءاً من اسم المورد ثم اختر من القائمة':'اكتب جزءاً من اسم الصنف ثم اختر من القائمة'); return; }
-  if(f==='q'&&qbShowExtra()){ qbFocus(i,'w'); return; }
+  if(f==='q'){ qbFocus(i,qbShowExtra()?'w':'p'); return; }   /* الكمية ← السعر (اختياري) ← سطر جديد */
   if(f==='w'){ qbFocus(i,'p'); return; }
   /* الكمية (أو السعر): انزل لسطر جديد */
   if(i===_qbRows.length-1){ _qbRows.push({}); qbPaint(); }
