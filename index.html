@@ -649,6 +649,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 .qc-opt{padding:8px 12px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.qc-opt.on,.qc-opt:hover{background:#e8f0fb}.qc-opt b{color:#1f6b45}.qc-none{padding:8px 12px;color:#999}
 kbd{border:1px solid #bbb;border-bottom-width:2px;border-radius:4px;padding:0 4px;font-size:11px;background:#f7f7f7}
 .tt-req{margin:8px 0}
+.lh-sum{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:6px 0}.lh-i{font-size:12.5px;margin:2px 0}.lh-bad{color:#b42318;font-weight:700}.lh-warn{color:#9a5b00}.lh-info{color:#555}
 .tt-title{font-size:15px}
 .tt-seg{display:inline-flex;border:1px solid #cfd8e3;border-radius:9px;overflow:hidden;margin-inline-start:8px}
 .tt-seg button{border:0;background:transparent;padding:5px 12px;font:inherit;font-size:12.5px;cursor:pointer}
@@ -1919,6 +1920,11 @@ kbd{border:1px solid #bbb;border-bottom-width:2px;border-radius:4px;padding:0 4p
 <section id="users" class="panel">
   <div class="panel-title">المستخدمون والصلاحيات</div>
   <div class="note">كل عملية إضافة أو تعديل أو حذف تُسجَّل باسم المستخدم وتاريخها في سجل الحركات أسفل الصفحة.</div>
+  <div id="loginHealthSection" class="hidden">
+    <div class="sec-title">🩺 فحص سلامة دخول الموظفين <button class="btn btn-sm no-print" onclick="renderLoginHealth(true)">فحص الآن</button>
+      <span class="hint">يطابق كل مستخدم مع حساب دخوله السحابي، ويكشف ما يمنع الدخول، وأسباب المحاولات الفاشلة — مع إصلاح بضغطة.</span></div>
+    <div id="loginHealthBody"></div>
+  </div>
   <div id="userRecoverSection" class="hidden">
     <div class="sec-title warn">♻️ مستخدمون محذوفون أو مفقودون — قابلون للاستعادة <button class="btn btn-sm no-print" onclick="renderUserRecovery(true)">فحص</button>
       <span class="hint">اكتُشفوا من سجل الحركات وعضويات الدخول السحابية. الاستعادة تعيدهم بنفس المعرّف فتعود حركاتهم مرتبطة بهم، وتعيد صلاحية دخولهم إن كان حسابهم السحابي معروفاً.</span></div>
@@ -2266,7 +2272,7 @@ kbd{border:1px solid #bbb;border-bottom-width:2px;border-radius:4px;padding:0 4p
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-05-n';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-05-o';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -3034,6 +3040,7 @@ function updateDeptUI(){
 function switchDept(key){
   if(!userCanDept(key)){ toast('لا تملك صلاحية الدخول لهذا القسم'); updateDeptUI(); return; }
   if(key===curDept) return;
+  try{ qbDeptSwitch(curDept||db.activeDept,key); }catch(e){}
   /* إنهاء أي فاتورة قيد الإدخال قبل التبديل */
   draft={p:{lines:[],editId:null},s:{lines:[],editId:null}};
   curDept=key; loadDept(key); persist();
@@ -3983,7 +3990,7 @@ function ptAllocate(cogsLine,cogsDoc){
     m.sLines.forEach(function(x){ var sh=tv>0?x.v/tv:(tq>0?x.q/tq:1/m.sLines.length), c=m.pCost*sh, kk=x.id+'#'+x.idx;
       cogsLine[kk]=(cogsLine[kk]||0)+c; cogsDoc[x.id]=(cogsDoc[x.id]||0)+c; }); });
 }
-function ptToggle(on){ if(!guard('settings')) return;
+function ptToggle(on){ if(!ME||ME.role!=='admin'){ toast('تفعيل/إيقاف هذه الميزة لمدير النظام فقط'); return; }
   if(on&&!confirm('تفعيل «التوريد المباشر» لقسم «'+deptName(db.activeDept)+'»؟\n\n• المشتريات والمبيعات في هذا القسم لن تدخل المخزون.\n• تكلفة كل صنف = مشتريات نفس اليوم من كل الموردين، وتُطابَق مع مبيعات (أوزان) نفس الصنف في نفس اليوم.\n• تقرير «ربحية الأصناف اليومية» يبيّن ربح/خسارة كل صنف في كل يوم.')) return;
   dcur().passThru=on?1:0; log('data','المشتريات',(on?'تفعيل':'إيقاف')+' وضع التوريد المباشر (بدون مخزون) في قسم '+deptName(db.activeDept));
   commit(on?'تم تفعيل التوريد المباشر — لا مخزون، تكلفة يومية لكل صنف':'تم إيقاف التوريد المباشر'); renderTaxTrack(); }
@@ -4005,7 +4012,7 @@ function renderTaxTrack(){
   if(!ME||!(can('purchases')||can('quickBuy'))){ box.innerHTML=''; return; }
   var pan=document.getElementById('purchases'); if(pan) pan.classList.toggle('qb-only',qbOnly());
   if(!ttOn()){
-    box.innerHTML=can('settings')?'<div class="tt-off"><span>📑 متابعة الفواتير الضريبية للموردين غير مفعّلة في قسم «'+esc(deptName(db.activeDept))+'»</span> <button class="btn-sm" onclick="ttToggle(true)">تفعيل لهذا القسم</button></div>':'';
+    box.innerHTML=(ME.role==='admin')?'<div class="tt-off"><span>📑 متابعة الفواتير الضريبية للموردين غير مفعّلة في قسم «'+esc(deptName(db.activeDept))+'»</span> <button class="btn-sm" onclick="ttToggle(true)">تفعيل لهذا القسم</button></div>':'';
     if(qb&&!qbOnly()) qb.classList.add('hidden'); if(qbOnly()) qbEnsureOpen(); return; }
   /* الإدخال السريع مفتوح دائماً للموظف المختص، ولقسم التوريد المباشر — قبل قائمة الفواتير */
   if(qbOnly()||(ptOn()&&qbAllowed())) qbEnsureOpen();
@@ -4021,7 +4028,7 @@ function renderTaxTrack(){
     +'<div class="tt-head"><b class="tt-title">📑 الفواتير الضريبية للموردين</b>'
     +'<span class="tt-seg">'+seg('wait','⏳ لم تصل'+(wait.length?' ('+wait.length+')':''))+seg('got','✅ وصلت')+seg('all','الكل')+'</span>'
     +'<span class="tt-tools">'+(qb&&qb.classList.contains('hidden')&&qbAllowed()?'<button class="btn-sm btn-alt" onclick="qbOpen()">⚡ مشتريات اليوم</button>':'')
-    +(can('settings')?'<button class="btn-sm" onclick="ttToggle(false)" title="إيقاف متابعة الفواتير لهذا القسم">⚙ إيقاف</button>':'')+'</span></div>';
+    +(ME.role==='admin'?'<button class="btn-sm" onclick="ttToggle(false)" title="إيقاف متابعة الفواتير لهذا القسم">⚙ إيقاف</button>':'')+'</span></div>';
   if(wait.length){
     h+='<div class="tt-tiles">'+tile('⏳','فاتورة لم تصل',wait.length,'t-bad')+tile('📅','أقدمها',oldest?'منذ '+mcDays(oldest):'اليوم',oldest>=7?'t-bad':'t-warn')
       +tile('🚚','مورد',Object.keys(nSup).length,'')+(seeV?tile('💰','قيمة المنتظر',money(wv),'')+(noPr?tile('⚠','بلا سعر',noPr,'t-bad'):''):'')+'</div>'
@@ -4053,7 +4060,7 @@ function renderTaxTrack(){
   if((nS.length||nI.length)&&can('master')) h+='<div class="tt-newnames">🆕 أضافها الموظف من مشتريات اليوم — راجِعها من «البيانات الأساسية»: '
     +nS.map(function(x){ return '<span class="pill pill-info">🚚 '+esc(x.name)+'</span>'; }).join(' ')+' '+nI.map(function(x){ return '<span class="pill pill-info">🏷️ '+esc(x.name)+'</span>'; }).join(' ')
     +' <button class="btn-sm" onclick="qbAckNew()">✓ تمت المراجعة</button></div>';
-  if(can('settings')) h+='<div class="mini tt-mode">'+(ptOn()?'📦 <b>توريد مباشر</b>: المشتريات لا تدخل المخزون — تكلفة كل صنف تُطابَق يومياً مع مبيعاته (تقرير «ربحية الأصناف اليومية») <button class="btn-sm" onclick="ptToggle(false)">إيقاف</button>':'📦 المشتريات تدخل المخزون <button class="btn-sm" onclick="ptToggle(true)">تفعيل التوريد المباشر (بدون مخزون)</button>')+'</div>';
+  if(ME.role==='admin') h+='<div class="mini tt-mode">'+(ptOn()?'📦 <b>توريد مباشر</b>: المشتريات لا تدخل المخزون — تكلفة كل صنف تُطابَق يومياً مع مبيعاته (تقرير «ربحية الأصناف اليومية») <button class="btn-sm" onclick="ptToggle(false)">إيقاف</button>':'📦 المشتريات تدخل المخزون <button class="btn-sm" onclick="ptToggle(true)">تفعيل التوريد المباشر (بدون مخزون)</button>')+'</div>';
   box.innerHTML=h+'</div>';
 }
 function qbAckNew(){ (db.suppliers||[]).forEach(function(x){ delete x.qbNew; }); (db.items||[]).forEach(function(x){ delete x.qbNew; }); commit('تم'); renderTaxTrack(); }
@@ -4062,7 +4069,7 @@ function ttFilterRows(q){ var w=arN(q);
   [].forEach.call(document.querySelectorAll('#taxTrackBox tr.tt-r'),function(tr){ tr.style.display=(!w||w.split(' ').every(function(x){ return tr.dataset.k.indexOf(x)>-1; }))?'':'none'; });
   [].forEach.call(document.querySelectorAll('#taxTrackBox tr.tt-grp'),function(g){ var n=g.nextElementSibling, any=false; while(n&&!n.classList.contains('tt-grp')){ if(n.style.display!=='none') any=true; n=n.nextElementSibling; } g.style.display=any?'':'none'; }); }
 function ttSetFilter(f){ _ttFilter=f; renderTaxTrack(); }
-function ttToggle(on){ if(!guard('settings')) return; dcur().taxTrack=on?1:0; log('data','المشتريات',(on?'تفعيل':'إيقاف')+' متابعة الفواتير الضريبية في قسم '+deptName(db.activeDept)); commit(on?'تم تفعيل متابعة الفواتير الضريبية لهذا القسم':'تم الإيقاف'); renderTaxTrack(); }
+function ttToggle(on){ if(!ME||ME.role!=='admin'){ toast('تفعيل/إيقاف هذه الميزة لمدير النظام فقط'); return; } dcur().taxTrack=on?1:0; log('data','المشتريات',(on?'تفعيل':'إيقاف')+' متابعة الفواتير الضريبية في قسم '+deptName(db.activeDept)); commit(on?'تم تفعيل متابعة الفواتير الضريبية لهذا القسم':'تم الإيقاف'); renderTaxTrack(); }
 function ttMarkGot(id){
   if(!guard('taxRecv','تأكيد وصول الفواتير الضريبية لمدير النظام أو الموظف المخوَّل فقط')) return; var r=byId(db.purchases,id); if(!r) return;
   if(!periodGuard(r.date)) return;
@@ -4107,7 +4114,14 @@ function arRank(name,q){ var n=arN(name), x=arN(q); return n===x?0:(n.indexOf(x)
 /* ===== مشتريات اليوم — إدخال سريع (مصمَّم لموظف بسيط) =====
    كل سطر: المورد ← الصنف ← الكمية — بلوحة المفاتيح فقط: Enter ينقل للخانة التالية، وEnter في الكمية ينزل لسطر جديد.
    Enter على خانة مورد فارغة = نفس مورد السطر السابق. الوزن والسعر اختياريان ويظهران لمن يملك الصلاحية. */
-var _qbRows=[], _qbExtra=null, _qbEdit=null;
+var _qbRows=[], _qbExtra=null, _qbEdit=null, _qbDrafts={};
+/* مسودة «مشتريات اليوم» خاصة بكل قسم — لا تنتقل أسطر قسم إلى قسم آخر عند التبديل */
+function qbDeptSwitch(from,to){
+  if(from){ var keep=_qbRows.some(function(r){ return r.sup||r.item||r.q||r.n; }); _qbDrafts[from]=keep?{rows:_qbRows,edit:_qbEdit}:null; }
+  var d=_qbDrafts[to]; _qbRows=d?d.rows:[]; _qbEdit=d?d.edit:null; _ttFilter='wait';
+  var p=document.getElementById('qcPop'); if(p) p.style.display='none';
+  var qb=document.getElementById('quickBuyBox'); if(qb){ qb.classList.add('hidden'); qb.innerHTML=''; }
+}
 function qbEnsureOpen(){ var qb=document.getElementById('quickBuyBox'); if(!qb||!qb.classList.contains('hidden')) return; if(!_qbRows.length) _qbRows=[{},{},{}]; qb.classList.remove('hidden'); qbPaint(); }
 function qbIsQuick(r){ return !!(r&&(r.qb||r.note==='إدخال سريع')); }
 /* الموظف يعدّل إدخاله هو (قبل وصول الفاتورة) من نفس شاشة الإدخال؛ المدير/من يملك التعديل يعدّل أي إدخال سريع */
@@ -8542,7 +8556,7 @@ function delUser(id){
   db.users=db.users.filter(function(x){return x.id!==id;}); persist(); renderUsers(); toast('تم الحذف');
 }
 function renderUsers(){
-  try{ setTimeout(function(){ renderUserRecovery(false); },0); }catch(e){}
+  try{ setTimeout(function(){ renderUserRecovery(false); renderLoginHealth(false); },0); }catch(e){}
   var _fst=null;
   document.getElementById('tbUsers').innerHTML=db.users.map(function(u){
     var ops=db.audit.filter(function(a){return a.userId===u.id&&a.action!=='auth'&&a.action!=='fail';}).length;
@@ -12369,6 +12383,69 @@ function rejectJoinRequest(ruid){
   log('delete','المستخدمون','رفض طلب انضمام'+(r?': '+(r.name||r.username):''));
   persist(); renderJoinRequests(); toast('تم رفض الطلب');
 }
+/* ===== فحص سلامة دخول الموظفين (لمدير النظام) =====
+   يطابق كل مستخدم مع عضويته السحابية (members) ويكشف ما يمنع الدخول أو يسبّب خللاً:
+   حساب غير مربوط · عضوية مفقودة · اختلاف اسم الدخول/الدور/الحالة · قسم غير متاح · اسم مكرّر —
+   مع إصلاح بضغطة لما يمكن إصلاحه، وأسباب المحاولات الفاشلة لكل اسم. لا يقرأ ولا يكشف أي كلمة مرور. */
+var _lhMembers=null, _lhErr='';
+function lhFailReasons(){ var o={}, lim=Date.now()-7*864e5;
+  (db.audit||[]).forEach(function(a){ if(!a||a.action!=='fail') return; var t=parseTsMs(a.ts); if(t&&t<lim) return;
+    var d=String(a.details||''), m=d.match(/اسم المستخدم المُدخل: «([^»]*)»/), r=d.match(/السبب: (.+?) — الجهاز/);
+    var k=arN(m?m[1]:''), x=o[k]||(o[k]={n:0,why:{},last:''}); x.n++; var w=r?r[1]:'غير محدد'; x.why[w]=(x.why[w]||0)+1; if(String(a.ts)>x.last) x.last=String(a.ts); });
+  return o; }
+function lhIssues(){
+  var M=_lhMembers||{}, F=lhFailReasons(), out=[], all=Object.keys(db.departments||{}), seen={};
+  db.users.forEach(function(u){ var k=arN(u.username); seen[k]=(seen[k]||0)+1; });
+  db.users.forEach(function(u){
+    var iss=[], fix=false, m=u.fbUid?M[u.fbUid]:null, nm=arN(u.username), f=F[nm];
+    if(!Number(u.active)) iss.push({t:'⏸ موقوف — لا يستطيع الدخول',lv:'info'});
+    if(seen[nm]>1) iss.push({t:'⚠ اسم دخول مكرّر لأكثر من مستخدم',lv:'bad'});
+    if(cloudAccounts()){
+      if(!u.fbUid) iss.push({t:'⚠ غير مربوط بحساب دخول سحابي — اضغط «حساب سحابي» أمامه أو اطلب منه الدخول مرة (يصلك طلب إعادة تفعيل)',lv:'bad'});
+      else if(_lhMembers&&!m){ iss.push({t:'❌ لا توجد عضوية سحابية — لا يستطيع الدخول',lv:'bad'}); fix=true; }
+      else if(m){
+        if(arN(m.username)!==nm){ iss.push({t:'⚠ اسم الدخول في العضوية «'+m.username+'» يختلف عن «'+u.username+'»',lv:'bad'}); fix=true; }
+        if(m.role!==u.role){ iss.push({t:'⚠ الدور في العضوية ('+(ROLES[m.role]||m.role)+') يختلف عن الدور الحالي ('+(ROLES[u.role]||u.role)+')',lv:'warn'}); fix=true; }
+        if(Number(m.active)!==(Number(u.active)?1:0)){ iss.push({t:'⚠ حالة العضوية ('+(Number(m.active)?'نشط':'موقوف')+') تختلف عن حالته الحالية',lv:'bad'}); fix=true; }
+      }
+    }
+    if(u.role!=='admin'&&Array.isArray(u.depts)&&u.depts.length&&!u.depts.some(function(k){ return all.indexOf(k)>-1; })) iss.push({t:'⚠ الأقسام المسموح بها له لم تعد موجودة — لن يرى أي قسم',lv:'bad'});
+    if(f&&f.n){ var top=Object.keys(f.why).sort(function(a,b){ return f.why[b]-f.why[a]; }).map(function(w){ return w+' ('+f.why[w]+')'; }).join('، ');
+      iss.push({t:'🚫 '+f.n+' محاولة فاشلة خلال 7 أيام — '+top,lv:f.n>=5?'bad':'warn'}); }
+    out.push({u:u,iss:iss,fix:fix});
+  });
+  /* محاولات بأسماء غير موجودة إطلاقاً */
+  var known={}; db.users.forEach(function(u){ known[arN(u.username)]=1; });
+  var ghost=Object.keys(F).filter(function(k){ return k&&!known[k]; }).map(function(k){ return {name:k,n:F[k].n,why:Object.keys(F[k].why).join('، ')}; });
+  return {rows:out,ghost:ghost};
+}
+function renderLoginHealth(force){
+  var sec=document.getElementById('loginHealthSection'); if(!sec) return;
+  if(!ME||ME.role!=='admin'){ sec.classList.add('hidden'); return; }
+  sec.classList.remove('hidden');
+  var paint=function(){
+    var R=lhIssues(), bad=R.rows.filter(function(x){ return x.iss.some(function(i){ return i.lv==='bad'; }); }).length, nFix=R.rows.filter(function(x){ return x.fix; }).length;
+    var h='<div class="lh-sum">'+(bad?'<span class="pill pill-bad">'+bad+' مستخدم يحتاج تدخّلاً</span>':'<span class="pill pill-ok">✅ كل حسابات الدخول سليمة</span>')
+      +(nFix?' <button class="btn-sm btn-alt" onclick="lhFixAll()">🔧 إصلاح تلقائي ('+nFix+')</button>':'')
+      +(_lhErr?' <span class="mini">تعذّر قراءة العضويات: '+esc(_lhErr)+'</span>':'')+'</div>';
+    h+='<div class="table-scroll"><table><thead><tr><th class="name">المستخدم</th><th>اسم الدخول</th><th>الدور</th><th>آخر دخول</th><th class="name">الحالة والملاحظات</th><th>إجراء</th></tr></thead><tbody>';
+    R.rows.forEach(function(x){ var u=x.u, ok=!x.iss.length;
+      h+='<tr><td class="name"><b>'+esc(u.name)+'</b></td><td>'+esc(u.username)+'</td><td>'+esc(ROLES[u.role]||u.role)+'</td><td class="muted">'+esc(u.lastLogin||'—')+'</td>'
+        +'<td class="name">'+(ok?'<span class="pill pill-ok">✅ سليم</span>':x.iss.map(function(i){ return '<div class="lh-i lh-'+i.lv+'">'+esc(i.t)+'</div>'; }).join(''))+'</td>'
+        +'<td>'+(x.fix?'<button class="btn-sm" onclick="lhFix('+JSON.stringify(u.id).replace(/"/g,'&quot;')+')">🔧 إصلاح</button>':'')+'</td></tr>'; });
+    h+='</tbody></table></div>';
+    if(R.ghost.length) h+='<div class="note" style="margin-top:6px">🕵️ محاولات دخول بأسماء غير موجودة في النظام (7 أيام): '+R.ghost.map(function(g){ return '<b>'+esc(g.name)+'</b> ('+g.n+')'; }).join('، ')+' — قد يكون خطأ كتابة من الموظف أو محاولة من شخص غير مخوَّل.</div>';
+    document.getElementById('loginHealthBody').innerHTML=h;
+  };
+  paint();
+  if(cloudAccounts()&&(force||!_lhMembers)){ try{ firebase.database().ref('workspaces/'+cloudWid()+'/members').once('value')
+    .then(function(sn){ _lhMembers=sn.val()||{}; _lhErr=''; paint(); },function(e){ _lhErr=(e&&e.code)||'error'; paint(); }); }catch(e){} }
+}
+function lhFix(id){ if(!ME||ME.role!=='admin') return; var u=byId(db.users,id); if(!u||!u.fbUid) return;
+  cloudWriteMember(u.fbUid,u).then(function(){ (_lhMembers=_lhMembers||{})[u.fbUid]={username:u.username,role:u.role,active:Number(u.active)?1:0};
+    log('edit','المستخدمون','إصلاح عضوية الدخول السحابية للمستخدم '+u.name+' ('+u.username+')'); persist(); toast('تم إصلاح حساب '+u.name); renderLoginHealth(); },
+    function(){ toast('تعذّر الإصلاح — تحقّق من الاتصال'); }); }
+function lhFixAll(){ if(!ME||ME.role!=='admin') return; lhIssues().rows.filter(function(x){ return x.fix; }).forEach(function(x){ lhFix(x.u.id); }); }
 /* ===== استعادة المستخدمين المحذوفين/المفقودين =====
    المصادر: (1) سجل الحركات — كل حركة تحمل معرّف منفّذها واسمه، وسجلّا «إضافة مستخدم»/«تعديل المستخدم»
    يحملان اسم الدخول والدور؛ (2) عضويات الدخول السحابية (members) — اسم الدخول والدور والمعرّف السحابي.
