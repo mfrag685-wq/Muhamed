@@ -634,6 +634,14 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 @keyframes clNameMove{0%{background-position:0% 50%}100%{background-position:300% 50%}}
 @keyframes clNamePulse{0%,100%{transform:scale(1);box-shadow:0 0 0 0 rgba(124,58,237,.45)}50%{transform:scale(1.07);box-shadow:0 0 0 5px rgba(124,58,237,0)}}
 @media (prefers-reduced-motion:reduce){.cl-name{animation:none}}
+/* متابعة الفواتير الضريبية + الإدخال السريع */
+.tt-off{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:8px 12px;margin:0 0 10px;border:1px dashed var(--line,#ccc);border-radius:10px;font-size:13px}
+.tt-card,.qb-card{border:1px solid var(--line,#ddd);border-right:5px solid #3a8f5c;border-radius:12px;padding:10px 12px;margin:0 0 12px;background:var(--card,#fff)}
+.tt-card.tt-warn{border-right-color:#e0a019}.tt-card.tt-hot{border-right-color:#d64545}.qb-card{border-right-color:#2f6fb5}
+.tt-head{display:flex;gap:6px;align-items:center;flex-wrap:wrap}.tt-tools{margin-inline-start:auto;display:flex;gap:4px;flex-wrap:wrap}
+.tt-tools .btn-sm.active{background:#1f6b45;color:#fff}
+.tt-sup{margin-top:10px}.tt-sup-h{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:4px}
+.tt-tb td,.qb-tb td{vertical-align:middle}.qb-tb select{min-width:150px}
 </style>
 <!-- ===== مكتبة Firebase للمزامنة السحابية (تعمل فقط عند تعبئة الإعدادات) ===== -->
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
@@ -800,6 +808,8 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 <section id="purchases" class="panel">
   <div class="print-head"><span class="print-logo"></span><h3>سجل المشتريات</h3><p>إعداد محمد فرج</p></div>
   <div class="panel-title">فاتورة شراء <span class="hint">يمكن توزيع أصناف الفاتورة الواحدة على أكثر من مستودع</span></div>
+  <div class="no-print" id="taxTrackBox"></div>
+  <div class="no-print hidden" id="quickBuyBox"></div>
   <div class="doc-box no-print" id="purchaseFormBox">
     <div class="grid">
       <div class="field"><label>التاريخ</label><input type="date" id="p_date"></div>
@@ -811,6 +821,8 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
       <div class="field"><label>المورد</label>
         <div class="inline-add"><select id="p_supplier"></select><button class="btn btn-sm" onclick="quickAddSupplier()" title="مورد جديد">+</button></div></div>
       <div class="field"><label>ملاحظات</label><input type="text" id="p_note" placeholder="اختياري"></div>
+      <div class="field tt-only hidden"><label>الفاتورة الضريبية للمورد</label><select id="p_taxst">
+        <option value="auto">تلقائي — «وصلت» إن أُدخل رقمها</option><option value="wait">⏳ لم تصل بعد — تُتابَع</option><option value="got">✅ وصلت</option></select></div>
     </div>
     <div class="sec-title" style="margin-top:18px">أصناف الفاتورة
       <button class="btn btn-sm no-print" style="font-weight:400;font-size:12.5px;margin-right:8px" onclick="repeatLastDoc('p')" title="يملأ النموذج بآخر فاتورة شراء لتعديل الكميات والأسعار">↻ تكرار آخر فاتورة</button></div>
@@ -2179,7 +2191,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-05-d';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-05-e';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -3846,6 +3858,131 @@ function repeatLastDoc(k){
   toast('حُمِّلت آخر فاتورة — عدّل الكميات والأسعار ثم احفظ');
 }
 
+/* ===== متابعة الفواتير الضريبية للموردين (لكل قسم) =====
+   الموظف يسجّل مشترياته يومياً (من أين وكم) حتى قبل وصول الفاتورة الضريبية؛ كل شراء «لم تصل فاتورته»
+   يظهر في قائمة متابعة مجمّعة حسب المورد مع عدد أيام الانتظار ونص مطالبة جاهز، وعند وصولها
+   يُعلَّم «وصلت» برقمها (ويُستكمل السعر إن كان غير معروف) — فيبقى الناقص واضحاً دائماً. */
+function ttOn(){ return !!dcur().taxTrack; }
+function ttSt(r){ return (r&&r.tax&&r.tax.st)||''; }   /* '' = غير متابَع (سجلات قديمة) */
+function ttFromForm(rec,old){
+  if(!ttOn()&&!(old&&old.tax)) return null;
+  var v=val('p_taxst')||'auto', st=v==='auto'?(rec.no?'got':'wait'):v, o=(old&&old.tax)||{};
+  var t={st:st}; if(st==='got'){ t.no=rec.no||o.no||''; t.at=o.st==='got'&&o.at?o.at:nowTs(); t.by=o.st==='got'&&o.by?o.by:(ME?ME.name:''); }
+  return t;
+}
+function ttNoPrice(r){ return (r.lines||[]).some(function(l){ return !(+l.total>0); }); }
+function ttDays(d){ return Math.max(0,Math.round((new Date(today())-new Date(d))/86400000)); }
+var _ttFilter='wait';
+function renderTaxTrack(){
+  var box=document.getElementById('taxTrackBox'); if(!box) return;
+  document.querySelectorAll('#purchaseFormBox .tt-only').forEach(function(e){ e.classList.toggle('hidden',!ttOn()); });
+  var qb=document.getElementById('quickBuyBox');
+  if(!ME||!can('purchases')){ box.innerHTML=''; return; }
+  if(!ttOn()){
+    box.innerHTML=can('settings')?'<div class="tt-off"><span>📑 متابعة الفواتير الضريبية للموردين غير مفعّلة في قسم «'+esc(deptName(db.activeDept))+'»</span> <button class="btn-sm" onclick="ttToggle(true)">تفعيل لهذا القسم</button></div>':'';
+    if(qb) qb.classList.add('hidden'); return; }
+  var all=(db.purchases||[]).filter(function(r){ return ttSt(r); });
+  var wait=all.filter(function(r){ return ttSt(r)==='wait'; });
+  var list=_ttFilter==='wait'?wait:(_ttFilter==='got'?all.filter(function(r){ return ttSt(r)==='got'; }):all);
+  var g={}; list.forEach(function(r){ (g[r.supplierId]=g[r.supplierId]||[]).push(r); });
+  var sups=Object.keys(g).sort(function(a,b){ var ma=g[a].reduce(function(m,r){ return r.date<m?r.date:m; },'9'), mb=g[b].reduce(function(m,r){ return r.date<m?r.date:m; },'9'); return ma<mb?-1:1; });
+  var oldest=wait.reduce(function(m,r){ return Math.max(m,ttDays(r.date)); },0), wv=wait.reduce(function(t,r){ return t+(+r.total||0)+(+r.vat||0); },0);
+  var noPr=wait.filter(ttNoPrice).length;
+  var h='<div class="tt-card'+(wait.length?(oldest>=7?' tt-hot':' tt-warn'):' tt-ok')+'"><div class="tt-head"><b>📑 الفواتير الضريبية للموردين</b>'
+    +(wait.length?' <span class="pill pill-bad">لم تصل: '+wait.length+'</span> <span class="pill pill-warn">أقدمها '+(oldest?'منذ '+mcDays(oldest):'اليوم')+'</span> <span class="pill pill-info">القيمة '+money(wv)+'</span>'+(noPr?' <span class="pill pill-bad">بلا سعر: '+noPr+'</span>':''):' <span class="pill pill-ok">كل الفواتير وصلت ✓</span>')
+    +'<span class="tt-tools"><button class="btn-sm'+(_ttFilter==='wait'?' active':'')+'" onclick="ttSetFilter(\'wait\')">لم تصل</button><button class="btn-sm'+(_ttFilter==='got'?' active':'')+'" onclick="ttSetFilter(\'got\')">وصلت</button><button class="btn-sm'+(_ttFilter==='all'?' active':'')+'" onclick="ttSetFilter(\'all\')">الكل</button>'
+    +'<button class="btn-sm btn-alt" onclick="qbOpen()">⚡ مشتريات اليوم — إدخال سريع</button>'+(can('settings')?'<button class="btn-sm" onclick="ttToggle(false)" title="إيقاف المتابعة لهذا القسم">إيقاف</button>':'')+'</span></div>';
+  if(!list.length) h+='<div class="mini" style="padding:6px 2px">'+(_ttFilter==='wait'?'لا توجد فواتير منتظرة.':'لا توجد سجلات.')+'</div>';
+  sups.forEach(function(sid){ var rs=g[sid].sort(function(a,b){ return a.date<b.date?-1:(a.date>b.date?1:0); });
+    var nw=rs.filter(function(r){ return ttSt(r)==='wait'; }).length;
+    h+='<div class="tt-sup"><div class="tt-sup-h"><b>'+esc(supName(+sid))+'</b> <span class="mini">'+rs.length+' شراء</span>'
+      +(nw?' <button class="btn-sm" onclick="ttCopyReq('+sid+')">📋 نص مطالبة المورد</button>':'')+'</div><div class="table-scroll"><table class="tt-tb"><thead><tr><th>التاريخ</th><th class="name">الأصناف والكميات</th><th>القيمة</th><th>الحالة</th><th>إجراء</th></tr></thead><tbody>';
+    rs.forEach(function(r){ var st=ttSt(r), d=ttDays(r.date), np=ttNoPrice(r);
+      var items=(r.lines||[]).map(function(l){ var q=+l.boxes||+l.units||0; return esc(itemName(l.itemId))+' '+qty(q)+(l.boxes?' وحدة':' '+esc(l.unit||'')); }).join('، ');
+      h+='<tr><td>'+esc(r.date)+'</td><td class="name">'+items+(r.note?' <span class="mini">— '+esc(r.note)+'</span>':'')+'</td>'
+        +'<td>'+(np?'<span class="pill pill-bad">بلا سعر</span>':money((+r.total||0)+(+r.vat||0)))+'</td>'
+        +'<td>'+(st==='wait'?'<span class="pill '+(d>=7?'pill-bad':'pill-warn')+'">⏳ '+(d?'منذ '+mcDays(d):'اليوم')+'</span>':'<span class="pill pill-ok">✅ '+esc(r.tax.no||r.no||'')+'</span> <span class="mini">'+esc(String(r.tax.at||'').slice(0,10))+'</span>')+'</td>'
+        +'<td>'+(st==='wait'?'<button class="btn-sm btn-alt" onclick="ttMarkGot('+r.id+')">✔ وصلت</button> ':'<button class="btn-sm" onclick="ttMarkWait('+r.id+')" title="إرجاع إلى المنتظر">↺</button> ')
+        +'<button class="btn-sm" onclick="editDoc(\'p\','+r.id+')">فتح</button></td></tr>'; });
+    h+='</tbody></table></div></div>'; });
+  box.innerHTML=h+'</div>';
+}
+function ttSetFilter(f){ _ttFilter=f; renderTaxTrack(); }
+function ttToggle(on){ if(!guard('settings')) return; dcur().taxTrack=on?1:0; log('data','المشتريات',(on?'تفعيل':'إيقاف')+' متابعة الفواتير الضريبية في قسم '+deptName(db.activeDept)); commit(on?'تم تفعيل متابعة الفواتير الضريبية لهذا القسم':'تم الإيقاف'); renderTaxTrack(); }
+function ttMarkGot(id){
+  if(!guard('canAdd')) return; var r=byId(db.purchases,id); if(!r) return;
+  if(!periodGuard(r.date)) return;
+  var no=prompt('رقم الفاتورة الضريبية للمورد «'+supName(r.supplierId)+'» — مشتريات '+r.date+':',r.no||'');
+  if(no===null) return; no=String(no).trim(); if(!no){ toast('أدخل رقم الفاتورة'); return; }
+  if(docNoDup('p',no,r.id,r.supplierId)&&!confirm('الرقم «'+no+'» مسجّل لفاتورة أخرى لنفس المورد — المتابعة؟')) return;
+  var old=JSON.parse(JSON.stringify(r)); r.no=no; r.tax={st:'got',no:no,at:nowTs(),by:ME?ME.name:''}; stampEdit(r,old);
+  log('edit','المشتريات','وصول الفاتورة الضريبية '+no+' — '+supName(r.supplierId)+' (مشتريات '+r.date+')');
+  commit('تم تسجيل وصول الفاتورة '+no);
+  if(ttNoPrice(r)&&confirm('هذه المشتريات بلا سعر لبعض الأصناف — افتحها الآن لإدخال الأسعار من الفاتورة؟')) editDoc('p',r.id);
+}
+function ttMarkWait(id){ if(!guard('canEdit')) return; var r=byId(db.purchases,id); if(!r||!confirm('إرجاع الفاتورة إلى «لم تصل»؟')) return;
+  var old=JSON.parse(JSON.stringify(r)); r.tax={st:'wait'}; stampEdit(r,old); log('edit','المشتريات','إرجاع فاتورة '+(r.no||'#'+r.id)+' إلى «لم تصل»'); commit('تم'); }
+function ttCopyReq(sid){
+  var rs=(db.purchases||[]).filter(function(r){ return r.supplierId===+sid&&ttSt(r)==='wait'; }).sort(function(a,b){ return a.date<b.date?-1:1; });
+  var t='السلام عليكم ورحمة الله\nنرجو التكرّم بتزويدنا بالفواتير الضريبية للمشتريات التالية:\n'
+    +rs.map(function(r,i){ return (i+1)+') بتاريخ '+r.date+': '+(r.lines||[]).map(function(l){ return itemName(l.itemId)+' '+qty(+l.boxes||+l.units||0); }).join('، '); }).join('\n')
+    +'\nوشكراً لكم — '+(db.settings&&db.settings.company||'');
+  var done=function(){ toast('تم نسخ نص المطالبة — الصقه في واتساب المورد'); };
+  try{ navigator.clipboard.writeText(t).then(done,function(){ prompt('انسخ النص:',t); }); }catch(e){ prompt('انسخ النص:',t); }
+}
+/* ===== مشتريات اليوم — إدخال سريع (كما يكتبها الموظف في الورقة: الكمية · الصنف · المورد) =====
+   كل سطر: المورد، الصنف، عدد الوحدات (كرتون/سلة...)، وزن الوحدة للأصناف بالكيلو، والسعر إن كان معروفاً.
+   عند الحفظ تُنشأ فاتورة شراء لكل مورد بحالة «لم تصل فاتورتها» — وتُستكمل لاحقاً عند وصول الفاتورة. */
+var _qbRows=[];
+function qbOpen(){ if(!guard('canAdd')) return; var qb=document.getElementById('quickBuyBox'); if(!qb) return;
+  if(!_qbRows.length) _qbRows=[{},{},{}]; qb.classList.remove('hidden'); qbPaint(); qb.scrollIntoView({behavior:'smooth',block:'start'}); }
+function qbClose(){ _qbRows=[]; var qb=document.getElementById('quickBuyBox'); if(qb){ qb.classList.add('hidden'); qb.innerHTML=''; } }
+function qbOpts(arr,sel,ph){ return '<option value="">'+ph+'</option>'+(arr||[]).slice().sort(function(a,b){ return String(a.name).localeCompare(String(b.name),'ar'); }).map(function(x){ return '<option value="'+x.id+'"'+(+sel===x.id?' selected':'')+'>'+esc(x.name)+'</option>'; }).join(''); }
+function qbPaint(){
+  var qb=document.getElementById('quickBuyBox'); if(!qb) return;
+  var whs=db.warehouses||[], wh0=_qbRows.wh||(whs[0]&&whs[0].id);
+  var h='<div class="qb-card"><div class="tt-head"><b>⚡ مشتريات اليوم — إدخال سريع</b> <span class="mini">اكتب ما اشتُري ومن أين — السعر اختياري ويُستكمل عند وصول الفاتورة</span></div>'
+    +'<div class="grid" style="margin:6px 0"><div class="field"><label>التاريخ</label><input type="date" id="qb_date" value="'+esc(_qbRows.date||today())+'" onchange="_qbRows.date=this.value"></div>'
+    +'<div class="field"><label>المستودع المستلم</label><select id="qb_wh" onchange="_qbRows.wh=+this.value">'+qbOpts(whs,wh0,'— المستودع —')+'</select></div></div>'
+    +'<div class="table-scroll"><table class="qb-tb"><thead><tr><th>#</th><th class="name">المورد</th><th class="name">الصنف</th><th>عدد الوحدات</th><th>وزن الوحدة (كغ)</th><th>سعر الوحدة (اختياري)</th><th></th></tr></thead><tbody>';
+  _qbRows.forEach(function(r,i){ var it=byId(db.items,+r.item), kg=it&&it.byKg;
+    var bw=r.w!=null&&r.w!==''?r.w:(it?((itemBoxWeights(it.id)||[])[0]||it.uw||''):'');
+    h+='<tr><td>'+(i+1)+'</td><td class="name"><select onchange="qbSet('+i+',\'sup\',this.value)">'+qbOpts(db.suppliers,r.sup,'— المورد —')+'</select></td>'
+      +'<td class="name"><select onchange="qbSet('+i+',\'item\',this.value,1)">'+qbOpts((db.items||[]).filter(function(x){ return !x.service; }),r.item,'— الصنف —')+'</select></td>'
+      +'<td><input type="number" min="0" step="1" inputmode="decimal" value="'+esc(r.q||'')+'" oninput="qbSet('+i+',\'q\',this.value)" style="width:90px"></td>'
+      +'<td><input type="number" min="0" step="0.01" inputmode="decimal" value="'+esc(bw)+'" oninput="qbSet('+i+',\'w\',this.value)" style="width:90px"'+(kg?' required':'')+'></td>'
+      +'<td><input type="number" min="0" step="0.01" inputmode="decimal" value="'+esc(r.p||'')+'" oninput="qbSet('+i+',\'p\',this.value)" style="width:90px"></td>'
+      +'<td><button class="btn-sm btn-del" onclick="qbDel('+i+')">✕</button></td></tr>'; });
+  h+='</tbody></table></div><div class="form-foot"><button class="btn-sm" onclick="_qbRows.push({});qbPaint()">➕ سطر</button> '
+    +'<button class="btn-alt" onclick="qbSave()">💾 حفظ مشتريات اليوم</button> <button class="btn-sm" onclick="qbClose()">إغلاق</button>'
+    +'<span class="mini">يُنشأ شراء مستقل لكل مورد بحالة «⏳ لم تصل الفاتورة الضريبية».</span></div></div>';
+  qb.innerHTML=h;
+}
+function qbSet(i,k,v,repaint){ var r=_qbRows[i]; if(!r) return; r[k]=v;
+  if(k==='item'){ r.w=null; if(i===_qbRows.length-1) _qbRows.push({sup:r.sup}); }   /* سطر جديد تلقائياً بنفس المورد */
+  if(repaint) qbPaint(); }
+function qbDel(i){ _qbRows.splice(i,1); if(!_qbRows.length) _qbRows.push({}); qbPaint(); }
+function qbSave(){
+  if(!guard('canAdd')) return;
+  var date=val('qb_date')||today(), wh=+val('qb_wh'); if(!wh){ toast('اختر المستودع المستلم'); return; }
+  if(!periodGuard(date)) return;
+  var rows=_qbRows.filter(function(r){ return r.sup||r.item||r.q; }), bad=[];
+  rows.forEach(function(r,i){ var it=byId(db.items,+r.item), bw=+(r.w!=null&&r.w!==''?r.w:(it?((itemBoxWeights(it.id)||[])[0]||it.uw||0):0));
+    if(!r.sup||!it||!(+r.q>0)) bad.push(i+1); else if(it.byKg&&!(bw>0)) bad.push(i+1); r._w=bw; });
+  if(!rows.length){ toast('أضف سطراً واحداً على الأقل'); return; }
+  if(bad.length){ toast('أكمل المورد والصنف والكمية (ووزن الوحدة لأصناف الكيلو) في السطر: '+bad.join('، ')); return; }
+  var by={}; rows.forEach(function(r){ (by[r.sup]=by[r.sup]||[]).push(r); });
+  var n=0, rate=vatRate();
+  Object.keys(by).forEach(function(sid){
+    var lines=by[sid].map(function(r){ var it=byId(db.items,+r.item); var l=lineBuild(it.id,wh,{q:+r.q,w:r._w,ep:+r.p||0,eb:'unit'},it.byKg?'كيلو':itemUnit(it.id),false);
+      if(it.byKg&&r._w>0) rememberBoxWeight(it.id,r._w); return l; });
+    var pv=applyVat(lines,rate,'add'), wt=0; pv.lines.forEach(function(l){ wt+=(+l.units||0)*(+l.uw||0); });
+    var rec={id:uid(),no:'',date:date,supplierId:+sid,note:'إدخال سريع',paid:0,lines:pv.lines,total:pv.net,weight:wt,vatRate:rate,vatMode:'add',vat:pv.vat,uid:ME.id,ts:nowTs(),tax:{st:'wait'}};
+    db.purchases.push(rec); n++;
+    log('add','المشتريات','مشتريات اليوم (إدخال سريع) — '+supName(+sid)+': '+by[sid].map(function(r){ return itemName(+r.item)+' '+r.q; }).join('، ')+' — بانتظار الفاتورة الضريبية');
+  });
+  qbClose(); commit('تم حفظ مشتريات '+n+' مورد — بانتظار فواتيرهم الضريبية'); renderTaxTrack();
+}
 function savePurchase(){
   if(!guard('canAdd')) return;
   if(!draft.p.lines.length){ toast('أضف صنفاً واحداً على الأقل'); return; }
@@ -3859,6 +3996,7 @@ function savePurchase(){
   var rec={id:draft.p.editId||uid(),no:val('p_no').trim(),date:val('p_date'),supplierId:+val('p_supplier'),
     note:val('p_note').trim(),paid:fnum('p_paid'),lines:pv.lines,total:pv.net,weight:wt,
     vatRate:pRate,vatMode:pMode,vat:pv.vat,uid:ME.id,ts:nowTs()};
+  var _tx=ttFromForm(rec, draft.p.editId?byId(db.purchases,draft.p.editId):null); if(_tx) rec.tax=_tx;
   if(draft.p.editId){
     var i=db.purchases.findIndex(function(x){return x.id===draft.p.editId;}); stampEdit(rec,db.purchases[i]); db.purchases[i]=rec;
     log('edit','المشتريات','تعديل فاتورة شراء '+(rec.no||'#'+rec.id)+' — '+supName(rec.supplierId)+' بقيمة '+num(pv.net));
@@ -4014,7 +4152,7 @@ function docLoad(k,r,asNew){
   /* أعِد القائمة كاملة (امسح أي بحث/تصفية) كي يظهر الجهة المطلوبة */
   setVal(k==='p'?'p_supplierSearch':'s_clientSearch',''); setVal(k==='p'?'p_supplierGroup':'s_clientGroup',''); filterInvoiceParty(k);
   if(k==='p'){ setVal('p_date',r.date); setVal('p_no',r.no||''); setVal('p_supplier',r.supplierId);
-    setVal('p_note',r.note||''); setVal('p_paid',r.paid||0); setVal('p_vatrate',r.vatRate!=null?r.vatRate:vatRate()); setVatMode('p',r.vatMode||'add');
+    setVal('p_note',r.note||''); setVal('p_paid',r.paid||0); setVal('p_taxst',(r.tax&&r.tax.st)||'auto'); setVal('p_vatrate',r.vatRate!=null?r.vatRate:vatRate()); setVatMode('p',r.vatMode||'add');
     document.getElementById('p_editing').textContent='وضع التعديل — فاتورة '+(r.no||'#'+r.id); showTab('purchases'); }
   else { setVal('s_date',r.date); setVal('s_no',r.no||''); setVal('s_client',r.clientId);
     setVal('s_note',r.note||''); setVal('s_recv',r.recv||0); setVal('s_vatrate',r.vatRate!=null?r.vatRate:vatRate()); setVatMode('s',r.vatMode||'add');
@@ -6542,6 +6680,7 @@ function purchaseRegistryRows(){
   return {rows:out, tot:T, invoices:Object.keys(invSet).length};
 }
 function renderPurchases(){
+  try{ renderTaxTrack(); }catch(e){ try{console.warn('taxTrack',e);}catch(_){} }
   var head=document.getElementById('tbPurchasesHead'); if(!head) return;   /* الشاشة القديمة لم تُحمَّل بعد */
   var d=purchaseRegistryRows(), rows=d.rows, T=d.tot, detailed=(purchaseView==='detailed');
   var canEd=can('canEdit'), canDel=can('canDelete');
