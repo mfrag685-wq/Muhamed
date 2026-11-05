@@ -667,7 +667,40 @@ kbd{border:1px solid #bbb;border-bottom-width:2px;border-radius:4px;padding:0 4p
 .tt-tb tr.tt-grp td{text-align:right;background:#f3f6f9;border-top:2px solid #d9e1ea;padding:6px 8px}
 .tt-it{display:inline-block;margin:1px 0 1px 8px;white-space:nowrap}.tt-act{white-space:nowrap}
 #purchases.qb-only>*:not(#taxTrackBox):not(#quickBuyBox):not(.panel-title){display:none!important}
-@media (max-width:640px){.qb-row{flex-wrap:wrap}.qb-sup,.qb-item{flex:1 1 100%}.qb-q{flex:1 1 auto}}
+/* الجوال: كل سطر بطاقة بنفس الشبكة تماماً (خانات متوازية بالترتيب نفسه: المورد ← الملاحظة ← الصنف ← الكمية والسعر) */
+@media (max-width:700px){
+  .qb-card{padding:10px 8px}
+  .qb-card .tt-head .mini{display:none}
+  .qb-top{flex-direction:column;gap:6px}.qb-top label{display:flex;flex-direction:column;gap:4px;font-weight:700}.qb-top input,.qb-top select{margin:0;height:44px;font-size:16px;width:100%}
+  .qb-rows{gap:10px}
+  .qb-row{display:grid;grid-template-columns:30px 1.25fr 1fr 44px;grid-template-areas:"n s s d" "n o o o" "n i i i" "n q p p";gap:6px;padding:8px;border:1px solid #dfe6ee;background:#fafcfe;border-radius:12px}
+  .qb-row.has-w{grid-template-areas:"n s s d" "n o o o" "n i i i" "n q w p"}
+  .qb-row.has-w{grid-template-columns:30px 1fr 1fr 1fr}
+  .qb-row.has-w .qb-del{grid-column:4;grid-row:1}
+  .qb-row .qb-n{grid-area:n;align-self:start;width:26px;height:26px;line-height:26px;border-radius:50%;background:#2f6fb5;color:#fff;font-weight:700;font-size:13px;margin-top:9px}
+  .qb-row.qb-ok .qb-n{background:#1f9d57}
+  .qb-row .qb-sup{grid-area:s}.qb-row .qb-note{grid-area:o}.qb-row .qb-item{grid-area:i}
+  .qb-row .qb-q{grid-area:q}.qb-row [data-qf="w"]{grid-area:w}.qb-row .qb-p{grid-area:p}.qb-row .qb-del{grid-area:d;height:44px;width:40px;padding:0}
+  .qb-row .qb-in{width:100%;height:46px;font-size:16px;flex:none}
+  .qb-card .form-foot{position:sticky;bottom:0;z-index:5;background:var(--card,#fff);padding:8px 0 4px;margin-top:8px;display:flex;flex-wrap:wrap;gap:6px;border-top:1px solid #e3e9f0}
+  .qb-card .form-foot .btn-alt{flex:1 1 60%;min-height:46px;font-size:15px}
+  .qb-card .form-foot .mini{flex-basis:100%}
+  .qc-pop{max-height:45vh;font-size:16px}.qc-opt{padding:12px 14px}
+  .qb-editban{font-size:12.5px}
+  /* قائمة الفواتير على الجوال */
+  .tt-tiles{grid-template-columns:repeat(auto-fit,minmax(105px,1fr))}.tt-tile{padding:8px}.tt-tv{font-size:16px}
+  .tt-bar{flex-direction:column;align-items:stretch}.tt-reqbtn,.tt-q{flex:none;width:100%}
+  .tt-tb thead{display:none}
+  .tt-tb,.tt-tb tbody,.tt-tb tr,.tt-tb td{display:block;width:100%}
+  .tt-tb tr.tt-r{border:1px solid #e3e9f0;border-radius:10px;margin:6px 0;padding:6px 8px;background:#fff}
+  .tt-tb tr.tt-r td{border:0;padding:3px 0;text-align:right}
+  .tt-tb tr.tt-r td:first-child{display:none}
+  .tt-tb tr.tt-r td.tt-act,.tt-tb tr.tt-r td:nth-last-child(2){display:inline-block;width:auto;vertical-align:middle;margin-inline-end:8px}
+  .tt-tb tr.tt-r td.tt-act{float:left}
+  .tt-tb tr.tt-r::after{content:'';display:block;clear:both}
+  .tt-tb tr.tt-grp td{border-radius:8px}
+  .tt-act .btn-sm{min-height:38px;padding:0 12px}
+}
 .tt-mode{margin-top:6px;padding:5px 8px;background:rgba(47,111,181,.07);border-radius:8px}
 #rpBody tr.neg-row td{background:#fdecec}
 .tt-off{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:8px 12px;margin:0 0 10px;border:1px dashed var(--line,#ccc);border-radius:10px;font-size:13px}
@@ -2227,7 +2260,7 @@ kbd{border:1px solid #bbb;border-bottom-width:2px;border-radius:4px;padding:0 4p
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-05-k';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-05-l';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -4095,7 +4128,9 @@ function qbOpen(){ if(!qbAllowed()){ toast('لا تملك صلاحية إدخا�
 function qbClose(){ _qbEdit=null; if(qbOnly()||(ptOn()&&ttOn())){ _qbRows=[{},{},{}]; qbPaint(); return; } _qbRows=[]; var qb=document.getElementById('quickBuyBox'); if(qb){ qb.classList.add('hidden'); qb.innerHTML=''; } }
 function qbList(k){ return k==='sup'?(db.suppliers||[]):(db.items||[]).filter(function(x){ return !x.service; }); }
 function qbName(k,id){ var x=byId(qbList(k),+id); return x?x.name:''; }
-function qbFocus(i,f){ var go=function(){ var e=document.querySelector('#quickBuyBox [data-qr="'+i+'"][data-qf="'+f+'"]'); if(e){ e.focus(); if(e.select) e.select(); return true; } return false; };
+function qbFocus(i,f){ var go=function(){ var e=document.querySelector('#quickBuyBox [data-qr="'+i+'"][data-qf="'+f+'"]'); if(e){ e.focus(); if(e.select) e.select();
+      if(window.innerWidth<=700){ try{ e.scrollIntoView({block:'center',behavior:'smooth'}); setTimeout(function(){ if(document.activeElement===e&&e.dataset.qk) qcInput(e,1); },350); }catch(_){} }   /* الجوال: أبقِ الخانة في منتصف الشاشة فوق لوحة المفاتيح */
+      return true; } return false; };
   if(!go()) setTimeout(go,0); }   /* تركيز فوري كي لا تضيع أحرف الموظف السريع */
 function qbPaint(){
   var qb=document.getElementById('quickBuyBox'); if(!qb) return;
@@ -4110,13 +4145,13 @@ function qbPaint(){
   _qbRows.forEach(function(r,i){ var it=byId(db.items,+r.item);
     var bw=r.w!=null&&r.w!==''?r.w:(it?((itemBoxWeights(it.id)||[])[0]||it.uw||''):'');
     var ok=r.sup&&r.item&&+r.q>0;
-    h+='<div class="qb-row'+(ok?' qb-ok':'')+'"><span class="qb-n">'+(i+1)+'</span>'
-      +'<input class="qb-in qb-sup" data-qr="'+i+'" data-qf="sup" data-qk="sup" placeholder="🔍 المورد" autocomplete="off" value="'+esc(qbName('sup',r.sup))+'" oninput="qcInput(this)" onkeydown="qbKey(event,this)" onfocus="qcInput(this,1)" onblur="qcBlur(this)">'
-      +'<input class="qb-in qb-note" data-qr="'+i+'" data-qf="n" placeholder="📝 ملاحظة" autocomplete="off" value="'+esc(r.n||'')+'" oninput="qbSet('+i+',\'n\',this.value)" onkeydown="qbKey(event,this)">'
-      +'<input class="qb-in qb-item" data-qr="'+i+'" data-qf="item" data-qk="item" placeholder="🔍 الصنف" autocomplete="off" value="'+esc(qbName('item',r.item))+'" oninput="qcInput(this)" onkeydown="qbKey(event,this)" onfocus="qcInput(this,1)" onblur="qcBlur(this)">'
-      +'<input class="qb-in qb-q" data-qr="'+i+'" data-qf="q" type="number" min="0" step="1" inputmode="decimal" placeholder="الكمية" value="'+esc(r.q||'')+'" oninput="qbSet('+i+',\'q\',this.value)" onkeydown="qbKey(event,this)">'
-      +(ex?'<input class="qb-in qb-x" data-qr="'+i+'" data-qf="w" type="number" min="0" step="0.01" inputmode="decimal" placeholder="وزن الوحدة" title="وزن الوحدة (كغ) — اختياري" value="'+esc(bw)+'" oninput="qbSet('+i+',\'w\',this.value)" onkeydown="qbKey(event,this)">':'')
-      +'<input class="qb-in qb-x qb-p" data-qr="'+i+'" data-qf="p" type="number" min="0" step="0.01" inputmode="decimal" placeholder="السعر (اختياري)" title="سعر الوحدة — اختياري، يُستكمل عند وصول الفاتورة إن تُرك فارغاً" value="'+esc(r.p||'')+'" oninput="qbSet('+i+',\'p\',this.value)" onkeydown="qbKey(event,this)">'
+    h+='<div class="qb-row'+(ok?' qb-ok':'')+(ex?' has-w':'')+'"><span class="qb-n">'+(i+1)+'</span>'
+      +'<input enterkeyhint="next" class="qb-in qb-sup" data-qr="'+i+'" data-qf="sup" data-qk="sup" placeholder="🔍 المورد" autocomplete="off" value="'+esc(qbName('sup',r.sup))+'" oninput="qcInput(this)" onkeydown="qbKey(event,this)" onfocus="qcInput(this,1)" onblur="qcBlur(this)">'
+      +'<input enterkeyhint="next" class="qb-in qb-note" data-qr="'+i+'" data-qf="n" placeholder="📝 ملاحظة" autocomplete="off" value="'+esc(r.n||'')+'" oninput="qbSet('+i+',\'n\',this.value)" onkeydown="qbKey(event,this)">'
+      +'<input enterkeyhint="next" class="qb-in qb-item" data-qr="'+i+'" data-qf="item" data-qk="item" placeholder="🔍 الصنف" autocomplete="off" value="'+esc(qbName('item',r.item))+'" oninput="qcInput(this)" onkeydown="qbKey(event,this)" onfocus="qcInput(this,1)" onblur="qcBlur(this)">'
+      +'<input enterkeyhint="next" class="qb-in qb-q" data-qr="'+i+'" data-qf="q" type="number" min="0" step="1" inputmode="decimal" placeholder="الكمية" value="'+esc(r.q||'')+'" oninput="qbSet('+i+',\'q\',this.value)" onkeydown="qbKey(event,this)">'
+      +(ex?'<input enterkeyhint="next" class="qb-in qb-x" data-qr="'+i+'" data-qf="w" type="number" min="0" step="0.01" inputmode="decimal" placeholder="وزن الوحدة" title="وزن الوحدة (كغ) — اختياري" value="'+esc(bw)+'" oninput="qbSet('+i+',\'w\',this.value)" onkeydown="qbKey(event,this)">':'')
+      +'<input enterkeyhint="next" class="qb-in qb-x qb-p" data-qr="'+i+'" data-qf="p" type="number" min="0" step="0.01" inputmode="decimal" placeholder="السعر (اختياري)" title="سعر الوحدة — اختياري، يُستكمل عند وصول الفاتورة إن تُرك فارغاً" value="'+esc(r.p||'')+'" oninput="qbSet('+i+',\'p\',this.value)" onkeydown="qbKey(event,this)">'
       +'<button class="btn-sm btn-del qb-del" tabindex="-1" onclick="qbDel('+i+')" title="حذف السطر">✕</button></div>'; });
   var nOk=_qbRows.filter(function(r){ return r.sup&&r.item&&+r.q>0; }).length;
   h+='</div><div class="form-foot"><button class="btn-sm" onclick="_qbRows.push({});qbPaint();qbFocus(_qbRows.length-1,\'sup\')">➕ سطر</button> '
