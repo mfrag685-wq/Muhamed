@@ -2306,7 +2306,7 @@ kbd{border:1px solid #bbb;border-bottom-width:2px;border-radius:4px;padding:0 4p
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-05-y';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-05-z';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -2693,7 +2693,7 @@ function enteredBy(r){
 function stampEdit(rec, oldRec){
   if(oldRec){
     rec.uid=(oldRec.uid!=null?oldRec.uid:(rec.uid!=null?rec.uid:(ME?ME.id:0)));
-    rec.editUid=(ME?ME.id:0); rec.editTs=nowTs();
+    rec.editUid=(ME?ME.id:0); rec.editTs=nowTs(); rec.editMs=Date.now();
     rec.editCount=(+ (oldRec.editCount||0))+1;
   }
   return rec;
@@ -4164,12 +4164,12 @@ function ldArr(){ if(!Array.isArray(db.loads)){ db.loads=[]; try{ syncActiveDept
 function ldDay(){ return ldArr().filter(function(L){ return L.date===_ldDate; }).sort(function(a,b){ return (+a.no||0)-(+b.no||0); }); }
 function ldTot(l){ return (+l.pal||0)*(+l.per||0); }
 function ldLineOk(l){ return l.item&&+l.pal>0&&+l.per>0; }
-function ldSave(L,now){ L.editTs=nowTs(); clearTimeout(_ldSaveT); var go=function(){ persist(); try{ ldPaintTotals(); }catch(e){} }; if(now) go(); else _ldSaveT=setTimeout(go,700); }
+function ldSave(L,now){ L.editTs=nowTs(); L.editMs=Date.now(); clearTimeout(_ldSaveT); var go=function(){ persist(); try{ ldPaintTotals(); }catch(e){} }; if(now) go(); else _ldSaveT=setTimeout(go,700); }
 function ldNew(){
   if(!ldAllowed()){ toast('إدخال البرادات يحتاج صلاحية «إدخال البرادات»'); return; }
   if(!periodGuard(_ldDate)) return;
   var day=ldDay(), no=day.reduce(function(m,L){ return Math.max(m,+L.no||0); },0)+1;
-  var L={id:uid(),date:_ldDate,no:no,note:'',unit:'كرتون',lines:[{},{}],uid:ME.id,by:ME.name,ts:nowTs(),editTs:nowTs()};
+  var L={id:uid(),date:_ldDate,no:no,note:'',unit:'كرتون',lines:[{},{}],uid:ME.id,by:ME.name,ts:nowTs(),editTs:nowTs(),editMs:Date.now()};
   ldArr().push(L); log('add','البرادات','براد جديد رقم '+no+' بتاريخ '+_ldDate); ldSave(L,true); renderLoads();
   setTimeout(function(){ var e=document.querySelector('[data-ld="'+L.id+'"][data-li="0"][data-lf="item"]'); if(e){ e.focus(); try{ e.scrollIntoView({block:'center',behavior:'smooth'}); }catch(_){} } },60);
 }
@@ -12430,7 +12430,11 @@ function unionById(remoteArr,localArr){
   (remoteArr||[]).forEach(function(r){ if(r&&r.id!=null&&!(r.id in map)){ map[r.id]=r; order.push(r.id); } });
   (localArr||[]).forEach(function(l){ if(!l||l.id==null) return;
     if(!(l.id in map)){ map[l.id]=l; order.push(l.id); }
-    else if(tsCmp(tsKey(l),tsKey(map[l.id]))>0) map[l.id]=l; });   /* الأحدث تعديلاً يفوز */
+    else { var lm=+l.editMs||0, rm=+map[l.id].editMs||0;
+      /* توقيت بالملّي ثانية يحسم «الأحدث» بدقة — التوقيت النصي بالدقيقة يتساوى عند التعديل المتتابع في نفس الدقيقة
+         فكانت نسخة السحابة الأقدم تفوز وتمحو ما أُضيف للتو (مثل أسطر البرادات أثناء الكتابة) */
+      if(lm||rm){ if(lm>rm) map[l.id]=l; }
+      else if(tsCmp(tsKey(l),tsKey(map[l.id]))>0) map[l.id]=l; } });   /* الأحدث تعديلاً يفوز */
   return order.map(function(k){ return map[k]; });
 }
 /* دمج سجل الحركات (audit) من الطرفين: سجل تراكمي لا يُستبدَل — يوحَّد بالمعرّف
