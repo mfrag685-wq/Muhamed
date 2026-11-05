@@ -649,6 +649,7 @@ table.reg .reg-act button.del{color:#b91c1c;border-color:#fecaca}
 .qc-opt{padding:8px 12px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.qc-opt.on,.qc-opt:hover{background:#e8f0fb}.qc-opt b{color:#1f6b45}.qc-none{padding:8px 12px;color:#999}
 kbd{border:1px solid #bbb;border-bottom-width:2px;border-radius:4px;padding:0 4px;font-size:11px;background:#f7f7f7}
 .tt-req{margin:8px 0}
+.sync-alert{background:#fdecec;border:1px solid #f5b5b5;color:#7a1414;border-radius:10px;padding:9px 12px;margin:8px 0;font-size:13.5px;line-height:1.7}
 .lh-sum{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:6px 0}.lh-i{font-size:12.5px;margin:2px 0}.lh-bad{color:#b42318;font-weight:700}.lh-warn{color:#9a5b00}.lh-info{color:#555}
 .tt-title{font-size:15px}
 .tt-seg{display:inline-flex;border:1px solid #cfd8e3;border-radius:9px;overflow:hidden;margin-inline-start:8px}
@@ -771,7 +772,7 @@ kbd{border:1px solid #bbb;border-bottom-width:2px;border-radius:4px;padding:0 4p
       <span style="font-size:12px;color:#9db3a7;padding-right:4px">القسم</span>
       <div id="deptSwitch" class="dept-switch"></div>
     </div>
-    <span id="cloudStatus" class="cloud-status off" title="حالة المزامنة السحابية">غير مفعّل</span>
+    <span id="cloudStatus" class="cloud-status off" title="حالة المزامنة السحابية — اضغط للتفاصيل" onclick="cloudDiag()" style="cursor:pointer">غير مفعّل</span>
     <button id="staleBadge" class="stale-badge no-print" style="display:none" onclick="openStaleModal()" title="أجهزة بحاجة إلى تحديث"><span class="sb-ic">⚠️</span><span id="staleBadgeN">0</span><span class="sb-tx">تحديث</span></button>
     <div class="userbox"><div class="avatar" id="uAvatar">م</div>
       <div><div class="un" id="uName">—</div><div class="ur" id="uRole">—</div></div></div>
@@ -2272,7 +2273,7 @@ kbd{border:1px solid #bbb;border-bottom-width:2px;border-radius:4px;padding:0 4p
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-05-o';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-05-p';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -11789,16 +11790,28 @@ function emailForUser(u){ return (u&&u.email)?u.email:synthEmail(u?u.username:''
 function cloudFlush(){
   if(!cloudReady||!cloudRef||cloudInflight||!cloudDirty) return;
   cloudInflight=true; cloudDirty=false;
-  var s=JSON.stringify(serializeDB());   /* أحدث نسخة وقت الرفع فعلياً */
+  var s; try{ s=JSON.stringify(serializeDB()); }catch(e){ cloudInflight=false; cloudLastError='تعذّر تجهيز البيانات: '+(e&&e.message||e); syncAlertPaint(); return; }
   if(!s){ cloudInflight=false; return; }
+  /* حماية الحجم: Firebase يرفض أي نص يتجاوز 10MB (بالبايت — العربية بايتان لكل حرف) فيتوقف الرفع كلياً.
+     نقصّ أقدم سجل الحركات تدريجياً (الأحدث يبقى) حتى تتسع البيانات — البيانات المالية لا تُمسّ إطلاقاً. */
+  var by=utf8Bytes(s);
+  if(by>CLOUD_MAX_BYTES&&(db.audit||[]).length>300){
+    var before=db.audit.length;
+    while(by>CLOUD_MAX_BYTES&&db.audit.length>300){ db.audit=db.audit.slice(-Math.floor(db.audit.length*0.8)); s=JSON.stringify(serializeDB()); by=utf8Bytes(s); }
+    db.settings.auditCap=db.audit.length;
+    try{ log('data','النسخ الاحتياطي','قصّ تلقائي لأقدم سجل الحركات ('+before+' ← '+db.audit.length+') لأن حجم البيانات تجاوز حد السحابة'); s=JSON.stringify(serializeDB()); by=utf8Bytes(s); }catch(e){}
+    try{ _lastLocalStr=s; lsSet(KEY,s); }catch(e){}
+  }
+  cloudLastSize=by;
+  if(by>CLOUD_HARD_BYTES){ cloudInflight=false; cloudDirty=true; cloudLastError='size'; setCloudStatus('pending'); syncAlertPaint(); return; }
   setCloudStatus('sync');
   /* نخزّن القاعدة كسلسلة نصية واحدة: قيم النص لا تخضع لقيود مفاتيح Firebase
      (النقطة/$ /# /[ /] ممنوعة في المفاتيح فقط) فينتفي فشل الرفع بسبب اسم مستخدم
      أو مفتاح يحوي حرفاً ممنوعاً، ويصبح الرفع كتلة واحدة موثوقة. */
   var payload={data:s,fmt:'str',build:APP_BUILD,updatedAt:firebase.database.ServerValue.TIMESTAMP,updatedBy:(ME?ME.name:'')};
   return cloudRef.set(payload).then(function(){
-    cloudInflight=false; cloudLastPushed=s; cloudRetry=0; cloudLastError='';
-    setCloudErrTip('');
+    cloudInflight=false; cloudLastPushed=s; cloudRetry=0; cloudLastError=''; cloudLastOkTs=nowTs();
+    setCloudErrTip(''); syncAlertPaint();
     if(cloudDirty) cloudFlush();          /* وردت حركة أثناء الرفع → ارفعها */
     else setCloudStatus('ok');
   }).catch(function(e){
@@ -11808,7 +11821,7 @@ function cloudFlush(){
     cloudLastError=(e&&(e.code||e.message))||'خطأ غير معروف';
     setCloudErrTip(cloudLastError);
     try{ console.warn('Cloud push failed:', e); }catch(_){}
-    cloudRetry=Math.min(cloudRetry+1,6);
+    cloudRetry=Math.min(cloudRetry+1,6); cloudFailCount++; syncAlertPaint();
     clearTimeout(cloudRetryTimer);
     cloudRetryTimer=setTimeout(cloudFlush, Math.min(1000*Math.pow(2,cloudRetry),30000));
   });
@@ -11819,6 +11832,34 @@ function cloudRemoteData(val){ if(!val||val.data==null) return null;
   return (d&&typeof d==='object')?d:null; }
 function cloudRemoteStr(val){ if(!val||val.data==null) return '';
   return (typeof val.data==='string')?val.data:JSON.stringify(val.data); }
+/* ===== تنبيه مزامنة واضح: لا يبقى «بانتظار الرفع» صامتاً — يظهر السبب الحقيقي والحجم وزر إعادة المحاولة ===== */
+var CLOUD_MAX_BYTES=9000000, CLOUD_HARD_BYTES=9900000, cloudLastSize=0, cloudLastOkTs='', cloudFailCount=0;
+function utf8Bytes(str){ try{ return new Blob([str]).size; }catch(e){ return unescape(encodeURIComponent(str)).length; } }
+function mb(b){ return (b/1048576).toFixed(2)+' MB'; }
+function cloudErrText(){ var e=String(cloudLastError||'');
+  if(e==='size') return 'حجم البيانات ('+mb(cloudLastSize)+') تجاوز حد السحابة (10 MB)';
+  if(/permission|PERMISSION_DENIED/i.test(e)) return 'رفضت السحابة الكتابة (صلاحية) — غالباً عضوية الدخول لهذا الحساب مفقودة: سجّل الخروج ثم الدخول، أو أصلحها من «فحص سلامة دخول الموظفين»';
+  if(/network|disconnect|offline|unavailable/i.test(e)) return 'لا يوجد اتصال بالإنترنت';
+  if(/max|size|too large|exceed/i.test(e)) return 'حجم البيانات كبير على السحابة ('+mb(cloudLastSize)+')';
+  return e||'غير معروف'; }
+function syncAlertPaint(){
+  var bar=document.getElementById('syncAlert');
+  var show=!!(ME&&cloudEnabled()&&cloudLastError&&(cloudFailCount>=2||cloudLastError==='size'));
+  if(!show){ if(bar) bar.remove(); if(!cloudLastError) cloudFailCount=0; return; }
+  if(!bar){ bar=document.createElement('div'); bar.id='syncAlert'; var app=document.getElementById('app'); (app||document.body).insertBefore(bar,(app||document.body).firstChild); }
+  bar.className='sync-alert';
+  bar.innerHTML='⚠️ <b>آخر التعديلات لم تُرفع إلى السحابة</b>'+(cloudLastOkTs?' (آخر رفع ناجح '+esc(cloudLastOkTs)+')':'')+' — السبب: '+esc(cloudErrText())
+    +'. بياناتك محفوظة على هذا الجهاز ولن تضيع، لكن بقية الأجهزة لا تراها بعد.'
+    +' <button class="btn-sm" onclick="cloudRetryNow()">🔄 إعادة المحاولة</button> <button class="btn-sm" onclick="cloudDiag()">تفاصيل</button>'+(can('settings')?' <button class="btn-sm" onclick="exportBackup()">⬇ نسخة احتياطية</button>':'');
+}
+function cloudRetryNow(){ cloudRetry=0; cloudDirty=true; if(!cloudReady&&cloudEnabled()){ cloudAttach(function(){ cloudFlush(); }); return; } cloudFlush(); toast('جارٍ إعادة الرفع…'); }
+function cloudDiag(){
+  var parts=[]; try{ var d=serializeDB(); ['audit','users','tombstones','settings','interTransfers'].forEach(function(k){ parts.push([k==='audit'?'سجل الحركات ('+(d.audit||[]).length+')':k==='tombstones'?'شواهد الحذف ('+Object.keys(d.tombstones||{}).length+')':k==='settings'?'الإعدادات والشعار':k==='users'?'المستخدمون':'التحويلات بين الأقسام',utf8Bytes(JSON.stringify(d[k]||''))]); });
+    Object.keys(d.departments||{}).forEach(function(k){ parts.push(['قسم «'+deptName(k)+'»',utf8Bytes(JSON.stringify(d.departments[k]))]); }); }catch(e){}
+  var tot=0; parts.forEach(function(x){ tot+=x[1]; }); parts.sort(function(a,b){ return b[1]-a[1]; });
+  alert('حالة المزامنة\n\nالحالة: '+(cloudReady?'متصل':'غير متصل')+'\nآخر خطأ: '+(cloudLastError?cloudErrText()+' ['+cloudLastError+']':'لا يوجد')+'\nآخر رفع ناجح: '+(cloudLastOkTs||'—')
+    +'\n\nحجم البيانات: '+mb(tot)+' من حد 10 MB\n'+parts.map(function(x){ return '• '+x[0]+': '+mb(x[1]); }).join('\n'));
+}
 function setCloudErrTip(msg){ var el=document.getElementById('cloudStatus'); if(!el) return;
   el.title=msg?('تعذّر الرفع: '+msg+' — البيانات محفوظة محلياً وستُرفع تلقائياً'):'حالة المزامنة السحابية'; }
 /* كشف اختلاف الإصدارات بين الأجهزة: الجهاز القديم لا يطبّق الحذف/الدمج بشكل صحيح.
@@ -12043,7 +12084,8 @@ function unionAudit(remoteArr,localArr,tomb){
   });
   /* ترتيب زمني ثابت (ts نصّي) — مع الحفاظ على ترتيب الإدراج عند تساوي الدقيقة */
   out=out.map(function(a,i){ return [a,i]; }).sort(function(x,y){ return tsCmp(String(x[0].ts||''),String(y[0].ts||''))||(x[1]-y[1]); }).map(function(z){ return z[0]; });
-  if(out.length>AUDIT_KEEP) out=out.slice(-AUDIT_KEEP);
+  var cap=AUDIT_KEEP; try{ var c=+(db&&db.settings&&db.settings.auditCap); if(c>=300&&c<cap) cap=c; }catch(e){}
+  if(out.length>cap) out=out.slice(-cap);
   return out;
 }
 /* يدمج دفاتر الحركات لكل قسم (والتحويلات بين الأقسام) من النسخة المحلية داخل نسخة السحابة،
