@@ -672,6 +672,7 @@ kbd{border:1px solid #bbb;border-bottom-width:2px;border-radius:4px;padding:0 4p
 .ld-foot{display:flex;gap:5px;flex-wrap:wrap;margin-top:6px}.ld-chip{background:#eef2f6;border-radius:12px;padding:3px 9px;font-size:12.5px;font-weight:700}
 .ld-chip-b{background:#e8f0fb;color:#1d4f91}.ld-chip-g{background:#e8f6ee;color:#1f6b45}.ld-chip-r{background:#fdecec;color:#b42318}.ld-chip-w{background:#fff4e0;color:#9a5b00}
 .ld-day{margin-top:8px;font-size:13.5px}
+.ld-lock{margin:6px 0;padding:8px 10px;border-radius:9px;background:#fff4e0;border:1px solid #f0d3a0;color:#7a4a00;font-size:13px}
 @media (max-width:700px){.ld-hdr{font-size:10.5px}.ld-wrap{padding:8px 6px}.ld-row .qb-in::placeholder{color:transparent}.ld-row .qb-in{height:44px;padding:0 3px}.ld-card{padding:6px 4px}}
 .ds-modal{position:fixed;inset:0;z-index:10000;background:rgba(10,20,15,.55);display:none;padding:16px;overflow-y:auto;overflow-x:hidden;box-sizing:border-box}
 .ds-box{background:var(--card,#fff);border-radius:14px;max-width:960px;width:100%;margin:0 auto;box-shadow:0 20px 60px rgba(0,0,0,.3);overflow:hidden;box-sizing:border-box}
@@ -2306,7 +2307,7 @@ kbd{border:1px solid #bbb;border-bottom-width:2px;border-radius:4px;padding:0 4p
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-05-z';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-06-a';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -2516,6 +2517,10 @@ function ensureDbShape(){
     if(u&&u.perms&&u.perms.dash===undefined) u.perms.dash=!!u.perms.reports;
     /* ترحيل صلاحية «الحسابات التشغيلية»: تُمنح للمدير/المشرف ولمن يملك «الحسابات» */
     if(u&&u.perms&&u.perms.opaccounts===undefined) u.perms.opaccounts=(u.role==='admin'||u.role==='manager'||!!u.perms.accounts);
+    /* ترحيل صلاحية «إدخال البرادات» (أُضيفت لاحقاً): تُمنح للمدير العام ولمن يملك تأكيد وصول الفواتير
+       كي لا يفقد من كان يُدخل البرادات قدرته فجأة — ويمكن للمدير سحبها أو منحها من شاشة المستخدمين */
+    if(u&&u.perms&&u.perms.loadsEntry===undefined) u.perms.loadsEntry=(u.role==='admin'||u.role==='manager'||!!u.perms.taxRecv);
+    if(u&&u.deptPerms) Object.keys(u.deptPerms).forEach(function(dk){ var dp=u.deptPerms[dk]; if(dp&&dp.loadsEntry===undefined) dp.loadsEntry=!!(u.perms&&u.perms.loadsEntry)||!!dp.taxRecv; });
     if(u&&u.deptPerms) Object.keys(u.deptPerms).forEach(function(dk){
       var dp=u.deptPerms[dk]; if(dp&&dp.dash===undefined) dp.dash=!!dp.reports;
       if(dp&&dp.opaccounts===undefined) dp.opaccounts=!!dp.accounts;
@@ -4223,7 +4228,7 @@ function renderLoads(){
   var h='<div class="ld-wrap"><div class="tt-head"><b class="tt-title">🚚 تحميل البرادات</b>'
     +'<span class="ds-nav"><button class="btn-sm" onclick="_ldDate=ivAddDays(_ldDate,-1);renderLoads()">→</button><input type="date" value="'+esc(_ldDate)+'" onchange="_ldDate=this.value;renderLoads()"><button class="btn-sm" onclick="_ldDate=ivAddDays(_ldDate,1);renderLoads()">←</button></span>'
     +'<span class="tt-tools">'+(ldAllowed()?'<button class="btn-alt" onclick="ldNew()">➕ براد جديد</button>':'')+(day.length?'<button class="btn-sm" onclick="ldOpenSheet(null)">🖨 طباعة / صورة كل البرادات</button>':'')+'</span></div>'
-    +(ldAllowed()?'':'<div class="mini ld-hint">🔒 الإدخال لموظف البرادات المخوَّل — يمكنك تسجيل المستلم والمرتجع فقط</div>')
+    +(ldAllowed()?'':'<div class="ld-lock">🔒 إضافة البرادات وتعديل محتوياتها تحتاج صلاحية <b>«إدخال البرادات»</b> — حسابك «'+esc(ME.name)+'» يستطيع تسجيل المستلم والمرتجع فقط. '+(can('users')?'فعّلها من «المستخدمون والسجل ← تعديل».':'اطلبها من مدير النظام.')+'</div>')
     +'<div class="mini ld-hint">الصنف ← <kbd>Enter</kbd> ← عدد الطبالي ← <kbd>Enter</kbd> ← العدد في الطبلية ← <kbd>Enter</kbd> سطر جديد · يُحفظ تلقائياً'+(recv?' · خانتا «المستلم» و«المرتجع» تُملآن لاحقاً عند الاستلام':'')+'</div>';
   if(!day.length) h+='<div class="tt-allok" style="background:#f3f6f9;color:#556">لا توجد برادات في '+esc(_ldDate)+' — اضغط «➕ براد جديد»</div>';
   h+='<div class="ld-grid">';
