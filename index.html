@@ -2345,7 +2345,7 @@ td.cash-in{color:#1f6b45;font-weight:700}td.cash-out{color:#b42318;font-weight:7
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-06-d';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-06-e';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -4285,16 +4285,21 @@ function ldSummaryHtml(){
       +'<td data-l="مرتجع (ط)"><input class="ld-rin" type="number" min="0" step="1" inputmode="numeric"'+a+' data-rf="t" value="'+esc(x.t!=null?x.t:'')+'" oninput="ldRcvSet(this)" placeholder="—"></td>'
       +'<td class="name ls-note" data-l="تفصيل المرتجع"><input class="ld-rnote"'+a+' data-rf="n" value="'+esc(x.n)+'" oninput="ldRcvSet(this)" placeholder="مثال: طبلية 72 كرتون — تالف"></td>'
       +'<td class="ls-st"><span class="ld-chip ld-chip-'+st.c+'" id="ldst_'+x.item+'">'+st.t+'</span></td></tr>'; });
-  h+='</tbody><tfoot><tr><td class="name">الإجمالي — '+S.length+' صنف</td><td></td><td class="ld-num">'+qty(tp)+'</td><td class="ld-num">'+qty(tu)+'</td><td class="ld-num">'+qty(tr)+'</td><td class="ld-num">'+qty(tt)+'</td><td></td>'
-    +'<td>'+(pend?'<span class="ld-chip ld-chip-w">⏳ '+pend+' صنف لم يكتمل</span>':'<span class="ld-chip ld-chip-g">✅ كل الأصناف مكتملة</span>')+'</td></tr></tfoot></table></div>'
+  h+='</tbody><tfoot id="ldSumFoot">'+ldSumFootHtml(S)+'</tfoot></table></div>'
     +(can?'':'<div class="mini">🔒 تسجيل الاستلام والمرتجع لمدير النظام أو من يملك صلاحية تأكيد الفواتير</div>')+'</div>';
   return h;
 }
+/* سطر الإجمالي يُحسب من الأرقام الحالية دائماً (كان يُحسب عند فتح الشاشة فقط فيبقى قديماً أثناء الكتابة) */
+function ldSumFootHtml(S){ var tp=0,tu=0,tr=0,tt=0,pend=0;
+  S.forEach(function(x){ tp+=x.pal; tu+=x.u; tr+=+x.r||0; tt+=+x.t||0; if(ldRcvStatus(x).c!=='g') pend++; });
+  return '<tr><td class="name">الإجمالي — '+S.length+' صنف</td><td></td><td class="ld-num">'+qty(tp)+'</td><td class="ld-num">'+qty(tu)+'</td><td class="ld-num">'+qty(tr)+'</td><td class="ld-num">'+qty(tt)+'</td><td></td>'
+    +'<td>'+(pend?'<span class="ld-chip ld-chip-w">⏳ '+pend+' صنف لم يكتمل</span>':'<span class="ld-chip ld-chip-g">✅ كل الأصناف مكتملة</span>')+'</td></tr>'; }
 var _ldRcvT=null;
 function ldRcvSet(el){ if(!ldCanRecv()) return; var item=+el.dataset.it, f=el.dataset.rf, id=ldRcvId(_ldDate,item);
   var R=ldRcvGet(_ldDate,item); if(!R){ R={id:id,kind:'rcv',date:_ldDate,item:item,r:'',t:'',n:'',uid:ME.id,ts:nowTs()}; ldArr().push(R); }
   R[f]=el.value; R.editTs=nowTs(); R.editMs=Date.now(); R.by=ME.name;
-  var x=ldSummary(_ldDate).filter(function(y){ return y.item===item; })[0]; if(x){ var st=ldRcvStatus(x), c=document.getElementById('ldst_'+item); if(c){ c.className='ld-chip ld-chip-'+st.c; c.textContent=st.t; } }
+  var S=ldSummary(_ldDate), x=S.filter(function(y){ return y.item===item; })[0]; if(x){ var st=ldRcvStatus(x), c=document.getElementById('ldst_'+item); if(c){ c.className='ld-chip ld-chip-'+st.c; c.textContent=st.t; } }
+  var ft=document.getElementById('ldSumFoot'); if(ft) ft.innerHTML=ldSumFootHtml(S);
   clearTimeout(_ldRcvT); _ldRcvT=setTimeout(function(){ log('edit','البرادات','استلام '+qbName('item',item)+' بتاريخ '+_ldDate+': مستلم '+(R.r||0)+' ط، مرتجع '+(R.t||0)+' ط'+(R.n?' ('+R.n+')':'')); persist(); },900); }
 function ldSumImage(){
   var S=ldSummary(_ldDate); if(!S.length) return; var Sx=2, pad=24, F='Tahoma, Arial, sans-serif', cols=[['الصنف',200],['البرادات',90],['طبالي',70],['العدد',100],['مستلم',70],['مرتجع',70],['تفصيل المرتجع',190]];
