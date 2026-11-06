@@ -1,0 +1,63 @@
+{
+  "rules": {
+    "workspaces": {
+      "$wid": {
+        "members": {
+          ".read": "auth != null && ( root.child('workspaces').child($wid).child('members').child(auth.uid).child('role').val() === 'admin' || ( $wid === 'learn' && root.child('workspaces').child('main').child('members').child(auth.uid).child('role').val() === 'admin' ) )",
+          "$uid": {
+            ".read": "auth != null && ( auth.uid === $uid || root.child('workspaces').child($wid).child('members').child(auth.uid).child('role').val() === 'admin' || ( $wid === 'learn' && root.child('workspaces').child('main').child('members').child(auth.uid).child('role').val() === 'admin' ) )",
+            ".write": "auth != null && ( ( auth.uid === $uid && !data.parent().exists() && $wid !== 'learn' ) || root.child('workspaces').child($wid).child('members').child(auth.uid).child('role').val() === 'admin' || ( $wid === 'learn' && root.child('workspaces').child('main').child('members').child(auth.uid).child('role').val() === 'admin' ) )"
+          }
+        },
+        "requests": {
+          ".read": "auth != null && root.child('workspaces').child($wid).child('members').child(auth.uid).child('role').val() === 'admin'",
+          "$uid": {
+            ".write": "auth != null && ( ( auth.uid === $uid && newData.exists() && newData.child('username').exists() ) || root.child('workspaces').child($wid).child('members').child(auth.uid).child('role').val() === 'admin' )"
+          }
+        },
+        "root": {
+          ".read": "auth != null && root.child('workspaces').child($wid).child('members').child(auth.uid).child('role').val() === 'admin'",
+          ".write": "auth != null && root.child('workspaces').child($wid).child('members').child(auth.uid).child('role').val() === 'admin'"
+        },
+        "platform": {
+          ".read": "auth != null && root.child('workspaces').child($wid).child('members').child(auth.uid).exists()",
+          ".write": "auth != null && root.child('workspaces').child($wid).child('members').child(auth.uid).exists()"
+        },
+        "formatter": {
+          "$uid": {
+            ".read": "auth != null && auth.uid === $uid && root.child('workspaces').child($wid).child('members').child(auth.uid).exists()",
+            ".write": "auth != null && auth.uid === $uid && root.child('workspaces').child($wid).child('members').child(auth.uid).exists()"
+          }
+        },
+        "devices": {
+          ".read": "auth != null && root.child('workspaces').child($wid).child('members').child(auth.uid).exists()",
+          ".write": "auth != null && root.child('workspaces').child($wid).child('members').child(auth.uid).exists()"
+        },
+        "reloadReqs": {
+          ".read": "auth != null && root.child('workspaces').child($wid).child('members').child(auth.uid).exists()",
+          ".write": "auth != null && root.child('workspaces').child($wid).child('members').child(auth.uid).exists()"
+        },
+        "activity": {
+          ".read": "auth != null && ( root.child('workspaces').child($wid).child('members').child(auth.uid).child('role').val() === 'admin' || ( $wid === 'learn' && root.child('workspaces').child('main').child('members').child(auth.uid).child('role').val() === 'admin' ) )",
+          ".write": "auth != null && ( root.child('workspaces').child($wid).child('members').child(auth.uid).child('role').val() === 'admin' || ( $wid === 'learn' && root.child('workspaces').child('main').child('members').child(auth.uid).child('role').val() === 'admin' ) )",
+          "$uid": {
+            "$eid": {
+              ".write": "auth != null && auth.uid === $uid && !data.exists() && newData.exists() && root.child('workspaces').child($wid).child('members').child(auth.uid).exists()",
+              ".validate": "newData.hasChildren(['ts','act','msg']) && newData.child('ts').isNumber() && newData.child('ts').val() <= now && newData.child('act').isString() && newData.child('act').val().length <= 20 && newData.child('msg').isString() && newData.child('msg').val().length <= 400"
+            }
+          }
+        },
+        "core": {
+          ".read": "auth != null && root.child('workspaces').child($wid).child('members').child(auth.uid).exists()",
+          ".write": "auth != null && root.child('workspaces').child($wid).child('members').child(auth.uid).exists()"
+        },
+        "depts": {
+          "$dk": {
+            ".read": "auth != null && root.child('workspaces').child($wid).child('members').child(auth.uid).exists() && root.child('workspaces').child($wid).child('members').child(auth.uid).child('active').val() == 1 && ( root.child('workspaces').child($wid).child('members').child(auth.uid).child('role').val() === 'admin' || root.child('workspaces').child($wid).child('members').child(auth.uid).child('all').val() == 1 || root.child('workspaces').child($wid).child('members').child(auth.uid).child('depts').child($dk).val() === true )",
+            ".write": "auth != null && root.child('workspaces').child($wid).child('members').child(auth.uid).exists() && root.child('workspaces').child($wid).child('members').child(auth.uid).child('active').val() == 1 && ( root.child('workspaces').child($wid).child('members').child(auth.uid).child('role').val() === 'admin' || root.child('workspaces').child($wid).child('members').child(auth.uid).child('all').val() == 1 || root.child('workspaces').child($wid).child('members').child(auth.uid).child('depts').child($dk).val() === true )"
+          }
+        }
+      }
+    }
+  }
+}
