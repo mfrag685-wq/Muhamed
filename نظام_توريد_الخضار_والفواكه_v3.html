@@ -672,6 +672,8 @@ kbd{border:1px solid #bbb;border-bottom-width:2px;border-radius:4px;padding:0 4p
 .ld-foot{display:flex;gap:5px;flex-wrap:wrap;margin-top:6px}.ld-chip{background:#eef2f6;border-radius:12px;padding:3px 9px;font-size:12.5px;font-weight:700}
 .ld-chip-b{background:#e8f0fb;color:#1d4f91}.ld-chip-g{background:#e8f6ee;color:#1f6b45}.ld-chip-r{background:#fdecec;color:#b42318}.ld-chip-w{background:#fff4e0;color:#9a5b00}
 .ld-day{margin-top:8px;font-size:13.5px}
+.sp-state{padding:8px 12px;border-radius:9px;margin:6px 0;font-weight:700}.sp-on{background:#e8f6ee;color:#1f6b45}.sp-off{background:#fff4e0;color:#7a4a00}
+.sp-steps{margin:6px 0 6px;padding-inline-start:22px;line-height:2}
 .ld-sum{margin-top:12px;border:1px solid #c9dcf5;border-radius:12px;padding:8px 10px;background:#f8fbff}
 .ld-sumtb td,.ld-sumtb th{vertical-align:middle;padding:5px 6px}.ld-num{text-align:center;white-space:nowrap}
 .ld-rin{width:70px;height:38px;text-align:center;font-size:16px;font-weight:700;border:1px solid #b9dcc6;border-radius:8px;background:#f4fbf6}
@@ -1967,6 +1969,7 @@ kbd{border:1px solid #bbb;border-bottom-width:2px;border-radius:4px;padding:0 4p
 <section id="users" class="panel">
   <div class="panel-title">المستخدمون والصلاحيات</div>
   <div class="note">كل عملية إضافة أو تعديل أو حذف تُسجَّل باسم المستخدم وتاريخها في سجل الحركات أسفل الصفحة.</div>
+  <div id="splitPanel" class="hidden"></div>
   <div id="loginHealthSection" class="hidden">
     <div class="sec-title">🩺 فحص سلامة دخول الموظفين <button class="btn btn-sm no-print" onclick="renderLoginHealth(true)">فحص الآن</button>
       <span class="hint">يطابق كل مستخدم مع حساب دخوله السحابي، ويكشف ما يمنع الدخول، وأسباب المحاولات الفاشلة — مع إصلاح بضغطة.</span></div>
@@ -2320,7 +2323,7 @@ kbd{border:1px solid #bbb;border-bottom-width:2px;border-radius:4px;padding:0 4p
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-06-b';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-06-c';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -8978,7 +8981,7 @@ function delUser(id){
   db.users=db.users.filter(function(x){return x.id!==id;}); persist(); renderUsers(); toast('تم الحذف');
 }
 function renderUsers(){
-  try{ setTimeout(function(){ renderUserRecovery(false); renderLoginHealth(false); },0); }catch(e){}
+  try{ setTimeout(function(){ renderUserRecovery(false); renderLoginHealth(false); renderSplitPanel(); },0); }catch(e){}
   var _fst=null;
   document.getElementById('tbUsers').innerHTML=db.users.map(function(u){
     var ops=db.audit.filter(function(a){return a.userId===u.id&&a.action!=='auth'&&a.action!=='fail';}).length;
@@ -12244,7 +12247,7 @@ function cloudFlush(){
      (النقطة/$ /# /[ /] ممنوعة في المفاتيح فقط) فينتفي فشل الرفع بسبب اسم مستخدم
      أو مفتاح يحوي حرفاً ممنوعاً، ويصبح الرفع كتلة واحدة موثوقة. */
   var payload={data:s,fmt:'str',build:APP_BUILD,updatedAt:firebase.database.ServerValue.TIMESTAMP,updatedBy:(ME?ME.name:'')};
-  return cloudRef.set(payload).then(function(){
+  return (cloudSplit?splitPush():cloudRef.set(payload)).then(function(){
     cloudInflight=false; cloudLastPushed=s; cloudRetry=0; cloudLastError=''; cloudLastOkTs=nowTs(); cloudLastOkMs=Date.now()-cloudInflightAt;
     setCloudErrTip(''); syncAlertPaint();
     if(cloudDirty) cloudFlush();          /* وردت حركة أثناء الرفع → ارفعها */
@@ -12299,7 +12302,7 @@ function cloudDiag(){
     +'\nعدد مرات الرفع آخر 10 دقائق: '+cloudPushLog.filter(function(x){ return Date.now()-x.t<600000; }).length
     +(cloudLastRemoteBy?'\nآخر من رفع للسحابة: '+cloudLastRemoteBy:'')
     +(cloudLoopInfo?'\n⚠ '+cloudLoopInfo:'')
-    +'\nإصدار هذا الجهاز: '+APP_BUILD
+    +'\nإصدار هذا الجهاز: '+APP_BUILD+'\nتخزين السحابة: '+(cloudSplit?'مفصول حسب القسم ('+splitAllowed.length+' قسم مسموح)':'ملف واحد (قديم)')
     +'\n\nحجم البيانات: '+mb(tot)+' من حد 10 MB\n'+parts.map(function(x){ return '• '+x[0]+': '+mb(x[1]); }).join('\n'));
 }
 function setCloudErrTip(msg){ var el=document.getElementById('cloudStatus'); if(!el) return;
@@ -12489,6 +12492,138 @@ function cloudPush(s){
   cloudPushTimer=setTimeout(cloudFlush,600);   /* تجميع الحفظات المتتابعة */
 }
 /* مراقبة الاتصال: عند عودته ارفع أي تغييرات معلّقة فوراً */
+/* ==========================================================================
+   فصل بيانات الأقسام على الخادم (Server-side department isolation)
+   ──────────────────────────────────────────────────────────────────────────
+   التخطيط الجديد في السحابة:
+     workspaces/main/core          ← المشترك: الإعدادات، المستخدمون، الوحدات، التحويلات بين الأقسام،
+                                     شواهد الحذف، فهرس الأقسام، وسجل الحركات العام
+     workspaces/main/depts/<قسم>   ← دفاتر القسم كاملة + سجل حركاته — لا يقرؤه ولا يكتبه إلا
+                                     مدير النظام أو عضو تسمح عضويته (members/<uid>/depts) بهذا القسم
+   التحويل يدوي بضغطة من المدير بعد نشر القواعد الجديدة، مع نسخة احتياطية تلقائية.
+   التخزين القديم (root) يبقى كما هو للتوافق؛ وأي كتابة فيه من جهاز قديم بعد التحويل تُدمج تلقائياً.
+   الرفع صار لكل عقدة على حدة — يُرفع فقط ما تغيّر (أسرع بكثير من رفع القاعدة كلها).
+   ========================================================================== */
+var cloudSplit=false, splitCache={core:null,depts:{}}, splitLast={}, splitAllowed=[], splitIsAdmin=false, splitRefs={}, splitMigratedAt=0, splitOldWrite='';
+function splitBase(){ return 'workspaces/'+cloudWid(); }
+function splitParse(v){ if(!v||v.data==null) return null; var d=v.data; if(typeof d==='string'){ try{ d=JSON.parse(d); }catch(e){ return null; } } return d&&typeof d==='object'?d:null; }
+function splitMemberDepts(mem){ if(!mem) return {admin:false,all:false,list:[]};
+  return {admin:mem.role==='admin', all:mem.role==='admin'||Number(mem.all)===1||mem.all===true, list:mem.depts?Object.keys(mem.depts).filter(function(k){ return mem.depts[k]; }):[]}; }
+/* بناء العقد من قاعدة البيانات الحالية */
+function splitBuild(){
+  var ser=JSON.parse(JSON.stringify(serializeDB())), deps=ser.departments||{}, keys=Object.keys(deps);
+  var idx=(splitCache.core&&Array.isArray(splitCache.core.depts))?splitCache.core.depts.slice():[];
+  if(splitIsAdmin) idx=keys.slice(); else keys.forEach(function(k){ if(idx.indexOf(k)<0) idx.push(k); });
+  var deptAudit={}; keys.forEach(function(k){ deptAudit[k]=[]; }); var coreAudit=[];
+  (ser.audit||[]).forEach(function(a){ if(a&&a.dept&&!a.g&&deptAudit[a.dept]) deptAudit[a.dept].push(a); else coreAudit.push(a); });
+  var core={layout:'split',meta:ser.meta,settings:ser.settings,users:ser.users,units:ser.units,interTransfers:ser.interTransfers,activeDept:ser.activeDept,tombstones:ser.tombstones,audit:coreAudit,depts:idx,
+    deptNames:(function(){ var o=(splitCache.core&&splitCache.core.deptNames)||{}; keys.forEach(function(k){ o[k]=(deps[k]&&deps[k].name)||k; }); return o; })(),
+    migratedAt:splitMigratedAt||(splitCache.core&&splitCache.core.migratedAt)||Date.now()};
+  var nodes={core:JSON.stringify(core)};
+  keys.forEach(function(k){ if(splitIsAdmin||splitAllowed.indexOf(k)>-1) nodes['dept:'+k]=JSON.stringify({dept:deps[k],audit:deptAudit[k]}); });
+  return nodes;
+}
+/* تجميع البيانات المقروءة في شكل القاعدة المعتاد (لتعمل كل الشاشات والدمج كما هي) */
+function splitAssemble(){
+  var c=splitCache.core; if(!c) return null;
+  var out={meta:c.meta,settings:c.settings,users:c.users||[],units:c.units||[],interTransfers:c.interTransfers||[],activeDept:c.activeDept,tombstones:c.tombstones||{},departments:{}};
+  var audit=(c.audit||[]).slice();
+  Object.keys(splitCache.depts).forEach(function(k){ var d=splitCache.depts[k]; if(!d) return; out.departments[k]=d.dept||{name:k}; audit=audit.concat(d.audit||[]); });
+  out.audit=unionAudit(audit,[],out.tombstones);
+  return out;
+}
+function splitApplyRemote(){
+  var a=splitAssemble(); if(!a) return; var str=JSON.stringify(a);
+  cloudApplyRemote(a,str);
+  splitPrune();
+}
+/* موظف مقيّد: لا يحتفظ جهازه بأقسام لا يملكها (ولا يحاول رفعها) */
+function splitPrune(){ if(splitIsAdmin||!db.departments) return; var ch=false;
+  Object.keys(db.departments).forEach(function(k){ if(splitAllowed.indexOf(k)<0&&Object.keys(db.departments).length>1){ delete db.departments[k]; ch=true; } });
+  if(ch){ try{ if(!db.departments[db.activeDept]) loadDept(Object.keys(db.departments)[0]); resetKnownIds();
+      var st=JSON.stringify(serializeDB()); _lastLocalStr=st; lsSet(KEY,st);   /* لا تبقى نسخة محلية من أقسام غير مسموحة على جهاز الموظف */
+      updateDeptUI(); refreshLedger(); scheduleFullRender(); }catch(e){} } }
+function splitPush(){
+  var nodes=splitBuild(), base=splitBase(), jobs=[], meta={build:APP_BUILD,updatedAt:firebase.database.ServerValue.TIMESTAMP,updatedBy:(ME?ME.name:'')};
+  Object.keys(nodes).forEach(function(n){ if(nodes[n]===splitLast[n]) return;
+    var path=n==='core'?base+'/core':base+'/depts/'+n.slice(5), val={data:nodes[n],fmt:'str',build:meta.build,updatedAt:meta.updatedAt,updatedBy:meta.updatedBy};
+    jobs.push(firebase.database().ref(path).set(val).then(function(){ splitLast[n]=nodes[n]; if(n==='core'){ splitCache.core=JSON.parse(nodes[n]); } else { splitCache.depts[n.slice(5)]=JSON.parse(nodes[n]); } })); });
+  return Promise.all(jobs);
+}
+/* الربط في الوضع المفصول */
+function splitAttach(coreVal,done){
+  var user=firebase.auth&&firebase.auth().currentUser; if(!user){ done({code:'PERMISSION_DENIED',message:'no-auth'}); return; }
+  var base=splitBase();
+  firebase.database().ref(base+'/members/'+user.uid).once('value').then(function(ms){
+    var mem=ms.val(); if(!mem){ done({code:'PERMISSION_DENIED',message:'no-membership'}); return; }
+    var M=splitMemberDepts(mem); splitIsAdmin=M.admin;
+    splitCache.core=splitParse(coreVal); splitLast.core=coreVal&&typeof coreVal.data==='string'?coreVal.data:''; splitMigratedAt=(splitCache.core&&splitCache.core.migratedAt)||0;
+    var idx=(splitCache.core&&splitCache.core.depts)||[];
+    splitAllowed=M.all?idx.slice():idx.filter(function(k){ return M.list.indexOf(k)>-1; });
+    return Promise.all(splitAllowed.map(function(k){ return firebase.database().ref(base+'/depts/'+k).once('value').then(function(s){ var v=s.val(); splitCache.depts[k]=splitParse(v)||{dept:{name:(splitCache.core.deptNames||{})[k]||k},audit:[]}; splitLast['dept:'+k]=v&&typeof v.data==='string'?v.data:''; },function(){ /* غير مسموح فعلياً على الخادم */ splitAllowed=splitAllowed.filter(function(x){ return x!==k; }); }); }))
+      .then(function(){
+        cloudSplit=true; cloudRef=firebase.database().ref(base+'/core');
+        splitApplyRemote(); cloudReady=true; setCloudStatus('ok');
+        splitListen(); done();
+      });
+  }).catch(function(e){ done(e||true); });
+}
+function splitListen(){
+  var base=splitBase();
+  var onNode=function(key,path){ if(splitRefs[key]) return; var r=firebase.database().ref(path); splitRefs[key]=r;
+    r.on('value',function(s){ var v=s.val(); if(!v||typeof v.data!=='string') return; if(key==='core') try{ cloudCheckBuild(v); if(v.updatedBy) cloudLastRemoteBy=v.updatedBy+(v.build?' (إصدار '+v.build+')':''); }catch(e){}
+      if(v.data===splitLast[key]) return;   /* صدى كتابتنا */
+      var d=splitParse(v); if(!d) return; splitLast[key]=v.data;
+      if(key==='core'){ splitCache.core=d; (d.depts||[]).forEach(function(k){ if(splitAllowed.indexOf(k)<0&&(splitIsAdmin)){ splitAllowed.push(k); onNode('dept:'+k,base+'/depts/'+k); } }); }
+      else splitCache.depts[key.slice(5)]=d;
+      splitApplyRemote(); },function(){}); };
+  onNode('core',base+'/core');
+  splitAllowed.forEach(function(k){ onNode('dept:'+k,base+'/depts/'+k); });
+  /* جهاز قديم ما زال يكتب في التخزين القديم بعد التحويل ⇒ ادمج ما كتبه ولا تُضِعه */
+  if(!splitRefs.root){ var rr=firebase.database().ref(base+'/root'); splitRefs.root=rr;
+    rr.on('value',function(s){ var v=s.val(); if(!v||!v.updatedAt||!splitMigratedAt||v.updatedAt<=splitMigratedAt+5000) return;
+      var key=String(v.updatedAt); if(splitOldWrite===key) return; splitOldWrite=key;
+      var d=splitParse(v); if(!d||!Array.isArray(d.users)) return;
+      try{ cloudApplyRemote(d,JSON.stringify(d)); splitPrune(); cloudLoopInfo=nowTs()+' — جهاز بإصدار قديم ('+(v.build||'?')+' — '+(v.updatedBy||'')+') كتب في التخزين القديم؛ دُمج ما كتبه. حدِّث ذلك الجهاز.'; }catch(e){} },function(){}); }
+}
+function splitDetach(){ Object.keys(splitRefs).forEach(function(k){ try{ splitRefs[k].off(); }catch(e){} }); splitRefs={}; cloudSplit=false; splitCache={core:null,depts:{}}; splitLast={}; }
+/* التحويل (مدير النظام): نسخة احتياطية → عضويات بأقسامها → كتابة العقد → التحول للوضع المفصول */
+function splitMigrate(){
+  if(!ME||ME.role!=='admin'||!cloudAccounts()){ toast('التحويل لمدير النظام في الوضع السحابي فقط'); return; }
+  if(cloudSplit){ toast('البيانات مفصولة بالفعل'); return; }
+  if(!cloudReady){ toast('انتظر اكتمال الاتصال بالسحابة'); return; }
+  if(!confirm('فصل بيانات الأقسام على الخادم\n\nقبل المتابعة تأكد أنك نشرت «القواعد الجديدة» في Firebase (الخطوة 1).\n\nسيتم:\n• تنزيل نسخة احتياطية كاملة على جهازك\n• تسجيل أقسام كل موظف في عضويته\n• نقل بيانات كل قسم لعقدة مستقلة على الخادم\n\nالبيانات القديمة لا تُحذف. المتابعة؟')) return;
+  try{ exportBackup(); }catch(e){}
+  setCloudStatus('sync');
+  var jobs=db.users.filter(function(u){ return u.fbUid; }).map(function(u){ return cloudWriteMember(u.fbUid,u).catch(function(){}); });
+  Promise.all(jobs).then(function(){
+    splitIsAdmin=true; splitAllowed=Object.keys(db.departments||{}); splitMigratedAt=Date.now(); splitCache={core:null,depts:{}}; splitLast={};
+    return splitPush();
+  }).then(function(){
+    log('data','الإعدادات','فصل بيانات الأقسام على الخادم — '+Object.keys(db.departments||{}).length+' قسم'); 
+    try{ if(cloudRef) cloudRef.off(); }catch(e){}
+    cloudReady=false; cloudAppliedStr=''; persist();
+    cloudAttach(function(err){ if(err){ toast('تم النقل لكن تعذّر إعادة الربط — أعد تحميل الصفحة'); return; } persist(); toast('✅ تم فصل بيانات الأقسام على الخادم'); try{ renderSplitPanel(); }catch(e){} });
+  }).catch(function(e){ setCloudStatus('err');
+    alert('تعذّر الكتابة في العقد الجديدة'+(e&&e.code?' ('+e.code+')':'')+'.\nالأرجح أن القواعد الجديدة لم تُنشر في Firebase بعد — أكمل الخطوة 1 ثم أعد المحاولة.\nلم يتغيّر شيء في بياناتك.'); });
+}
+function splitCopyRules(file){
+  fetch(file+'?v='+Date.now()).then(function(r){ return r.text(); }).then(function(t){
+    try{ navigator.clipboard.writeText(t).then(function(){ toast('تم نسخ القواعد — الصقها في Firebase ← Realtime Database ← Rules ثم Publish'); },function(){ prompt('انسخ القواعد:',t); }); }catch(e){ prompt('انسخ القواعد:',t); } })
+  .catch(function(){ toast('تعذّر جلب ملف القواعد'); }); }
+function renderSplitPanel(){
+  var box=document.getElementById('splitPanel'); if(!box) return;
+  if(!ME||ME.role!=='admin'||!cloudAccounts()){ box.innerHTML=''; box.classList.add('hidden'); return; }
+  box.classList.remove('hidden');
+  var on=cloudSplit;
+  box.innerHTML='<div class="sec-title">🔐 فصل بيانات الأقسام على الخادم <span class="hint">بعد التفعيل لا يستطيع أي موظف قراءة أو تعديل بيانات قسم لا يملكه — حتى بتجاوز الواجهة</span></div>'
+    +'<div class="sp-state '+(on?'sp-on':'sp-off')+'">'+(on?'✅ مفعّل — بيانات كل قسم في عقدة مستقلة محمية على الخادم ('+splitAllowed.length+' قسم)':'⏳ غير مفعّل — كل البيانات في ملف واحد يقرؤه كل الأعضاء')+'</div>'
+    +'<ol class="sp-steps">'
+    +'<li><b>نشر القواعد الجديدة:</b> اضغط «نسخ القواعد»، ثم في Firebase Console ← Realtime Database ← Rules: احذف القديم والصق، ثم Publish. (تبقى كل الأجهزة تعمل كما هي) <button class="btn-sm" onclick="splitCopyRules(\'database.rules.accounts.json\')">📋 نسخ القواعد</button></li>'
+    +'<li><b>تفعيل الفصل:</b> '+(on?'تم ✓':'<button class="btn-sm btn-alt" onclick="splitMigrate()">🔐 تفعيل فصل الأقسام الآن</button> <span class="mini">(نسخة احتياطية تلقائية — لا يُحذف شيء)</span>')+'</li>'
+    +'<li><b>بعد تحديث كل الأجهزة</b> لهذا الإصدار أو أحدث: انشر «القواعد المقفلة» لمنع غير المدير من قراءة التخزين القديم نهائياً. <button class="btn-sm" onclick="splitCopyRules(\'database.rules.accounts.locked.json\')">📋 نسخ القواعد المقفلة</button></li>'
+    +'</ol><div class="mini">أقسام كل موظف تُحدَّد من «تعديل المستخدم ← الأقسام المتاحة» وتُرسل لعضويته تلقائياً عند الحفظ.</div>';
+}
 var cloudOnline=true, cloudInflightAt=0, cloudPushLog=[], cloudMergePushes=[], cloudLoopUntil=0, cloudLoopInfo='';
 function cloudWatchConnection(){
   if(cloudConnWatched) return; cloudConnWatched=true;
@@ -12637,9 +12772,10 @@ function cloudAttach(cb){
   if(cloudAttaching) return;
   cloudAttaching=true; setCloudStatus('loading');
   var done=function(err){ var L=_attachCbs; _attachCbs=[]; L.forEach(function(f){ try{ f(err); }catch(e){ try{console.error(e);}catch(_){} } }); };
-  cloudRef=firebase.database().ref('workspaces/'+cloudWid()+'/root');
   var t0=Date.now(), finished=false;
   var to=setTimeout(function(){ if(finished) return; finished=true; cloudAttaching=false; setCloudStatus('err'); cloudLastError='timeout'; done({code:'timeout',message:'انتهت مهلة تحميل بيانات المنشأة (اتصال بطيء)'}); },75000);
+  var legacy=function(){
+  cloudRef=firebase.database().ref('workspaces/'+cloudWid()+'/root');
   cloudRef.once('value').then(function(snap){
     if(finished) return; finished=true; clearTimeout(to);
     cloudAttaching=false; cloudLoadMs=Date.now()-t0;
@@ -12664,8 +12800,18 @@ function cloudAttach(cb){
     });
     done();
   }).catch(function(err){ if(finished) return; finished=true; clearTimeout(to); cloudAttaching=false; setCloudStatus('err'); done(err||true); });
+  };
+  /* الوضع المفصول (بيانات كل قسم في عقدة محمية)؟ — قبل نشر القواعد الجديدة تُرفض قراءة core فنكمل بالوضع القديم */
+  if(!cloudAccounts()){ legacy(); return; }
+  firebase.database().ref('workspaces/'+cloudWid()+'/core').once('value').then(function(cs){
+    var cv=cs.val(), cd=splitParse(cv);
+    if(!(cd&&cd.layout==='split')){ legacy(); return; }
+    splitAttach(cv,function(err){ if(finished) return; finished=true; clearTimeout(to); cloudAttaching=false; cloudLoadMs=Date.now()-t0;
+      if(err){ setCloudStatus('err'); done(err); return; }
+      cloudWatchConnection(); cloudMarkPresence(); cloudWatchDevices(); cloudWatchReloadReq(); done(); });
+  },function(){ legacy(); });
 }
-function cloudDetach(){ if(cloudRef){ try{cloudRef.off();}catch(e){} }
+function cloudDetach(){ if(cloudRef){ try{cloudRef.off();}catch(e){} } try{ splitDetach(); }catch(e){}
   try{ if(cloudConnWatched) firebase.database().ref('.info/connected').off(); }catch(e){}
   cloudReady=false; cloudConnWatched=false; cloudInflight=false; cloudDirty=false;
   clearTimeout(cloudPushTimer); clearTimeout(cloudRetryTimer); }
@@ -12673,8 +12819,13 @@ function cloudDetach(){ if(cloudRef){ try{cloudRef.off();}catch(e){} }
 /* ---------- وضع الحسابات: العضوية والتوفير والدخول ---------- */
 function cloudWriteMember(uid,u){
   return firebase.database().ref('workspaces/'+cloudWid()+'/members/'+uid)
-    .set({username:u.username,role:u.role,active:Number(u.active)?1:0});
+    .set(cloudMemberVal(u));
 }
+/* العضوية تحمل أقسام الموظف — قواعد الخادم تمنع قراءة/كتابة أي قسم غير مسجّل فيها */
+function cloudMemberVal(u){ var o={username:u.username,role:u.role,active:Number(u.active)?1:0};
+  if(u.role==='admin'||!Array.isArray(u.depts)||!u.depts.length) o.all=1;
+  else { o.depts={}; u.depts.forEach(function(k){ if(k) o.depts[k]=true; }); }
+  return o; }
 function cloudSecondaryApp(){
   if(!cloudSecondary) cloudSecondary=firebase.initializeApp(CLOUD_CONFIG,'provision');
   return cloudSecondary;
@@ -12911,7 +13062,7 @@ function approveJoinRequest(ruid){
   if(dr){ restoreUserCandidate(dr,ruid); commit('تمت استعادة '+dr.name+' وإعادة تفعيل دخوله'); renderUsers(); firebase.database().ref('workspaces/'+cloudWid()+'/requests/'+ruid).remove().catch(function(){}); renderJoinRequests(); return; }
   db.users.push({id:uid(),name:r.name||r.username,username:r.username,pass:hash('cloud-'+ruid),
     role:'entry',active:1,perms:preset('entry'),fbUid:ruid,lastLogin:''});
-  firebase.database().ref('workspaces/'+cloudWid()+'/members/'+ruid).set({username:r.username,role:'entry',active:1}).catch(function(){});
+  firebase.database().ref('workspaces/'+cloudWid()+'/members/'+ruid).set({username:r.username,role:'entry',active:1,all:1}).catch(function(){});
   firebase.database().ref('workspaces/'+cloudWid()+'/requests/'+ruid).remove().catch(function(){});
   log('add','المستخدمون','قبول طلب انضمام: '+(r.name||r.username)+' ('+r.username+') — بدور مدخل بيانات مبدئياً');
   commit('تمت الموافقة — عدّل دوره وصلاحياته من الجدول'); renderUsers(); renderJoinRequests();

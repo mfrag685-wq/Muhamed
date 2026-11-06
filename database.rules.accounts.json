@@ -46,6 +46,16 @@
               ".validate": "newData.hasChildren(['ts','act','msg']) && newData.child('ts').isNumber() && newData.child('ts').val() <= now && newData.child('act').isString() && newData.child('act').val().length <= 20 && newData.child('msg').isString() && newData.child('msg').val().length <= 400"
             }
           }
+        },
+        "core": {
+          ".read": "auth != null && root.child('workspaces').child($wid).child('members').child(auth.uid).exists()",
+          ".write": "auth != null && root.child('workspaces').child($wid).child('members').child(auth.uid).exists()"
+        },
+        "depts": {
+          "$dk": {
+            ".read": "auth != null && root.child('workspaces').child($wid).child('members').child(auth.uid).exists() && root.child('workspaces').child($wid).child('members').child(auth.uid).child('active').val() == 1 && ( root.child('workspaces').child($wid).child('members').child(auth.uid).child('role').val() === 'admin' || root.child('workspaces').child($wid).child('members').child(auth.uid).child('all').val() == 1 || root.child('workspaces').child($wid).child('members').child(auth.uid).child('depts').child($dk).val() === true )",
+            ".write": "auth != null && root.child('workspaces').child($wid).child('members').child(auth.uid).exists() && root.child('workspaces').child($wid).child('members').child(auth.uid).child('active').val() == 1 && ( root.child('workspaces').child($wid).child('members').child(auth.uid).child('role').val() === 'admin' || root.child('workspaces').child($wid).child('members').child(auth.uid).child('all').val() == 1 || root.child('workspaces').child($wid).child('members').child(auth.uid).child('depts').child($dk).val() === true )"
+          }
         }
       }
     }
