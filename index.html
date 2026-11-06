@@ -672,6 +672,13 @@ kbd{border:1px solid #bbb;border-bottom-width:2px;border-radius:4px;padding:0 4p
 .ld-foot{display:flex;gap:5px;flex-wrap:wrap;margin-top:6px}.ld-chip{background:#eef2f6;border-radius:12px;padding:3px 9px;font-size:12.5px;font-weight:700}
 .ld-chip-b{background:#e8f0fb;color:#1d4f91}.ld-chip-g{background:#e8f6ee;color:#1f6b45}.ld-chip-r{background:#fdecec;color:#b42318}.ld-chip-w{background:#fff4e0;color:#9a5b00}
 .ld-day{margin-top:8px;font-size:13.5px}
+select.ss-hidden{display:none!important}
+.ss-in{width:100%;height:40px;border:1px solid var(--line,#cfd8e3);border-radius:8px;padding:0 10px;font:inherit;font-size:15px;background:var(--card,#fff);min-width:0}
+.inline-add .ss-in{flex:1 1 auto}.ss-in:focus{outline:2px solid #2f6fb5;border-color:#2f6fb5}
+.pur-tabs{position:sticky;top:0;z-index:6;display:flex;gap:6px;flex-wrap:wrap;padding:8px;margin:0 0 10px;border-radius:12px;background:var(--card,#fff);border:1px solid #d9e1ea;box-shadow:0 4px 14px rgba(0,0,0,.06)}
+.pur-tabs button{flex:1 1 140px;min-height:42px;border:1px solid #cfd8e3;border-radius:10px;background:#f6f8fb;font:inherit;font-size:14px;font-weight:700;cursor:pointer}
+.pur-tabs button.on{background:#163a2a;color:#fff;border-color:#163a2a}.pur-tabs b{background:#e8f0fb;color:#1d4f91;border-radius:10px;padding:0 7px;margin-inline-start:4px}.pur-tabs b.bad{background:#fdecec;color:#b42318}
+#purchases.pt-tabs.pt-loads #quickBuyBox,#purchases.pt-tabs.pt-loads #taxTrackBox,#purchases.pt-tabs.pt-qb #loadsBox,#purchases.pt-tabs.pt-qb #taxTrackBox,#purchases.pt-tabs.pt-tt #loadsBox,#purchases.pt-tabs.pt-tt #quickBuyBox{display:none!important}
 .cash-card{border:1px solid var(--line,#ddd);border-right:5px solid #1f6b45;border-radius:12px;padding:10px 12px;margin:0 0 12px;background:var(--card,#fff)}
 .cash-form{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:8px 0;padding:8px;border-radius:10px;background:#f6f8fb}
 .cash-form select,.cash-form input{height:40px;border:1px solid #cfd8e3;border-radius:8px;padding:0 8px;font:inherit;font-size:15px}
@@ -731,7 +738,7 @@ td.cash-in{color:#1f6b45;font-weight:700}td.cash-out{color:#b42318;font-weight:7
 .qb-card.qb-editing{border-right-color:#e0a019}.tt-sum{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}.tt-chip{cursor:pointer;padding:3px 10px;border-radius:14px;background:#fff4e0;border:1px solid #f0c98a;font-size:12.5px}
 .tt-tb tr.tt-grp td{text-align:right;background:#f3f6f9;border-top:2px solid #d9e1ea;padding:6px 8px}
 .tt-it{display:inline-block;margin:1px 0 1px 8px;white-space:nowrap}.tt-act{white-space:nowrap}
-#purchases.qb-only>*:not(#taxTrackBox):not(#quickBuyBox):not(#loadsBox){display:none!important}
+#purchases.qb-only>*:not(#taxTrackBox):not(#quickBuyBox):not(#loadsBox):not(#purTabs){display:none!important}
 /* الجوال: كل سطر بطاقة بنفس الشبكة تماماً (خانات متوازية بالترتيب نفسه: المورد ← الملاحظة ← الصنف ← الكمية والسعر) */
 @media (max-width:700px){
   .qb-card{padding:10px 8px}
@@ -2345,7 +2352,7 @@ td.cash-in{color:#1f6b45;font-weight:700}td.cash-out{color:#b42318;font-weight:7
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-06-e';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-06-f';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -2954,6 +2961,7 @@ function fileCopyBanner(){
 try{ document.addEventListener('DOMContentLoaded',fileCopyBanner); setTimeout(fileCopyBanner,500); }catch(e){}
 function startApp(){
   try{ fileCopyBanner(); }catch(e){}
+  try{ setTimeout(ssEnhance,0); }catch(e){}
   document.getElementById('loginScreen').classList.add('hidden');
   document.getElementById('app').classList.remove('hidden');
   document.getElementById('uName').textContent=ME.name;
@@ -3469,7 +3477,7 @@ function groupOpts(kind,blank){
   return h;
 }
 function invoiceClients(){ var g=val('s_clientGroup'), q=(val('s_clientSearch')||'').trim();
-  return db.clients.filter(function(c){ return (!g||c.groupId===+g)&&(!q||(c.name||'').indexOf(q)>-1); }); }
+  return db.clients.filter(function(c){ return (!g||c.groupId===+g)&&(!q||arMatch(c.name,q)); }); }
 function invoiceSuppliers(){ var g=val('p_supplierGroup'), q=(val('p_supplierSearch')||'').trim();
   return db.suppliers.filter(function(s){ return (!g||s.groupId===+g)&&(!q||arMatch(s.name,q)); }); }
 /* بحث بالاسم في فلاتر سجلّي المشتريات (pf) والمبيعات (sf) */
@@ -4140,6 +4148,7 @@ function renderTaxTrack(){
   if((nS.length||nI.length)&&can('master')) h+='<div class="tt-newnames">🆕 أضافها الموظف من مشتريات اليوم — راجِعها من «البيانات الأساسية»: '
     +nS.map(function(x){ return '<span class="pill pill-info">🚚 '+esc(x.name)+'</span>'; }).join(' ')+' '+nI.map(function(x){ return '<span class="pill pill-info">🏷️ '+esc(x.name)+'</span>'; }).join(' ')
     +' <button class="btn-sm" onclick="qbAckNew()">✓ تمت المراجعة</button></div>';
+  if(ME.role==='admin'&&!ldOn()) h+='<div class="mini tt-mode">🚚 ميزة البرادات غير مفعّلة في هذا القسم <button class="btn-sm" onclick="ldToggle(true)">تفعيل البرادات</button></div>';
   if(ME.role==='admin') h+='<div class="mini tt-mode">'+(ptOn()?'📦 <b>توريد مباشر</b>: المشتريات لا تدخل المخزون — تكلفة كل صنف تُطابَق يومياً مع مبيعاته (تقرير «ربحية الأصناف اليومية») <button class="btn-sm" onclick="ptToggle(false)">إيقاف</button>':'📦 المشتريات تدخل المخزون <button class="btn-sm" onclick="ptToggle(true)">تفعيل التوريد المباشر (بدون مخزون)</button>')+'</div>';
   box.innerHTML=h+'</div>';
 }
@@ -4199,7 +4208,10 @@ function arRank(name,q){ var n=arN(name), x=arN(q); return n===x?0:(n.indexOf(x)
    لاحقاً يسجّل المدير (أو المخوَّل) الكمية المستلمة فعلياً والمرتجع ⇒ تقرير: كم حُمِّل، كم استُلم، كم رُجِع، كم لم يُسجَّل بعد.
    حفظ تلقائي أثناء الكتابة (بلا زر حفظ) — والبحث عن الصنف بأي جزء من اسمه. */
 var _ldDate='', _ldSaveT=null, LD_UNITS=['كرتون','سلة','صندوق','كيس','شوال','حبة'];
-function ldOn(){ return ptOn(); }
+function ldOn(){ try{ var d=dcur(); if(d.loadsOn!=null) return !!d.loadsOn;
+  /* افتراضياً: مفعّلة فقط في قسم التوريد المباشر الذي سُجّلت فيه برادات فعلاً — ويُفعّلها المدير لأي قسم آخر */
+  return ptOn()&&(db.loads||[]).some(function(L){ return !L.kind; }); }catch(e){ return false; } }   /* ميزة لكل قسم (افتراضياً مع التوريد المباشر) */
+function ldToggle(on){ if(!ME||ME.role!=='admin'){ toast('لمدير النظام فقط'); return; } dcur().loadsOn=on?1:0; log('data','البرادات',(on?'تفعيل':'إيقاف')+' البرادات في قسم '+deptName(db.activeDept)); commit(on?'تم تفعيل البرادات لهذا القسم':'تم إيقاف البرادات لهذا القسم'); renderLoads(); renderPurTabs(); renderTaxTrack(); }
 function ldCanRecv(){ return !!(ME&&(ME.role==='admin'||can('taxRecv'))); }
 function ldAllowed(){ return !!(ME&&(ME.role==='admin'||can('loadsEntry'))); }   /* صلاحية مستقلة لموظف التحميل */
 function ldCanEditLoad(L){ return !!(ME&&(ME.role==='admin'||(can('loadsEntry')&&(can('canEdit')||L.uid===ME.id)))); }
@@ -4340,7 +4352,7 @@ function renderLoads(){
   var day=ldDay(), recv=false;   /* الاستلام والمرتجع أصبحا في «ملخص الأصناف» لا في كل سطر */
   var h='<div class="ld-wrap"><div class="tt-head"><b class="tt-title">🚚 تحميل البرادات</b>'
     +'<span class="ds-nav"><button class="btn-sm" onclick="_ldDate=ivAddDays(_ldDate,-1);renderLoads()">→</button><input type="date" value="'+esc(_ldDate)+'" onchange="_ldDate=this.value;renderLoads()"><button class="btn-sm" onclick="_ldDate=ivAddDays(_ldDate,1);renderLoads()">←</button></span>'
-    +'<span class="tt-tools">'+(ldAllowed()?'<button class="btn-alt" onclick="ldNew()">➕ براد جديد</button>':'')+(day.length?'<button class="btn-sm" onclick="ldOpenSheet(null)">🖨 طباعة / صورة كل البرادات</button>':'')+'</span></div>'
+    +'<span class="tt-tools">'+(ldAllowed()?'<button class="btn-alt" onclick="ldNew()">➕ براد جديد</button>':'')+(ME.role==='admin'?'<button class="btn-sm" onclick="if(confirm(\'إيقاف ميزة البرادات في هذا القسم؟ (البيانات لا تُحذف)\'))ldToggle(false)" title="إيقاف البرادات في هذا القسم">⚙</button>':'')+(day.length?'<button class="btn-sm" onclick="ldOpenSheet(null)">🖨 طباعة / صورة كل البرادات</button>':'')+'</span></div>'
     +(ldAllowed()?'':'<div class="ld-lock">🔒 إضافة البرادات وتعديل محتوياتها تحتاج صلاحية <b>«إدخال البرادات»</b> — حسابك «'+esc(ME.name)+'» يستطيع تسجيل المستلم والمرتجع فقط. '+(can('users')?'فعّلها من «المستخدمون والسجل ← تعديل».':'اطلبها من مدير النظام.')+'</div>')
     +'<div class="mini ld-hint">الصنف ← <kbd>Enter</kbd> ← عدد الطبالي ← <kbd>Enter</kbd> ← العدد في الطبلية ← <kbd>Enter</kbd> سطر جديد · يُحفظ تلقائياً'+(ldCanRecv()?' · الاستلام والمرتجع يُسجَّلان في «ملخص الأصناف» أسفل البرادات':'')+'</div>';
   if(!day.length) h+='<div class="tt-allok" style="background:#f3f6f9;color:#556">لا توجد برادات في '+esc(_ldDate)+' — اضغط «➕ براد جديد»</div>';
@@ -4569,6 +4581,61 @@ function qsSave(){
   commit('✅ تم حفظ فاتورة البيع — '+num(sv.net+sv.vat)); renderQuickSale(); qsFocus('cl');
 }
 function qsDeptSwitch(from,to){ if(from) _qsDrafts[from]={h:_qsHead,r:_qsRows}; var d=_qsDrafts[to]; _qsHead=d?d.h:{}; _qsRows=d?d.r:[{},{},{}]; }
+/* ===== بحث ذكي داخل قوائم الاختيار (العميل/المورد/الصنف) في الفواتير العادية =====
+   يُضاف فوق القائمة الأصلية خانة بحث تطابق أي جزء من الاسم (بتجاهل الهمزات/التاء المربوطة)،
+   وEnter يختار وينتقل للخانة التالية — القائمة الأصلية تبقى كما هي (مخفية) فتعمل كل الحسابات دون تغيير. */
+var SS_FIELDS=[['p_supplier','pl_item'],['s_client','sl_item'],['pl_item','pl_units'],['sl_item','sl_units'],['pay_party','pay_amount']];
+function ssOpts(sel){ return [].filter.call(sel.options,function(o){ return o.value!==''&&!o.disabled; }).map(function(o){ return {v:o.value,t:o.textContent}; }); }
+function ssText(sel){ var o=sel.options[sel.selectedIndex]; return o&&o.value!==''?o.textContent:''; }
+function ssEnhance(){
+  SS_FIELDS.forEach(function(f){ var sel=document.getElementById(f[0]); if(!sel||sel.dataset.ss) return; sel.dataset.ss='1';
+    var inp=document.createElement('input'); inp.type='text'; inp.className='ss-in'; inp.autocomplete='off'; inp.setAttribute('enterkeyhint','next');
+    inp.dataset.ssel=f[0]; inp.dataset.snext=f[1]; inp.placeholder='🔍 اكتب أي جزء من الاسم';
+    inp.addEventListener('focus',function(){ ssOpen(inp,true); setTimeout(function(){ try{ inp.select(); }catch(e){} },0); });   /* تحديد النص: الكتابة تستبدله */
+    inp.addEventListener('mouseup',function(e){ if(inp.selectionStart===inp.selectionEnd&&inp.value===ssText(document.getElementById(inp.dataset.ssel))){ e.preventDefault(); inp.select(); } }); inp.addEventListener('input',function(){ ssOpen(inp,false); });
+    inp.addEventListener('keydown',function(e){ ssKey(e,inp); }); inp.addEventListener('blur',function(){ setTimeout(function(){ var p=document.getElementById('qcPop'); if(p&&p._el===inp) p.style.display='none'; inp.value=ssText(sel); },150); });
+    sel.parentNode.insertBefore(inp,sel); sel.classList.add('ss-hidden'); inp.value=ssText(sel); });
+  /* خانات البحث القديمة أصبحت داخل القائمة نفسها */
+  ['p_supplierSearch','s_clientSearch','pay_search'].forEach(function(id){ var e=document.getElementById(id); if(e&&e.closest('.field')) e.closest('.field').style.display='none'; });
+}
+function ssOpen(el,onFocus){
+  var sel=document.getElementById(el.dataset.ssel); if(!sel) return; var q=el.value, cur=onFocus||q===ssText(sel);
+  var L=ssOpts(sel).filter(function(o){ return cur||arMatch(o.t,q); });
+  if(!cur&&q) L.sort(function(a,b){ return arRank(a.t,q)-arRank(b.t,q); }); L=L.slice(0,40);
+  var p=qcPop(); p._el=el; p._ix=Math.max(0,L.findIndex(function(o){ return o.v===sel.value; })); p._L=L; p._ss=1;
+  p.innerHTML=L.length?L.map(function(o,j){ return '<div class="qc-opt'+(j===p._ix?' on':'')+'" onmousedown="event.preventDefault();ssPick('+j+')">'+(cur?esc(o.t):qcHi(o.t,q))+'</div>'; }).join(''):'<div class="qc-none">لا يوجد اسم مطابق لـ «'+esc(q)+'»</div>';
+  p.style.display='block'; qcPlace(p,el);
+  var on=p.querySelector('.qc-opt.on'); if(on&&cur) try{ on.scrollIntoView({block:'nearest'}); }catch(e){}
+}
+function ssPick(j){ var p=qcPop(), el=p._el, o=p._L&&p._L[j]; if(!el||!o) return; p.style.display='none';
+  var sel=document.getElementById(el.dataset.ssel); sel.value=o.v; el.value=o.t;
+  try{ sel.dispatchEvent(new Event('change',{bubbles:true})); }catch(e){ if(sel.onchange) sel.onchange(); }
+  var nx=document.getElementById(el.dataset.snext); if(nx){ var ni=nx.dataset&&nx.dataset.ss?nx.previousElementSibling:nx; setTimeout(function(){ try{ ni.focus(); if(ni.select) ni.select(); }catch(e){} },0); } }
+function ssKey(e,el){
+  var p=document.getElementById('qcPop'), open=!!(p&&p.style.display==='block'&&p._el===el);
+  if(open&&(e.key==='ArrowDown'||e.key==='ArrowUp')){ e.preventDefault(); var n=(p._L||[]).length; if(!n) return; p._ix=(p._ix+(e.key==='ArrowDown'?1:n-1))%n;
+    [].forEach.call(p.querySelectorAll('.qc-opt'),function(o,j){ o.classList.toggle('on',j===p._ix); if(j===p._ix) try{ o.scrollIntoView({block:'nearest'}); }catch(_){} }); return; }
+  if(e.key==='Escape'){ if(open) p.style.display='none'; return; }
+  if(e.key==='Enter'){ e.preventDefault(); if(open&&p._L&&p._L.length){ ssPick(p._ix||0); return; }
+    var sel=document.getElementById(el.dataset.ssel); if(sel&&sel.value){ var nx=document.getElementById(el.dataset.snext); if(nx){ var ni=nx.dataset&&nx.dataset.ss?nx.previousElementSibling:nx; ni.focus(); } } }
+}
+/* مزامنة النص مع القائمة عند تغييرها برمجياً (تحميل فاتورة للتعديل، تكرار آخر فاتورة، تغيير القسم…) */
+setInterval(function(){ try{ document.querySelectorAll('input.ss-in').forEach(function(inp){ if(document.activeElement===inp) return; var sel=document.getElementById(inp.dataset.ssel); if(sel){ var t=ssText(sel); if(inp.value!==t) inp.value=t; } }); }catch(e){} },600);
+/* ===== تبويبات شاشة المشتريات (البرادات · مشتريات اليوم · الفواتير الضريبية) — بدل التمرير الطويل ===== */
+function purTabKey(){ return 'purTab_'+(db.activeDept||''); }
+function renderPurTabs(){
+  var pan=document.getElementById('purchases'), bar=document.getElementById('purTabs'); if(!pan) return;
+  var lb=document.getElementById('loadsBox'), qb=document.getElementById('quickBuyBox'), tb=document.getElementById('taxTrackBox');
+  var has={loads:!!(lb&&lb.innerHTML.trim()), qb:!!(qb&&!qb.classList.contains('hidden')&&qb.innerHTML.trim()), tt:!!(tb&&tb.innerHTML.trim()&&!/tt-off/.test(tb.innerHTML.slice(0,40)))};
+  var keys=Object.keys(has).filter(function(k){ return has[k]; });
+  if(keys.length<2){ if(bar) bar.remove(); pan.classList.remove('pt-tabs'); return; }
+  var cur=lsGet(purTabKey())||keys[0]; if(cur!=='all'&&!has[cur]) cur=keys[0];
+  if(!bar){ bar=document.createElement('div'); bar.id='purTabs'; bar.className='pur-tabs no-print'; pan.insertBefore(bar,lb||qb||tb); }
+  var nTr=0, nWait=0; try{ nTr=ldDay().length; nWait=(db.purchases||[]).filter(function(r){ return ttSt(r)==='wait'; }).length; }catch(e){}
+  var B=function(k,t){ return has[k]||k==='all'?'<button class="'+(cur===k?'on':'')+'" onclick="lsSet(purTabKey(),\''+k+'\');renderPurTabs()">'+t+'</button>':''; };
+  bar.innerHTML=B('loads','🚚 البرادات'+(nTr?' <b>'+nTr+'</b>':''))+B('qb','⚡ مشتريات اليوم')+B('tt','📑 الفواتير الضريبية'+(nWait?' <b class="bad">'+nWait+'</b>':''))+B('all','☰ الكل');
+  pan.classList.add('pt-tabs'); ['loads','qb','tt','all'].forEach(function(k){ pan.classList.toggle('pt-'+k,cur===k); });
+}
 var _qbRows=[], _qbExtra=null, _qbEdit=null, _qbDrafts={};
 /* مسودة «مشتريات اليوم» خاصة بكل قسم — لا تنتقل أسطر قسم إلى قسم آخر عند التبديل */
 /* ===== ورقة مشتريات اليوم — مرجع مطبوع/صورة منسّقة لإرسالها لمدير المشتريات =====
@@ -7595,6 +7662,7 @@ function renderPurchases(){
   try{ var pn=document.getElementById('purchases'); if(pn) pn.classList.toggle('qb-only',purchLimited()); }catch(e){}
   try{ renderTaxTrack(); }catch(e){ try{console.warn('taxTrack',e);}catch(_){} }
   try{ renderLoads(); }catch(e){ try{console.warn('loads',e);}catch(_){} }
+  try{ renderPurTabs(); }catch(e){}
   var head=document.getElementById('tbPurchasesHead'); if(!head) return;   /* الشاشة القديمة لم تُحمَّل بعد */
   var d=purchaseRegistryRows(), rows=d.rows, T=d.tot, detailed=(purchaseView==='detailed');
   var canEd=can('canEdit'), canDel=can('canDelete');
