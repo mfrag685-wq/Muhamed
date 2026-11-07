@@ -2403,7 +2403,7 @@ td.cash-in{color:#1f6b45;font-weight:700}td.cash-out{color:#b42318;font-weight:7
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-07-t';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-07-u';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -2424,7 +2424,7 @@ function lsSet(k,v){
 }
 function lsRemove(k){ try{ localStorage.removeItem(k); }catch(e){} }
 var _lastLocalStr='';   /* آخر نسخة نصية محفوظة محلياً — لتجنّب إعادة التسلسل الثقيل عند فحص صدى السحابة */
-function persist(){ syncActiveDept(); markDeletions(); var s=JSON.stringify(serializeDB()); _lastLocalStr=s; lsSet(KEY,s); if(typeof cloudPush==='function') cloudPush(s); }
+function persist(){ syncActiveDept(); markDeletions(); try{ metaStamp(); }catch(e){} var s=JSON.stringify(serializeDB()); _lastLocalStr=s; lsSet(KEY,s); if(typeof cloudPush==='function') cloudPush(s); }
 
 /* ---------- قاعدة البيانات ---------- */
 function hash(s){ var h=5381; s=String(s)+'::mfarag'; for(var i=0;i<s.length;i++) h=((h<<5)+h+s.charCodeAt(i))>>>0; return 'h'+h.toString(36); }
@@ -2590,6 +2590,7 @@ function collectMergeIds(){
     (d.notes||[]).forEach(function(r){ if(r&&r.id!=null) s[r.id]=1; });           /* الملاحظات خاصة بالقسم */
     (d.stockCountLog||[]).forEach(function(r){ if(r&&r.id!=null) s[r.id]=1; }); });  /* سجل الجرد خاص بالقسم */
   (db.interTransfers||[]).forEach(function(r){ if(r&&r.id!=null) s[r.id]=1; });
+  (db.units||[]).forEach(function(r){ if(r&&r.id!=null) s[r.id]=1; });   /* الوحدات مشتركة: حذفها يُسجَّل كي لا تعود */
   return s;
 }
 var _knownIds=null;
@@ -3095,6 +3096,7 @@ function fileCopyBanner(){
 }
 try{ document.addEventListener('DOMContentLoaded',fileCopyBanner); setTimeout(fileCopyBanner,500); }catch(e){}
 function startApp(){
+  try{ _metaSig=metaSigs(); }catch(e){}   /* خط أساس الإعدادات لاكتشاف التعديل المحلي */
   try{ fileCopyBanner(); }catch(e){}
   try{ setTimeout(ssEnhance,0); }catch(e){}
   document.getElementById('loginScreen').classList.add('hidden');
@@ -7210,7 +7212,7 @@ function quickAddUnit(target){
     ex.weights.sort(function(a,b){return a-b;});
     log('edit','البيانات الأساسية','إضافة أوزان للوحدة '+n);
   } else {
-    db.units.push({id:uid(),name:n,weights:ws});
+    db.units.push({id:uid(),name:n,weights:ws,editTs:nowTs(),editMs:Date.now()});
     log('add','البيانات الأساسية','إضافة وحدة سريعة: '+n+' — الأوزان: '+(ws.join(' / ')||'بدون'));
   }
   persist(); fillAllSelects();
@@ -7226,14 +7228,14 @@ function saveUnit(){
   if(db.units.filter(function(u){return u.name===n&&u.id!==editId.un;}).length){ toast('اسم الوحدة مستخدم بالفعل'); return; }
   var ws=parseWeights(val('un_weights'));
   if(editId.un){
-    var u=byId(db.units,editId.un), oldName=u.name; u.name=n; u.weights=ws;
+    var u=byId(db.units,editId.un), oldName=u.name; u.name=n; u.weights=ws; u.editTs=nowTs(); u.editMs=Date.now();   /* توقيت التعديل: يفوز على نسخة السحابة الأقدم عند الدمج */
     if(oldName!==n){
-      db.items.forEach(function(i){ if(i.unit===oldName) i.unit=n; });
-      db.purchases.forEach(function(p){ (p.lines||[]).forEach(function(l){ if(l.unit===oldName) l.unit=n; }); });
+      db.items.forEach(function(i){ if(i.unit===oldName){ i.unit=n; i.editMs=Date.now(); } });
+      db.purchases.forEach(function(p){ var ch=false; (p.lines||[]).forEach(function(l){ if(l.unit===oldName){ l.unit=n; ch=true; } }); if(ch) p.editMs=Date.now(); });
     }
     log('edit','البيانات الأساسية','تعديل الوحدة '+n+' — الأوزان: '+(ws.join(' / ')||'بدون'));
   } else {
-    db.units.push({id:uid(),name:n,weights:ws});
+    db.units.push({id:uid(),name:n,weights:ws,editTs:nowTs(),editMs:Date.now()});
     log('add','البيانات الأساسية','إضافة وحدة: '+n+' — الأوزان: '+(ws.join(' / ')||'بدون'));
   }
   cancelDoc('un'); commit('تم حفظ الوحدة'); renderMaster();
@@ -12540,7 +12542,7 @@ function importRow(k,v){
     var ex=db.units.filter(function(u){return u.name===n;})[0];
     if(ex){ ws.forEach(function(w){ if(ex.weights.indexOf(w)<0) ex.weights.push(w); });
       ex.weights.sort(function(a,b){return a-b;}); return 'update'; }
-    db.units.push({id:uid(),name:n,weights:ws}); return 'add';
+    db.units.push({id:uid(),name:n,weights:ws,editTs:nowTs(),editMs:Date.now()}); return 'add';
   }
   if(k==='items'){
     var nm=needTxt(v.name,'اسم الصنف');
@@ -13693,6 +13695,13 @@ function unionUsers(base,extra,tomb){
     if(!hit) base.push(u); });
   return base.filter(function(u){ return u&&!tomb['user:'+u.id]; });
 }
+var DEPT_META_SKIP={notes:1,stockCountLog:1,audit:1}; DEPT_BOOKS.forEach(function(k){ DEPT_META_SKIP[k]=1; });
+/* بصمة الإعدادات: أي تغيير محلي في الإعدادات العامة أو إعدادات قسم يُختم بتوقيت (_ms) ليفوز في الدمج */
+var _metaSig=null;
+function metaSigs(){ var o={s:''}, strip=function(x){ var c={}; Object.keys(x||{}).forEach(function(k){ if(k!=='_ms'&&!DEPT_META_SKIP[k]) c[k]=x[k]; }); return JSON.stringify(c); };
+  try{ o.s=strip(db.settings); Object.keys(db.departments||{}).forEach(function(k){ o['d:'+k]=strip(db.departments[k]); }); }catch(e){} return o; }
+function metaStamp(){ var cur=metaSigs(); if(_metaSig){ if(cur.s!==_metaSig.s&&db.settings) db.settings._ms=Date.now();
+    Object.keys(cur).forEach(function(k){ if(k!=='s'&&_metaSig[k]!=null&&cur[k]!==_metaSig[k]&&db.departments[k.slice(2)]) db.departments[k.slice(2)]._ms=Date.now(); }); } _metaSig=cur; }
 function mergeCloud(localDb,remote){
   if(!localDb) return remote;
   /* دمج شواهد الحذف من الطرفين (أحدث توقيت) */
@@ -13721,6 +13730,11 @@ function mergeCloud(localDb,remote){
     if(Array.isArray(rd.notes)) rd.notes=alive(rd.notes);
     if(Array.isArray(rd.stockCountLog)) rd.stockCountLog=alive(rd.stockCountLog); });
   remote.interTransfers=alive(unionById(remote.interTransfers, localDb.interTransfers));
+  remote.units=alive(unionById(remote.units, localDb.units));   /* كانت تُستبدل بنسخة السحابة فيضيع تعديل الأوزان */
+  /* الإعدادات العامة وإعدادات كل قسم (مثل تفعيل الخزينة/الإدخال السريع/الاستقلال): الأحدث تعديلاً يفوز */
+  if(localDb.settings&&remote.settings&&(+localDb.settings._ms||0)>(+remote.settings._ms||0)) remote.settings=localDb.settings;
+  if(localDb.departments&&remote.departments) Object.keys(localDb.departments).forEach(function(dk){ var ld=localDb.departments[dk], rd=remote.departments[dk]; if(!ld||!rd||ld===rd) return;
+    if((+ld._ms||0)>(+rd._ms||0)) Object.keys(ld).forEach(function(k){ if(DEPT_META_SKIP[k]) return; rd[k]=ld[k]; }); });
   /* المستخدمون: النسخة السحابية هي الأساس لكل مستخدم، ويُضاف كل مستخدم موجود محلياً فقط
      (لم يُحذف حذفاً مقصوداً) — كي لا تُسقط مزامنةٌ أو استعادةٌ مستخدمين فتُغلق حسابات الدخول */
   remote.users=unionUsers(remote.users, localDb.users, tomb);
@@ -13740,7 +13754,7 @@ function cloudApplyRemote(remote,rawStr){
   if(localSnap) remote=mergeCloud(localSnap,remote);
   db=remote; ensureDbShape();
   var s=JSON.stringify(serializeDB()); _lastLocalStr=s; lsSet(KEY,s);
-  resetKnownIds();   /* السجلّات القادمة من السحابة ليست حذفاً محلياً */
+  resetKnownIds(); try{ _metaSig=metaSigs(); }catch(e){}   /* السجلّات القادمة من السحابة ليست حذفاً محلياً */
   refreshLedger();
   if(ME){
     var me=byId(db.users,ME.id); if(me){ ME=me; }
