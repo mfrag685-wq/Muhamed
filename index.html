@@ -2402,7 +2402,7 @@ td.cash-in{color:#1f6b45;font-weight:700}td.cash-out{color:#b42318;font-weight:7
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-07-p';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-07-q';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -2633,6 +2633,7 @@ function ensureDbShape(){
   DEFAULT_DEPTS.forEach(function(p){ if(!db.departments[p[0]]) db.departments[p[0]]={name:p[1]}; });
   Object.keys(db.departments).forEach(function(dn){
     var d=db.departments[dn]; if(!d.name) d.name=dn;
+    if(d.isolated===undefined&&/زياد/.test(String(d.name||''))) d.isolated=1;   /* قسم زياد دفتر مستقل افتراضياً (يُلغى من الإعدادات ← الأقسام) */
     DEPT_BOOKS.forEach(function(k){ if(!Array.isArray(d[k])) d[k]=[]; });
     if(!d.warehouses.length) d.warehouses.push({id:uid(),name:'المستودع الرئيسي',clientId:null});
     d.suppliers.forEach(function(s){ if(s.opening===undefined) s.opening=0; if(s.openingDate===undefined) s.openingDate=''; });
@@ -2912,7 +2913,7 @@ function fillReportTypes(){
   var sel=document.getElementById('rp_type'); if(!sel) return;
   var seeBal=canSeeBalances(), seeProfit=canSeeProfit(), cur=sel.value;
   var multi=userDepts().length>1;
-  var allowed=REPORT_TYPES.filter(function(o){ return (o[2]!=='b'||seeBal)&&(o[2]!=='p'||seeProfit)&&(o[0]!=='consolidated'||multi)&&(o[0]!=='cashBal'||cashOn()); });   /* المجمّع عبر الأقسام لمن يملك أكثر من قسم فقط */
+  var allowed=REPORT_TYPES.filter(function(o){ return (o[2]!=='b'||seeBal)&&(o[2]!=='p'||seeProfit)&&(o[0]!=='consolidated'||(multi&&crossDeptOK()))&&(o[0]!=='cashBal'||cashOn()); });   /* المجمّع عبر الأقسام لمن يملك أكثر من قسم فقط */
   sel.innerHTML=allowed.map(function(o){ return '<option value="'+o[0]+'">'+esc(o[1])+'</option>'; }).join('');
   var vals=allowed.map(function(o){return o[0];});
   sel.value=(vals.indexOf(cur)>-1)?cur:vals[0];
@@ -3188,10 +3189,16 @@ function userDepts(){ /* الأقسام المسموح بها للمستخدم �
   var all=Object.keys(db.departments||{fruits:1});
   if(!ME) return all;
   if(ME.role==='admin') return all;
-  if(!Array.isArray(ME.depts)) return all;   /* غير محدّد = كل الأقسام (توافق) */
-  var d=ME.depts.filter(function(k){ return all.indexOf(k)>-1; });
-  return d.length?d:all;
+  var lim=Array.isArray(ME.depts)&&ME.depts.length?ME.depts:null;
+  if(!lim&&ME.deptPerms&&Object.keys(ME.deptPerms).length) lim=Object.keys(ME.deptPerms);   /* صلاحيات خاصة بقسم دون تحديد الأقسام = هذه الأقسام فقط */
+  if(!lim) return all;   /* غير محدّد إطلاقاً = كل الأقسام (توافق مع الحسابات القديمة) */
+  return lim.filter(function(k){ return all.indexOf(k)>-1; });   /* إغلاق آمن: مفتاح قسم غير صالح لا يفتح كل الأقسام */
 }
+/* القسم المستقل: دفتر منفصل تماماً — لا يظهر في أي تقرير مجمّع ولا تُعرض منه أقسام أخرى */
+function deptIsolated(k){ var d=db.departments&&db.departments[k]; return !!(d&&d.isolated); }
+function crossDeptOK(){ return !!(ME&&ME.role==='admin'&&!deptIsolated(db.activeDept)&&userDepts().length>1); }
+function deptIsoToggle(k,on){ if(!ME||ME.role!=='admin'){ toast('لمدير النظام فقط'); return; } var d=db.departments[k]; if(!d) return; d.isolated=on?1:0;
+  log('data','الأقسام',(on?'تحويل القسم إلى مستقل: ':'إلغاء استقلال القسم: ')+deptName(k)); commit(on?'🔒 «'+deptName(k)+'» قسم مستقل — لا يظهر في التقارير المجمّعة':'تم إلغاء الاستقلال'); try{ renderDeptConsolidate(); }catch(e){} }
 function userCanDept(key){ return userDepts().indexOf(key)>-1; }
 function deptEmoji(key){ return key==='veg'?'🥬':(key==='fruits'?'🍎':'📦'); }
 function deptIconHtml(key){
@@ -3201,6 +3208,7 @@ function deptIconHtml(key){
 function updateDeptUI(){
   var sel=document.getElementById('deptSwitch'), box=document.getElementById('deptBox'); if(!sel) return;
   var allowed=userDepts();
+  if(!allowed.length&&ME&&ME.role!=='admin'){ alert('لا يوجد قسم مسموح لحسابك «'+(ME.name||'')+'» — الأقسام المحدّدة له لم تعد موجودة. راجع مدير النظام.'); try{ doLogout(); }catch(e){} return; }
   if(!curDept||allowed.indexOf(curDept)<0){ curDept=allowed[0]||'fruits'; loadDept(curDept); }   /* أول قسم مسموح لهذا المستخدم */
   sel.innerHTML=allowed.map(function(k){
     return '<button type="button" class="dept-btn'+(k===curDept?' active':'')+'" onclick="switchDept(\''+k+'\')" title="التبديل إلى قسم '+esc(deptName(k))+'">'
@@ -5850,7 +5858,7 @@ function saveTransfer(){
   setVal('t_units',''); setVal('t_note',''); commit('تم تنفيذ التحويل'); showXferAvail();
 }
 /* ---------- التحويل بين الأقسام ---------- */
-function otherDepts(){ return userDepts().filter(function(k){return k!==db.activeDept&&db.departments[k];}); }   /* لا تظهر أقسام غير مسموح بها للمستخدم */
+function otherDepts(){ if(deptIsolated(db.activeDept)) return []; return userDepts().filter(function(k){return k!==db.activeDept&&db.departments[k]&&!deptIsolated(k);}); }   /* لا تظهر أقسام غير مسموح بها للمستخدم */
 function fillInterDeptTargets(){
   var box=document.getElementById('interDeptBox'); if(!box) return;
   var others=otherDepts();
@@ -7297,7 +7305,7 @@ function ensureDeptItem(deptKey,srcItem){
 }
 /* أرصدة الموردين/العملاء في كل قسم مُجمّعة بالاسم عبر كل الأقسام */
 function consolidatedBalances(){
-  var depts=userDepts(), map={};   /* عزل الأقسام: فقط الأقسام المسموح بها للمستخدم */
+  var depts=crossDeptOK()?userDepts().filter(function(k){ return !deptIsolated(k); }):[db.activeDept], map={};   /* عزل الأقسام: فقط الأقسام المسموح بها للمستخدم */
   function acc(type,dk,name,bal){
     var key=type+'|'+(name||'').trim();
     if(!map[key]) map[key]={name:(name||'').trim(),type:type,by:{},total:0};
@@ -10387,9 +10395,9 @@ function renderDeptConsolidate(){
   var keys=Object.keys(db.departments||{});
   var box=document.getElementById('deptCountsInfo');
   if(box){
-    box.innerHTML='<div class="table-scroll"><table><thead><tr><th class="name">القسم</th><th>عملاء</th><th>موردون</th><th>أصناف</th><th>فواتير بيع</th><th>فواتير شراء</th></tr></thead><tbody>'
+    box.innerHTML='<div class="table-scroll"><table><thead><tr><th class="name">القسم</th><th>عملاء</th><th>موردون</th><th>أصناف</th><th>فواتير بيع</th><th>فواتير شراء</th><th>🔒 قسم مستقل</th></tr></thead><tbody>'
       +keys.map(function(k){ var c=deptCounts(k);
-        return '<tr><td class="name">'+esc(deptName(k))+(k===db.activeDept?' <span class="pill pill-info">الحالي</span>':'')+'</td><td>'+c.clients+'</td><td>'+c.suppliers+'</td><td>'+c.items+'</td><td>'+c.sales+'</td><td>'+c.purchases+'</td></tr>';
+        return '<tr><td class="name">'+esc(deptName(k))+(k===db.activeDept?' <span class="pill pill-info">الحالي</span>':'')+'</td><td>'+c.clients+'</td><td>'+c.suppliers+'</td><td>'+c.items+'</td><td>'+c.sales+'</td><td>'+c.purchases+'</td><td><label title="لا يظهر في التقارير المجمّعة ولا التحويلات بين الأقسام"><input type="checkbox" '+(deptIsolated(k)?'checked ':'')+(ME&&ME.role==='admin'?'':'disabled ')+'onchange="deptIsoToggle(\''+k+'\',this.checked)"> مستقل</label></td></tr>';
       }).join('')+'</tbody></table></div>';
   }
   var optsHtml=keys.map(function(k){return {id:k,name:deptName(k)};});
@@ -11980,6 +11988,7 @@ function renderReport(){
       +card('إجمالي الوحدات المحوّلة',qty(TU),'')
       +card('إجمالي تكلفة التحويلات',money(TC),'قيمة البضائع المنقولة بين الأقسام');
   }
+  else if(type==='consolidated'&&!crossDeptOK()){ title='غير متاح'; head=['البيان']; push('',['هذا التقرير يجمع أكثر من قسم — متاح لمدير النظام فقط ومن قسم غير مستقل']); }
   else if(type==='consolidated'){
     title='الأرصدة المجمّعة عبر الأقسام';
     var cb=consolidatedBalances(), dks=cb.depts;
