@@ -673,6 +673,11 @@ kbd{border:1px solid #bbb;border-bottom-width:2px;border-radius:4px;padding:0 4p
 .ld-chip-b{background:#e8f0fb;color:#1d4f91}.ld-chip-g{background:#e8f6ee;color:#1f6b45}.ld-chip-r{background:#fdecec;color:#b42318}.ld-chip-w{background:#fff4e0;color:#9a5b00}
 .ld-day{margin-top:8px;font-size:13.5px}
 select.ss-hidden{display:none!important}
+.tt-fbar{margin:8px 0;padding:8px;border-radius:10px;background:#f6f8fb;border:1px solid #e3e9f0}
+.tt-frow{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:3px 0}.tt-frow label{display:flex;gap:4px;align-items:center;font-size:13px}
+.tt-frow input[type=date],.tt-frow select{height:36px;border:1px solid #cfd8e3;border-radius:8px;padding:0 6px;font:inherit}
+.tt-frow .tt-q{flex:1 1 220px}.tt-count{white-space:nowrap}.tt-rng button{padding:5px 10px}
+@media (max-width:700px){.tt-frow label{flex:1 1 45%}.tt-frow input[type=date],.tt-frow select{flex:1;min-width:0}.tt-rng{overflow-x:auto;max-width:100%}.tt-rng button{white-space:nowrap}}
 .sup-head{margin:0 0 10px}.sh-top{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:12px 14px;border-radius:14px;background:linear-gradient(135deg,#163a2a,#1f6b45);color:#fff}
 .sh-t{font-size:18px;font-weight:800}.sh-top .mini{color:#d6eadf}
 .sh-ks{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin-top:8px}
@@ -2373,7 +2378,7 @@ td.cash-in{color:#1f6b45;font-weight:700}td.cash-out{color:#b42318;font-weight:7
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-07-a';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-07-b';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -4128,6 +4133,7 @@ function renderTaxTrack(){
   var all=(db.purchases||[]).filter(function(r){ return ttSt(r); });
   var wait=all.filter(function(r){ return ttSt(r)==='wait'; });
   var list=_ttFilter==='wait'?wait:(_ttFilter==='got'?all.filter(function(r){ return ttSt(r)==='got'; }):all);
+  list=ttApplyFilter(list); _ttLast=list;
   var seeV=!qbOnly();
   var oldest=wait.reduce(function(m,r){ return Math.max(m,ttDays(r.date)); },0), wv=wait.reduce(function(t,r){ return t+(+r.total||0)+(+r.vat||0); },0);
   var nSup={}; wait.forEach(function(r){ nSup[r.supplierId]=1; }); var noPr=wait.filter(ttNoPrice).length;
@@ -4141,9 +4147,9 @@ function renderTaxTrack(){
   if(wait.length){
     h+='<div class="tt-tiles">'+tile('⏳','فاتورة لم تصل',wait.length,'t-bad')+tile('📅','أقدمها',oldest?'منذ '+mcDays(oldest):'اليوم',oldest>=7?'t-bad':'t-warn')
       +tile('🚚','مورد',Object.keys(nSup).length,'')+(seeV?tile('💰','قيمة المنتظر',money(wv),'')+(noPr?tile('⚠','بلا سعر',noPr,'t-bad'):''):'')+'</div>'
-      +'<div class="tt-bar"><button class="btn-alt tt-reqbtn" onclick="ttCopyReqAll()">📋 نسخ طلب كل الفواتير التي لم تصل — لموظف المشتريات</button>'
-      +'<input type="search" class="tt-q" placeholder="🔍 بحث بالمورد أو الصنف" oninput="ttFilterRows(this.value)"></div>';
+      ;
   } else h+='<div class="tt-allok">✅ كل الفواتير الضريبية وصلت — لا يوجد ما يُطلب</div>';
+  if(all.length) h+=ttFilterBar(list);
   if(list.length&&!(wait.length===0&&_ttFilter==='wait')){
     var byD={}; list.forEach(function(r){ (byD[r.date]=byD[r.date]||[]).push(r); });
     var days=Object.keys(byD).sort(); if(_ttFilter!=='wait') days.reverse();
@@ -4164,7 +4170,7 @@ function renderTaxTrack(){
           +(can('canEdit')&&!qbOnly()?' <button class="btn-sm" onclick="editDoc(\'p\','+r.id+')" title="فتح في فاتورة الشراء الكاملة">فتح</button>':'')+'</td></tr>'; });
     });
     h+='</tbody></table></div>';
-  } else if(_ttFilter!=='wait') h+='<div class="mini" style="padding:6px 2px">لا توجد سجلات.</div>';
+  } else if(all.length) h+='<div class="tt-allok" style="background:#f3f6f9;color:#556">لا توجد فواتير مطابقة للفلتر</div>';
   var nS=(db.suppliers||[]).filter(function(x){ return x.qbNew; }), nI=(db.items||[]).filter(function(x){ return x.qbNew; });
   if((nS.length||nI.length)&&can('master')) h+='<div class="tt-newnames">🆕 أضافها الموظف من مشتريات اليوم — راجِعها من «البيانات الأساسية»: '
     +nS.map(function(x){ return '<span class="pill pill-info">🚚 '+esc(x.name)+'</span>'; }).join(' ')+' '+nI.map(function(x){ return '<span class="pill pill-info">🏷️ '+esc(x.name)+'</span>'; }).join(' ')
@@ -4172,6 +4178,69 @@ function renderTaxTrack(){
   if(ME.role==='admin'&&!ldOn()) h+='<div class="mini tt-mode">🚚 ميزة البرادات غير مفعّلة في هذا القسم <button class="btn-sm" onclick="ldToggle(true)">تفعيل البرادات</button></div>';
   if(ME.role==='admin') h+='<div class="mini tt-mode">'+(ptOn()?'📦 <b>توريد مباشر</b>: المشتريات لا تدخل المخزون — تكلفة كل صنف تُطابَق يومياً مع مبيعاته (تقرير «ربحية الأصناف اليومية») <button class="btn-sm" onclick="ptToggle(false)">إيقاف</button>':'📦 المشتريات تدخل المخزون <button class="btn-sm" onclick="ptToggle(true)">تفعيل التوريد المباشر (بدون مخزون)</button>')+'</div>';
   box.innerHTML=h+'</div>';
+  if(_ttF.q) ttFilterRows(_ttF.q);
+}
+var _ttF={from:'',to:'',basis:'buy',q:'',rng:'all'}, _ttLast=[];
+function ttRange(k){ var td=today(), d=parseDate(td), w=(d.getUTCDay()+1)%7;   /* الأسبوع يبدأ السبت */
+  _ttF.rng=k;
+  if(k==='today'){ _ttF.from=_ttF.to=td; } else if(k==='yest'){ _ttF.from=_ttF.to=ivAddDays(td,-1); }
+  else if(k==='week'){ _ttF.from=ivAddDays(td,-w); _ttF.to=td; } else if(k==='month'){ _ttF.from=td.slice(0,8)+'01'; _ttF.to=td; }
+  else { _ttF.from=_ttF.to=''; }
+  renderTaxTrack(); }
+function ttDateOf(r){ return _ttF.basis==='got'?String((r.tax&&r.tax.at)||'').slice(0,10):r.date; }
+function ttApplyFilter(list){ return list.filter(function(r){ var d=ttDateOf(r);
+    if(_ttF.from&&(!d||d<_ttF.from)) return false; if(_ttF.to&&(!d||d>_ttF.to)) return false; return true; }); }
+function ttFilterBar(list){
+  var q=function(k,t){ return '<button class="'+(_ttF.rng===k?'on':'')+'" onclick="ttRange(\''+k+'\')">'+t+'</button>'; };
+  var stTxt=_ttFilter==='wait'?'لم تصل':(_ttFilter==='got'?'وصلت':'الكل');
+  return '<div class="tt-fbar"><div class="tt-frow">'
+    +'<span class="tt-seg tt-rng">'+q('today','اليوم')+q('yest','أمس')+q('week','هذا الأسبوع')+q('month','هذا الشهر')+q('all','كل الفترات')+'</span>'
+    +'<label>حسب <select onchange="_ttF.basis=this.value;renderTaxTrack()"><option value="buy"'+(_ttF.basis==='buy'?' selected':'')+'>تاريخ الشراء</option><option value="got"'+(_ttF.basis==='got'?' selected':'')+'>تاريخ وصول الفاتورة</option></select></label>'
+    +'<label>من <input type="date" value="'+esc(_ttF.from)+'" onchange="_ttF.from=this.value;_ttF.rng=\'\';renderTaxTrack()"></label>'
+    +'<label>إلى <input type="date" value="'+esc(_ttF.to)+'" onchange="_ttF.to=this.value;_ttF.rng=\'\';renderTaxTrack()"></label></div>'
+    +'<div class="tt-frow"><input type="search" class="tt-q" placeholder="🔍 بحث بالمورد أو الصنف أو الملاحظة" value="'+esc(_ttF.q)+'" oninput="_ttF.q=this.value;ttFilterRows(this.value)">'
+    +'<span class="mini tt-count">المعروض: <b>'+list.length+'</b> فاتورة ('+stTxt+(_ttF.from||_ttF.to?' · '+(_ttF.from===_ttF.to?esc(_ttF.from):esc(_ttF.from||'…')+' ← '+esc(_ttF.to||'…')):'')+')</span>'
+    +'<button class="btn-sm" onclick="ttPrintList()">🖨 طباعة / صورة القائمة</button>'
+    +(_ttFilter!=='got'?'<button class="btn-alt" onclick="ttCopyReqAll(true)">📋 نسخ طلب الفواتير المعروضة</button>':'')+'</div></div>'; }
+function ttVisibleList(){ var w=arN(_ttF.q); return _ttLast.filter(function(r){ if(!w) return true;
+  var k=arN(supName(r.supplierId)+' '+(r.lines||[]).map(function(l){ return itemName(l.itemId)+' '+(l.note||''); }).join(' ')); return w.split(' ').every(function(x){ return k.indexOf(x)>-1; }); }); }
+function ttPrintList(){
+  var L=ttVisibleList().slice().sort(function(a,b){ return a.date<b.date?-1:(a.date>b.date?1:String(supName(a.supplierId)).localeCompare(String(supName(b.supplierId)),'ar')); });
+  if(!L.length){ toast('لا توجد فواتير في القائمة المعروضة'); return; }
+  var seeV=!qbOnly(), S=2, pad=24, F='Tahoma, Arial, sans-serif', cols=[['#',40],['التاريخ',110],['المورد',190],['الأصناف والكميات',360],['الحالة',150]];
+  if(seeV) cols.splice(4,0,['القيمة',110]);
+  var cw=cols.reduce(function(a,c){ return a+c[1]; },0), W=cw+pad*2;
+  var lineOf=function(r){ return (r.lines||[]).map(function(l){ var q=+l.boxes||+l.units||0, pr=(l.ep!=null?+l.ep:+l.price)||0; return itemName(l.itemId)+' '+qty(q)+(pr>0?'×'+num(pr):'')+(l.note?' ('+l.note+')':''); }).join('، '); };
+  var cv0=document.createElement('canvas').getContext('2d'); cv0.font='14px '+F;
+  var wrap=function(t,w){ var words=String(t).split(' '), out=[], cur=''; words.forEach(function(x){ var tt=cur?cur+' '+x:x; if(cv0.measureText(tt).width>w&&cur){ out.push(cur); cur=x; } else cur=tt; }); if(cur) out.push(cur); return out.length?out:['']; };
+  var rows=L.map(function(r){ var ls=wrap(lineOf(r),cols[3][1]-16); return {r:r,ls:ls,h:Math.max(34,ls.length*20+14)}; });
+  var H=110+36+rows.reduce(function(a,x){ return a+x.h; },0)+40+40;
+  var cv=document.createElement('canvas'); cv.width=W*S; cv.height=H*S; var c=cv.getContext('2d'); c.scale(S,S);
+  c.fillStyle='#fff'; c.fillRect(0,0,W,H); c.fillStyle=_ttFilter==='got'?'#1f6b45':'#b42318'; c.fillRect(0,0,W,8); c.direction='rtl'; c.textBaseline='middle';
+  var st=_ttFilter==='wait'?'الفواتير الضريبية التي لم تصل':(_ttFilter==='got'?'الفواتير الضريبية التي وصلت':'الفواتير الضريبية');
+  c.fillStyle='#163a2a'; c.font='bold 21px '+F; c.textAlign='right'; c.fillText('📑 '+st+' — قسم '+deptName(db.activeDept),W-pad,38);
+  var per=_ttF.from||_ttF.to?((_ttF.from===_ttF.to?_ttF.from:(_ttF.from||'…')+' ← '+(_ttF.to||'…'))+' ('+(_ttF.basis==='got'?'بتاريخ الوصول':'بتاريخ الشراء')+')'):'كل الفترات';
+  c.fillStyle='#667'; c.font='15px '+F; c.fillText('الفترة: '+per+' · '+L.length+' فاتورة'+(_ttF.q?' · بحث: '+_ttF.q:''),W-pad,70);
+  var x=W-pad, X=cols.map(function(cl){ var rr=[x-cl[1],x]; x-=cl[1]; return rr; }), mid=function(i){ return (X[i][0]+X[i][1])/2; }, y=90;
+  dsRound(c,pad,y,cw,36,8,'#163a2a'); c.fillStyle='#fff'; c.font='bold 14px '+F; c.textAlign='center'; cols.forEach(function(cl,i){ c.fillText(cl[0],mid(i),y+18); }); y+=36;
+  var tot=0;
+  rows.forEach(function(o,i){ var r=o.r, gi=seeV?5:4; c.fillStyle=i%2?'#f7f9fc':'#fff'; c.fillRect(pad,y,cw,o.h); var cy=y+o.h/2;
+    c.fillStyle='#556'; c.font='13px '+F; c.textAlign='center'; c.fillText(String(i+1),mid(0),cy); c.fillStyle='#111'; c.fillText(r.date,mid(1),cy);
+    c.textAlign='right'; dsFit(c,supName(r.supplierId),X[2][1]-8,cy,cols[2][1]-14,'bold 15px '+F);
+    c.font='14px '+F; c.fillStyle='#222'; o.ls.forEach(function(t,j){ c.fillText(t,X[3][1]-8,y+17+j*20+(o.h-14-o.ls.length*20)/2); });
+    if(seeV){ var v=(+r.total||0)+(+r.vat||0); tot+=v; c.textAlign='center'; c.font='14px '+F; c.fillStyle=ttNoPrice(r)?'#b42318':'#111'; c.fillText(ttNoPrice(r)?'بلا سعر':num(v),mid(4),cy); }
+    c.textAlign='center'; c.font='bold 13px '+F; if(ttSt(r)==='wait'){ c.fillStyle='#9a5b00'; c.fillText('⏳ لم تصل',mid(gi),cy); } else { c.fillStyle='#1f6b45'; c.fillText('✅ '+((r.tax&&r.tax.no)||r.no||'')+' '+String((r.tax&&r.tax.at)||'').slice(0,10),mid(gi),cy); }
+    c.strokeStyle='#e3e9f0'; c.beginPath(); c.moveTo(pad,y+o.h); c.lineTo(pad+cw,y+o.h); c.stroke(); y+=o.h; });
+  c.fillStyle='#eef3f8'; c.fillRect(pad,y,cw,36); c.fillStyle='#163a2a'; c.font='bold 15px '+F; c.textAlign='right'; c.fillText('الإجمالي: '+L.length+' فاتورة'+(seeV?' · القيمة '+num(tot):''),W-pad-10,y+18); y+=36;
+  c.fillStyle='#889'; c.font='13px '+F; c.fillText('أُعدّت بواسطة '+(ME?ME.name:'')+' · '+nowTs(),W-pad,y+20);
+  _ldSheet={cv:cv,name:'فواتير_'+(_ttFilter==='wait'?'لم_تصل':'')+'_'+(_ttF.from||'')+'.png',title:st+' — '+per};
+  var m=document.getElementById('dsModal');
+  if(!m){ m=document.createElement('div'); m.id='dsModal'; m.className='ds-modal'; m.onclick=function(e){ if(e.target===m) dsClose(); }; document.body.appendChild(m); }
+  m.innerHTML='<div class="ds-box"><div class="ds-bar"><b>📑 '+esc(_ldSheet.title)+'</b><span class="ds-acts">'
+    +'<button class="btn-alt" onclick="ldSheetOut(\'share\')">📤 مشاركة / واتساب</button><button class="btn-sm" onclick="ldSheetOut(\'save\')">🖼 حفظ كصورة</button>'
+    +'<button class="btn-sm" onclick="ldSheetOut(\'copy\')">📋 نسخ الصورة</button><button class="btn-sm" onclick="ldSheetOut(\'print\')">🖨 طباعة</button><button class="btn-sm" onclick="dsClose()">✕ إغلاق</button></span></div>'
+    +'<div class="ds-prev"><img class="ds-img" alt="" src="'+cv.toDataURL('image/png')+'"></div></div>';
+  m.style.display='block';
 }
 function qbAckNew(){ (db.suppliers||[]).forEach(function(x){ delete x.qbNew; }); (db.items||[]).forEach(function(x){ delete x.qbNew; }); commit('تم'); renderTaxTrack(); }
 function dayNameAr(d){ var x=parseDate(d); return x?['الأحد','الإثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'][x.getUTCDay()]:''; }
@@ -4194,8 +4263,8 @@ function ttMarkGot(id){
 function ttMarkWait(id){ if(!guard('taxRecv','لمدير النظام أو الموظف المخوَّل فقط')) return; var r=byId(db.purchases,id); if(!r||!confirm('إرجاع الفاتورة إلى «لم تصل»؟')) return;
   var old=JSON.parse(JSON.stringify(r)); r.tax={st:'wait'}; stampEdit(r,old); log('edit','المشتريات','إرجاع فاتورة '+(r.no||'#'+r.id)+' إلى «لم تصل»'); commit('تم'); }
 /* طلب واحد مجمّع بكل الفواتير التي لم تصل — مرتّب حسب التاريخ ثم المورد — يُرسَل لموظف المشتريات مرة واحدة */
-function ttCopyReqAll(){
-  var rs=(db.purchases||[]).filter(function(r){ return ttSt(r)==='wait'; }).sort(function(a,b){ return a.date<b.date?-1:(a.date>b.date?1:(supName(a.supplierId)<supName(b.supplierId)?-1:1)); });
+function ttCopyReqAll(onlyShown){
+  var rs=(onlyShown?ttVisibleList():(db.purchases||[])).filter(function(r){ return ttSt(r)==='wait'; }).sort(function(a,b){ return a.date<b.date?-1:(a.date>b.date?1:(supName(a.supplierId)<supName(b.supplierId)?-1:1)); });
   if(!rs.length){ toast('لا توجد فواتير منتظرة'); return; }
   var byD={}; rs.forEach(function(r){ (byD[r.date]=byD[r.date]||[]).push(r); });
   var n=0, t='السلام عليكم\nنرجو إحضار الفواتير الضريبية التالية التي لم تصل بعد ('+rs.length+' فاتورة):\n';
@@ -12842,7 +12911,10 @@ function splitPush(){
   var nodes=splitBuild(), base=splitBase(), jobs=[], meta={build:APP_BUILD,updatedAt:firebase.database.ServerValue.TIMESTAMP,updatedBy:(ME?ME.name:'')};
   Object.keys(nodes).forEach(function(n){ if(nodes[n]===splitLast[n]) return;
     var path=n==='core'?base+'/core':base+'/depts/'+n.slice(5), val={data:nodes[n],fmt:'str',build:meta.build,updatedAt:meta.updatedAt,updatedBy:meta.updatedBy};
-    jobs.push(firebase.database().ref(path).set(val).then(function(){ splitLast[n]=nodes[n]; if(n==='core'){ splitCache.core=JSON.parse(nodes[n]); } else { splitCache.depts[n.slice(5)]=JSON.parse(nodes[n]); } })); });
+    /* يُعلَّم قبل الإرسال: مستمع Firebase يُطلق حدث كتابتنا محلياً قبل اكتمال set — كان يُعامَل كتحديث من جهاز آخر
+       فيُعاد رسم الشاشة بعد كل حفظ وتُمسح الخانة التي يكتب فيها المستخدم */
+    var prev=splitLast[n]; splitLast[n]=nodes[n];
+    jobs.push(firebase.database().ref(path).set(val).catch(function(e){ if(splitLast[n]===nodes[n]) splitLast[n]=prev; throw e; }).then(function(){ splitLast[n]=nodes[n]; if(n==='core'){ splitCache.core=JSON.parse(nodes[n]); } else { splitCache.depts[n.slice(5)]=JSON.parse(nodes[n]); } })); });
   return Promise.all(jobs);
 }
 /* الربط في الوضع المفصول */
@@ -13050,9 +13122,11 @@ function cloudApplyRemote(remote,rawStr){
 /* تحديث كامل مؤجَّل ومجمَّع (الشاشات + البيانات الأساسية/المستخدمين) — يُستخدم عند ورود تحديثات السحابة
    كي لا تتسبّب سلسلة تحديثات متتابعة في إعادة رسم كامل متكرّر يُجمّد الواجهة */
 var _fullRenderTimer=null;
+function userTyping(){ var a=document.activeElement; return !!(a&&(a.tagName==='INPUT'||a.tagName==='TEXTAREA')&&!a.readOnly&&a.type!=='checkbox'&&a.type!=='radio'&&a.type!=='button'); }
 function scheduleFullRender(){
   if(_fullRenderTimer) return;
   _fullRenderTimer=setTimeout(function(){ _fullRenderTimer=null;
+    if(userTyping()){ var a=document.activeElement, again=function(){ a.removeEventListener('blur',again); setTimeout(scheduleFullRender,50); }; a.addEventListener('blur',again); return; }   /* أكمل الكتابة أولاً */
     if(_heavyTimer){ clearTimeout(_heavyTimer); _heavyTimer=null; }   /* renderAll يشمل الثقيلة — ألغِ المؤجَّل المكرّر */
     try{ renderAll(); renderMaster(); renderUsers(); renderSettingsForm(); applyLogo(); }catch(e){ try{console.warn('fullRender',e);}catch(_){}}
   }, 120);
