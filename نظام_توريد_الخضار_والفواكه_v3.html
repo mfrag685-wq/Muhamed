@@ -673,12 +673,26 @@ kbd{border:1px solid #bbb;border-bottom-width:2px;border-radius:4px;padding:0 4p
 .ld-chip-b{background:#e8f0fb;color:#1d4f91}.ld-chip-g{background:#e8f6ee;color:#1f6b45}.ld-chip-r{background:#fdecec;color:#b42318}.ld-chip-w{background:#fff4e0;color:#9a5b00}
 .ld-day{margin-top:8px;font-size:13.5px}
 select.ss-hidden{display:none!important}
+.sup-head{margin:0 0 10px}.sh-top{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:12px 14px;border-radius:14px;background:linear-gradient(135deg,#163a2a,#1f6b45);color:#fff}
+.sh-t{font-size:18px;font-weight:800}.sh-top .mini{color:#d6eadf}
+.sh-ks{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin-top:8px}
+.sh-k{display:flex;flex-direction:column;align-items:center;gap:2px;padding:10px 6px;border-radius:12px;border:1px solid #d9e1ea;background:var(--card,#fff);cursor:pointer;font:inherit}
+.sh-k span{font-size:20px}.sh-k b{font-size:20px;line-height:1.1}.sh-k i{font-style:normal;font-size:12px;color:#667}
+.sh-k.sh-bad{background:#fdecec;border-color:#f5c2c2}.sh-k.sh-bad b{color:#b42318}.sh-k.sh-ok b{color:#1f6b45}.sh-k.sh-warn{background:#fff4e0;border-color:#f0d3a0}
+.sh-k:hover{box-shadow:0 4px 12px rgba(0,0,0,.08)}
+@media (max-width:700px){
+  .sh-top{padding:9px 11px}.sh-t{font-size:15px}
+  .sh-ks{grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}
+  .sh-k{flex-direction:row;justify-content:center;gap:5px;padding:7px 4px;flex-wrap:wrap}.sh-k span{font-size:15px}.sh-k b{font-size:16px}.sh-k i{flex-basis:100%;text-align:center;font-size:10.5px;line-height:1.2}
+  #purTabs.pur-tabs{flex-wrap:nowrap;overflow-x:auto;padding:6px;gap:5px;-webkit-overflow-scrolling:touch}
+  #purTabs.pur-tabs button{flex:0 0 auto;min-height:40px;padding:0 12px;font-size:13px;white-space:nowrap}
+  #supply .ld-hint:not(.ld-lock),#supply .qb-card .tt-head .mini{display:none}}
 .ss-in{width:100%;height:40px;border:1px solid var(--line,#cfd8e3);border-radius:8px;padding:0 10px;font:inherit;font-size:15px;background:var(--card,#fff);min-width:0}
 .inline-add .ss-in{flex:1 1 auto}.ss-in:focus{outline:2px solid #2f6fb5;border-color:#2f6fb5}
 .pur-tabs{position:sticky;top:0;z-index:6;display:flex;gap:6px;flex-wrap:wrap;padding:8px;margin:0 0 10px;border-radius:12px;background:var(--card,#fff);border:1px solid #d9e1ea;box-shadow:0 4px 14px rgba(0,0,0,.06)}
 .pur-tabs button{flex:1 1 140px;min-height:42px;border:1px solid #cfd8e3;border-radius:10px;background:#f6f8fb;font:inherit;font-size:14px;font-weight:700;cursor:pointer}
 .pur-tabs button.on{background:#163a2a;color:#fff;border-color:#163a2a}.pur-tabs b{background:#e8f0fb;color:#1d4f91;border-radius:10px;padding:0 7px;margin-inline-start:4px}.pur-tabs b.bad{background:#fdecec;color:#b42318}
-#purchases.pt-tabs.pt-loads #quickBuyBox,#purchases.pt-tabs.pt-loads #taxTrackBox,#purchases.pt-tabs.pt-qb #loadsBox,#purchases.pt-tabs.pt-qb #taxTrackBox,#purchases.pt-tabs.pt-tt #loadsBox,#purchases.pt-tabs.pt-tt #quickBuyBox{display:none!important}
+#supply.pt-tabs.pt-loads #quickBuyBox,#supply.pt-tabs.pt-loads #taxTrackBox,#supply.pt-tabs.pt-qb #loadsBox,#supply.pt-tabs.pt-qb #taxTrackBox,#supply.pt-tabs.pt-tt #loadsBox,#supply.pt-tabs.pt-tt #quickBuyBox{display:none!important}
 .cash-card{border:1px solid var(--line,#ddd);border-right:5px solid #1f6b45;border-radius:12px;padding:10px 12px;margin:0 0 12px;background:var(--card,#fff)}
 .cash-form{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:8px 0;padding:8px;border-radius:10px;background:#f6f8fb}
 .cash-form select,.cash-form input{height:40px;border:1px solid #cfd8e3;border-radius:8px;padding:0 8px;font:inherit;font-size:15px}
@@ -890,6 +904,7 @@ td.cash-in{color:#1f6b45;font-weight:700}td.cash-out{color:#b42318;font-weight:7
   <button class="tab-btn active" data-tab="dash" data-perm="dash"><span class="tab-ic">📊</span>الملخص</button>
   <!-- العمليات اليومية -->
   <button class="tab-btn" data-tab="purchases" data-perm="purchases"><span class="tab-ic">🛒</span>المشتريات</button>
+  <button class="tab-btn" data-tab="supply" data-perm="supply"><span class="tab-ic">🚚</span>التوريد اليومي</button>
   <button class="tab-btn" data-tab="sales" data-perm="sales"><span class="tab-ic">💰</span>المبيعات</button>
   <button class="tab-btn" data-tab="returns" data-perm="returns"><span class="tab-ic">↩️</span>المرتجعات</button>
   <!-- المخزون والإنتاج -->
@@ -955,9 +970,7 @@ td.cash-in{color:#1f6b45;font-weight:700}td.cash-out{color:#b42318;font-weight:7
 <section id="purchases" class="panel">
   <div class="print-head"><span class="print-logo"></span><h3>سجل المشتريات</h3><p>إعداد محمد فرج</p></div>
   <div class="panel-title">فاتورة شراء <span class="hint">يمكن توزيع أصناف الفاتورة الواحدة على أكثر من مستودع</span></div>
-  <div class="no-print" id="loadsBox"></div>
-  <div class="no-print hidden" id="quickBuyBox"></div>
-  <div class="no-print" id="taxTrackBox"></div>
+  <div class="no-print" id="supplyHint"></div>
   <div class="doc-box no-print" id="purchaseFormBox">
     <div class="grid">
       <div class="field"><label>التاريخ</label><input type="date" id="p_date"></div>
@@ -1058,6 +1071,14 @@ td.cash-in{color:#1f6b45;font-weight:700}td.cash-out{color:#b42318;font-weight:7
   <div class="reg-tools no-print" id="purchaseTools"></div><div class="reg-caption" id="purchaseCaption"></div>
   <div class="reg-wrap"><table class="reg">
     <thead id="tbPurchasesHead"></thead><tbody id="tbPurchases"></tbody></table></div>
+</section>
+<!-- ===== 🚚 التوريد اليومي: شاشة مستقلة لموظفي البرادات ومشتريات اليوم والفواتير الضريبية ===== -->
+<section id="supply" class="panel">
+  <div class="sup-head no-print" id="supplyHead"></div>
+  <div class="pur-tabs no-print hidden" id="purTabs"></div>
+  <div class="no-print" id="loadsBox"></div>
+  <div class="no-print hidden" id="quickBuyBox"></div>
+  <div class="no-print" id="taxTrackBox"></div>
 </section>
 
 <!-- ======================= المبيعات ======================= -->
@@ -2352,7 +2373,7 @@ td.cash-in{color:#1f6b45;font-weight:700}td.cash-out{color:#b42318;font-weight:7
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-06-f';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-07-a';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -2787,7 +2808,7 @@ function guard(k,msg){
   if(can(k)) return true; toast(msg||'لا تملك صلاحية لهذا الإجراء'); return false; }
 function applyPerms(){
   document.querySelectorAll('.tab-btn').forEach(function(b){
-    var vis=can(b.dataset.perm)||(b.dataset.tab==='purchases'&&(can('quickBuy')||can('loadsEntry')));
+    var vis=b.dataset.tab==='supply'?supplyVisible():can(b.dataset.perm);
     if(b.dataset.tab==='accounts') vis=can('accounts')||can('accSuppliers')||can('accClients');  /* أرصدة العملاء/الموردين فقط */
     b.classList.toggle('hidden',!vis);
   });
@@ -4097,7 +4118,7 @@ function renderTaxTrack(){
   var box=document.getElementById('taxTrackBox'); if(!box) return;
   document.querySelectorAll('#purchaseFormBox .tt-only').forEach(function(e){ e.classList.toggle('hidden',!ttOn()); });
   var qb=document.getElementById('quickBuyBox');
-  if(!ME||!(can('purchases')||can('quickBuy'))){ box.innerHTML=''; return; }
+  if(!ME||!(can('purchases')||can('quickBuy'))){ box.innerHTML=''; if(qb){ qb.classList.add('hidden'); qb.innerHTML=''; } return; }
   var pan=document.getElementById('purchases'); if(pan) pan.classList.toggle('qb-only',purchLimited());
   if(!ttOn()){
     box.innerHTML=(ME.role==='admin')?'<div class="tt-off"><span>📑 متابعة الفواتير الضريبية للموردين غير مفعّلة في قسم «'+esc(deptName(db.activeDept))+'»</span> <button class="btn-sm" onclick="ttToggle(true)">تفعيل لهذا القسم</button></div>':'';
@@ -4158,7 +4179,7 @@ function ttFilterRows(q){ var w=arN(q);
   [].forEach.call(document.querySelectorAll('#taxTrackBox tr.tt-r'),function(tr){ tr.style.display=(!w||w.split(' ').every(function(x){ return tr.dataset.k.indexOf(x)>-1; }))?'':'none'; });
   [].forEach.call(document.querySelectorAll('#taxTrackBox tr.tt-grp'),function(g){ var n=g.nextElementSibling, any=false; while(n&&!n.classList.contains('tt-grp')){ if(n.style.display!=='none') any=true; n=n.nextElementSibling; } g.style.display=any?'':'none'; }); }
 function ttSetFilter(f){ _ttFilter=f; renderTaxTrack(); }
-function ttToggle(on){ if(!ME||ME.role!=='admin'){ toast('تفعيل/إيقاف هذه الميزة لمدير النظام فقط'); return; } dcur().taxTrack=on?1:0; log('data','المشتريات',(on?'تفعيل':'إيقاف')+' متابعة الفواتير الضريبية في قسم '+deptName(db.activeDept)); commit(on?'تم تفعيل متابعة الفواتير الضريبية لهذا القسم':'تم الإيقاف'); renderTaxTrack(); }
+function ttToggle(on){ if(!ME||ME.role!=='admin'){ toast('تفعيل/إيقاف هذه الميزة لمدير النظام فقط'); return; } dcur().taxTrack=on?1:0; setTimeout(function(){ applyPerms(); renderSupply(); },0); log('data','المشتريات',(on?'تفعيل':'إيقاف')+' متابعة الفواتير الضريبية في قسم '+deptName(db.activeDept)); commit(on?'تم تفعيل متابعة الفواتير الضريبية لهذا القسم':'تم الإيقاف'); renderTaxTrack(); }
 function ttMarkGot(id){
   if(!guard('taxRecv','تأكيد وصول الفواتير الضريبية لمدير النظام أو الموظف المخوَّل فقط')) return; var r=byId(db.purchases,id); if(!r) return;
   if(!periodGuard(r.date)) return;
@@ -4211,7 +4232,7 @@ var _ldDate='', _ldSaveT=null, LD_UNITS=['كرتون','سلة','صندوق','ك�
 function ldOn(){ try{ var d=dcur(); if(d.loadsOn!=null) return !!d.loadsOn;
   /* افتراضياً: مفعّلة فقط في قسم التوريد المباشر الذي سُجّلت فيه برادات فعلاً — ويُفعّلها المدير لأي قسم آخر */
   return ptOn()&&(db.loads||[]).some(function(L){ return !L.kind; }); }catch(e){ return false; } }   /* ميزة لكل قسم (افتراضياً مع التوريد المباشر) */
-function ldToggle(on){ if(!ME||ME.role!=='admin'){ toast('لمدير النظام فقط'); return; } dcur().loadsOn=on?1:0; log('data','البرادات',(on?'تفعيل':'إيقاف')+' البرادات في قسم '+deptName(db.activeDept)); commit(on?'تم تفعيل البرادات لهذا القسم':'تم إيقاف البرادات لهذا القسم'); renderLoads(); renderPurTabs(); renderTaxTrack(); }
+function ldToggle(on){ if(!ME||ME.role!=='admin'){ toast('لمدير النظام فقط'); return; } dcur().loadsOn=on?1:0; log('data','البرادات',(on?'تفعيل':'إيقاف')+' البرادات في قسم '+deptName(db.activeDept)); commit(on?'تم تفعيل البرادات لهذا القسم':'تم إيقاف البرادات لهذا القسم'); applyPerms(); renderSupply(); }
 function ldCanRecv(){ return !!(ME&&(ME.role==='admin'||can('taxRecv'))); }
 function ldAllowed(){ return !!(ME&&(ME.role==='admin'||can('loadsEntry'))); }   /* صلاحية مستقلة لموظف التحميل */
 function ldCanEditLoad(L){ return !!(ME&&(ME.role==='admin'||(can('loadsEntry')&&(can('canEdit')||L.uid===ME.id)))); }
@@ -4622,15 +4643,35 @@ function ssKey(e,el){
 /* مزامنة النص مع القائمة عند تغييرها برمجياً (تحميل فاتورة للتعديل، تكرار آخر فاتورة، تغيير القسم…) */
 setInterval(function(){ try{ document.querySelectorAll('input.ss-in').forEach(function(inp){ if(document.activeElement===inp) return; var sel=document.getElementById(inp.dataset.ssel); if(sel){ var t=ssText(sel); if(inp.value!==t) inp.value=t; } }); }catch(e){} },600);
 /* ===== تبويبات شاشة المشتريات (البرادات · مشتريات اليوم · الفواتير الضريبية) — بدل التمرير الطويل ===== */
+function supplyOn(){ try{ return ttOn()||ldOn(); }catch(e){ return false; } }
+function supplyVisible(){ if(!ME||!supplyOn()) return false; if(ME.role==='admin') return true;
+  return can('quickBuy')||can('loadsEntry')||can('taxRecv')||(can('purchases')&&can('canAdd')); }
+function supplyEnable(){ if(!ME||ME.role!=='admin') return; dcur().taxTrack=1; log('data','المشتريات','تفعيل شاشة التوريد اليومي في قسم '+deptName(db.activeDept)); commit('تم تفعيل «التوريد اليومي» لهذا القسم'); applyPerms(); showTab('supply'); renderSupply(); }
+/* شريط علوي: ملخص اليوم + تنقّل سريع */
+function renderSupplyHead(){
+  var h=document.getElementById('supplyHead'); if(!h) return; if(!ME||!supplyOn()){ h.innerHTML=''; return; }
+  var td=today(), nTr=0,pal=0,nBuy=0,nSup={},nWait=0,noPr=0;
+  try{ (db.loads||[]).forEach(function(L){ if(L.kind||L.date!==td) return; nTr++; L.lines.forEach(function(l){ if(ldLineOk(l)) pal+=+l.pal||0; }); }); }catch(e){}
+  (db.purchases||[]).forEach(function(r){ if(r.date===td&&ttSt(r)){ nBuy++; nSup[r.supplierId]=1; } if(ttSt(r)==='wait'){ nWait++; if(ttNoPrice(r)) noPr++; } });
+  var k=function(ic,v,l,cls,tab){ return '<button class="sh-k'+(cls?' '+cls:'')+'"'+(tab?' onclick="lsSet(purTabKey(),\''+tab+'\');renderPurTabs();"':'')+'><span>'+ic+'</span><b>'+v+'</b><i>'+l+'</i></button>'; };
+  h.innerHTML='<div class="sh-top"><div><div class="sh-t">🚚 التوريد اليومي — قسم '+esc(deptName(db.activeDept))+'</div><div class="mini">'+esc(dayNameAr(td))+' '+esc(td)+' · '+esc(ME.name)+'</div></div></div>'
+    +'<div class="sh-ks">'+(ldOn()&&(ldAllowed()||ldCanRecv())?k('🚚',nTr,'براد اليوم','', 'loads')+k('🧱',qty(pal),'طبلية','','loads'):'')
+    +(ttOn()&&(can('purchases')||can('quickBuy'))?k('🛒',nBuy,'شراء اليوم · '+Object.keys(nSup).length+' مورد','','qb')+k('📑',nWait,'فاتورة لم تصل',nWait?'sh-bad':'sh-ok','tt')+(qbOnly()||!noPr?'':k('⚠',noPr,'بلا سعر','sh-warn','tt')):'')+'</div>';
+}
+function renderSupply(){ try{ renderLoads(); renderTaxTrack(); renderSupplyHead(); renderPurTabs(); }catch(e){ try{console.warn('supply',e);}catch(_){} } renderSupplyHint(); }
+function renderSupplyHint(){ var e=document.getElementById('supplyHint'); if(!e) return;
+  if(!ME||ME.role!=='admin'){ e.innerHTML=''; return; }
+  e.innerHTML=supplyOn()?'<div class="tt-off"><span>🚚 البرادات ومشتريات اليوم والفواتير الضريبية في تبويب مستقل</span> <button class="btn-sm" onclick="showTab(\'supply\')">فتح «التوريد اليومي»</button></div>'
+    :'<div class="tt-off"><span>🚚 شاشة «التوريد اليومي» (مشتريات اليوم السريعة · متابعة الفواتير الضريبية · البرادات) غير مفعّلة في قسم «'+esc(deptName(db.activeDept))+'»</span> <button class="btn-sm" onclick="supplyEnable()">تفعيل لهذا القسم</button></div>'; }
 function purTabKey(){ return 'purTab_'+(db.activeDept||''); }
 function renderPurTabs(){
-  var pan=document.getElementById('purchases'), bar=document.getElementById('purTabs'); if(!pan) return;
+  var pan=document.getElementById('supply'), bar=document.getElementById('purTabs'); if(!pan) return;
   var lb=document.getElementById('loadsBox'), qb=document.getElementById('quickBuyBox'), tb=document.getElementById('taxTrackBox');
   var has={loads:!!(lb&&lb.innerHTML.trim()), qb:!!(qb&&!qb.classList.contains('hidden')&&qb.innerHTML.trim()), tt:!!(tb&&tb.innerHTML.trim()&&!/tt-off/.test(tb.innerHTML.slice(0,40)))};
   var keys=Object.keys(has).filter(function(k){ return has[k]; });
-  if(keys.length<2){ if(bar) bar.remove(); pan.classList.remove('pt-tabs'); return; }
+  if(keys.length<2){ if(bar) bar.classList.add('hidden'); pan.classList.remove('pt-tabs'); return; }
   var cur=lsGet(purTabKey())||keys[0]; if(cur!=='all'&&!has[cur]) cur=keys[0];
-  if(!bar){ bar=document.createElement('div'); bar.id='purTabs'; bar.className='pur-tabs no-print'; pan.insertBefore(bar,lb||qb||tb); }
+  bar.classList.remove('hidden');
   var nTr=0, nWait=0; try{ nTr=ldDay().length; nWait=(db.purchases||[]).filter(function(r){ return ttSt(r)==='wait'; }).length; }catch(e){}
   var B=function(k,t){ return has[k]||k==='all'?'<button class="'+(cur===k?'on':'')+'" onclick="lsSet(purTabKey(),\''+k+'\');renderPurTabs()">'+t+'</button>':''; };
   bar.innerHTML=B('loads','🚚 البرادات'+(nTr?' <b>'+nTr+'</b>':''))+B('qb','⚡ مشتريات اليوم')+B('tt','📑 الفواتير الضريبية'+(nWait?' <b class="bad">'+nWait+'</b>':''))+B('all','☰ الكل');
@@ -7662,7 +7703,7 @@ function renderPurchases(){
   try{ var pn=document.getElementById('purchases'); if(pn) pn.classList.toggle('qb-only',purchLimited()); }catch(e){}
   try{ renderTaxTrack(); }catch(e){ try{console.warn('taxTrack',e);}catch(_){} }
   try{ renderLoads(); }catch(e){ try{console.warn('loads',e);}catch(_){} }
-  try{ renderPurTabs(); }catch(e){}
+  try{ renderSupplyHead(); renderPurTabs(); renderSupplyHint(); }catch(e){}
   var head=document.getElementById('tbPurchasesHead'); if(!head) return;   /* الشاشة القديمة لم تُحمَّل بعد */
   var d=purchaseRegistryRows(), rows=d.rows, T=d.tot, detailed=(purchaseView==='detailed');
   var canEd=can('canEdit'), canDel=can('canDelete');
