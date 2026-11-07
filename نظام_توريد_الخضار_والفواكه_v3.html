@@ -760,7 +760,7 @@ td.cash-in{color:#1f6b45;font-weight:700}td.cash-out{color:#b42318;font-weight:7
 .tt-ti{font-size:22px}.tt-tv{font-size:18px;font-weight:800;line-height:1.1}.tt-tl{font-size:11.5px;color:#667}
 .tt-bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:4px 0 8px}
 .tt-reqbtn{flex:1 1 320px;min-height:42px;font-size:14px}
-.tt-q{flex:1 1 220px;height:40px;padding:0 10px;border:1px solid #cfd8e3;border-radius:9px;font:inherit}
+.dl-note{display:block;width:100%;margin-top:3px;font-size:12px;padding:3px 6px;border:1px dashed #d6dde6;border-radius:6px;background:#fffdf6;box-sizing:border-box}.dl-note:placeholder-shown{opacity:.6}.tt-q{flex:1 1 220px;height:40px;padding:0 10px;border:1px solid #cfd8e3;border-radius:9px;font:inherit}
 .tt-allok{padding:12px;border-radius:10px;background:#e8f6ee;color:#1f6b45;font-weight:700;margin:8px 0}
 .tt-tb .tt-it{background:#f1f5f9;border-radius:7px;padding:2px 8px;margin:2px 0 2px 6px}
 .qb-editban{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:8px 10px;margin:-2px 0 8px;border-radius:9px;background:#fff7e0;border:1px solid #f0d08a;font-size:13px}
@@ -989,7 +989,7 @@ td.cash-in{color:#1f6b45;font-weight:700}td.cash-out{color:#b42318;font-weight:7
   <div class="no-print" id="mqPurBox"></div>
   <div class="doc-box no-print" id="purchaseFormBox">
     <div class="grid">
-      <div class="field"><label>التاريخ</label><input type="date" id="p_date"></div>
+      <div class="field"><label>التاريخ</label><input type="date" id="p_date" enterkeyhint="next" onkeydown="lineNav(event,'p_no')"></div>
       <div class="field"><label>رقم فاتورة المورد</label><input type="text" id="p_no" placeholder="اختياري" enterkeyhint="next" oninput="docNoWarnPaint('p')" onkeydown="lineNav(event,'p_supplier')"></div>
       <div class="field"><label>مجموعة المورد</label><select id="p_supplierGroup" onchange="filterInvoiceParty('p')"></select></div>
       <div class="field"><label>بحث عن المورد <span class="hint">اكتب الاسم للاختيار السريع</span></label>
@@ -1104,7 +1104,7 @@ td.cash-in{color:#1f6b45;font-weight:700}td.cash-out{color:#b42318;font-weight:7
   <div class="no-print" id="quickSaleBox"></div>
   <div class="doc-box no-print" id="saleFormBox">
     <div class="grid">
-      <div class="field"><label>التاريخ</label><input type="date" id="s_date"></div>
+      <div class="field"><label>التاريخ</label><input type="date" id="s_date" enterkeyhint="next" onkeydown="lineNav(event,'s_no')"></div>
       <div class="field"><label>رقم الفاتورة</label><input type="text" id="s_no" placeholder="اختياري" enterkeyhint="next" oninput="docNoWarnPaint('s')" onkeydown="lineNav(event,'s_client')"></div>
       <div class="field"><label>مجموعة العميل</label><select id="s_clientGroup" onchange="filterInvoiceParty('s')"></select></div>
       <div class="field"><label>بحث عن العميل <span class="hint">اكتب الاسم للاختيار السريع</span></label>
@@ -2390,7 +2390,7 @@ td.cash-in{color:#1f6b45;font-weight:700}td.cash-out{color:#b42318;font-weight:7
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-07-l';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-07-m';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -2710,6 +2710,7 @@ function applyVat(lines,rate,mode){
       price:round2((Number(l.price)||0)*factor),total:round2((Number(l.total)||0)*factor),whId:l.whId};
     if(l.boxes!=null) o.boxes=l.boxes; if(l.boxW!=null) o.boxW=l.boxW;   /* حفظ عدد الصناديق ووزن الصندوق */
     if(l.noTax) o.noTax=true;   /* حفظ إعفاء السطر مع السجل */
+    if(l.note) o.note=l.note;   /* ملاحظة السطر (من مشتريات اليوم) تبقى مع الفاتورة */
     if(l.ep!=null){ o.ep=l.ep; o.eb=l.eb; }   /* السعر كما أُدخل (للعرض) */
     o._taxed=taxed;
     return o;
@@ -3884,7 +3885,7 @@ function renderDraft(k){
     var taxCell=noneMode
       ? '<span class="mini">—</span>'
       : '<label class="taxck" title="خاضع للضريبة؟"><input type="checkbox" '+(l.noTax?'':'checked')+' onchange="toggleLineTax(\''+k+'\','+i+',this)"><span>'+(l.noTax?'معفى':'خاضع')+'</span></label>';
-    h+='<tr><td><span class="rk">'+(i+1)+'</span></td><td class="name">'+dlItemSel(k,i,l)+'</td><td>'+qCell+'</td>'
+    h+='<tr><td><span class="rk">'+(i+1)+'</span></td><td class="name">'+dlItemSel(k,i,l)+'<input class="dl-note" placeholder="📝 ملاحظة" value="'+esc(l.note||'')+'" oninput="draft[\''+k+'\'].lines['+i+'].note=this.value" title="ملاحظة على الصنف"></td><td>'+qCell+'</td>'
       +'<td>'+wCell+'</td><td id="'+k+'_lnwt_'+i+'">'+qty(l.units*l.uw)+'</td>'
       +'<td>'+pCell+'</td><td id="'+k+'_lntot_'+i+'">'+money(l.total)+'</td>'
       +'<td id="'+k+'_lntax_'+i+'" style="text-align:center">'+taxCell+'</td>'
@@ -5294,9 +5295,14 @@ function qbEdit(id){ var r=byId(db.purchases,id); if(!qbCanEdit(r)){ toast('لا
   _qbEdit={id:r.id,sup:r.supplierId,date:r.date};
   _qbRows=(r.lines||[]).map(function(l){ return {sup:r.supplierId,item:l.itemId,q:(l.boxes!=null?l.boxes:l.units),w:(l.boxW!=null?l.boxW:l.uw),p:(l.ep!=null?l.ep:l.price)||'',n:l.note||''}; });
   _qbRows.push({sup:r.supplierId}); _qbRows.date=r.date; _qbRows.wh=(r.lines&&r.lines[0]&&r.lines[0].whId)||null;
-  var qb=document.getElementById('quickBuyBox'); if(qb) qb.classList.remove('hidden'); qbPaint();
-  if(qb) qb.scrollIntoView({behavior:'smooth',block:'start'}); qbFocus(0,'q'); }
-function qbCancelEdit(){ _qbEdit=null; _qbRows=[{},{},{}]; qbPaint(); }
+  var qb=document.getElementById('quickBuyBox'); if(qb) qb.classList.remove('hidden'); qbShowTab(); qbPaint();
+  if(qb) qb.scrollIntoView({behavior:'smooth',block:'start'}); qbFocus(0,'q');
+  setTimeout(function(){ if(qb){ var r2=qb.getBoundingClientRect(); if(r2.top<-5||r2.top>window.innerHeight*0.4) qb.scrollIntoView({behavior:'auto',block:'start'}); } },450); }
+/* فتح «مشتريات اليوم» للتعديل من تبويب آخر (الفواتير الضريبية): نعرض تبويبه وإلا يبقى مخفياً فلا ينتقل المستخدم */
+function qbShowTab(){ try{ var pan=document.getElementById('supply'); if(pan&&!pan.classList.contains('pt-tabs')) return; var cur=lsGet(purTabKey()); if(cur==='qb'||cur==='all') return; _qbBackTab=cur||null; lsSet(purTabKey(),'qb'); renderPurTabs(); }catch(e){} }
+function qbBackTab(){ if(!_qbBackTab) return; var t=_qbBackTab; _qbBackTab=null; try{ lsSet(purTabKey(),t); renderPurTabs(); var box=document.getElementById(t==='tt'?'taxTrackBox':(t==='loads'?'loadsBox':'quickBuyBox')); if(box) setTimeout(function(){ box.scrollIntoView({behavior:'smooth',block:'start'}); },60); }catch(e){} }
+var _qbBackTab=null;
+function qbCancelEdit(){ _qbEdit=null; _qbRows=[{},{},{}]; qbPaint(); qbBackTab(); }
 function qbDeleteEdit(){ if(!_qbEdit) return; var r=byId(db.purchases,_qbEdit.id); if(!qbCanEdit(r)) return;
   if(!confirm('حذف إدخال «'+supName(r.supplierId)+'» بتاريخ '+r.date+' نهائياً؟')) return;
   db.purchases=db.purchases.filter(function(x){ return x.id!==r.id; });
@@ -5459,7 +5465,7 @@ function qbSave(){
   var d0=wasEdit?null:_qbRows.date, w0=_qbRows.wh; _qbRows=[{},{},{}]; _qbRows.date=d0; _qbRows.wh=w0;
   if(!qbOnly()&&!(ptOn()&&ttOn())){ _qbRows=[]; var qb=document.getElementById('quickBuyBox'); if(qb){ qb.classList.add('hidden'); qb.innerHTML=''; } }
   commit(wasEdit?'✅ تم حفظ التعديل':('✅ تم حفظ مشتريات '+n+' مورد'+(ptOn()?' (توريد مباشر)':'')+' — بانتظار فواتيرهم الضريبية')); renderTaxTrack();
-  if(qbOnly()||(ptOn()&&ttOn())){ qbPaint(); qbFocus(0,'sup'); }
+  if(qbOnly()||(ptOn()&&ttOn())){ qbPaint(); if(wasEdit&&_qbBackTab) qbBackTab(); else qbFocus(0,'sup'); }
 }
 function savePurchase(){
   if(!guard('canAdd')) return;
@@ -5641,7 +5647,9 @@ function docLoad(k,r,asNew){
   if(!asNew){ draft[k].snap=docSnap(k); draft[k].orig={no:r.no,date:r.date,party:k==='p'?supName(r.supplierId):clientName(r.clientId),grand:docTotals(k).grand}; }   /* «قبل التعديل» = إجمالي الفاتورة كما فُتحت — فالفرق يعكس تعديلات المستخدم فقط */
   docEditPaint(k);
   var box=docFormBox(k); if(box){ box.classList.remove('eb-showtop'); docEditPaint(k);
-    var tgt=(!asNew&&document.getElementById(k+'_editBanner'))||box; tgt.scrollIntoView({behavior:'smooth',block:'start'});
+    var tgt=box; tgt.scrollIntoView({behavior:'smooth',block:'start'});   /* الشريط ثابت (sticky) فالتمرير إليه يتجاوز الأسطر — نمرّر لبداية الفاتورة */
+    /* تغيير التبويب يمرّر للأعلى بنعومة فيلغي هذا التمرير أحياناً — نعيده بعد اكتمال العرض */
+    setTimeout(function(){ var t2=docFormBox(k); if(t2){ var r2=t2.getBoundingClientRect(); if(r2.top<-5||r2.top>window.innerHeight*0.4) t2.scrollIntoView({behavior:'auto',block:'start'}); } },450);
     box.classList.remove('act-flash'); void box.offsetWidth; box.classList.add('act-flash'); }
 }
 function editDoc(k,id){
@@ -8147,7 +8155,7 @@ function purchaseRegistryRows(){
       var net=+l.total||0, vat=(p.total>0)?round2(docVat(p)*(net/p.total)):0, grand=round2(net+vat);
       invSet[p.id]=1;
       var itR=byId(db.items,l.itemId);
-      out.push({date:p.date,no:p.no||'—',sup:supName(p.supplierId),item:itemName(l.itemId),byKg:!!(itR&&itR.byKg),
+      out.push({date:p.date,no:p.no||'—',sup:supName(p.supplierId),item:itemName(l.itemId),lnote:l.note||'',byKg:!!(itR&&itR.byKg),
         units:+l.units||0,unit:l.unit||'',weight:(+l.units||0)*(+l.uw||0),wh:whName(l.whId),boxes:+l.boxes||0,boxW:+l.boxW||0,
         price:+l.price||0,basis:l.basis,pe:enteredPrice(l),net:net,vat:vat,grand:grand,note:p.note||'',pid:p.id});
     });
@@ -8172,7 +8180,7 @@ function renderPurchases(){
     ?[{h:'التاريخ',key:'date',f:function(r){return esc(r.date);}},
       {h:'رقم الفاتورة',key:'no',f:function(r){return '<span class="pill-inv">'+esc(r.no)+'</span>';}},
       {h:'المورد',key:'party',f:function(r){return esc(r.sup);}},
-      {h:'الصنف',key:'item',f:function(r){return esc(r.item);}},
+      {h:'الصنف',key:'item',f:function(r){return esc(r.item)+(r.lnote?' <i class="tt-note">📝 '+esc(r.lnote)+'</i>':'');}},
       {h:'العدد',num:1,f:function(r){return r.byKg?(r.boxes?qty(r.boxes)+' صندوق':'—'):(qty(r.units)+' '+esc(r.unit||''));}},
       {h:'الوزن (كغ)',num:1,key:'weight',tot:'weight',f:function(r){return qty(r.weight);}},
       {h:'المستودع',key:'wh',f:function(r){return esc(r.wh);}},
@@ -8262,7 +8270,7 @@ function salesRegistryRows(){
       var cost=L.cogsLine[s.id+'#'+i]||0;
       invSet[s.id]=1;
       var itR=byId(db.items,l.itemId);
-      out.push({date:s.date,no:s.no||'—',cl:clientName(s.clientId),item:itemName(l.itemId),byKg:!!(itR&&itR.byKg),
+      out.push({date:s.date,no:s.no||'—',cl:clientName(s.clientId),item:itemName(l.itemId),lnote:l.note||'',byKg:!!(itR&&itR.byKg),
         units:+l.units||0,unit:l.unit||'',weight:(+l.units||0)*(+l.uw||0),wh:whName(l.whId),boxes:+l.boxes||0,boxW:+l.boxW||0,
         price:+l.price||0,basis:l.basis,pe:enteredPrice(l),net:net,vat:vat,grand:grand,cost:cost,gp:round2(net-cost),note:s.note||'',sid:s.id});
     });
@@ -8288,7 +8296,7 @@ function renderSales(){
     ?[{h:'التاريخ',key:'date',f:function(r){return esc(r.date);}},
       {h:'رقم الفاتورة',key:'no',f:function(r){return '<span class="pill-inv">'+esc(r.no)+'</span>';}},
       {h:'العميل',key:'party',f:function(r){return esc(r.cl);}},
-      {h:'الصنف',key:'item',f:function(r){return esc(r.item);}},
+      {h:'الصنف',key:'item',f:function(r){return esc(r.item)+(r.lnote?' <i class="tt-note">📝 '+esc(r.lnote)+'</i>':'');}},
       {h:'العدد',num:1,f:function(r){return r.byKg?(r.boxes?qty(r.boxes)+' صندوق':'—'):(qty(r.units)+' '+esc(r.unit||''));}},
       {h:'الوزن (كغ)',num:1,key:'weight',tot:'weight',f:function(r){return qty(r.weight);}},
       {h:'المستودع',key:'wh',f:function(r){return esc(r.wh);}},
