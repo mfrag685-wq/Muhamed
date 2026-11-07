@@ -760,7 +760,7 @@ td.cash-in{color:#1f6b45;font-weight:700}td.cash-out{color:#b42318;font-weight:7
 .tt-ti{font-size:22px}.tt-tv{font-size:18px;font-weight:800;line-height:1.1}.tt-tl{font-size:11.5px;color:#667}
 .tt-bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:4px 0 8px}
 .tt-reqbtn{flex:1 1 320px;min-height:42px;font-size:14px}
-.ri-n{color:#b54708;font-size:11px}.ri-more{color:#1d4f91;font-size:12px;white-space:nowrap}.ri-s{color:#94a3b8}.dl-note{display:block;width:100%;margin-top:3px;font-size:12px;padding:3px 6px;border:1px dashed #d6dde6;border-radius:6px;background:#fffdf6;box-sizing:border-box}.dl-note:placeholder-shown{opacity:.6}.tt-q{flex:1 1 220px;height:40px;padding:0 10px;border:1px solid #cfd8e3;border-radius:9px;font:inherit}
+.ri-n{color:#b54708;font-size:11px}.ri-more{color:#1d4f91;font-size:12px;white-space:nowrap}.ri-s{color:#94a3b8}.cash-flow{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 8px}.cf-k{display:inline-flex;gap:6px;align-items:center;border:1px solid #e1e7ef;border-radius:8px;padding:3px 8px;background:#fff;font-size:12px}.cf-k i{font-style:normal;color:#556}.dl-note{display:block;width:100%;margin-top:3px;font-size:12px;padding:3px 6px;border:1px dashed #d6dde6;border-radius:6px;background:#fffdf6;box-sizing:border-box}.dl-note:placeholder-shown{opacity:.6}.tt-q{flex:1 1 220px;height:40px;padding:0 10px;border:1px solid #cfd8e3;border-radius:9px;font:inherit}
 .tt-allok{padding:12px;border-radius:10px;background:#e8f6ee;color:#1f6b45;font-weight:700;margin:8px 0}
 .tt-tb .tt-it{background:#f1f5f9;border-radius:7px;padding:2px 8px;margin:2px 0 2px 6px}
 .qb-editban{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:8px 10px;margin:-2px 0 8px;border-radius:9px;background:#fff7e0;border:1px solid #f0d08a;font-size:13px}
@@ -1553,6 +1553,7 @@ td.cash-in{color:#1f6b45;font-weight:700}td.cash-out{color:#b42318;font-weight:7
       <div class="field"><label>المبلغ</label><input type="number" id="pay_amount" step="0.01" min="0"></div>
       <div class="field"><label>طريقة الدفع</label><select id="pay_method">
         <option>نقداً</option><option>تحويل بنكي</option><option>شيك</option><option>شبكة</option></select></div>
+      <div class="field cash-only hidden"><label>الحساب</label><select id="pay_acct"><option value="">تلقائي حسب طريقة الدفع</option><option value="cash">💵 الخزينة</option><option value="bank">🏦 البنك</option></select></div>
       <div class="field"><label>ملاحظة</label><input type="text" id="pay_note" placeholder="اختياري"></div>
     </div>
     <div class="form-foot"><button class="btn-main" onclick="savePayment()">حفظ الحركة</button>
@@ -2390,7 +2391,7 @@ td.cash-in{color:#1f6b45;font-weight:700}td.cash-out{color:#b42318;font-weight:7
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-07-n';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-07-o';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -4804,17 +4805,24 @@ var CASH_ACCTS={cash:'💵 الخزينة',bank:'🏦 البنك'}, _cashAcct='c
 function cashOn(){ try{ return !!dcur().cashOn; }catch(e){ return false; } }
 function cashToggle(on){ if(!ME||ME.role!=='admin'){ toast('التفعيل لمدير النظام فقط'); return; }
   dcur().cashOn=on?1:0; log('data','الحسابات',(on?'تفعيل':'إيقاف')+' الخزينة والبنك في قسم '+deptName(db.activeDept)); commit(on?'تم تفعيل الخزينة والبنك لهذا القسم':'تم الإيقاف'); renderCash(); }
+/* تصنيف الحركات اليدوية (الطرف المقابل محاسبياً) — المصروف التشغيلي يُسجَّل من «المصروفات» */
+var CASH_CATS={in:[['owner','جاري الشريك / رأس مال'],['loan','قرض مستلم'],['other_inc','إيراد آخر'],['other','أخرى']],
+  out:[['draw','مسحوبات شخصية (جاري الشريك)'],['loanpay','سداد قرض'],['fees','رسوم وعمولات بنكية'],['other','أخرى']]};
+function cashCatName(t){ var L=(CASH_CATS.in.concat(CASH_CATS.out)).filter(function(c){ return c[0]===t.cat; })[0]; return L?L[1]:''; }
+function cashCatOpts(){ var t=val('cs_type'), e=document.getElementById('cs_cat'); if(!e) return; var L=CASH_CATS[t==='out'?'out':'in'];
+  e.innerHTML=L.map(function(c){ return '<option value="'+c[0]+'">'+c[1]+'</option>'; }).join(''); e.parentNode.style.display=(t==='in'||t==='out')?'':'none'; }
 function payAcct(method){ return (!method||/نقد/.test(method))?'cash':'bank'; }
 function cashMoves(){
   var M=[], add=function(o){ if(+o.amt>0.0001) M.push(o); };
   (db.sales||[]).forEach(function(s){ if(+s.recv>0) add({date:s.date,acct:s.recvAcct||'cash',inn:+s.recv,src:'فاتورة بيع',desc:clientName(s.clientId)+(s.no?' — '+s.no:''),amt:+s.recv,ref:'s'+s.id}); });
   (db.purchases||[]).forEach(function(p){ if(+p.paid>0) add({date:p.date,acct:p.paidAcct||'cash',out:+p.paid,src:'فاتورة شراء',desc:supName(p.supplierId)+(p.no?' — '+p.no:''),amt:+p.paid,ref:'p'+p.id}); });
-  (db.payments||[]).forEach(function(p){ var a=payAcct(p.method), c=p.type==='client';
+  (db.payments||[]).forEach(function(p){ var a=p.acct||payAcct(p.method), c=p.type==='client';
     add({date:p.date,acct:a,inn:c?+p.amount:0,out:c?0:+p.amount,src:c?'تحصيل من عميل':'سداد لمورد',desc:(c?clientName(p.partyId):supName(p.partyId))+' · '+(p.method||'')+(p.note?' — '+p.note:''),amt:+p.amount,ref:'y'+p.id}); });
   (db.expenses||[]).forEach(function(e){ if(e.supplierId) return; add({date:e.date,acct:e.payAcct||'cash',out:+e.amount,src:'مصروف',desc:(e.desc||'')+(e.cat?' ('+e.cat+')':''),amt:+e.amount,ref:'e'+e.id}); });
   (db.cashTxns||[]).forEach(function(t){ var a=+t.amount||0;
     if(t.type==='xfer'){ add({date:t.date,acct:t.acct,out:a,src:'تحويل',desc:'تحويل إلى '+CASH_ACCTS[t.to]+(t.note?' — '+t.note:''),amt:a,id:t.id}); add({date:t.date,acct:t.to,inn:a,src:'تحويل',desc:'تحويل من '+CASH_ACCTS[t.acct]+(t.note?' — '+t.note:''),amt:a,id:t.id}); }
-    else add({date:t.date,acct:t.acct,inn:(t.type==='in'||t.type==='open')?a:0,out:t.type==='out'?a:0,src:t.type==='open'?'رصيد افتتاحي':(t.type==='in'?'إيداع':'صرف'),desc:t.note||'',amt:a,id:t.id,open:t.type==='open'}); });
+    else if(t.type==='adj'){ var inn=t.dir==='in'; add({date:t.date,acct:t.acct,inn:inn?a:0,out:inn?0:a,src:t.acct==='cash'?(inn?'زيادة جرد خزينة':'عجز جرد خزينة'):'فرق مطابقة بنك',desc:'الرصيد الفعلي '+num(+t.actual||0)+' مقابل الدفتري '+num(+t.book||0)+(t.note?' — '+t.note:''),amt:a,id:t.id,adj:1}); }
+    else add({date:t.date,acct:t.acct,inn:(t.type==='in'||t.type==='open')?a:0,out:t.type==='out'?a:0,src:t.type==='open'?'رصيد افتتاحي':((t.type==='in'?'إيداع':'صرف')+(t.cat&&t.cat!=='other'?' — '+cashCatName(t):'')),desc:t.note||'',amt:a,id:t.id,open:t.type==='open'}); });
   M.forEach(function(m){ m.inn=+m.inn||0; m.out=+m.out||0; });
   return M.sort(function(a,b){ return a.date<b.date?-1:(a.date>b.date?1:((b.open?1:0)-(a.open?1:0))); });
 }
@@ -4824,6 +4832,9 @@ function cashAdd(){
   if(!(amt>0)){ toast('أدخل المبلغ'); return; } if(!periodGuard(date)) return;
   var t={id:uid(),date:date,type:type,amount:amt,note:val('cs_note').trim(),uid:ME.id,ts:nowTs(),editMs:Date.now()};
   if(type==='c2b'){ t.type='xfer'; t.acct='cash'; t.to='bank'; } else if(type==='b2c'){ t.type='xfer'; t.acct='bank'; t.to='cash'; } else t.acct=acct;
+  if(type==='in'||type==='out') t.cat=val('cs_cat')||'other';
+  if(type==='open'&&(db.cashTxns||[]).some(function(x){ return x.type==='open'&&x.acct===acct; })&&!confirm('يوجد رصيد افتتاحي مسجّل لـ '+CASH_ACCTS[acct]+' — إضافة رصيد افتتاحي آخر؟')) return;
+  if(!t.note&&(type==='in'||type==='out')){ toast('اكتب البيان (سبب الحركة) — مطلوب للمراجعة'); var ne=document.getElementById('cs_note'); if(ne) ne.focus(); return; }
   if((t.type==='out'||t.type==='xfer')&&cashBal(t.acct)<amt-0.001&&!confirm('الرصيد في '+CASH_ACCTS[t.acct]+' ('+num(cashBal(t.acct))+') أقل من المبلغ — المتابعة؟')) return;
   if(!Array.isArray(db.cashTxns)) db.cashTxns=[]; db.cashTxns.push(t);
   log('add','الحسابات','حركة '+(t.type==='xfer'?'تحويل '+CASH_ACCTS[t.acct]+' ← '+CASH_ACCTS[t.to]:(t.type==='in'?'إيداع في ':t.type==='out'?'صرف من ':'رصيد افتتاحي ')+CASH_ACCTS[t.acct])+' بمبلغ '+num(amt)+(t.note?' — '+t.note:''));
@@ -4833,7 +4844,25 @@ function cashAdd(){
 function cashDel(id){ if(!guard('canDelete')) return; var t=byId(db.cashTxns||[],id); if(!t||!periodGuard(t.date)) return;
   if(!confirm('حذف هذه الحركة اليدوية؟')) return; db.cashTxns=db.cashTxns.filter(function(x){ return x.id!==id; });
   log('delete','الحسابات','حذف حركة خزينة/بنك بمبلغ '+num(t.amount)); commit('تم الحذف'); renderCash(); }
-function cashTypeChange(){ var t=val('cs_type'), w=document.getElementById('cs_acctWrap'); if(w) w.style.display=(t==='c2b'||t==='b2c')?'none':''; }
+function cashTypeChange(){ var t=val('cs_type'), w=document.getElementById('cs_acctWrap'); if(w) w.style.display=(t==='c2b'||t==='b2c')?'none':''; cashCatOpts(); }
+/* جرد الخزينة / مطابقة كشف البنك: يُدخل الرصيد الفعلي فيُسجَّل الفرق تسويةً موثّقة (عجز/زيادة) */
+function cashCount(acct){ if(!guard('canAdd')) return; var d=val('cs_date')||today(); if(!periodGuard(d)) return;
+  var book=round2(cashBal(acct,d)), lbl=acct==='cash'?'جرد الخزينة':'مطابقة كشف البنك';
+  var v=prompt(lbl+' بتاريخ '+d+'\nالرصيد الدفتري في النظام: '+num(book)+'\nأدخل الرصيد الفعلي '+(acct==='cash'?'(عدّ النقدية)':'(من كشف البنك)')+':',''); if(v===null) return;
+  var actual=+String(v).replace(/[,٬\s]/g,'').replace(/[٠-٩]/g,function(c){ return c.charCodeAt(0)-1632; }); if(!isFinite(actual)){ toast('رقم غير صحيح'); return; }
+  var diff=round2(actual-book);
+  if(Math.abs(diff)<0.005){ log('data','الحسابات',lbl+' '+d+': مطابق — '+num(book)); commit('✅ '+lbl+' مطابق — الرصيد '+num(book)); return; }
+  var note=prompt((diff<0?'عجز ':'زيادة ')+num(Math.abs(diff))+' — اكتب سبب الفرق (مطلوب):',''); if(note===null) return; note=String(note).trim(); if(!note){ toast('سبب الفرق مطلوب'); return; }
+  if(!Array.isArray(db.cashTxns)) db.cashTxns=[];
+  db.cashTxns.push({id:uid(),date:d,type:'adj',acct:acct,dir:diff>0?'in':'out',amount:Math.abs(diff),actual:actual,book:book,note:note,uid:ME.id,by:ME.name,ts:nowTs(),editMs:Date.now()});
+  log('add','الحسابات',lbl+' '+d+': الدفتري '+num(book)+' · الفعلي '+num(actual)+' · '+(diff<0?'عجز ':'زيادة ')+num(Math.abs(diff))+' — '+note);
+  commit((diff<0?'⚠ سُجّل عجز ':'سُجّلت زيادة ')+num(Math.abs(diff))+' في '+CASH_ACCTS[acct]); renderCash(); }
+/* ملخص التدفق النقدي للفترة حسب المصدر */
+function cashFlowHtml(L){ var g={}, order=[]; L.forEach(function(m){ var k=m.src.split(' — ')[0]; if(!g[k]){ g[k]={i:0,o:0}; order.push(k); } g[k].i+=m.inn; g[k].o+=m.out; });
+  if(!order.length) return '';
+  return '<div class="cash-flow">'+order.map(function(k){ var x=g[k]; return '<span class="cf-k"><i>'+esc(k)+'</i>'+(x.i?'<b class="cash-in">+'+num(x.i)+'</b>':'')+(x.o?'<b class="cash-out">−'+num(x.o)+'</b>':'')+'</span>'; }).join('')+'</div>'; }
+function cashPrint(){ var t=document.querySelector('#cashBox .cash-stmt'); if(!t) return; var c=t.cloneNode(true); [].forEach.call(c.querySelectorAll('button'),function(b){ b.remove(); });
+  imgPrint(null,'<div style="font-family:Tahoma,Arial,sans-serif;direction:rtl;padding:6mm"><h2 style="margin:0 0 4px">كشف '+esc(CASH_ACCTS[_cashAcct])+' — قسم '+esc(deptName(db.activeDept))+'</h2><div style="color:#667;margin-bottom:8px">من '+esc(_cashFrom)+' إلى '+esc(_cashTo)+'</div><style>#imgPrint table{width:100%;border-collapse:collapse;font-size:12px}#imgPrint td,#imgPrint th{border:1px solid #bbb;padding:4px 6px}#imgPrint th{background:#eef2f7}</style>'+c.outerHTML+'<div style="color:#889;margin-top:6px;font-size:11px">أُعدّ بواسطة '+esc(ME?ME.name:'')+' · '+nowTs()+'</div></div>'); }
 function renderCash(){
   var box=document.getElementById('cashBox'); if(!box) return;
   if(!ME||!can('accounts')){ box.innerHTML=''; return; }
@@ -4845,6 +4874,7 @@ function renderCash(){
   var h='<div class="cash-card"><div class="tt-head"><b class="tt-title">🏦 الخزينة والبنك — قسم '+esc(deptName(db.activeDept))+'</b><span class="tt-tools">'+(ME.role==='admin'?'<button class="btn-sm" onclick="cashToggle(false)">⚙ إيقاف</button>':'')+'</span></div>'
     +'<div class="tt-tiles">'+tile('💵','رصيد الخزينة',money(bc),bc<0?'t-bad':'')+tile('🏦','رصيد البنك',money(bb),bb<0?'t-bad':'')+tile('💰','الإجمالي',money(bc+bb),'')+tile('⬇️','وارد اليوم',money(ti),'')+tile('⬆️','منصرف اليوم',money(to),'')+'</div>';
   if(can('canAdd')) h+='<div class="cash-form"><select id="cs_type" onchange="cashTypeChange()"><option value="in">⬇️ إيداع / وارد</option><option value="out">⬆️ صرف / منصرف</option><option value="c2b">💵→🏦 إيداع الخزينة في البنك</option><option value="b2c">🏦→💵 سحب من البنك للخزينة</option><option value="open">📌 رصيد افتتاحي</option></select>'
+    +'<span id="cs_catWrap"><select id="cs_cat" title="تصنيف الحركة (الطرف المقابل)"></select></span>'
     +'<span id="cs_acctWrap"><select id="cs_acct"><option value="cash">💵 الخزينة</option><option value="bank">🏦 البنك</option></select></span>'
     +'<input type="number" id="cs_amount" min="0" step="0.01" inputmode="decimal" placeholder="المبلغ" onkeydown="if(event.key===\'Enter\'){event.preventDefault();document.getElementById(\'cs_note\').focus();}">'
     +'<input id="cs_note" placeholder="البيان (مثال: سحب شخصي، إيداع مبيعات اليوم…)" onkeydown="if(event.key===\'Enter\'){event.preventDefault();cashAdd();}">'
@@ -4852,8 +4882,10 @@ function renderCash(){
   /* كشف الحركة */
   var acct=_cashAcct, open=M.filter(function(m){ return m.acct===acct&&m.date<_cashFrom; }).reduce(function(s,m){ return s+m.inn-m.out; },0), bal=open, ti2=0, to2=0;
   h+='<div class="cash-bar"><span class="tt-seg"><button class="'+(acct==='cash'?'on':'')+'" onclick="_cashAcct=\'cash\';renderCash()">💵 الخزينة</button><button class="'+(acct==='bank'?'on':'')+'" onclick="_cashAcct=\'bank\';renderCash()">🏦 البنك</button></span>'
-    +'<label>من <input type="date" value="'+esc(_cashFrom)+'" onchange="_cashFrom=this.value;renderCash()"></label><label>إلى <input type="date" value="'+esc(_cashTo)+'" onchange="_cashTo=this.value;renderCash()"></label></div>'
-    +'<div class="table-scroll"><table><thead><tr><th>التاريخ</th><th>المصدر</th><th class="name">البيان</th><th>وارد</th><th>منصرف</th><th>الرصيد</th><th></th></tr></thead><tbody>'
+    +'<label>من <input type="date" value="'+esc(_cashFrom)+'" onchange="_cashFrom=this.value;renderCash()"></label><label>إلى <input type="date" value="'+esc(_cashTo)+'" onchange="_cashTo=this.value;renderCash()"></label>'
+    +'<span class="tt-tools">'+(can('canAdd')?'<button class="btn-sm" onclick="cashCount(\''+acct+'\')" title="أدخل الرصيد الفعلي فيُسجَّل الفرق">'+(acct==='cash'?'🧮 جرد الخزينة':'🧾 مطابقة كشف البنك')+'</button>':'')+'<button class="btn-sm" onclick="cashPrint()">🖨 طباعة الكشف</button></span></div>'
+    +cashFlowHtml(M.filter(function(m){ return m.acct===acct&&m.date>=_cashFrom&&m.date<=_cashTo; }))
+    +'<div class="table-scroll"><table class="cash-stmt"><thead><tr><th>التاريخ</th><th>المصدر</th><th class="name">البيان</th><th>وارد</th><th>منصرف</th><th>الرصيد</th><th></th></tr></thead><tbody>'
     +'<tr class="sub-row"><td colspan="5">رصيد أول المدة ('+esc(_cashFrom)+')</td><td><b>'+num(open)+'</b></td><td></td></tr>';
   M.filter(function(m){ return m.acct===acct&&m.date>=_cashFrom&&m.date<=_cashTo; }).forEach(function(m){ bal+=m.inn-m.out; ti2+=m.inn; to2+=m.out;
     h+='<tr><td>'+esc(m.date)+'</td><td class="mini">'+esc(m.src)+'</td><td class="name">'+esc(m.desc)+'</td><td class="cash-in">'+(m.inn?num(m.inn):'')+'</td><td class="cash-out">'+(m.out?num(m.out):'')+'</td><td><b'+(bal<0?' style="color:#b42318"':'')+'>'+num(bal)+'</b></td>'
@@ -6213,6 +6245,7 @@ function savePayment(){
   var t=val('pay_type');
   var rec={id:editId.pay||uid(),date:val('pay_date'),type:t,partyId:+val('pay_party'),amount:a,
     method:val('pay_method'),note:val('pay_note').trim(),uid:ME.id,ts:nowTs()};
+  if(cashOn()){ rec.acct=val('pay_acct')||payAcct(rec.method); }   /* الحساب النقدي صريحاً: الخزينة أو البنك */
   var who=(t==='supplier'?supName(rec.partyId):clientName(rec.partyId));
   if(editId.pay){ var i=db.payments.findIndex(function(x){return x.id===editId.pay;}); if(i>=0){ stampEdit(rec,db.payments[i]); db.payments[i]=rec; }
     log('edit','الحسابات','تعديل حركة '+(t==='supplier'?'سداد لمورد ':'تحصيل من عميل ')+who+' بمبلغ '+num(a)); }
@@ -6221,14 +6254,14 @@ function savePayment(){
   cancelPayment(); commit('تم حفظ الحركة');
 }
 function cancelPayment(){
-  editId.pay=null; setVal('pay_amount',''); setVal('pay_note',''); setVal('pay_search','');
+  editId.pay=null; setVal('pay_amount',''); setVal('pay_acct',''); setVal('pay_note',''); setVal('pay_search','');
   var n=document.getElementById('pay_editing'); if(n) n.textContent='';
 }
 function editPayment(id){
   if(!guard('canEdit')) return;
   var p=byId(db.payments,id); if(!p) return;
   editId.pay=id; setVal('pay_date',p.date); setVal('pay_type',p.type); setVal('pay_search',''); onPayType(true);
-  setVal('pay_party',p.partyId); setVal('pay_amount',p.amount); setVal('pay_method',p.method||''); setVal('pay_note',p.note||'');
+  setVal('pay_party',p.partyId); setVal('pay_amount',p.amount); setVal('pay_method',p.method||''); setVal('pay_note',p.note||''); setVal('pay_acct',p.acct||'');
   var n=document.getElementById('pay_editing'); if(n) n.textContent='وضع التعديل — حركة سداد/تحصيل';
   showTab('accounts');
   var fb=document.getElementById('paymentFormBox'); if(fb) fb.scrollIntoView({behavior:'smooth',block:'center'});
