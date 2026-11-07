@@ -737,7 +737,7 @@ td.cash-in{color:#1f6b45;font-weight:700}td.cash-out{color:#b42318;font-weight:7
   .ld-sumtb td.ls-it{grid-column:1/4;text-align:right;font-size:15px;align-self:center}.ld-sumtb td.ls-tr{grid-column:4}
   .ld-paste .table-scroll{overflow:visible;border:0}.ld-ptb,.ld-ptb tbody,.ld-ptb tfoot{display:block}.ld-ptb thead{display:none}.ld-pbody textarea{max-height:170px}
   .ld-ptb tr{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;border:1px solid #d9e1ea;border-radius:10px;padding:8px;margin:6px 0}.ld-ptb td{display:block;border:0;padding:0;text-align:center}.ld-ptb td.lp-nm,.ld-ptb td.lp-sel{grid-column:1/-1;text-align:right}.ld-ptb td.lp-ld{grid-column:1/-1;text-align:right}.ld-ptb td[data-l]::before{content:attr(data-l);display:block;font-size:11px;color:#667;font-weight:600}.ld-ptb .ld-rin{width:100%}.ld-ptb select{width:100%}.ld-ptb tfoot tr{display:flex;flex-wrap:wrap;gap:10px;background:#e8f0fb}
-  .ld-sumtb td.ls-note{grid-column:1/4;text-align:right}.ld-sumtb td.ls-st{grid-column:4;align-self:end}.ld-sumtb td.ls-w{grid-column:span 2}.ld-blind td.ls-it{grid-column:1/-1}.ld-blind td.ls-t{grid-column:1}.ld-blind td.ls-tc{grid-column:2}.ld-blind td.ls-note{grid-column:1/-1}.ld-conftb td.ls-it{grid-column:1/-1}.ld-twtb td.tw-cell{grid-column:1/-1}.ld-twtb td.ls-note{grid-column:1/-1}.ld-twtb td.ls-st{grid-column:3/-1}
+  .ld-sumtb td.ls-note{grid-column:1/4;text-align:right}.ld-sumtb td.ls-st{grid-column:4;align-self:end}.ld-sumtb td.ls-w{grid-column:span 2}.ld-blind td.ls-it{grid-column:1/-1}.ld-blind td.ls-t{grid-column:1}.ld-blind td.ls-tc{grid-column:2}.ld-blind td.ls-note{grid-column:1/-1}.ld-conftb td.ls-it{grid-column:1/-1}.ld-twtb td.tw-cell{grid-column:1/-1}.ld-c2{border-color:#bfd6f5;background:#f6faff}.ld-twtb td.ls-note{grid-column:1/-1}.ld-twtb td.ls-st{grid-column:3/-1}
   .ld-rin{width:100%}.ld-rnote{min-width:0}
   .ld-sumtb tfoot tr{display:flex;flex-wrap:wrap;gap:8px;background:#e8f0fb}.ld-sumtb tfoot td:empty{display:none}}
 .ld-lock{margin:6px 0;padding:8px 10px;border-radius:9px;background:#fff4e0;border:1px solid #f0d3a0;color:#7a4a00;font-size:13px}
@@ -2390,7 +2390,7 @@ td.cash-in{color:#1f6b45;font-weight:700}td.cash-out{color:#b42318;font-weight:7
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-07-j';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-07-k';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -4400,7 +4400,6 @@ function ldRcvStatus(x){ if(![x.r,x.t,x.rc,x.tc,x.w].some(ldV)) return {c:'w',t:
     if(dc<0) return {c:'r',t:'⚠ عدد زائد '+qty(-dc)};
     if(ldNeedTc(x)) return {c:'w',t:'⏳ اكتب عدد المرتجع'};
     if(dc>0) return {c:'r',t:'⚠ عدد ناقص '+qty(dc)}; }
-  if(+x.r>0&&!(+x.w>0)) return {c:'w',t:'⏳ بانتظار الوزن'};
   return {c:'g',t:'✅ مكتمل'}; }
 /* الفرق: الطبالي (المستلم+المرتجع − المحمّل) والعدد (المستلم+عدد المرتجع − المحمّل) */
 function ldSg(v){ v=round2(v); return v?'<b class="bad">'+(v>0?'+':'')+qty(v)+'</b>':'<span class="good">0</span>'; }
@@ -4442,53 +4441,69 @@ function ldSumFootHtml(S){ var tp=0,tu=0,tr=0,tt=0,trc=0,ttc=0,tw=0,pend=0, B=ld
 /* ===== جدول اعتماد المدير: يؤكد عدد الطبالي المستلمة مرة أخرى بشكل مستقل عن موظف التسليم ===== */
 /* ===== المطابقة الثلاثية (المدير): 🚚 ما خرج من المستودع (البرادات) · 📦 ما استلمه العميل (موظف التسليم) · 🧾 ما أُثبت بفاتورة/أمر شراء العميل =====
    كل حلقة في السلسلة تُقارن بالتي قبلها: خرج ⇢ استلم+مرتجع (فرق نقل/تسليم) · استلم ⇢ فاتورة (فرق فوترة) — بالطبالي وبالعدد */
-function ldSalesQty(d,item){ var it=byId(db.items||[],+item), u=0, n=0, refs=[];
-  (db.sales||[]).forEach(function(sl){ if(sl.date!==d) return; (sl.lines||[]).forEach(function(l){ if(+l.itemId!==+item) return; u+=it&&it.byKg?(+l.boxes||0):(+l.units||0); n++; if(sl.no&&refs.indexOf(sl.no)<0) refs.push(sl.no); }); });
-  return n?{u:round2(u),refs:refs}:null; }
-function ldTw(x){ var o={hasD:[x.r,x.t,x.rc,x.tc].some(ldV), hasI:ldV(x.ap)||ldV(x.aq), p1:null,c1:null,p2:null,c2:null};
-  if(ldV(x.r)||ldV(x.t)) o.p1=round2((+x.r||0)+(+x.t||0)-(+x.pal||0));
-  if(ldV(x.rc)){ var c1=round2(ldCnt(x)-(+x.u||0)); o.c1=(ldNeedTc(x)&&c1<0)?null:c1; }   /* مع وجود مرتجع لا يُعرف عدد المرتجع: النقص لا يُحكم عليه، أما الزيادة فخطأ مؤكد */
-  if(ldV(x.ap)&&ldV(x.r)) o.p2=round2((+x.ap||0)-(+x.r||0));
-  if(ldV(x.aq)&&ldV(x.rc)) o.c2=round2((+x.aq||0)-(+x.rc||0));
+/* ===== المطابقات (للمدير) =====
+   ① المطابقة الثلاثية — الطبالي فقط: 🚚 ما خرج (البرادات) ⇢ 📦 ما استلمه العميل + المرتجع (موظف التسليم) ⇢ 🧾 ما أُثبت بفاتورة العميل وأمر الشراء (أنت)
+   ② المطابقة الثنائية — العدد فقط: 🚚 العدد المحمّل في البرادات ⇢ 📦 العدد المستلم + عدد المرتجع (موظف التسليم)
+   الوزن تأكيد إضافي يكتبه موظف التسليم فقط ولا يدخل في أي حكم. */
+function ldTw(x){ var o={hasD:ldV(x.r)||ldV(x.t), hasI:ldV(x.ap), p1:null, p2:null};
+  if(o.hasD) o.p1=round2((+x.r||0)+(+x.t||0)-(+x.pal||0));
+  if(ldV(x.ap)&&o.hasD) o.p2=round2((+x.ap||0)-(+x.r||0));
   return o; }
 function ldTwSt(x){ var o=ldTw(x), bad=[];
   if(!o.hasD) return {c:'w',t:'⏳ بانتظار التسليم',k:'wait'};
-  if(ldNeedTc(x)&&ldV(x.rc)&&ldCnt(x)<x.u) return {c:'w',t:'⏳ بانتظار عدد المرتجع',k:'wait'};
-  if(o.p1) bad.push('نقل/تسليم '+(o.p1>0?'+':'')+qty(o.p1)+' ط'); if(o.c1) bad.push('عدد التسليم '+(o.c1>0?'+':'')+qty(o.c1));
-  var k1=bad.length;
-  if(o.hasI){ if(o.p2) bad.push('فوترة '+(o.p2>0?'+':'')+qty(o.p2)+' ط'); if(o.c2) bad.push('عدد الفاتورة '+(o.c2>0?'+':'')+qty(o.c2)); }
+  if(o.p1) bad.push('خرج/استلم '+(o.p1>0?'+':'')+qty(o.p1)+' ط');
+  var k1=bad.length; if(o.p2) bad.push('استلم/فاتورة '+(o.p2>0?'+':'')+qty(o.p2)+' ط');
   if(bad.length) return {c:'r',t:'⚠ '+bad.join(' · '),k:k1&&bad.length>k1?'both':(k1?'deliv':'bill')};
   if(!o.hasI) return {c:'w',t:'⏳ بانتظار الفاتورة',k:'inv'};
   return {c:'g',t:'✅ مطابق ثلاثياً',k:'ok'}; }
-/* للتوافق مع التقارير والصورة */
 function ldConfSt(x){ return ldTwSt(x); }
-function ldTwLink(v,lbl){ return v==null?'<i class="tw-l tw-n">┄</i>':(v?'<i class="tw-l tw-b" title="'+esc(lbl)+'">⚠ '+(v>0?'+':'')+qty(v)+'</i>':'<i class="tw-l tw-g">✓</i>'); }
+/* الثنائية — العدد */
+function ldC2(x){ if(!ldV(x.rc)&&!ldV(x.tc)) return {c:'w',t:'⏳ بانتظار التسليم',k:'wait',d:null};
+  var d=round2(ldCnt(x)-(+x.u||0));
+  if(d>0) return {c:'r',t:'⚠ زائد '+qty(d),k:'bad',d:d};
+  if(d<0&&ldNeedTc(x)) return {c:'w',t:'⏳ اكتب عدد المرتجع',k:'wait',d:null};
+  if(d<0) return {c:'r',t:'⚠ ناقص '+qty(-d),k:'bad',d:d};
+  return {c:'g',t:'✅ مطابق',k:'ok',d:0}; }
+function ldTwLink(v){ return v==null?'<i class="tw-l tw-n">┄</i>':(v?'<i class="tw-l tw-b">⚠ '+(v>0?'+':'')+qty(v)+'</i>':'<i class="tw-l tw-g">✓</i>'); }
 function ldTwChain(x){ var o=ldTw(x), V=function(v){ return ldV(v)?qty(+v):'—'; };
-  return '<div class="tw-ch"><span class="tw-n1"><b>🚚 '+qty(x.pal)+'</b><em>'+qty(x.u)+'</em></span>'+'<span class="tw-ar">'+ldTwLink(o.p1,'فرق الطبالي بين الخروج والاستلام')+(o.c1!=null&&o.c1?ldTwLink(o.c1,''):'')+'</span>'
-    +'<span class="tw-n2"><b>📦 '+V(x.r)+(+x.t>0?'<small>+'+qty(+x.t)+'م</small>':'')+'</b><em>'+V(x.rc)+(+x.tc>0?'<small>+'+qty(+x.tc)+'م</small>':'')+'</em></span>'+'<span class="tw-ar">'+ldTwLink(o.p2,'فرق الطبالي بين الاستلام والفاتورة')+(o.c2?ldTwLink(o.c2,''):'')+'</span>'
-    +'<span class="tw-n3"><b>🧾 '+V(x.ap)+'</b><em>'+V(x.aq)+'</em></span></div>'; }
+  return '<div class="tw-ch"><span class="tw-n1"><b>🚚 '+qty(x.pal)+'</b><em>خرج</em></span><span class="tw-ar">'+ldTwLink(o.p1)+'</span>'
+    +'<span class="tw-n2"><b>📦 '+V(x.r)+(+x.t>0?'<small>+'+qty(+x.t)+'م</small>':'')+'</b><em>استلم</em></span><span class="tw-ar">'+ldTwLink(o.p2)+'</span>'
+    +'<span class="tw-n3"><b>🧾 '+V(x.ap)+'</b><em>فاتورة</em></span></div>'; }
 function ldTwStH(x){ var st=ldTwSt(x); return '<span class="ld-chip ld-chip-'+st.c+'">'+st.t+'</span>'+(x.apBy?'<div class="mini">🧾 '+esc(x.apBy)+'</div>':''); }
 function ldTwStats(S){ var c={ok:0,deliv:0,bill:0,both:0,wait:0,inv:0}; S.forEach(function(x){ c[ldTwSt(x).k]++; });
   var b=function(n,t,cl){ return n?'<span class="ld-chip '+cl+'">'+t+' '+n+'</span>':''; };
-  return b(c.ok,'✅ مطابق','ld-chip-g')+b(c.deliv+c.both,'🚚⇢📦 فرق نقل/تسليم','ld-chip-r')+b(c.bill+c.both,'📦⇢🧾 فرق فوترة','ld-chip-r')+b(c.wait,'⏳ بانتظار التسليم','ld-chip-w')+b(c.inv,'⏳ بانتظار الفاتورة','ld-chip-w'); }
+  return b(c.ok,'✅ مطابق','ld-chip-g')+b(c.deliv+c.both,'🚚⇢📦 فرق خروج/استلام','ld-chip-r')+b(c.bill+c.both,'📦⇢🧾 فرق فوترة','ld-chip-r')+b(c.wait,'⏳ بانتظار التسليم','ld-chip-w')+b(c.inv,'⏳ بانتظار الفاتورة','ld-chip-w'); }
 function ldTwHtml(S){
-  var h='<div class="ld-sum ld-conf" id="ldTw"><div class="tt-head"><b class="tt-title">🧾 المطابقة الثلاثية — خرج · استلم · فاتورة</b><span class="mini">🚚 ما خرج من المستودع (البرادات) ⇢ 📦 ما استلمه العميل (موظف التسليم) ⇢ 🧾 ما أُثبت بفاتورة العميل وأمر الشراء (أنت) — بالطبالي والعدد</span>'
-    +'<span class="tt-tools"><button class="btn-sm" onclick="ldTwFillSales()" title="يملأ عدد الفاتورة من فواتير المبيعات المسجّلة في النظام لنفس اليوم">📥 العدد من فواتير المبيعات</button><button class="btn-sm" onclick="ldConfAll()" title="ينسخ ما استلمه الموظف إلى خانات الفاتورة الفارغة">⤵ نسخ ما استلمه الموظف</button></span></div>'
+  var h='<div class="ld-sum ld-conf" id="ldTw"><div class="tt-head"><b class="tt-title">🧾 المطابقة الثلاثية — الطبالي</b><span class="mini">🚚 ما خرج من المستودع (البرادات) ⇢ 📦 ما استلمه العميل + المرتجع (موظف التسليم) ⇢ 🧾 ما أُثبت بفاتورة العميل وأمر الشراء (أنت)</span>'
+    +'<span class="tt-tools"><button class="btn-sm" onclick="ldConfAll()" title="ينسخ طبالي التسليم إلى خانات الفاتورة الفارغة">⤵ نسخ ما استلمه الموظف</button></span></div>'
     +'<div class="tw-stats" id="ldTwStats">'+ldTwStats(S)+'</div>'
-    +'<div class="table-scroll"><table class="ld-sumtb ld-conftb ld-twtb"><thead><tr><th class="name">الصنف</th><th>السلسلة: 🚚 خرج ⇢ 📦 استلم ⇢ 🧾 فاتورة<br><span class="mini">(الطبالي فوق · العدد تحت)</span></th><th>🧾 طبالي الفاتورة</th><th>🧾 عدد الفاتورة</th><th class="name">رقم الفاتورة / أمر الشراء</th><th>الحالة</th></tr></thead><tbody>';
-  S.forEach(function(x){ var sq=ldSalesQty(_ldDate,x.item), a=' data-it="'+x.item+'"';
-    h+='<tr><td class="name ls-it"><b>'+esc(qbName('item',x.item))+'</b>'+(ldV(x.w)?'<div class="mini">⚖ '+qty(+x.w)+' كغ</div>':'')+'</td>'
+    +'<div class="table-scroll"><table class="ld-sumtb ld-conftb ld-twtb"><thead><tr><th class="name">الصنف</th><th>🚚 خرج ⇢ 📦 استلم ⇢ 🧾 فاتورة (طبالي)</th><th>🧾 طبالي الفاتورة</th><th class="name">رقم الفاتورة / أمر الشراء</th><th>الحالة</th></tr></thead><tbody>';
+  S.forEach(function(x){ var a=' data-it="'+x.item+'"';
+    h+='<tr><td class="name ls-it"><b>'+esc(qbName('item',x.item))+'</b></td>'
       +'<td class="tw-cell" data-l="السلسلة" id="ldtc_'+x.item+'">'+ldTwChain(x)+'</td>'
-      +'<td data-l="🧾 طبالي"><input class="ld-rin ld-apin" type="number" min="0" step="1" inputmode="numeric"'+a+' data-cf="ap" value="'+esc(x.ap!=null?x.ap:'')+'" oninput="ldConfSet(this)" placeholder="—"></td>'
-      +'<td data-l="🧾 العدد"><input class="ld-rin ld-apin" type="number" min="0" step="1" inputmode="numeric"'+a+' data-cf="aq" value="'+esc(x.aq!=null?x.aq:'')+'" oninput="ldConfSet(this)" placeholder="—">'
-        +(sq?'<div class="mini tw-sq" title="من فواتير المبيعات'+(sq.refs.length?' رقم '+esc(sq.refs.join('، ')):'')+'">بالمبيعات: <b>'+qty(sq.u)+'</b></div>':'')+'</td>'
+      +'<td data-l="🧾 طبالي الفاتورة"><input class="ld-rin ld-apin" type="number" min="0" step="1" inputmode="numeric"'+a+' data-cf="ap" value="'+esc(x.ap!=null?x.ap:'')+'" oninput="ldConfSet(this)" placeholder="—"></td>'
       +'<td class="name ls-note" data-l="رقم الفاتورة / أمر الشراء"><input class="ld-rnote"'+a+' data-cf="ref" value="'+esc(x.ref||'')+'" oninput="ldConfSet(this)" placeholder="مثال: ف 1520 / أمر شراء 88341"></td>'
       +'<td class="ls-st" id="ldcs_'+x.item+'">'+ldTwStH(x)+'</td></tr>'; });
-  h+='</tbody><tfoot id="ldConfFoot">'+ldConfFoot(S)+'</tfoot></table></div></div>';
+  h+='</tbody><tfoot id="ldConfFoot">'+ldConfFoot(S)+'</tfoot></table></div></div>'+ldC2Html(S);
   return h; }
-function ldConfFoot(S){ var T={pal:0,u:0,r:0,t:0,rc:0,ap:0,aq:0}, nOk=0; S.forEach(function(x){ T.pal+=x.pal; T.u+=x.u; T.r+=+x.r||0; T.t+=+x.t||0; T.rc+=+x.rc||0; T.ap+=+x.ap||0; T.aq+=+x.aq||0; if(ldTwSt(x).k==='ok') nOk++; });
-  return '<tr><td class="name">الإجمالي — '+S.length+' صنف</td><td class="tw-cell" data-l="السلسلة"><div class="tw-ch"><span class="tw-n1"><b>🚚 '+qty(T.pal)+'</b><em>'+qty(T.u)+'</em></span><span class="tw-ar"></span><span class="tw-n2"><b>📦 '+qty(T.r)+(T.t?'<small>+'+qty(T.t)+'م</small>':'')+'</b><em>'+qty(T.rc)+'</em></span><span class="tw-ar"></span><span class="tw-n3"><b>🧾 '+qty(T.ap)+'</b><em>'+qty(T.aq)+'</em></span></div></td><td></td><td></td><td></td>'
+function ldConfFoot(S){ var T={pal:0,r:0,t:0,ap:0}, nOk=0; S.forEach(function(x){ T.pal+=x.pal; T.r+=+x.r||0; T.t+=+x.t||0; T.ap+=+x.ap||0; if(ldTwSt(x).k==='ok') nOk++; });
+  return '<tr><td class="name">الإجمالي — '+S.length+' صنف</td><td class="tw-cell" data-l="السلسلة"><div class="tw-ch"><span class="tw-n1"><b>🚚 '+qty(T.pal)+'</b><em>خرج</em></span><span class="tw-ar"></span><span class="tw-n2"><b>📦 '+qty(T.r)+(T.t?'<small>+'+qty(T.t)+'م</small>':'')+'</b><em>استلم</em></span><span class="tw-ar"></span><span class="tw-n3"><b>🧾 '+qty(T.ap)+'</b><em>فاتورة</em></span></div></td><td></td><td></td>'
     +'<td>'+(nOk===S.length?'<span class="ld-chip ld-chip-g">✅ كل الأصناف مطابقة</span>':'<span class="ld-chip ld-chip-w">✅ مطابق '+nOk+' من '+S.length+'</span>')+'</td></tr>'; }
+/* ② المطابقة الثنائية — العدد (عرض فقط: البرادات مقابل موظف التسليم) */
+function ldC2Html(S){ var tu=0,trc=0,ttc=0,nOk=0,nBad=0,nW=0;
+  var h='<div class="ld-sum ld-conf ld-c2" id="ldC2"><div class="tt-head"><b class="tt-title">🔁 المطابقة الثنائية — العدد</b><span class="mini">🚚 العدد المحمّل في البرادات ⇢ 📦 العدد المستلم + عدد المرتجع (موظف التسليم) · الوزن للتأكيد فقط</span></div>'
+    +'<div class="table-scroll"><table class="ld-sumtb ld-conftb ld-c2tb"><thead><tr><th class="name">الصنف</th><th>🚚 محمّل (عدد)</th><th>📦 مستلم (عدد)</th><th>↩ مرتجع (عدد)</th><th>الفرق</th><th>⚖ الوزن (تأكيد)</th><th>الحالة</th></tr></thead><tbody>';
+  S.forEach(function(x){ var st=ldC2(x); tu+=x.u; trc+=+x.rc||0; ttc+=+x.tc||0; if(st.k==='ok') nOk++; else if(st.k==='bad') nBad++; else nW++;
+    h+='<tr><td class="name ls-it"><b>'+esc(qbName('item',x.item))+'</b></td>'
+      +'<td class="ld-num" data-l="🚚 محمّل"><b>'+qty(x.u)+'</b> <span class="mini">'+esc(x.unit)+'</span></td>'
+      +'<td class="ld-num" data-l="📦 مستلم">'+(ldV(x.rc)?qty(+x.rc):'—')+'</td>'
+      +'<td class="ld-num" data-l="↩ مرتجع">'+(ldV(x.tc)?qty(+x.tc):(+x.t>0?'<span class="bad">؟</span>':'—'))+'</td>'
+      +'<td class="ld-num" data-l="الفرق">'+(st.d==null?'—':ldSg(st.d))+'</td>'
+      +'<td class="ld-num mini" data-l="⚖ الوزن">'+(ldV(x.w)?qty(+x.w)+' كغ'+(+x.rc>0?'<br>≈ '+qty(round2(+x.w/+x.rc))+' كغ/'+esc(x.unit):''):'—')+'</td>'
+      +'<td class="ls-st"><span class="ld-chip ld-chip-'+st.c+'">'+st.t+'</span></td></tr>'; });
+  h+='</tbody><tfoot><tr><td class="name">الإجمالي — '+S.length+' صنف</td><td class="ld-num">'+qty(tu)+'</td><td class="ld-num">'+qty(trc)+'</td><td class="ld-num">'+qty(ttc)+'</td><td></td><td></td>'
+    +'<td>'+(nOk===S.length?'<span class="ld-chip ld-chip-g">✅ كل الأعداد مطابقة</span>':(nBad?'<span class="ld-chip ld-chip-r">⚠ فرق في '+nBad+'</span> ':'')+(nW?'<span class="ld-chip ld-chip-w">⏳ '+nW+'</span>':''))+'</td></tr></tfoot></table></div></div>';
+  return h; }
 var _ldConfT=null;
 function ldConfSet(el){ if(!ldConfOK()) return; var item=+el.dataset.it, f=el.dataset.cf||'ap', R=ldRcvGet(_ldDate,item);
   if(!R){ R={id:ldRcvId(_ldDate,item),kind:'rcv',date:_ldDate,item:item,r:'',t:'',n:'',rc:'',w:'',uid:ME.id,ts:nowTs()}; ldArr().push(R); }
@@ -4496,18 +4511,11 @@ function ldConfSet(el){ if(!ldConfOK()) return; var item=+el.dataset.it, f=el.da
   var S=ldSummary(_ldDate), x=S.filter(function(y){ return y.item===item; })[0];
   if(x){ var tc=document.getElementById('ldtc_'+item), cs=document.getElementById('ldcs_'+item); if(tc) tc.innerHTML=ldTwChain(x); if(cs) cs.innerHTML=ldTwStH(x); }
   var ft=document.getElementById('ldConfFoot'); if(ft) ft.innerHTML=ldConfFoot(S); var stt=document.getElementById('ldTwStats'); if(stt) stt.innerHTML=ldTwStats(S);
-  clearTimeout(_ldConfT); _ldConfT=setTimeout(function(){ log('edit','البرادات','المطابقة (فاتورة العميل): '+qbName('item',item)+' بتاريخ '+_ldDate+' = '+(R.ap||0)+' ط / '+(R.aq||0)+(R.ref?' — '+R.ref:'')+' (التسليم '+(R.r||0)+' ط / '+(R.rc||0)+')'); persist(); },900); }
-function ldTwFillSales(){ if(!ldConfOK()) return; var S=ldSummary(_ldDate), n=0;
-  S.forEach(function(x){ var sq=ldSalesQty(_ldDate,x.item); if(!sq||ldV(x.aq)) return; var R=ldRcvGet(_ldDate,x.item);
-    if(!R){ R={id:ldRcvId(_ldDate,x.item),kind:'rcv',date:_ldDate,item:x.item,r:'',t:'',n:'',rc:'',w:'',uid:ME.id,ts:nowTs()}; ldArr().push(R); }
-    R.aq=String(sq.u); if(!R.ref&&sq.refs.length) R.ref='فاتورة '+sq.refs.join('، '); R.apBy=ME.name; R.apTs=nowTs(); R.editTs=nowTs(); R.editMs=Date.now(); n++; });
-  if(!n){ toast('لا توجد فواتير مبيعات لهذه الأصناف في '+_ldDate+' (أو خانات العدد ممتلئة)'); return; }
-  log('edit','البرادات','المطابقة: جلب عدد '+n+' صنف من فواتير المبيعات بتاريخ '+_ldDate); commit('📥 تم جلب عدد '+n+' صنف من فواتير المبيعات — أكمل الطبالي'); renderLoads(); }
+  clearTimeout(_ldConfT); _ldConfT=setTimeout(function(){ log('edit','البرادات','المطابقة (فاتورة العميل): '+qbName('item',item)+' بتاريخ '+_ldDate+' = '+(R.ap||0)+' ط'+(R.ref?' — '+R.ref:'')+' (التسليم '+(R.r||0)+' ط)'); persist(); },900); }
 function ldConfAll(){ if(!ldConfOK()) return; var S=ldSummary(_ldDate), n=0;
-  S.forEach(function(x){ var R=ldRcvGet(_ldDate,x.item); if(!R) return; var ch=0; if(!ldV(R.ap)&&ldV(R.r)){ R.ap=String(R.r); ch=1; } if(!ldV(R.aq)&&ldV(R.rc)){ R.aq=String(R.rc); ch=1; }
-    if(ch){ R.apBy=ME.name; R.apTs=nowTs(); R.editTs=nowTs(); R.editMs=Date.now(); n++; } });
+  S.forEach(function(x){ var R=ldRcvGet(_ldDate,x.item); if(!R||ldV(R.ap)||!ldV(R.r)) return; R.ap=String(R.r); R.apBy=ME.name; R.apTs=nowTs(); R.editTs=nowTs(); R.editMs=Date.now(); n++; });
   if(!n){ toast('لا توجد خانات فاتورة فارغة لأصناف سجّلها الموظف'); return; }
-  log('edit','البرادات','المطابقة: نسخ ما استلمه الموظف إلى الفاتورة لـ '+n+' صنف بتاريخ '+_ldDate); commit('⤵ تم النسخ لـ '+n+' صنف — راجع وعدّل حسب فاتورة العميل'); renderLoads(); }
+  log('edit','البرادات','المطابقة: نسخ طبالي التسليم إلى الفاتورة لـ '+n+' صنف بتاريخ '+_ldDate); commit('⤵ تم النسخ لـ '+n+' صنف — راجع وعدّل حسب فاتورة العميل'); renderLoads(); }
 var _ldRcvT=null;
 function ldRcvSet(el){ if(!ldCanRecv()) return; var item=+el.dataset.it, f=el.dataset.rf, id=ldRcvId(_ldDate,item);
   var R=ldRcvGet(_ldDate,item); if(!R){ R={id:id,kind:'rcv',date:_ldDate,item:item,r:'',t:'',n:'',rc:'',w:'',uid:ME.id,ts:nowTs()}; ldArr().push(R); }
@@ -4516,6 +4524,7 @@ function ldRcvSet(el){ if(!ldCanRecv()) return; var item=+el.dataset.it, f=el.da
   if(R.d&&((f==='rc'&&String(+R.rc)!==String(+R.dsum))||![R.r,R.rc,R.w].some(ldV))){ R.d=''; R.dsum=''; var bd=document.getElementById('ldbd_'+item); if(bd) bd.textContent=''; }
   var S=ldSummary(_ldDate), x=S.filter(function(y){ return y.item===item; })[0]; if(x){ var st=ldRcvStatus(x), c=document.getElementById('ldst_'+item); if(c){ c.className='ld-chip ld-chip-'+st.c; c.textContent=st.t; } var av=document.getElementById('ldavg_'+item); if(av) av.innerHTML=ldAvgHtml(x); var fd=document.getElementById('ldfd_'+item); if(fd) fd.innerHTML=ldDiffHtml(x); }
   var ft=document.getElementById('ldSumFoot'); if(ft) ft.innerHTML=ldSumFootHtml(S);
+  try{ var c2=document.getElementById('ldC2'); if(c2) c2.outerHTML=ldC2Html(S); var tcx=document.getElementById('ldtc_'+item); if(tcx&&x) tcx.innerHTML=ldTwChain(x); var csx=document.getElementById('ldcs_'+item); if(csx&&x) csx.innerHTML=ldTwStH(x); var stt=document.getElementById('ldTwStats'); if(stt) stt.innerHTML=ldTwStats(S); }catch(_){}
   clearTimeout(_ldRcvT); _ldRcvT=setTimeout(function(){ log('edit','البرادات','استلام '+qbName('item',item)+' بتاريخ '+_ldDate+': مستلم '+(R.r||0)+' ط، عدد '+(R.rc||0)+'، وزن '+(R.w||0)+' كغ، مرتجع '+(R.t||0)+' ط'+(R.n?' ('+R.n+')':'')); persist(); },900); }
 function ldSumImage(){
   var S=ldSummary(_ldDate); if(!S.length) return; var Sx=2, pad=24, F='Tahoma, Arial, sans-serif', B=ldRecvOnly(), CF=ldConfOK();
@@ -4527,7 +4536,7 @@ function ldSumImage(){
     {t:'الوزن (كغ)',w:95,v:function(s){ return V(s.w); },tot:function(){ return sum(function(s){ return s.w; }); },col:'#1d4f91',b:1},
     {t:'مرتجع (ط)',w:65,v:function(s){ return V(s.t); },tot:function(){ return sum(function(s){ return s.t; }); },col:'#b42318'},
     {t:'عدد مرتجع',w:75,v:function(s){ return V(s.tc); },tot:function(){ return sum(function(s){ return s.tc; }); },col:'#b42318'});
-  if(CF&&!B) D.push({t:'فاتورة (ط)',w:80,v:function(s){ return V(s.ap); },tot:function(){ return sum(function(s){ return s.ap; }); },col:'#6941c6',b:1},{t:'فاتورة (عدد)',w:90,v:function(s){ return V(s.aq); },tot:function(){ return sum(function(s){ return s.aq; }); },col:'#6941c6'});
+  if(CF&&!B) D.push({t:'فاتورة (ط)',w:80,v:function(s){ return V(s.ap); },tot:function(){ return sum(function(s){ return s.ap; }); },col:'#6941c6',b:1});
   D.push({t:'تفصيل المرتجع',w:170,note:1});
   var cw=D.reduce(function(a,c){ return a+c.w; },0), W=cw+pad*2, rowH=34, H=100+36+S.length*rowH+40+40;
   var cv=document.createElement('canvas'); cv.width=W*Sx; cv.height=H*Sx; var c=cv.getContext('2d'); c.scale(Sx,Sx);
@@ -11430,16 +11439,16 @@ function renderReport(){
   }
   else if(type==='loads'){
     title='تقرير البرادات — المحمَّل والمستلم (الطبالي والعدد والوزن) والمرتجع والمتبقي';
-    head=['التاريخ','الصنف','البرادات','الطبالي','العدد','مستلم (ط)','العدد المستلم','الوزن (كغ)','مرتجع (ط)','عدد المرتجع','تفصيل المرتجع','فاتورة (ط)','فاتورة (عدد)','رقم الفاتورة / أمر الشراء','حالة التسليم','المطابقة الثلاثية'];
+    head=['التاريخ','الصنف','البرادات','الطبالي','العدد','مستلم (ط)','العدد المستلم','الوزن (كغ)','مرتجع (ط)','عدد المرتجع','تفصيل المرتجع','فاتورة (ط)','رقم الفاتورة / أمر الشراء','حالة التسليم','المطابقة الثلاثية (طبالي)','المطابقة الثنائية (عدد)'];
     var dates={}; (db.loads||[]).forEach(function(L){ if(!L.kind&&inRange(L.date,f,t)) dates[L.date]=1; });
-    var TP=0,TU=0,TR=0,TT=0,TTC=0,TRC=0,TW=0,TA=0,TAQ=0,TPend=0,nPend=0,nTw=0;
+    var TP=0,TU=0,TR=0,TT=0,TTC=0,TRC=0,TW=0,TA=0,TPend=0,nPend=0,nTw=0,nC2=0;
     Object.keys(dates).sort().forEach(function(d){ var S=_ldSumFor(d).filter(function(x){ return !fi||x.item===+fi; }); if(!S.length) return;
       push('day-row',['📅 '+dayNameAr(d)+' '+d+' — '+S.length+' صنف','','','','','','','','','','','','','','','']);
       S.forEach(function(x){ var st=ldRcvStatus(x), has=[x.r,x.t,x.rc,x.tc,x.w].some(ldV), rem=has?(x.pal-(+x.r||0)-(+x.t||0)):x.pal;
-        TP+=x.pal; TU+=x.u; TR+=+x.r||0; TT+=+x.t||0; TTC+=+x.tc||0; TRC+=+x.rc||0; TW+=+x.w||0; TA+=+x.ap||0; TAQ+=+x.aq||0; if(ldTwSt(x).k==='ok') nTw++; if(st.c!=='g'){ nPend++; TPend+=rem; }
-        var tw=ldTwSt(x); push(tw.c==='r'||st.c==='r'?'neg-row':'',[d,qbName('item',x.item),x.trucks.join('، '),qty(x.pal),qty(x.u)+' '+x.unit,has?qty(+x.r||0):'—',ldV(x.rc)?qty(+x.rc):'—',ldV(x.w)?qty(+x.w):'—',has?qty(+x.t||0):'—',ldV(x.tc)?qty(+x.tc):'—',x.n||'',ldV(x.ap)?qty(+x.ap):'—',ldV(x.aq)?qty(+x.aq):'—',x.ref||'',st.t,tw.t]); }); });
-    push('total-row',['الإجمالي','','',qty(TP),qty(TU),qty(TR),qty(TRC),qty(round2(TW)),qty(TT),qty(TTC),'',qty(TA),qty(TAQ),'',nPend?'⏳ '+nPend+' صنف لم يكتمل':'✅ مكتمل','✅ مطابق '+nTw]);
-    cards=card('الطبالي المحمَّلة',qty(TP),qty(TU)+' وحدة')+card('مستلم',qty(TR),'طبلية · '+qty(TRC)+' وحدة')+card('الوزن المستلم',qty(round2(TW)),'كغ')+card('مرتجع',qty(TT),'طبلية')+card('متبقي / لم يُسجَّل',qty(TPend),nPend+' صنف')+card('فاتورة العميل',qty(TA),'طبلية · '+qty(TAQ)+' وحدة · مطابق '+nTw);
+        TP+=x.pal; TU+=x.u; TR+=+x.r||0; TT+=+x.t||0; TTC+=+x.tc||0; TRC+=+x.rc||0; TW+=+x.w||0; TA+=+x.ap||0; if(ldTwSt(x).k==='ok') nTw++; if(ldC2(x).k==='ok') nC2++; if(st.c!=='g'){ nPend++; TPend+=rem; }
+        var tw=ldTwSt(x), c2=ldC2(x); push(tw.c==='r'||c2.c==='r'?'neg-row':'',[d,qbName('item',x.item),x.trucks.join('، '),qty(x.pal),qty(x.u)+' '+x.unit,has?qty(+x.r||0):'—',ldV(x.rc)?qty(+x.rc):'—',ldV(x.w)?qty(+x.w):'—',has?qty(+x.t||0):'—',ldV(x.tc)?qty(+x.tc):'—',x.n||'',ldV(x.ap)?qty(+x.ap):'—',x.ref||'',st.t,tw.t,c2.t]); }); });
+    push('total-row',['الإجمالي','','',qty(TP),qty(TU),qty(TR),qty(TRC),qty(round2(TW)),qty(TT),qty(TTC),'',qty(TA),'',nPend?'⏳ '+nPend+' صنف لم يكتمل':'✅ مكتمل','✅ مطابق '+nTw,'✅ مطابق '+nC2]);
+    cards=card('الطبالي المحمَّلة',qty(TP),qty(TU)+' وحدة')+card('مستلم',qty(TR),'طبلية · '+qty(TRC)+' وحدة')+card('الوزن المستلم',qty(round2(TW)),'كغ')+card('مرتجع',qty(TT),'طبلية')+card('متبقي / لم يُسجَّل',qty(TPend),nPend+' صنف')+card('فاتورة العميل',qty(TA),'طبلية · مطابق ثلاثياً '+nTw)+card('مطابقة العدد',nC2,'صنف مطابق');
   }
   else if(type==='dayprofit'){
     title='ربحية الأصناف اليومية — مطابقة مشتريات اليوم بمبيعاته';
