@@ -2110,6 +2110,7 @@ td.cash-in{color:#1f6b45;font-weight:700}td.cash-out{color:#b42318;font-weight:7
     <div class="field"><label>من</label><input type="date" id="au_from" onchange="renderAudit()"></div>
     <div class="field"><label>إلى</label><input type="date" id="au_to" onchange="renderAudit()"></div>
     <button class="btn" onclick="exportTable('audit')">تصدير Excel</button>
+    <button class="btn" onclick="auditArchive()" title="ينزّل ملفاً بالحركات القديمة ثم يزيلها من المزامنة — يخفّف حجم البيانات ويسرّع الدخول والحفظ">🗄 أرشفة السجل القديم</button>
     <button class="btn btn-del" onclick="deleteSelectedAudit()">🗑 حذف المحدّد</button>
     <button class="btn btn-del" onclick="deleteFilteredAudit()">حذف كل المطابق للفلتر</button>
     <button class="btn btn-del" onclick="clearAudit()">تفريغ السجل</button>
@@ -2402,7 +2403,7 @@ td.cash-in{color:#1f6b45;font-weight:700}td.cash-out{color:#b42318;font-weight:7
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-07-r';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-07-s';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -3102,7 +3103,7 @@ function startApp(){
   document.getElementById('uRole').textContent=ROLES[ME.role]||'مخصص';
   document.getElementById('uAvatar').textContent=(ME.name||'؟').trim().charAt(0);
   updateDeptUI();
-  applyPerms(); setDefaults(); renderAll(); renderMaster(); renderUsers(); renderSettingsForm(); applyLogo();
+  applyPerms(); setDefaults(); renderAll(); lazyR('master',renderMaster); lazyR('users',renderUsers); lazyR('settings',renderSettingsForm); applyLogo();
   setTimeout(welcomeUser,600);   /* رسالة ترحيب ظريفة لكل مستخدم مع علم دولته */
 }
 /* ---------- رسائل الترحيب (مخصّصة لكل مستخدم مع تدوير تتابعي) ---------- */
@@ -3285,6 +3286,7 @@ function showTab(id){
   var cur=document.querySelector('.panel.active'), changing=(!cur||cur.id!==id);
   document.querySelectorAll('.tab-btn').forEach(function(b){ b.classList.toggle('active',b.dataset.tab===id); });
   document.querySelectorAll('.panel').forEach(function(p){ p.classList.toggle('active',p.id===id); });
+  lazyFlush(id);   /* ارسم ما أُجِّل من هذه الشاشة */
   if(id==='itemdiag'&&can('itemdiag')){ renderItemDiag(); try{ renderInvAudit(); }catch(e){} }   /* شغّل الفحص فور فتح التبويب */
   if(changing) window.scrollTo({top:0,behavior:'smooth'});   /* لا تقفز للأعلى إن كان التبويب مفتوحاً أصلاً (تعديل/إضافة صنف) */
   try{ var _sp=document.querySelector('#'+id+' .act-spacer'); if(_sp) _sp.style.height='0px'; actNavInit(id); }catch(e){}
@@ -5955,7 +5957,7 @@ function delInterTransfer(id){
 }
 function renderInterTransfers(){
   var tb=document.getElementById('tbInterTransfers'); if(!tb) return;
-  var rows=(db.interTransfers||[]).slice().sort(function(a,b){return a.date===b.date?b.id-a.id:(a.date<b.date?1:-1);});
+  var rows=(db.interTransfers||[]).filter(function(x){ return x.fromDept===db.activeDept||x.toDept===db.activeDept; }).sort(function(a,b){return a.date===b.date?b.id-a.id:(a.date<b.date?1:-1);});   /* عزل الأقسام */
   var h='';
   rows.forEach(function(x){
     var mine=(x.fromDept===db.activeDept||x.toDept===db.activeDept);
@@ -7521,8 +7523,8 @@ function renderCore(){
   document.getElementById('dashRange').textContent=txt;
   document.getElementById('incRange').textContent=txt;
   setVal('f_from2',r.from); setVal('f_to2',r.to); setVal('allocMethod',db.settings.alloc||'sales');
-  renderPurchases(); renderSales(); renderReturns(); renderStock(); renderInterTransfers(); renderExpenses();
-  renderAccounts(); renderOpAcc(); renderProdTab();
+  lazyR('purchases',renderPurchases); lazyR('sales',renderSales); lazyR('returns',renderReturns); lazyR('stock',renderStock); lazyR('stock',renderInterTransfers); lazyR('expenses',renderExpenses);
+  lazyR('accounts',renderAccounts); lazyR('opacc',renderOpAcc); lazyR('prod',renderProdTab);
   try{ renderEntryAlerts(); }catch(e){}
   try{ renderUserNotes(); }catch(e){}
   renderDraft('p'); renderDraft('s');
@@ -7531,10 +7533,14 @@ function renderCore(){
     : '<b>تنبيه:</b> المتصفح لا يسمح بالحفظ الدائم في هذا الوضع. احفظ الملف على جهازك وافتحه مباشرة، ونزّل نسخة احتياطية قبل الإغلاق.';
 }
 /* الشاشات الثقيلة (قوائم الدخل/الملخص والرسوم/المستشار/التقارير/السجل) — تُؤجَّل عن مسار الحفظ لتسريعه */
-function renderHeavy(){ try{ renderIncome(); renderDash(); renderAdvisor(); renderReport(); renderAudit(); }catch(e){ try{console.warn('renderHeavy',e);}catch(_){}} }
+function renderHeavy(){ try{ lazyR('income',renderIncome); lazyR('dash',renderDash); lazyR('dash',renderAdvisor); lazyR('reports',renderReport); lazyR('users',renderAudit); }catch(e){ try{console.warn('renderHeavy',e);}catch(_){}} }
 var _heavyTimer=null;
 function scheduleHeavy(){ if(_heavyTimer) return; _heavyTimer=setTimeout(function(){ _heavyTimer=null; renderHeavy(); }, 60); }
 function renderAll(){ renderCore(); renderHeavy(); }
+/* عرض كسول: الشاشة غير الظاهرة لا تُرسم الآن بل عند فتحها (تسريع الدخول والحفظ على الجوال) */
+var _lazy={};
+function lazyR(panelId,fn){ var p=document.getElementById(panelId); if(p&&!p.classList.contains('active')){ (_lazy[panelId]=_lazy[panelId]||[]); if(_lazy[panelId].indexOf(fn)<0) _lazy[panelId].push(fn); return; } fn(); }
+function lazyFlush(panelId){ var L2=_lazy[panelId]; if(!L2||!L2.length) return; _lazy[panelId]=[]; L2.forEach(function(fn){ try{ fn(); }catch(e){ try{console.warn('lazy',panelId,e);}catch(_){} } }); }
 /* تحديث بعد الحفظ: الشاشات الأساسية فوراً + الثقيلة بعد لحظة (يُسرّع الحفظ ويجمع الدفعات) */
 function renderAfterCommit(){ renderCore(); scheduleHeavy(); }
 /* ===== المستشار المالي — تحليل وتنبيهات وحلول ===== */
@@ -10003,6 +10009,18 @@ function auditFiltered(){
     return inRange((x.ts||'').slice(0,10),f,t);
   });
 }
+/* أرشفة سجل الحركات: ملف كامل بالحركات القديمة على جهازك، ثم يبقى في المزامنة الأحدث فقط */
+var AUDIT_ARCH_KEEP=1500;
+function auditArchive(){ if(!ME||ME.role!=='admin'){ toast('لمدير النظام فقط'); return; } var A=(db.audit||[]).slice(), n=A.length-AUDIT_ARCH_KEEP;
+  if(n<=0){ toast('السجل صغير ('+A.length+' حركة) — لا حاجة للأرشفة'); return; }
+  A.sort(function(x,y){ return tsCmp(String(x.ts||''),String(y.ts||'')); }); var old=A.slice(0,n), from=old[0].ts, to=old[old.length-1].ts;
+  if(!confirm('أرشفة '+n+' حركة قديمة (من '+from+' إلى '+to+') في ملف على جهازك، ثم إزالتها من المزامنة والإبقاء على أحدث '+AUDIT_ARCH_KEEP+' حركة.\n\nالبيانات المالية لا تتأثر إطلاقاً. احتفظ بالملف — يمكن فتحه أو استيراده لاحقاً. المتابعة؟')) return;
+  var blob=new Blob([JSON.stringify({type:'auditArchive',company:db.settings.company||'',from:from,to:to,count:n,exportedAt:nowTs(),by:ME.name,audit:old},null,0)],{type:'application/json'});
+  try{ dsDownload(blob,'أرشيف_سجل_الحركات_'+String(from).slice(0,10)+'_'+String(to).slice(0,10)+'.json'); }catch(e){ toast('تعذّر تنزيل الملف — لم يُحذف شيء'); return; }
+  var keepIds={}; A.slice(n).forEach(function(a){ keepIds[a.id]=1; });
+  db.audit=(db.audit||[]).filter(function(a){ return keepIds[a.id]; }); db.settings.auditCap=AUDIT_ARCH_KEEP;
+  log('data','النسخ الاحتياطي','أرشفة '+n+' حركة قديمة من سجل الحركات ('+from+' ← '+to+') إلى ملف — بقي '+db.audit.length);
+  commit('🗄 تمت الأرشفة — نُزّل الملف، وخفّ حجم المزامنة'); }
 function renderAudit(){
   try{ fillAuditDeptSel(); }catch(e){}
   var all=auditFiltered();
@@ -13217,6 +13235,7 @@ function cloudFlush(){
   cloudInflight=true; cloudDirty=false;
   var s; try{ s=JSON.stringify(serializeDB()); }catch(e){ cloudInflight=false; cloudLastError='تعذّر تجهيز البيانات: '+(e&&e.message||e); syncAlertPaint(); return; }
   if(!s){ cloudInflight=false; return; }
+  if(s===cloudLastPushed&&!cloudSplit){ cloudInflight=false; setCloudStatus('ok'); return; }   /* لا تغيير فعلي منذ آخر رفع ناجح — لا ترفع 2MB بلا داعٍ */
   /* حماية الحجم: Firebase يرفض أي نص يتجاوز 10MB (بالبايت — العربية بايتان لكل حرف) فيتوقف الرفع كلياً.
      نقصّ أقدم سجل الحركات تدريجياً (الأحدث يبقى) حتى تتسع البيانات — البيانات المالية لا تُمسّ إطلاقاً. */
   var by=utf8Bytes(s);
@@ -13290,7 +13309,7 @@ function cloudDiag(){
     +'\nعدد مرات الرفع آخر 10 دقائق: '+cloudPushLog.filter(function(x){ return Date.now()-x.t<600000; }).length
     +(cloudLastRemoteBy?'\nآخر من رفع للسحابة: '+cloudLastRemoteBy:'')
     +(cloudLoopInfo?'\n⚠ '+cloudLoopInfo:'')
-    +'\nإصدار هذا الجهاز: '+APP_BUILD+'\nتخزين السحابة: '+(cloudSplit?'مفصول حسب القسم ('+splitAllowed.length+' قسم مسموح)':'ملف واحد (قديم)')
+    +'\nإصدار هذا الجهاز: '+APP_BUILD+'\nتخزين السحابة: '+(cloudSplit?'مفصول حسب القسم ('+splitAllowed.length+' قسم مسموح)':'ملف واحد (قديم)')+(!cloudSplit&&cloudLastSize>800000&&ME&&ME.role==='admin'?'\n💡 لتسريع الحفظ والدخول: (1) «المستخدمون والسجل ← أرشفة السجل القديم» (2) فعّل «التخزين المفصول حسب القسم» فيُرفع القسم المعدَّل فقط بدل الملف كاملاً':'')
     +'\n\nحجم البيانات: '+mb(tot)+' من حد 10 MB\n'+parts.map(function(x){ return '• '+x[0]+': '+mb(x[1]); }).join('\n'));
 }
 function setCloudErrTip(msg){ var el=document.getElementById('cloudStatus'); if(!el) return;
@@ -13477,7 +13496,7 @@ function cloudPush(s){
   cloudDirty=true;   /* ضع علم «هناك تغيير غير مرفوع» دائماً — يُرفع الآن أو عند عودة الاتصال */
   if(!cloudReady||!cloudRef){ if(cloudEnabled()) setCloudStatus('pending'); return; }   /* محفوظ محلياً؛ سيرفعه الحارس/الدمج */
   clearTimeout(cloudPushTimer);
-  cloudPushTimer=setTimeout(cloudFlush,600);   /* تجميع الحفظات المتتابعة */
+  cloudPushTimer=setTimeout(cloudFlush,cloudLastSize>1000000?2500:(cloudLastSize>400000?1200:600));   /* تجميع الحفظات المتتابعة — أطول كلما كبر حجم البيانات (أقل رفعاً على الجوال) */
 }
 /* مراقبة الاتصال: عند عودته ارفع أي تغييرات معلّقة فوراً */
 /* ==========================================================================
@@ -13615,14 +13634,14 @@ function renderSplitPanel(){
     +'<li><b>بعد تحديث كل الأجهزة</b> لهذا الإصدار أو أحدث: انشر «القواعد المقفلة» لمنع غير المدير من قراءة التخزين القديم نهائياً. <button class="btn-sm" onclick="splitCopyRules(\'database.rules.accounts.locked.json\')">📋 نسخ القواعد المقفلة</button></li>'
     +'</ol><div class="mini">أقسام كل موظف تُحدَّد من «تعديل المستخدم ← الأقسام المتاحة» وتُرسل لعضويته تلقائياً عند الحفظ.</div>';
 }
-var cloudOnline=true, cloudInflightAt=0, cloudPushLog=[], cloudMergePushes=[], cloudLoopUntil=0, cloudLoopInfo='';
+var cloudOffTimer=null, cloudOnline=true, cloudInflightAt=0, cloudPushLog=[], cloudMergePushes=[], cloudLoopUntil=0, cloudLoopInfo='';
 function cloudWatchConnection(){
   if(cloudConnWatched) return; cloudConnWatched=true;
   try{ firebase.database().ref('.info/connected').on('value',function(c){
-    cloudOnline=c.val()===true;
+    cloudOnline=c.val()===true; clearTimeout(cloudOffTimer);
     if(cloudOnline){ if(cloudInflight&&Date.now()-cloudInflightAt>5000){ cloudInflight=false; cloudDirty=true; }   /* رفع عالق من قبل الانقطاع ⇒ أعِد إرساله */
       if(cloudDirty){ cloudRetry=0; cloudFlush(); } else if(!cloudInflight) setCloudStatus('ok'); }
-    else if(cloudReady) setCloudStatus('offline');
+    else if(cloudReady) cloudOffTimer=setTimeout(function(){ if(!cloudOnline) setCloudStatus('offline'); },6000);   /* تقطّع لحظي في شبكة الجوال لا يُظهر «غير متصل» */
   }); }catch(e){ cloudConnWatched=false; }
 }
 /* دمج سجلّين حسب المعرّف id: أساسه القادم من السحابة + يُضاف إليه ما هو موجود محلياً فقط
