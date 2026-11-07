@@ -2404,7 +2404,7 @@ td.cash-in{color:#1f6b45;font-weight:700}td.cash-out{color:#b42318;font-weight:7
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-07-z';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-08-a';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -2959,7 +2959,7 @@ function sheetCanvas(o){
     return j===0&&first?42:Math.max(j===first?130:66,Math.min(j===first?320:200,w+26)); }); });
   var inner=Math.max(o.minW||900,Math.max.apply(null,widths.map(function(ws){ return ws.reduce(function(a,b){ return a+b; },0); }).concat([0]))), W=inner+pad*2;
   widths=widths.map(function(ws){ var fixed=ws[0]===42?42:0, t=ws.reduce(function(a,b){ return a+b; },0)-fixed, k=(inner-fixed)/t; return ws.map(function(w,j){ return (j===0&&fixed)?w:w*k; }); });
-  var hasK=o.kpis&&o.kpis.length, signs=o.signs||[];
+  var hasK=o.kpis&&o.kpis.length, signs=[];   /* بدون توقيعات بناءً على طلب المستخدم */
   var H=pad+96+92+(hasK?100:0); secs.forEach(function(sc){ H+=(sc.title?44:0)+36+sc.rows.length*rowH+26; }); H+=(signs.length?110:0)+70;
   var cv=document.createElement('canvas'); cv.width=W*Sx; cv.height=H*Sx; var c=cv.getContext('2d'); c.scale(Sx,Sx); c.direction='rtl'; c.textBaseline='middle';
   c.fillStyle='#fff'; c.fillRect(0,0,W,H);
