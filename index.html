@@ -422,6 +422,29 @@ table.reg thead th{position:sticky;top:0;z-index:5;background:#1e293b;color:#e2e
 table.reg tbody td{padding:9px 12px;border-bottom:1px solid #eef2f6;color:#1e293b;vertical-align:middle}
 table.reg tbody tr:nth-child(even){background:#f8fafc}
 table.reg tbody tr:hover{background:#eef4ff}
+table.reg tbody tr.inv-open>td{background:#e8f1fd!important;font-weight:700;border-bottom-color:transparent}
+table.reg tbody tr.inv-open>td:first-child{box-shadow:inset -4px 0 0 #2f5fa8}
+table.reg tr.reg-detail>td{padding:0 10px 16px!important;background:#e8f1fd!important;border-bottom:2px solid #c9d8ee}
+.rd-card{position:sticky;right:0;box-sizing:border-box;width:min(calc(100vw - 90px),1180px);--rc:#2f5fa8;background:#fff;border:1px solid #d3deec;border-inline-start:6px solid var(--rc);border-radius:14px;padding:12px 14px 6px;box-shadow:0 6px 18px rgba(20,50,90,.10)}
+.rd-card.rd-s{--rc:#1f6b45}.rd-card.rd-p{--rc:#8a6d1d}
+.rd-top{display:flex;gap:14px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap}
+.rd-id b{font-size:15.5px;color:#14261c}.rd-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:7px}
+.rd-chip{display:inline-flex;align-items:center;gap:4px;background:#f3f6f9;border:1px solid #e1e8f0;border-radius:999px;padding:3px 10px;font-size:12px;color:#334155}
+.rd-chip.rd-c2{background:#eef6f1;border-color:#cfe5d7;color:#1f6b45}.rd-chip.rd-c3{background:#fbf7ec;border-color:#eadfbf;color:#7a5d12}
+.rd-tot{text-align:left;background:linear-gradient(135deg,#f6faf7,#eef4fb);border:1px solid #dde7f0;border-radius:12px;padding:8px 14px;min-width:190px}
+.rd-tot span{display:block;font-size:11.5px;color:#64748b}.rd-tot b{display:block;font-size:20px;color:var(--rc)}.rd-tot i{display:block;font-style:normal;font-size:11.5px;color:#475569}
+.rd-acts{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:10px 0 8px;padding-top:8px;border-top:1px dashed #e2e8f0}.rd-acts .rd-close{margin-inline-start:auto}
+.rd-scroll{overflow-x:auto}
+table.rd-tb{width:100%;border-collapse:collapse;font-size:13px;margin-bottom:6px}
+table.reg table.rd-tb thead th,table.rd-tb thead th{position:static;background:#eef3f8!important;color:#1e293b!important;font-weight:700;padding:7px 10px;border-bottom:2px solid var(--rc);text-align:center;font-size:12.5px}
+table.rd-tb td{padding:7px 10px!important;border-bottom:1px solid #eef2f6;text-align:center;background:#fff!important}
+table.rd-tb td.txt,table.rd-tb th.txt{text-align:right}table.rd-tb td.rd-n{color:#94a3b8;width:34px}table.rd-tb td.mute{color:#64748b}table.rd-tb td.rd-note{color:#7a5d12;font-size:12px}
+table.rd-tb tbody tr:hover td{background:#f6f9fd!important}
+table.rd-tb tr.rd-gh td{background:#f3f8f5!important;text-align:right;font-weight:700;color:#1f6b45;border-top:1px solid #d7e8dd;padding:6px 10px!important}
+table.rd-tb tr.rd-gh td span{margin-inline-end:10px}table.rd-tb tr.rd-gh td i{font-style:normal;font-weight:500;color:#64748b;font-size:12px}table.rd-tb tr.rd-gh td b{float:left;color:#14261c}
+table.rd-tb tfoot td{background:#f3f6f9!important;font-weight:800;border-top:2px solid var(--rc);color:#0f2a1d;padding:8px 10px!important}
+@media (max-width:700px){.rd-card{width:calc(100vw - 44px);padding:10px 10px 4px}.rd-tot{min-width:0;width:100%}.registry-bar{position:static}}   /* شريط الفلاتر طويل على الجوال — لا يثبت فوق المحتوى */
+@media print{.rd-card{box-shadow:none;position:static;width:auto}}
 table.reg td.num,table.reg th.num{text-align:left;font-variant-numeric:tabular-nums;direction:ltr;white-space:nowrap}
 table.reg td.txt{text-align:right}
 table.reg td.grand{font-weight:800;color:#0f172a;background:rgba(30,64,175,.06)}
@@ -2404,7 +2427,7 @@ td.cash-in{color:#1f6b45;font-weight:700}td.cash-out{color:#b42318;font-weight:7
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-08-b';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-08-c';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -8156,24 +8179,38 @@ function regInvPill(k,g){ var on=!!regOpen[k][g.id];
 function regDetailRow(k,g,colspan){
   if(!regOpen[k][g.id]) return '';
   var sale=(k==='s'), doc=sale?byId(db.sales,g.id):byId(db.purchases,g.id);
-  var cnt=function(r){ return r.byKg?(r.boxes?qty(r.boxes)+' صندوق':'—'):(qty(r.units)+' '+esc(r.unit||'')); };
-  var h='<tr class="reg-detail"><td colspan="'+colspan+'" style="background:#f8fafc;padding:10px 14px">'
-    +'<div style="display:flex;flex-wrap:wrap;gap:6px 18px;font-size:13px;margin-bottom:8px">'
-    +'<b>فاتورة '+(sale?'بيع':'شراء')+' رقم '+esc(g.no==='—'?'(بدون رقم)':g.no)+'</b><span>التاريخ: '+esc(g.date)+'</span><span>'+(sale?'العميل':'المورد')+': '+esc(g.party)+'</span>'
-    +(doc&&doc.vatRate!=null&&doc.vatMode!=='none'?'<span>الضريبة: '+esc(String(doc.vatRate))+'%</span>':'')
-    +(doc&&(+doc.paid||+doc.recv)?'<span>المدفوع: '+num(+doc.paid||+doc.recv)+'</span>':'')
-    +(g.note?'<span style="color:#64748b">ملاحظات: '+esc(g.note)+'</span>':'')
-    +'<span style="margin-inline-start:auto;display:inline-flex;gap:6px" class="no-print">'
+  var cnt=function(r){ return r.byKg?(r.boxes?qty(r.boxes)+' <span class="pu">صندوق</span>':'—'):(qty(r.units)+' <span class="pu">'+esc(r.unit||'')+'</span>'); };
+  var whs={}, notes={}; g.rows.forEach(function(r){ whs[r.wh]=1; if(r.lnote) notes[r.lnote]=1; });
+  var multiWh=Object.keys(whs).length>1, nNotes=Object.keys(notes).length, hasNote=nNotes>0, grp=nNotes>1;
+  var paid=doc?(+doc.paid||+doc.recv||0):0, rest=round2(g.grand-paid);
+  var chip=function(ic,t,cls){ return '<span class="rd-chip'+(cls?' '+cls:'')+'">'+ic+' '+t+'</span>'; };
+  var h='<tr class="reg-detail"><td colspan="'+colspan+'"><div class="rd-card '+(sale?'rd-s':'rd-p')+'">'
+    +'<div class="rd-top"><div class="rd-id"><b>🧾 فاتورة '+(sale?'بيع':'شراء')+' '+esc(g.no==='—'?'(بدون رقم)':g.no)+'</b>'
+    +'<div class="rd-chips">'+chip('📅',esc(g.date))+chip(sale?'👤':'🚚',esc(g.party))+(!multiWh?chip('🏬',esc(Object.keys(whs)[0]||'')):'')
+    +(doc&&doc.vatRate!=null&&doc.vatMode!=='none'?chip('🧮','ضريبة '+esc(String(doc.vatRate))+'%'):chip('🧮','بدون ضريبة'))
+    +chip('📦',g.rows.length+' سطر')+(grp?chip('📍',nNotes+' فرع/ملاحظة','rd-c2'):'')+(g.note?chip('📝',esc(g.note),'rd-c3'):'')+'</div></div>'
+    +'<div class="rd-tot"><span>الإجمالي شامل الضريبة</span><b>'+money(g.grand)+'</b>'+(paid?'<i>'+(sale?'محصّل ':'مدفوع ')+num(paid)+(Math.abs(rest)>0.009?' · المتبقي '+num(rest):' · مسدّد بالكامل ✓')+'</i>':'<i>آجل بالكامل</i>')+'</div></div>'
+    +'<div class="rd-acts no-print">'
     +(can('canEdit')?'<span class="qno">🔢 <input id="qno_'+k+'_'+g.id+'" value="'+esc(doc&&doc.no||'')+'" placeholder="رقم الفاتورة" onkeydown="if(event.key===\'Enter\')setDocNo(\''+k+'\','+g.id+')"><button type="button" class="btn-sm" onclick="setDocNo(\''+k+'\','+g.id+')">حفظ الرقم</button></span>':'')
-    +(can('canEdit')?'<button type="button" class="btn-sm btn-alt" onclick="editDoc(\''+k+'\','+g.id+')">✏️ تعديل هذه الفاتورة</button>':'')
-    +(can('canAdd')?'<button type="button" class="btn-sm" onclick="copyDocAsNew(\''+k+'\','+g.id+')">📋 نسخ كفاتورة جديدة</button>':'')+'</span></div>'
-    +'<table style="width:100%;font-size:13px"><thead><tr><th class="txt">#</th><th class="txt">الصنف</th><th class="num">العدد</th><th class="num">الوزن (كغ)</th><th class="txt">المستودع</th><th class="num">السعر</th>'
-    +'<th class="num">الصافي</th><th class="num">الضريبة</th><th class="num">الإجمالي</th>'+(sale?'<th class="num profit-only">التكلفة</th><th class="num profit-only">مجمل الربح</th>':'')+'</tr></thead><tbody>'
-    +g.rows.map(function(r,i){ return '<tr><td class="txt">'+(i+1)+'</td><td class="txt">'+esc(r.item)+(r.lnote?' <i class="tt-note">📝 '+esc(r.lnote)+'</i>':'')+'</td><td class="num">'+cnt(r)+'</td><td class="num">'+qty(r.weight)+'</td><td class="txt">'+esc(r.wh)+'</td>'
-      +'<td class="num price-cell">'+fmtPrice(r.pe.p)+' <span class="pu">/'+esc(priceUnitLbl(r.pe))+'</span></td><td class="num">'+num(r.net)+'</td><td class="num">'+num(r.vat)+'</td><td class="num"><b>'+num(r.grand)+'</b></td>'
-      +(sale?'<td class="num profit-only">'+num(r.cost)+'</td><td class="num profit-only">'+sign(r.gp)+'</td>':'')+'</tr>'; }).join('')
-    +'<tr style="font-weight:700;border-top:2px solid #cbd5e1"><td class="txt" colspan="3">إجمالي الفاتورة</td><td class="num">'+qty(g.weight)+'</td><td></td><td></td><td class="num">'+num(g.net)+'</td><td class="num">'+num(g.vat)+'</td><td class="num">'+num(g.grand)+'</td>'
-    +(sale?'<td class="num profit-only">'+num(g.cost)+'</td><td class="num profit-only">'+sign(g.gp)+'</td>':'')+'</tr></tbody></table></td></tr>';
+    +(can('canEdit')?'<button type="button" class="btn-sm btn-alt" onclick="editDoc(\''+k+'\','+g.id+')">✏️ تعديل الفاتورة</button>':'')
+    +(can('canAdd')?'<button type="button" class="btn-sm" onclick="copyDocAsNew(\''+k+'\','+g.id+')">📋 نسخ كفاتورة جديدة</button>':'')
+    +'<button type="button" class="btn-sm rd-close" onclick="toggleRegInv(\''+k+'\','+g.id+')">✕ إغلاق التفاصيل</button></div>'
+    +'<div class="rd-scroll"><table class="rd-tb"><thead><tr><th>#</th><th class="txt">الصنف</th>'+(hasNote&&!grp?'<th class="txt">الملاحظة</th>':'')+'<th>العدد</th><th>الوزن (كغ)</th>'+(multiWh?'<th class="txt">المستودع</th>':'')
+    +'<th>السعر</th><th>الصافي</th><th>الضريبة</th><th>الإجمالي</th>'+(sale?'<th class="profit-only">التكلفة</th><th class="profit-only">مجمل الربح</th>':'')+'</tr></thead><tbody>';
+  var ncol=6+(hasNote&&!grp?1:0)+(multiWh?1:0)+3+(sale?2:0)-3;
+  var line=function(r,i){ return '<tr><td class="rd-n">'+i+'</td><td class="txt"><b>'+esc(r.item)+'</b></td>'+(hasNote&&!grp?'<td class="txt rd-note">'+esc(r.lnote||'—')+'</td>':'')
+      +'<td>'+cnt(r)+'</td><td>'+qty(r.weight)+'</td>'+(multiWh?'<td class="txt">'+esc(r.wh)+'</td>':'')
+      +'<td class="price-cell">'+fmtPrice(r.pe.p)+' <span class="pu">/'+esc(priceUnitLbl(r.pe))+'</span></td><td>'+num(r.net)+'</td><td class="mute">'+num(r.vat)+'</td><td><b>'+num(r.grand)+'</b></td>'
+      +(sale?'<td class="profit-only mute">'+num(r.cost)+'</td><td class="profit-only">'+sign(r.gp)+'</td>':'')+'</tr>'; };
+  var cols=2+(hasNote&&!grp?1:0)+2+(multiWh?1:0)+4+(sale?2:0);
+  if(grp){   /* تجميع الأسطر حسب الفرع/الملاحظة مع إجمالي لكل مجموعة */
+    var order=[], G={}; g.rows.forEach(function(r){ var key=r.lnote||'بدون ملاحظة'; if(!G[key]){ G[key]=[]; order.push(key); } G[key].push(r); });
+    order.forEach(function(key){ var L2=G[key], t=L2.reduce(function(a,r){ return a+r.grand; },0), w=L2.reduce(function(a,r){ return a+r.weight; },0);
+      h+='<tr class="rd-gh"><td colspan="'+cols+'"><span>📍 '+esc(key)+'</span><i>'+L2.length+' صنف · '+qty(w)+' كغ</i><b>'+num(t)+'</b></td></tr>';
+      L2.forEach(function(r,i){ h+=line(r,i+1); }); }); }
+  else g.rows.forEach(function(r,i){ h+=line(r,i+1); });
+  h+='</tbody><tfoot><tr><td></td><td class="txt">إجمالي الفاتورة</td>'+(hasNote&&!grp?'<td></td>':'')+'<td></td><td>'+qty(g.weight)+'</td>'+(multiWh?'<td></td>':'')+'<td></td><td>'+num(g.net)+'</td><td>'+num(g.vat)+'</td><td>'+num(g.grand)+'</td>'
+    +(sale?'<td class="profit-only">'+num(g.cost)+'</td><td class="profit-only">'+sign(g.gp)+'</td>':'')+'</tr></tfoot></table></div></div></td></tr>';
   return h;
 }
 /* ===== تمييز الإجراءات: لون + أيقونة لكل قسم، وشريط انتقال سريع مع بحث ===== */
@@ -8312,7 +8349,7 @@ function regSummaryBody(k,groups,cols,tdCls,partyLbl,lineMode){
   var sorted=regSortGroups(k,groups), m=regGroup[k], all=regAgg(sorted), maxG=0, unit=lineMode?' سطر':' فاتورة';
   if(!lineMode) regLastIds[k]=sorted.map(function(g){ return g.id; });
   sorted.forEach(function(g){ if(g.grand>maxG) maxG=g.grand; });
-  var row=function(g){ return '<tr data-inv="'+(lineMode?g.inv:g.id)+'"'+(draft[k]&&draft[k].editId===(lineMode?g.inv:g.id)?' class="inv-editing"':'')+'>'+cols.map(function(c){ var v=c.f(g);
+  var row=function(g){ var op=!lineMode&&regOpen[k][g.id], ed=draft[k]&&draft[k].editId===(lineMode?g.inv:g.id); return '<tr data-inv="'+(lineMode?g.inv:g.id)+'"'+((ed||op)?' class="'+(ed?'inv-editing ':'')+(op?'inv-open':'')+'"':'')+'>'+cols.map(function(c){ var v=c.f(g);
       if(c.grand&&maxG>0) v+='<span class="gbar" style="width:'+Math.max(3,Math.round(g.grand/maxG*100))+'%"></span>';
       return '<td class="'+tdCls(c).trim()+'">'+v+'</td>'; }).join('')+'</tr>'+(lineMode?'':regDetailRow(k,g,cols.length)); };
   if(m!=='day'&&m!=='month'&&m!=='party') return sorted.map(row).join('');
@@ -8350,7 +8387,7 @@ function regExtraKpis(groups,partyLbl,sale){ if(!groups.length) return '';
     +'<div class="rb-kpi"><div class="k">أكبر '+esc(partyLbl)+'</div><div class="v" style="font-size:16px">'+esc(best||'—')+'</div><div class="s">'+money(by[best]||0)+' · '+(a.grand>0?((by[best]||0)/a.grand*100).toFixed(1):'0')+'% من الإجمالي</div></div>';
   return h; }
 var regItemsTxt=function(g){ var D=g.itD||{}, k=g.rows&&g.rows[0]&&g.rows[0].pid!=null?'p':'s';
-    var chip=function(n){ var d=D[n]||{n:1,notes:[]}; return '<span class="ri-c">'+esc(n)+(d.n>1?' <b class="ri-n" title="الصنف مكرر في '+d.n+' أسطر">×'+d.n+'</b>':'')+(d.notes.length?' <i class="tt-note">📝 '+esc(d.notes.join('، '))+'</i>':'')+'</span>'; };
+    var chip=function(n){ var d=D[n]||{n:1,notes:[]}; return '<span class="ri-c">'+esc(n)+(d.n>1?' <b class="ri-n" title="الصنف مكرر في '+d.n+' أسطر">×'+d.n+'</b>':'')+(d.notes.length?' <i class="tt-note">📝 '+(d.notes.length>2?d.notes.length+' فروع':esc(d.notes.join('، ')))+'</i>':'')+'</span>'; };
     var all=g.items.map(function(n){ return n+((D[n]&&D[n].n>1)?' ×'+D[n].n:'')+((D[n]&&D[n].notes.length)?' ('+D[n].notes.join('، ')+')':''); }).join(' · ');
     return '<span class="ri" title="'+esc(all)+'">'+g.items.slice(0,3).map(chip).join('<span class="ri-s">،</span> ')+(g.items.length>3?' <a class="ri-more" href="javascript:void 0" onclick="toggleRegInv(\''+k+'\','+g.id+')" title="'+esc(all)+'">+'+(g.items.length-3)+' أصناف</a>':'')+'</span>'; };
 /* ===== سجل فواتير الشراء — بحث متعدد + عرض ملخّص/تفصيلي ===== */
