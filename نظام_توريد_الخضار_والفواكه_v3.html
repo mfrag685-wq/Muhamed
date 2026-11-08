@@ -508,6 +508,16 @@ table.rp-table thead th{position:sticky;top:0;z-index:3;background:#1e293b;color
 table.rp-table tbody tr:nth-child(even):not(.day-row):not(.sub-row):not(.total-row){background:#f8fafc}
 table.rp-table tbody tr:hover:not(.day-row){background:#eef4ff}
 table.rp-table td.n{direction:ltr;text-align:left;font-variant-numeric:tabular-nums;white-space:nowrap}
+/* 🖥 الشاشات العريضة: استغلال كامل العرض + التفاف النصوص الطويلة بدل التمرير يميناً ويساراً (الأرقام والتواريخ لا تنقسم) */
+@media (min-width:901px){
+  .wrap{max-width:none;margin:0 12px}
+  th{white-space:normal;line-height:1.25;padding:8px 5px}
+  td{white-space:normal;padding:6px 5px}
+  td.n,td.num,td.ld-num,.n,.num{white-space:nowrap}
+  table.rp-table{font-size:12.5px}
+  table.rp-table th,table.rp-table th.name,table.rp-table td.name{min-width:0}
+  table.rp-table tr:not(.sub-row):not(.day-row):not(.total-row) td:first-child{white-space:nowrap}
+}
 table.rp-table td.neg{color:#c1262b;font-weight:700}
 table.rp-table tr.day-row td{background:#e0e7ff!important;color:#1e3a8a;font-weight:800;border-top:2px solid #a5b4fc}
 table.rp-table tr.sub-row td{background:#f1f5f9!important;color:#0f172a;border-bottom:2px solid #cbd5e1}
@@ -2436,7 +2446,7 @@ td.cash-in{color:#1f6b45;font-weight:700}td.cash-out{color:#b42318;font-weight:7
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-08-o';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-08-p';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
