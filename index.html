@@ -2431,7 +2431,7 @@ td.cash-in{color:#1f6b45;font-weight:700}td.cash-out{color:#b42318;font-weight:7
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-08-g';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-08-h';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -4690,7 +4690,7 @@ function ldC2(x){ if(!ldV(x.rc)&&!ldV(x.tc)) return {c:'w',t:'⏳ بانتظار
 function ldTwLink(v){ return v==null?'<i class="tw-l tw-n">┄</i>':(v?'<i class="tw-l tw-b">⚠ '+(v>0?'+':'')+qty(v)+'</i>':'<i class="tw-l tw-g">✓</i>'); }
 function ldTwChain(x){ var o=ldTw(x), V=function(v){ return ldV(v)?qty(+v):'—'; };
   return '<div class="tw-ch"><span class="tw-n1"><b>🚚 '+qty(x.pal)+'</b><em>خرج</em></span><span class="tw-ar">'+ldTwLink(o.p1)+'</span>'
-    +'<span class="tw-n2"><b>📦 '+V(x.r)+(+x.t>0?'<small>+'+qty(+x.t)+'م</small>':'')+'</b><em>استلم</em></span><span class="tw-ar">'+ldTwLink(o.p2)+'</span>'
+    +'<span class="tw-n2"><b>📦 '+V(x.r)+(+x.t>0?'<small>+'+qty(+x.t)+'م</small>':'')+'</b><em>استلم</em>'+cmpAdjHtml(x,'p',(+x.r||0)+(+x.t||0))+'</span><span class="tw-ar">'+ldTwLink(o.p2)+'</span>'
     +'<span class="tw-n3"><b>🧾 '+V(x.ap)+'</b><em>فاتورة</em></span></div>'; }
 function ldTwStH(x){ var st=ldTwSt(x); return '<span class="ld-chip ld-chip-'+st.c+'">'+st.t+'</span>'+(x.apBy?'<div class="mini">🧾 '+esc(x.apBy)+'</div>':''); }
 function ldTwStats(S){ var c={ok:0,deliv:0,bill:0,both:0,wait:0,inv:0}; S.forEach(function(x){ c[ldTwSt(x).k]++; });
@@ -4719,7 +4719,7 @@ function ldC2Html(S){ var tu=0,trc=0,ttc=0,nOk=0,nBad=0,nW=0;
   S.forEach(function(x){ var st=ldC2(x); tu+=x.u; trc+=+x.rc||0; ttc+=+x.tc||0; if(st.k==='ok') nOk++; else if(st.k==='bad') nBad++; else nW++;
     h+='<tr><td class="name ls-it"><b>'+esc(qbName('item',x.item))+'</b></td>'
       +'<td class="ld-num" data-l="🚚 محمّل"><b>'+qty(x.u)+'</b> <span class="mini">'+esc(x.unit)+'</span></td>'
-      +'<td class="ld-num" data-l="📦 مستلم">'+(ldV(x.rc)?qty(+x.rc):'—')+'</td>'
+      +'<td class="ld-num" data-l="📦 مستلم">'+(ldV(x.rc)?qty(+x.rc):'—')+cmpAdjHtml(x,'c',(+x.rc||0)+(+x.tc||0))+'</td>'
       +'<td class="ld-num" data-l="↩ مرتجع">'+(ldV(x.tc)?qty(+x.tc):(+x.t>0?'<span class="bad">؟</span>':'—'))+'</td>'
       +'<td class="ld-num" data-l="الفرق">'+(st.d==null?'—':ldSg(st.d))+'</td>'
       +'<td class="ld-num mini" data-l="⚖ الوزن">'+(ldV(x.w)?qty(+x.w)+' كغ'+(+x.rc>0?'<br>≈ '+qty(round2(+x.w/+x.rc))+' كغ/'+esc(x.unit):''):'—')+'</td>'
@@ -4744,10 +4744,14 @@ function ldConfAll(){ if(!ldConfOK()) return; var S=ldSummary(_ldDate), n=0;
    • نقص الاستلام (سجّل أقل مما خرج) = قيد «مدين» على العميل: بند مفتوح باسم يومه وصنفه.
    • زيادة الاستلام في يوم لاحق (سجّل أكثر مما خرج) = قيد «دائن» تعويضاً تلقائياً.
    • تعويض مستقل بأمر شراء لا يظهر في استلام أي يوم = قيد «دائن» يدوي.
+   • تسوية (لن يُعوَّض): تُغلق نقصاً كعجز نهائي أو زيادةً كزيادة نهائية مُعتمدة — دون أن تُعدّ تعويضاً.
+   • مبدأ «مشتريات مقابل مبيعات»: التعويض يُنسب إلى يوم النقص الأصلي، فيصبح استلام يوم النقص = ما سُجّل + ما عُوِّض لاحقاً، واستلام يوم التعويض = ما سُجّل − ما ذهب تعويضاً.
+   • كمّي فقط: لا يُنشئ قيوداً ولا يؤثر على كشف حساب العميل — المبالغ تُثبت من شاشة المبيعات بأوامر شراء العميل.
    كل دائن يُخصَّص لبند نقص محدد (المختار يدوياً أولاً ثم الأقدم فالأقدم)، والرصيد = مجموع المدين − مجموع الدائن دائماً. */
 var _cmpC=null, _cmpShowClosed=false;
 function cmpInval(){ _cmpC=null; }
 function cmpArr(){ return ldArr().filter(function(x){ return x.kind==='comp'; }); }
+function stlArr(){ return ldArr().filter(function(x){ return x.kind==='settle'; }); }
 function cmpCnt(C){ return +C.cnt||+C.kg||0; }   /* kg: حقل قديم كان يُكتب فيه العدد */
 function cmpU(dim,unit){ return dim==='p'?' ط':' '+(unit||'عدد'); }
 function ivDaysBetween(a,b){ try{ return Math.max(0,Math.round((new Date(b+'T00:00:00')-new Date(a+'T00:00:00'))/864e5)); }catch(e){ return 0; } }
@@ -4760,58 +4764,74 @@ function cmpLedger(){ if(_cmpC) return _cmpC;
     if((ldV(R.rc)||ldV(R.tc))&&!(+R.t>0&&!ldV(R.tc))) d.c=Z((+R.rc||0)+(+R.tc||0)-o.u);
     if(d.p||d.c) rows.push({date:R.date,item:+R.item,src:'day',ref:R.ref||'',d:d,out:o,rec:{p:(+R.r||0)+(+R.t||0),c:(+R.rc||0)+(+R.tc||0)}}); });
   cmpArr().forEach(function(C){ var d={}; if(+C.pal>0) d.p=round2(+C.pal); if(cmpCnt(C)>0) d.c=round2(cmpCnt(C)); if(d.p||d.c) rows.push({date:C.date,item:+C.item,src:'comp',ref:C.ref||'',id:C.id,target:C.target||'',note:C.note||'',by:C.by||'',d:d}); });
-  rows.sort(function(a,b){ return a.date<b.date?-1:a.date>b.date?1:(a.src==='day'?0:1)-(b.src==='day'?0:1); });
+  stlArr().forEach(function(S){ rows.push({date:S.date,item:+S.item,src:'settle',ref:'',id:S.id,target:S.target,note:S.reason||'',by:S.by||'',req:{p:+S.pal||0,c:+S.cnt||0},d:{}}); });
+  var RK={'day':0,'comp':1,'settle':2}; rows.sort(function(a,b){ return a.date<b.date?-1:a.date>b.date?1:RK[a.src]-RK[b.src]; });
   var G={}, byKey={}, SH=[];
-  var give=function(s,c){ var a=Z(Math.min(s.open,c.open)); if(a<=0) return; s.open=Z(s.open-a); c.open=Z(c.open-a); s.alloc.push({date:c.row.date,ref:c.row.ref,amt:a}); c.alloc.push({date:s.row.date,ref:s.row.ref,amt:a}); };
+  var give=function(s,c){ var a=Z(Math.min(s.open,c.open)); if(a<=0) return; s.open=Z(s.open-a); c.open=Z(c.open-a); s.alloc.push({date:c.row.date,ref:c.row.ref,amt:a,kind:c.row.src}); c.alloc.push({date:s.row.date,ref:s.row.ref,amt:a,kind:'day'}); };
   /* النقص أولاً في كل يوم ثم الدائن، حتى يُغلق تعويضُ اليوم نقصَ اليوم نفسه */
-  var seq=[]; rows.forEach(function(r){ ['p','c'].forEach(function(dim){ var v=r.d[dim]; if(v) seq.push({r:r,dim:dim,v:v}); }); });
-  seq.sort(function(a,b){ return a.r.date<b.r.date?-1:a.r.date>b.r.date?1:((a.v<0?0:1)-(b.v<0?0:1)); });
-  seq.forEach(function(q){ var r=q.r, g=G[r.item+'|'+q.dim]||(G[r.item+'|'+q.dim]={sh:[],cr:[]}), e={row:r,dim:q.dim,amt:Math.abs(q.v),open:Math.abs(q.v),alloc:[],t:q.v<0?'sh':'cr'};
+  var seq=[]; rows.forEach(function(r){ ['p','c'].forEach(function(dim){ if(r.src==='settle'){ if(r.req[dim]>0) seq.push({r:r,dim:dim,v:0,stl:1}); return; } var v=r.d[dim]; if(v) seq.push({r:r,dim:dim,v:v}); }); });
+  seq.sort(function(a,b){ var ka=a.stl?2:(a.v<0?0:1), kb=b.stl?2:(b.v<0?0:1); return a.r.date<b.r.date?-1:a.r.date>b.r.date?1:ka-kb; });
+  seq.forEach(function(q){ var r=q.r;
+    if(q.stl){ var tg=byKey[r.target+'|'+r.item+'|'+q.dim], a=tg?Z(Math.min(tg.open,r.req[q.dim])):0; (r.e||(r.e={}));
+      if(a>0){ tg.open=Z(tg.open-a); tg.alloc.push({date:r.date,ref:'',amt:a,kind:'settle'}); r.d[q.dim]=tg.t==='sh'?a:-a; r.e[q.dim]={row:r,dim:q.dim,amt:a,open:0,alloc:[{date:tg.row.date,ref:tg.row.ref,amt:a,kind:'day'}],t:'stl',side:tg.t}; }
+      return; }
+    var g=G[r.item+'|'+q.dim]||(G[r.item+'|'+q.dim]={sh:[],cr:[]}), e={row:r,dim:q.dim,amt:Math.abs(q.v),open:Math.abs(q.v),alloc:[],t:q.v<0?'sh':'cr'};
     (r.e||(r.e={}))[q.dim]=e; if(r.src==='day') byKey[r.date+'|'+r.item+'|'+q.dim]=e;
     if(e.t==='sh'){ g.cr.forEach(function(c){ if(e.open>0&&c.open>0) give(e,c); }); g.sh.push(e); SH.push(e); }
     else { var L=g.sh.filter(function(s){ return s.open>0; }); if(r.target){ var ti=L.map(function(s){ return s.row.date; }).indexOf(r.target); if(ti>0) L.unshift(L.splice(ti,1)[0]); }
       L.forEach(function(s){ if(e.open>0) give(s,e); }); g.cr.push(e); } });
-  var items={}, T={p:0,c:0,up:0,uc:0,old:0,n:0};
+  var items={}, T={p:0,c:0,up:0,uc:0,old:0,n:0,lp:0,lc:0,xp:0,xc:0};
   rows.forEach(function(r){ var I=items[r.item]||(items[r.item]={item:r.item,unit:unitOf[r.item]||'كرتون',rows:[],bal:{p:0,c:0},open:0});
     I.rows.push(r); ['p','c'].forEach(function(dim){ var v=r.d[dim]||0; I.bal[dim]=round2(I.bal[dim]-v); }); r.bal={p:I.bal.p,c:I.bal.c}; });
   SH.forEach(function(s){ if(s.open>0){ T[s.dim]+=s.open; T.n++; items[s.row.item].open++; var a=ivDaysBetween(s.row.date,today()); if(a>T.old) T.old=a; } });
-  rows.forEach(function(r){ ['p','c'].forEach(function(dim){ var e=r.e&&r.e[dim]; if(e&&e.t==='cr'&&e.open>0) T['u'+dim]+=e.open; }); });
-  ['p','c','up','uc'].forEach(function(k){ T[k]=round2(T[k]); });
+  rows.forEach(function(r){ ['p','c'].forEach(function(dim){ var e=r.e&&r.e[dim]; if(e&&e.t==='cr'&&e.open>0) T['u'+dim]+=e.open; if(e&&e.t==='stl') T[(e.side==='sh'?'l':'x')+dim]+=e.amt; }); });
+  ['p','c','up','uc','lp','lc','xp','xc'].forEach(function(k){ T[k]=round2(T[k]); });
   return (_cmpC={rows:rows,items:items,sh:SH,byKey:byKey,T:T,unitOf:unitOf}); }
-function cmpAllocTxt(A,dim,unit){ return A.map(function(a){ return qty(a.amt)+cmpU(dim,unit)+' ← '+a.date.slice(5)+(a.ref?' ('+a.ref+')':''); }).join(' + '); }
-/* حالة فرق اليوم بعد ربطه بالدفتر */
-function cmpDayInfo(x,dim){ var L=cmpLedger(), e=L.byKey[x.date+'|'+x.item+'|'+dim]; if(!e) return null; var u=cmpU(dim,x.unit);
-  if(e.t==='sh'){ if(e.open<=0) return {done:1,t:'نقص '+qty(e.amt)+u+' عُوِّض: '+cmpAllocTxt(e.alloc,dim,x.unit)};
-    return {done:0,t:(e.alloc.length?'عُوِّض '+qty(round2(e.amt-e.open))+' · ':'')+'متبقٍ '+qty(e.open)+u+' في دفتر التعويضات'}; }
-  if(e.open<=0) return {done:1,t:'تعويض '+qty(e.amt)+u+' عن نقص '+cmpAllocTxt(e.alloc,dim,x.unit)};
-  return {done:0,t:(e.alloc.length?'منها تعويض '+qty(round2(e.amt-e.open))+' · ':'')+'زيادة '+qty(e.open)+u+' بلا نقص سابق'}; }
-function cmpRowDesc(r){ if(r.src==='comp') return '🧾 تعويض بأمر شراء مستقل'+(r.note?' — '+r.note:'');
+function cmpAllocTxt(A,dim,unit){ return A.map(function(a){ return qty(a.amt)+cmpU(dim,unit)+(a.kind==='settle'?' مُسوّى':'')+' ← '+a.date.slice(5)+(a.ref?' ('+a.ref+')':''); }).join(' + '); }
+/* حالة فرق اليوم بعد ربطه بالدفتر + الأثر على استلام اليوم (التعويض يُنسب ليوم النقص) */
+function cmpDayInfo(x,dim){ var L=cmpLedger(), e=L.byKey[x.date+'|'+x.item+'|'+dim]; if(!e) return null; var u=cmpU(dim,x.unit), adj=0, comp=0, stl=0, parts=[];
+  e.alloc.forEach(function(a){ if(a.kind==='settle') stl+=a.amt; else comp+=a.amt; }); comp=round2(comp); stl=round2(stl);
+  var cd=e.alloc.filter(function(a){ return a.kind!=='settle'; }).map(function(a){ return a.date.slice(5)+(a.ref?' ('+a.ref+')':''); }).join('، ');
+  if(e.t==='sh'){ adj=comp;
+    if(comp) parts.push('عُوِّض '+qty(comp)+u+' ← '+cd); if(stl) parts.push('مُسوّى '+qty(stl)+u+' عجزاً نهائياً');
+    if(e.open<=0) return {done:1,adj:adj,t:(comp&&!stl?'مطابق بعد التعويض — ':'نقص '+qty(e.amt)+u+' — ')+parts.join(' · ')};
+    return {done:0,adj:adj,t:(parts.length?parts.join(' · ')+' · ':'')+'متبقٍ '+qty(e.open)+u+' في دفتر التعويضات'}; }
+  adj=-comp;
+  if(comp) parts.push('منها '+qty(comp)+u+' تعويض لنقص '+cd); if(stl) parts.push('زيادة '+qty(stl)+u+' مُسوّاة نهائياً');
+  if(e.open<=0) return {done:1,adj:adj,t:(comp&&!stl?'مطابق بعد نسب التعويض ليومه — ':'')+parts.join(' · ')};
+  return {done:0,adj:adj,t:(parts.length?parts.join(' · ')+' · ':'')+'زيادة '+qty(e.open)+u+' بلا نقص سابق'}; }
+/* خلية «المستلم» مع الأثر: الخام ± التعويض = المعدَّل */
+function cmpAdjHtml(x,dim,raw){ if(!ldConfOK()||!x.date) return ''; var ci=cmpDayInfo(x,dim); if(!ci||!ci.adj) return '';
+  return '<div class="mini cmp-adj" title="التعويض منسوب إلى يوم النقص الأصلي">'+(ci.adj>0?'+':'−')+qty(Math.abs(ci.adj))+' = <b>'+qty(round2(raw+ci.adj))+'</b> بعد التعويض</div>'; }
+function cmpRowDesc(r){ if(r.src==='settle'){ var sd=['p','c'].map(function(d){ return r.e&&r.e[d]; }).filter(Boolean)[0]; return '⚖ تسوية نهائية ليوم '+r.target+' — '+(sd?(sd.side==='sh'?'عجز لا يُعوَّض':'زيادة تُعتمد نهائياً'):'لا أثر (البند مُغلق)')+(r.note?' — '+r.note:''); }
+  if(r.src==='comp') return '🧾 تعويض بأمر شراء مستقل'+(r.note?' — '+r.note:'');
   var s=[]; if(r.d.p) s.push((r.d.p<0?'نقص':'زيادة')+' طبالي'); if(r.d.c) s.push((r.d.c<0?'نقص':'زيادة')+' عدد');
   return '📦 استلام اليوم: '+s.join(' و')+' (خرج '+qty(r.out.pal)+' ط / '+qty(r.out.u)+' · سُجّل '+qty(r.rec.p)+' ط / '+qty(r.rec.c)+')'; }
 function cmpLinkTxt(r,unit){ return ['p','c'].map(function(dim){ var e=r.e&&r.e[dim]; if(!e) return ''; var u=cmpU(dim,unit);
+    if(e.t==='stl') return '';
     if(e.t==='sh') return e.open>0?(e.alloc.length?'عُوِّض '+cmpAllocTxt(e.alloc,dim,unit)+' · ':'')+'مفتوح '+qty(e.open)+u:'✅ أُغلق: '+cmpAllocTxt(e.alloc,dim,unit);
     return (e.alloc.length?'سدّد '+cmpAllocTxt(e.alloc,dim,unit):'')+(e.open>0?(e.alloc.length?' · ':'')+'غير مرتبط '+qty(e.open)+u:''); }).filter(Boolean).join(' | '); }
-function cmpBalTxt(b,unit){ var f=function(v,dim){ return v>0?'<b>'+qty(v)+cmpU(dim,unit)+' لنا</b>':v<0?qty(-v)+cmpU(dim,unit)+' للعميل':'0'; }; return f(b.p,'p')+' · '+f(b.c,'c'); }
+function cmpBalTxt(b,unit){ var f=function(v,dim){ return v>0?'<b>ناقص '+qty(v)+cmpU(dim,unit)+'</b>':v<0?'زائد '+qty(-v)+cmpU(dim,unit):'0'; }; return f(b.p,'p')+' · '+f(b.c,'c'); }
 function cmpHtml(){ if(!ldConfOK()) return '';
   var L=cmpLedger(), T=L.T, chip=function(c,t){ return '<span class="ld-chip ld-chip-'+c+'">'+t+'</span>'; };
   var its=Object.keys(L.items).map(function(k){ return L.items[k]; }).filter(function(I){ return _cmpShowClosed||I.open||I.bal.p||I.bal.c; })
     .sort(function(a,b){ return String(qbName('item',a.item)).localeCompare(String(qbName('item',b.item)),'ar'); });
-  var h='<div class="ld-sum ld-cmp" id="ldCmp"><div class="tt-head"><b class="tt-title">📒 دفتر التعويضات — كشف حساب بالطبالي والعدد</b>'
-    +'<span class="mini">مدين = نقص سجّله العميل أقل مما خرج في البرادات · دائن = زيادة في استلام يوم لاحق أو تعويض بأمر شراء مستقل · الرصيد المفتوح يبقى حتى يُسدَّد مهما تغيّر اليوم أو رقم أمر الشراء</span>'
+  var h='<div class="ld-sum ld-cmp" id="ldCmp"><div class="tt-head"><b class="tt-title">📒 دفتر التعويضات — متابعة كمّية بالطبالي والعدد</b>'
+    +'<span class="mini">نقص = سجّل العميل أقل مما خرج في البرادات · تعويض = زيادة في استلام يوم لاحق أو أمر شراء مستقل (يُنسب ليوم النقص) · تسوية = إغلاق نهائي بلا تعويض · <b>كمّي فقط — لا يؤثر على كشف حساب العميل</b>؛ المبالغ تُثبت من شاشة المبيعات بأوامر شراء العميل</span>'
     +'<span class="tt-tools"><button class="btn-alt" onclick="cmpForm()">➕ تعويض بأمر شراء مستقل</button><label class="mini" style="display:inline-flex;gap:4px;align-items:center"><input type="checkbox"'+(_cmpShowClosed?' checked':'')+' onchange="_cmpShowClosed=this.checked;cmpRefresh()"> كل الأصناف</label><button class="btn-sm" onclick="cmpImage()">🖨 طباعة / صورة</button></span></div>'
     +'<div class="tw-stats">'+(T.n?chip('w','📦 طبالي مفتوحة '+qty(T.p))+chip('w','🔢 عدد مفتوح '+qty(T.c))+chip('w','⏳ أقدم نقص منذ '+T.old+' يوم'):chip('g','✅ لا يوجد نقص مفتوح'))
-      +((T.up||T.uc)?chip('b','➕ زيادات بلا نقص سابق: '+(T.up?qty(T.up)+' ط ':'')+(T.uc?qty(T.uc)+' عدد':'')):'')+'</div><div id="cmpFormBox"></div>';
+      +((T.up||T.uc)?chip('b','➕ زيادات بلا نقص سابق: '+(T.up?qty(T.up)+' ط ':'')+(T.uc?qty(T.uc)+' عدد':'')):'')+((T.lp||T.lc)?chip('b','⚖ عجز مُسوّى نهائياً: '+(T.lp?qty(T.lp)+' ط ':'')+(T.lc?qty(T.lc)+' عدد':'')):'')+((T.xp||T.xc)?chip('b','⚖ زيادة مُسوّاة: '+(T.xp?qty(T.xp)+' ط ':'')+(T.xc?qty(T.xc)+' عدد':'')):'')+'</div><div id="cmpFormBox"></div>';
   if(!its.length) return h+'<div class="mini" style="padding:6px">لا توجد فروقات مسجّلة بين ما خرج وما استلمه العميل.</div></div>';
-  h+='<div class="table-scroll"><table class="ld-sumtb ld-conftb cmp-tb"><thead><tr><th>التاريخ</th><th class="name">البيان</th><th class="name">أمر الشراء</th><th>مدين (نقص)<br><span class="mini">ط · عدد</span></th><th>دائن (تعويض)<br><span class="mini">ط · عدد</span></th><th>الرصيد</th><th class="name">الربط</th><th></th></tr></thead><tbody>';
+  h+='<div class="table-scroll"><table class="ld-sumtb ld-conftb cmp-tb"><thead><tr><th>التاريخ</th><th class="name">البيان</th><th class="name">أمر الشراء</th><th>نقص<br><span class="mini">ط · عدد</span></th><th>تعويض / تسوية<br><span class="mini">ط · عدد</span></th><th>الرصيد الكمّي</th><th class="name">الربط</th><th></th></tr></thead><tbody>';
   its.forEach(function(I){ var nm=qbName('item',I.item), u=I.unit;
     h+='<tr class="cmp-ih"><td colspan="8" class="name" style="background:#eef5f0"><b>'+esc(nm)+'</b> — الرصيد: '+cmpBalTxt(I.bal,u)+'</td></tr>';
     I.rows.forEach(function(r){ var dr=[], cr=[]; ['p','c'].forEach(function(dim){ var v=r.d[dim]||0, t=v?qty(Math.abs(v))+cmpU(dim,u):''; (v<0?dr:v>0?cr:[]).push(t); });
-      var sh=['p','c'].map(function(dim){ var e=r.e&&r.e[dim]; return e&&e.t==='sh'&&e.open>0?e:null; }).filter(Boolean)[0];
+      var sh=['p','c'].map(function(dim){ var e=r.e&&r.e[dim]; return e&&e.t==='sh'&&e.open>0?e:null; }).filter(Boolean)[0], op=['p','c'].map(function(dim){ var e=r.e&&r.e[dim]; return e&&(e.t==='sh'||e.t==='cr')&&e.open>0&&r.src==='day'?e:null; }).filter(Boolean)[0];
       h+='<tr><td data-l="التاريخ"><a href="javascript:void 0" onclick="_ldDate=\''+r.date+'\';renderLoads()">'+esc(r.date)+'</a></td>'
         +'<td class="name mini" data-l="البيان">'+esc(cmpRowDesc(r))+(r.by?' — '+esc(r.by):'')+'</td><td class="name" data-l="أمر الشراء">'+esc(r.ref||'—')+'</td>'
         +'<td class="ld-num" data-l="مدين">'+(dr.join(' · ')||'—')+'</td><td class="ld-num" data-l="دائن">'+(cr.join(' · ')||'—')+'</td>'
         +'<td class="ld-num mini" data-l="الرصيد">'+cmpBalTxt(r.bal,u)+'</td><td class="name mini" data-l="الربط">'+esc(cmpLinkTxt(r,u))+'</td>'
-        +'<td>'+(r.src==='comp'?'<button class="btn-sm btn-del" onclick="cmpDel(\''+r.id+'\')" title="حذف التعويض">🗑</button>':(sh?'<button class="btn-sm" onclick="cmpForm('+r.item+',\''+r.date+'\')">↩ عوِّض</button>':''))+'</td></tr>'; }); });
+        +'<td style="white-space:nowrap">'+(r.src!=='day'?'<button class="btn-sm btn-del" onclick="cmpDel(\''+r.id+'\')" title="حذف">🗑</button>':(sh?'<button class="btn-sm" onclick="cmpForm('+r.item+',\''+r.date+'\')">↩ عوِّض</button> ':'')+(op?'<button class="btn-sm" onclick="cmpSettle('+r.item+',\''+r.date+'\')" title="إغلاق الفرق نهائياً دون تعويض">⚖ تسوية</button>':''))+'</td></tr>'; }); });
   return h+'</tbody></table></div></div>'; }
 function cmpRefresh(){ cmpInval(); var e=document.getElementById('ldCmp'); if(e) e.outerHTML=cmpHtml(); }
 function cmpItems(){ var m={}; ldArr().forEach(function(L){ if(!L.kind) L.lines.forEach(function(l){ if(ldLineOk(l)) m[+l.item]=1; }); });
@@ -4840,19 +4860,25 @@ function cmpSave(){ if(!ldConfOK()) return; var d=val('cm_date'), it=+val('cm_it
   ldArr().push(C); cmpInval();
   log('add','البرادات','تعويض بأمر شراء مستقل: '+qbName('item',it)+' بتاريخ '+d+(p?' — '+p+' ط':'')+(c?' — عدد '+c:'')+(C.ref?' — أمر '+C.ref:'')+(C.target?' سداداً لنقص '+C.target:''));
   commit('✅ سُجّل التعويض وخُصِّص للنقص المفتوح'); renderLoads(); }
-function cmpDel(id){ var C=byId(ldArr(),id); if(!C||!ldConfOK()) return; if(!confirm('حذف هذا التعويض؟ سيعود النقص المرتبط به مفتوحاً')) return;
+function cmpSettle(item,date){ if(!ldConfOK()) return; var L=cmpLedger(), e={p:L.byKey[date+'|'+item+'|p'],c:L.byKey[date+'|'+item+'|c']}, u=L.unitOf[item], txt=[], amt={p:0,c:0};
+  ['p','c'].forEach(function(d){ var x=e[d]; if(x&&x.open>0){ amt[d]=x.open; txt.push((x.t==='sh'?'عجز ':'زيادة ')+qty(x.open)+cmpU(d,u)); } });
+  if(!txt.length){ toast('لا يوجد فرق مفتوح لهذا اليوم'); return; }
+  var why=prompt('تسوية نهائية — '+qbName('item',item)+' يوم '+date+':\n'+txt.join(' و')+'\nيُغلق الفرق نهائياً دون تعويض (كمّياً فقط — لا أثر على كشف حساب العميل).\n\nاكتب سبب التسوية:',''); if(why==null) return;
+  var S={id:'stl:'+Date.now()+':'+Math.floor(Math.random()*1e4),kind:'settle',date:today(),item:+item,target:date,pal:amt.p||'',cnt:amt.c||'',reason:String(why).trim(),uid:ME.id,by:ME.name,ts:nowTs(),editTs:nowTs(),editMs:Date.now()};
+  ldArr().push(S); cmpInval(); log('add','البرادات','تسوية نهائية: '+qbName('item',item)+' يوم '+date+' — '+txt.join(' و')+(S.reason?' — '+S.reason:'')); commit('⚖ تمت التسوية — أُغلق الفرق نهائياً'); renderLoads(); }
+function cmpDel(id){ var C=byId(ldArr(),id); if(!C||!ldConfOK()) return; if(!confirm(C.kind==='settle'?'حذف هذه التسوية؟ سيعود الفرق مفتوحاً':'حذف هذا التعويض؟ سيعود النقص المرتبط به مفتوحاً')) return;
   db.loads=ldArr().filter(function(x){ return x.id!==id; }); cmpInval();
-  log('delete','البرادات','حذف تعويض '+qbName('item',C.item)+' بتاريخ '+C.date+(C.ref?' ('+C.ref+')':'')); commit('🗑 حُذف التعويض'); renderLoads(); }
+  log('delete','البرادات','حذف '+(C.kind==='settle'?'تسوية ':'تعويض ')+qbName('item',C.item)+' بتاريخ '+C.date+(C.ref?' ('+C.ref+')':'')); commit(C.kind==='settle'?'🗑 حُذفت التسوية':'🗑 حُذف التعويض'); renderLoads(); }
 function cmpImage(ready){ if(!ready){ rptReady(function(){ cmpImage(1); }); return; }
   var L=cmpLedger(), T=L.T, secs=[];
   Object.keys(L.items).map(function(k){ return L.items[k]; }).filter(function(I){ return I.open||I.bal.p||I.bal.c; }).forEach(function(I,ix){ var u=I.unit, rows=[], cls=[];
     I.rows.forEach(function(r){ var dr=[],cr=[]; ['p','c'].forEach(function(dim){ var v=r.d[dim]||0; if(v) (v<0?dr:cr).push(qty(Math.abs(v))+cmpU(dim,u)); });
-      rows.push([r.date,r.src==='comp'?'تعويض مستقل':((r.d.p||r.d.c)<0?'نقص استلام':'زيادة استلام'),r.ref||'—',dr.join(' · ')||'—',cr.join(' · ')||'—',cmpBalTxt(r.bal,u).replace(/<[^>]+>/g,''),cmpLinkTxt(r,u).replace(/ كرتون| عدد/g,'').replace(/✅ أُغلق: /g,'✅ ')]); cls.push(''); });
+      rows.push([r.date,r.src==='settle'?'تسوية نهائية ('+r.target.slice(5)+')':r.src==='comp'?'تعويض مستقل':((r.d.p||r.d.c)<0?'نقص استلام':'زيادة استلام'),r.ref||'—',dr.join(' · ')||'—',cr.join(' · ')||'—',cmpBalTxt(r.bal,u).replace(/<[^>]+>/g,''),cmpLinkTxt(r,u).replace(/ كرتون| عدد/g,'').replace(/✅ أُغلق: /g,'✅ ')]); cls.push(''); });
     rows.push(['','الرصيد المفتوح','','','',cmpBalTxt(I.bal,u).replace(/<[^>]+>/g,''),'']); cls.push('total-row');
-    secs.push({title:'📦 '+qbName('item',I.item),head:['التاريخ','البيان','أمر الشراء','مدين (نقص)','دائن (تعويض)','الرصيد','الربط'],rows:rows,cls:cls,color:['#1f6b45','#0e7490','#2f5fa8','#8a6d1d'][ix%4]}); });
+    secs.push({title:'📦 '+qbName('item',I.item),head:['التاريخ','البيان','أمر الشراء','نقص','تعويض / تسوية','الرصيد الكمّي','الربط'],rows:rows,cls:cls,color:['#1f6b45','#0e7490','#2f5fa8','#8a6d1d'][ix%4]}); });
   if(!secs.length) secs.push({title:'✅ لا يوجد نقص مفتوح',head:['البيان'],rows:[['كل الفروقات بين ما خرج وما استلمه العميل مُسدَّدة']]});
-  var o={date:today(),docNo:'CMP-'+today().replace(/-/g,''),title:'كشف التعويضات'+deptTag(),sub:'مدين = نقص استلام · دائن = تعويض · بالطبالي والعدد',clientLogo:rptClientLogoSrc(),rowH:26,minW:1100,
-    kpis:[['طبالي مفتوحة',qty(T.p),'','#1e3a5f'],['عدد مفتوح',qty(T.c),'','#2f5fa8'],['بنود مفتوحة',String(T.n),'','#8a6d1d'],['أقدم نقص (يوم)',String(T.old),'','#14532d']],sections:secs};
+  var o={date:today(),docNo:'CMP-'+today().replace(/-/g,''),title:'كشف التعويضات'+deptTag(),sub:'متابعة كمّية بالطبالي والعدد — لا تؤثر على كشف حساب العميل',clientLogo:rptClientLogoSrc(),rowH:26,minW:1100,
+    kpis:[['طبالي مفتوحة',qty(T.p),'','#1e3a5f'],['عدد مفتوح',qty(T.c),'','#2f5fa8'],['عجز مُسوّى نهائياً',qty(T.lp)+' ط · '+qty(T.lc),'','#8a6d1d'],['أقدم نقص (يوم)',String(T.old),'','#14532d']],sections:secs};
   openSheet(sheetCanvas(o),'كشف_التعويضات_'+today()+'.png','كشف التعويضات',function(){ return repSheetHtml(o); }); }
 var _ldRcvT=null;
 function ldRcvSet(el){ if(!ldCanRecv()) return; var item=+el.dataset.it, f=el.dataset.rf, id=ldRcvId(_ldDate,item);
