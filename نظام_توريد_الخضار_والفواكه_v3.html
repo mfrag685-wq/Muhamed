@@ -2369,6 +2369,7 @@ td.cash-in{color:#1f6b45;font-weight:700}td.cash-out{color:#b42318;font-weight:7
   <div class="form-foot">
     <button class="btn-alt" onclick="exportBackup()">تنزيل نسخة احتياطية شاملة (JSON)</button>
     <button class="btn" onclick="recycleOpen()">🗑 سلة المحذوفات (استعادة)</button>
+    <button class="btn" onclick="invOpen()">🔎 تحقيق الأرصدة (ماذا تغيّر؟)</button>
     <button class="btn" onclick="document.getElementById('recoverFile').click()">♻️ استعادة المحذوف من ملف نسخة</button>
     <input type="file" id="recoverFile" accept=".json" class="hidden" onchange="recoverFromFile(event)">
     <button class="btn" onclick="document.getElementById('importFile').click()">استعادة من نسخة (استبدال)</button>
@@ -2434,7 +2435,7 @@ td.cash-in{color:#1f6b45;font-weight:700}td.cash-out{color:#b42318;font-weight:7
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-08-i';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-08-j';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -2663,6 +2664,38 @@ function recycleOpen(){ if(!ME||!(ME.role==='admin'||can('settings'))){ toast('�
     h+='</tbody></table></div>'; }
   box.innerHTML=h+'</div>'; box.style.display='block'; }
 function __rfMarker(){}
+/* ===== 🔎 تحقيق الأرصدة: ماذا تغيّر في الفترة؟ (حذف · تعديل · إضافة) — لكشف سبب أي فرق في الأرصدة =====
+   • المعرّف يحمل وقت إنشاء السجل (ملّي ثانية × 1000) · شاهد الحذف يحمل وقت الحذف
+   • لكل حذف: هل توجد عملية «حذف» مسجّلة في سجل الحركات في نفس الوقت؟ إن لم توجد ⇒ حذف آلي (مزامنة) */
+function ivMsDay(ms){ var d=new Date(ms); return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,16).replace('T',' '); }
+function invOpen(){ if(!ME||ME.role!=='admin'){ toast('لمدير النظام فقط'); return; }
+  var f=prompt('تحقيق الأرصدة — من تاريخ (YYYY-MM-DD):',today()); if(f==null) return; f=f.trim()||today();
+  var from=new Date(f+'T00:00:00').getTime(), to=Date.now()+60000, dk=db.activeDept, dep=db.departments[dk]||{};
+  var aud=(db.audit||[]).filter(function(a){ return a&&a.ts&&a.ts>=f; });
+  var audAt=function(ms,act,win){ var t=ivMsDay(ms); return aud.filter(function(a){ return (!act||a.action===act)&&Math.abs(new Date(a.ts.replace(' ','T')+':00').getTime()-new Date(t.replace(' ','T')+':00').getTime())<=(win||2)*60000; }); };
+  var desc=function(bk,r){ return (RC_BOOKS[bk]||bk)+(r?' — '+rcSummary({rec:r}):''); };
+  /* 1) المحذوفات */
+  var tomb=db.tombstones||{}, rows=[], recBy={};
+  (dep.recycle||[]).forEach(function(x){ recBy[x.rid]=x; });
+  Object.keys(tomb).forEach(function(id){ var ms=+tomb[id]; if(!(ms>=from&&ms<=to)) return; if(/^user:|^rc:/.test(id)) return; var nid=+id; if(!(nid>1e15)) return;
+    var cr=Math.floor(nid/1000), rc=recBy[id], dl=audAt(ms,'delete',2), ad=audAt(cr,'add',1).filter(function(a){ return a.dept===dk; });
+    if(!rc&&!ad.length) return;   /* سجل لا يخص هذا القسم */
+    rows.push({ms:ms,t:ivMsDay(ms),cr:ivMsDay(cr),what:rc?desc(rc.bk,rc.rec):(ad[0]?ad[0].entity+' — '+ad[0].details:'سجل #'+id),how:dl.length?'🗑 حذف بواسطة '+dl.map(function(a){ return a.user+': '+a.details; }).join(' | '):'⚠ بلا عملية حذف مسجّلة — حذف آلي بالمزامنة'}); });
+  rows.sort(function(a,b){ return a.ms-b.ms; });
+  /* 2) التعديلات والإضافات المؤثرة على الأرصدة */
+  var ch=[]; ['purchases','payments','preturns','discounts','journals','sales','sreturns'].forEach(function(bk){ (db[bk]||[]).forEach(function(r){ if(!r||r.id==null) return; var cr=Math.floor(+r.id/1000), em=+r.editMs||0;
+      if(em>=from) ch.push({ms:em,t:ivMsDay(em),k:'✏️ تعديل',what:desc(bk,r),by:(byId(db.users,r.editUid)||{}).name||''});
+      else if(cr>=from&&cr<=to) ch.push({ms:cr,t:ivMsDay(cr),k:'➕ إضافة',what:desc(bk,r),by:(byId(db.users,r.uid)||{}).name||''}); }); });
+  ch.sort(function(a,b){ return a.ms-b.ms; });
+  var sus=aud.filter(function(a){ return a.entity==='الحماية'||/شطب|دمج|استيراد|استعادة|نقل بيانات/.test(a.details||''); });
+  var box=document.getElementById('rcBox'); if(!box){ box=document.createElement('div'); box.id='rcBox'; box.className='ds-modal'; document.body.appendChild(box); }
+  var tb=function(head,list){ return '<div class="table-scroll" style="max-height:38vh"><table class="ld-sumtb"><thead><tr>'+head.map(function(h){ return '<th class="name">'+h+'</th>'; }).join('')+'</tr></thead><tbody>'+list.join('')+'</tbody></table></div>'; };
+  var h='<div style="max-width:1100px;width:100%;margin:20px auto;background:#fff;border-radius:14px;padding:14px;box-sizing:border-box"><div class="tt-head"><b class="tt-title">🔎 تحقيق الأرصدة — '+esc(deptName(dk))+' من '+esc(f)+'</b><span class="tt-tools"><button class="btn-sm" onclick="document.getElementById(\'rcBox\').style.display=\'none\'">✕ إغلاق</button></span></div>'
+    +'<h4>🗑 السجلات المحذوفة ('+rows.length+')</h4>'+(rows.length?tb(['وقت الحذف','أُنشئ','السجل','كيف حُذف'],rows.map(function(r){ return '<tr><td class="mini">'+esc(r.t)+'</td><td class="mini">'+esc(r.cr)+'</td><td class="name">'+esc(r.what)+'</td><td class="name mini">'+esc(r.how)+'</td></tr>'; })):'<div class="mini">لا يوجد حذف في الفترة</div>')
+    +'<h4>✏️ تعديلات وإضافات تؤثر على الأرصدة ('+ch.length+')</h4>'+(ch.length?tb(['الوقت','النوع','السجل','بواسطة'],ch.map(function(r){ return '<tr><td class="mini">'+esc(r.t)+'</td><td>'+r.k+'</td><td class="name">'+esc(r.what)+'</td><td class="mini">'+esc(r.by)+'</td></tr>'; })):'<div class="mini">لا يوجد</div>')
+    +'<h4>⚙ عمليات جماعية وتنبيهات حماية ('+sus.length+')</h4>'+(sus.length?tb(['الوقت','المستخدم','العملية'],sus.map(function(a){ return '<tr><td class="mini">'+esc(a.ts)+'</td><td class="mini">'+esc(a.user)+'</td><td class="name">'+esc(a.details)+'</td></tr>'; })):'<div class="mini">لا يوجد</div>')
+    +'<div class="mini" style="margin-top:8px">صوّر هذه الشاشة وأرسلها — تحدد بدقة ما الذي غيّر الأرصدة ومتى وكيف.</div></div>';
+  box.innerHTML=h; box.style.display='block'; }
 /* ♻️ استعادة المحذوف من ملف نسخة احتياطية: يعرض السجلات الموجودة في الملف والمحذوفة/المفقودة حالياً، وتختار ما يُعاد */
 var _rfCand=[];
 function recoverFromFile(ev){ var f=ev.target.files[0]; ev.target.value=''; if(!f) return;
@@ -14020,6 +14053,9 @@ function splitListen(){
     rr.on('value',function(s){ var v=s.val(); if(!v||!v.updatedAt||!splitMigratedAt||v.updatedAt<=splitMigratedAt+5000) return;
       var key=String(v.updatedAt); if(splitOldWrite===key) return; splitOldWrite=key;
       var d=splitParse(v); if(!d||!Array.isArray(d.users)) return;
+      /* جهاز قديم: نأخذ إضافاته وتعديلاته فقط — ولا نثق بشواهد الحذف القادمة منه (قد تحذف فواتير صحيحة من كل الأجهزة) */
+      var nT=d.tombstones?Object.keys(d.tombstones).length:0; d.tombstones={};
+      try{ log('data','الحماية','دمج كتابة من جهاز بإصدار قديم ('+(v.build||'?')+' — '+(v.updatedBy||'')+') — أُخذت إضافاته وتجوهلت شواهد الحذف منه ('+nT+')'); }catch(e){}
       try{ cloudApplyRemote(d,JSON.stringify(d)); splitPrune(); cloudLoopInfo=nowTs()+' — جهاز بإصدار قديم ('+(v.build||'?')+' — '+(v.updatedBy||'')+') كتب في التخزين القديم؛ دُمج ما كتبه. حدِّث ذلك الجهاز.'; }catch(e){} },function(){}); }
 }
 function splitDetach(){ Object.keys(splitRefs).forEach(function(k){ try{ splitRefs[k].off(); }catch(e){} }); splitRefs={}; cloudSplit=false; splitCache={core:null,depts:{}}; splitLast={}; }
