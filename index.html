@@ -2368,6 +2368,9 @@ td.cash-in{color:#1f6b45;font-weight:700}td.cash-out{color:#b42318;font-weight:7
   <div class="sec-title">البيانات والنسخ الاحتياطي</div>
   <div class="form-foot">
     <button class="btn-alt" onclick="exportBackup()">تنزيل نسخة احتياطية شاملة (JSON)</button>
+    <button class="btn" onclick="recycleOpen()">🗑 سلة المحذوفات (استعادة)</button>
+    <button class="btn" onclick="document.getElementById('recoverFile').click()">♻️ استعادة المحذوف من ملف نسخة</button>
+    <input type="file" id="recoverFile" accept=".json" class="hidden" onchange="recoverFromFile(event)">
     <button class="btn" onclick="document.getElementById('importFile').click()">استعادة من نسخة (استبدال)</button>
     <button class="btn" onclick="document.getElementById('mergeFile').click()">🔗 استيراد يدمج (بلا فقد)</button>
     <input type="file" id="mergeFile" accept=".json" class="hidden" onchange="importBackupMerge(event)">
@@ -2431,7 +2434,7 @@ td.cash-in{color:#1f6b45;font-weight:700}td.cash-out{color:#b42318;font-weight:7
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-08-h';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-08-i';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -2614,21 +2617,88 @@ function serializeDB(){
 function collectMergeIds(){
   var s={};
   if(db.departments) Object.keys(db.departments).forEach(function(dk){ var d=db.departments[dk]; if(!d||typeof d!=='object') return;
-    DEPT_BOOKS.forEach(function(bk){ (d[bk]||[]).forEach(function(r){ if(r&&r.id!=null) s[r.id]=1; }); });
+    DEPT_BOOKS.forEach(function(bk){ (d[bk]||[]).forEach(function(r){ if(r&&r.id!=null) s[r.id]={dk:dk,bk:bk,r:r}; }); });
     (d.notes||[]).forEach(function(r){ if(r&&r.id!=null) s[r.id]=1; });           /* الملاحظات خاصة بالقسم */
     (d.stockCountLog||[]).forEach(function(r){ if(r&&r.id!=null) s[r.id]=1; }); });  /* سجل الجرد خاص بالقسم */
   (db.interTransfers||[]).forEach(function(r){ if(r&&r.id!=null) s[r.id]=1; });
   (db.units||[]).forEach(function(r){ if(r&&r.id!=null) s[r.id]=1; });   /* الوحدات مشتركة: حذفها يُسجَّل كي لا تعود */
   return s;
 }
-var _knownIds=null;
+var _knownIds=null, _bulkDelOK=0;
+/* 🛡 حماية الحذف:
+   • كل سجل حركة يختفي (حذف عادي أو غير ذلك) تُحفظ نسخته الكاملة في «سلة المحذوفات» للقسم — قابلة للاستعادة.
+   • اختفاء أكثر من 5 سجلات دفعة واحدة دون عملية حذف جماعي مقصودة (شطب/دمج/تصفير) = اختفاء مريب:
+     لا يُعتمد حذفاً (لا شاهد حذف ينشره للأجهزة)، ويُعاد السجل فوراً إلى مكانه، ويُسجَّل تنبيه في سجل الحركات. */
+var RECYCLE_KEEP=600, RECYCLE_DAYS=60;
+function recyclePut(k,mode){ try{ if(!k||!k.dk||!k.r) return; var d=db.departments&&db.departments[k.dk]; if(!d) return;
+    if(!Array.isArray(d.recycle)) d.recycle=[]; var now=Date.now();
+    d.recycle.push({id:'rc:'+k.r.id+':'+now,rid:k.r.id,bk:k.bk,ms:now,at:nowTs(),by:ME?ME.name:'',mode:mode,rec:JSON.parse(JSON.stringify(k.r))});
+    var cut=now-RECYCLE_DAYS*864e5; d.recycle=d.recycle.filter(function(x){ return x&&(+x.ms||0)>=cut; }); if(d.recycle.length>RECYCLE_KEEP) d.recycle=d.recycle.slice(-RECYCLE_KEEP); }catch(e){} }
 function markDeletions(){
   if(!db.tombstones||typeof db.tombstones!=='object') db.tombstones={};
   var cur=collectMergeIds();
-  if(_knownIds) Object.keys(_knownIds).forEach(function(id){ if(!cur[id]) db.tombstones[id]=Date.now(); });   /* اختفى ⇒ حُذف */
-  _knownIds=cur;
+  if(_knownIds){ var gone=Object.keys(_knownIds).filter(function(id){ return !cur[id]; });
+    if(gone.length){ var sus=gone.length>5&&!_bulkDelOK, back=0;
+      gone.forEach(function(id){ var k=_knownIds[id]; if(k&&typeof k==='object'&&k.dk) recyclePut(k,sus?'auto':'del');
+        if(!sus){ db.tombstones[id]=Date.now(); return; }   /* اختفى بحذف مقصود ⇒ شاهد حذف */
+        if(k&&k.dk&&db.departments[k.dk]&&Array.isArray(db.departments[k.dk][k.bk])){ db.departments[k.dk][k.bk].push(k.r); cur[id]=k; back++; } });
+      if(sus){ try{ log('data','الحماية','⚠ اختفى '+gone.length+' سجل دفعة واحدة دون عملية حذف مقصودة — لم يُعتمد حذفاً وأُعيد '+back+' سجل إلى مكانه (نسخة في سلة المحذوفات)'); }catch(e){}
+        try{ setTimeout(function(){ toast('🛡 منع النظام اختفاء '+gone.length+' سجل غير مقصود وأعادها'); try{ refreshLedger(); scheduleFullRender(); }catch(e){} },50); }catch(e){} } } }
+  _bulkDelOK=0; _knownIds=cur;
 }
 function resetKnownIds(){ _knownIds=collectMergeIds(); }
+/* ===== 🗑 سلة المحذوفات (لكل قسم) — استعادة أي سجل حُذف أو اختفى خلال آخر 60 يوماً ===== */
+var RC_BOOKS={purchases:'فاتورة شراء',sales:'فاتورة بيع',payments:'سند تحصيل/سداد',expenses:'مصروف',preturns:'مرتجع شراء',sreturns:'مرتجع بيع',discounts:'خصم',clients:'عميل',suppliers:'مورد',items:'صنف',waste:'فاقد',transfers:'تحويل',openingStock:'رصيد افتتاحي',loads:'براد/تسليم',cashTxns:'حركة خزينة',journals:'قيد'};
+function rcSummary(x){ var r=x.rec||{}, p=[];
+  if(r.supplierId) p.push(supName(r.supplierId)); if(r.clientId) p.push(clientName(r.clientId)); if(r.name) p.push(r.name);
+  if(r.no) p.push('رقم '+r.no); if(r.date) p.push(r.date); var t=(+r.total||0)+(+r.vat||0); if(t) p.push(num(t)); else if(+r.amount) p.push(num(+r.amount));
+  if(Array.isArray(r.lines)&&r.lines.length) p.push(r.lines.length+' سطر'); return p.join(' · '); }
+function rcList(){ var d=dcur(); return (Array.isArray(d.recycle)?d.recycle:[]).filter(function(x){ return x&&!x.restored&&x.rec; }).sort(function(a,b){ return (+b.ms||0)-(+a.ms||0); }); }
+function recycleOpen(){ if(!ME||!(ME.role==='admin'||can('settings'))){ toast('سلة المحذوفات لمدير النظام'); return; }
+  var L=rcList(), box=document.getElementById('rcBox'); if(!box){ box=document.createElement('div'); box.id='rcBox'; box.className='ds-modal'; document.body.appendChild(box); }
+  var h='<div style="max-width:980px;width:100%;margin:20px auto;background:#fff;border-radius:14px;padding:14px;box-sizing:border-box"><div class="tt-head"><b class="tt-title">🗑 سلة المحذوفات — '+esc(deptName(db.activeDept))+'</b><span class="mini">كل سجل حُذف أو اختفى خلال آخر '+RECYCLE_DAYS+' يوماً — «استعادة» تعيده كما كان</span><span class="tt-tools"><button class="btn-sm" onclick="document.getElementById(\'rcBox\').style.display=\'none\'">✕ إغلاق</button></span></div>';
+  if(!L.length) h+='<div class="tt-allok">لا توجد سجلات محذوفة في هذا القسم</div>';
+  else { h+='<div class="table-scroll" style="max-height:70vh"><table class="ld-sumtb"><thead><tr><th>وقت الحذف</th><th>النوع</th><th class="name">البيان</th><th>بواسطة</th><th>الطريقة</th><th></th></tr></thead><tbody>';
+    L.forEach(function(x){ h+='<tr><td class="mini">'+esc(x.at||'')+'</td><td>'+esc(RC_BOOKS[x.bk]||x.bk)+'</td><td class="name">'+esc(rcSummary(x))+'</td><td class="mini">'+esc(x.by||'')+'</td><td class="mini">'+(x.mode==='auto'?'🛡 اختفاء غير مقصود (مُنع)':'حذف')+'</td><td><button class="btn-sm" onclick="recycleRestore(\''+esc(x.id)+'\')">↩ استعادة</button></td></tr>'; });
+    h+='</tbody></table></div>'; }
+  box.innerHTML=h+'</div>'; box.style.display='block'; }
+function __rfMarker(){}
+/* ♻️ استعادة المحذوف من ملف نسخة احتياطية: يعرض السجلات الموجودة في الملف والمحذوفة/المفقودة حالياً، وتختار ما يُعاد */
+var _rfCand=[];
+function recoverFromFile(ev){ var f=ev.target.files[0]; ev.target.value=''; if(!f) return;
+  if(!ME||!(ME.role==='admin'||can('settings'))){ toast('لمدير النظام فقط'); return; }
+  var rd=new FileReader(); rd.onload=function(e){ var inc; try{ inc=JSON.parse(e.target.result); }catch(_){ toast('الملف غير صالح'); return; }
+    var deps=inc.departments||{}; if(!Object.keys(deps).length&&Array.isArray(inc.purchases)) deps={_flat:inc};
+    var tomb=db.tombstones||{}; _rfCand=[];
+    Object.keys(deps).forEach(function(dk){ var src=deps[dk]; if(!src) return; var tk=dk==='_flat'?db.activeDept:dk, dst=db.departments[tk]; if(!dst) return;
+      DEPT_BOOKS.forEach(function(bk){ if(!RC_BOOKS[bk]) return; var have={}; (dst[bk]||[]).forEach(function(r){ if(r&&r.id!=null) have[r.id]=1; });
+        (src[bk]||[]).forEach(function(r){ if(!r||r.id==null||have[r.id]) return; _rfCand.push({dk:tk,bk:bk,rec:r,del:!!tomb[r.id]}); }); }); });
+    rfShow(f.name); };
+  rd.readAsText(f); }
+function rfShow(fname){ var box=document.getElementById('rcBox'); if(!box){ box=document.createElement('div'); box.id='rcBox'; box.className='ds-modal'; document.body.appendChild(box); }
+  var h='<div style="max-width:1050px;width:100%;margin:20px auto;background:#fff;border-radius:14px;padding:14px;box-sizing:border-box"><div class="tt-head"><b class="tt-title">♻️ استعادة من ملف: '+esc(fname||'')+'</b><span class="mini">سجلات موجودة في الملف وغير موجودة الآن — اختر ما تريد إعادته</span><span class="tt-tools"><button class="btn-sm" onclick="document.getElementById(\'rcBox\').style.display=\'none\'">✕ إغلاق</button></span></div>';
+  if(!_rfCand.length) h+='<div class="tt-allok">لا يوجد في الملف سجلات ناقصة عن البيانات الحالية</div>';
+  else { h+='<div class="tw-stats"><button class="btn-sm" onclick="document.querySelectorAll(\'.rf-ck\').forEach(function(c){c.checked=true})">تحديد الكل</button><button class="btn-sm" onclick="document.querySelectorAll(\'.rf-ck\').forEach(function(c){c.checked=false})">إلغاء التحديد</button><button class="btn" onclick="rfApply()">↩ استعادة المحدد</button></div>'
+    +'<div class="table-scroll" style="max-height:65vh"><table class="ld-sumtb"><thead><tr><th></th><th>القسم</th><th>النوع</th><th class="name">البيان</th><th>الحالة</th></tr></thead><tbody>';
+    _rfCand.forEach(function(c,i){ h+='<tr><td><input type="checkbox" class="rf-ck" data-i="'+i+'"'+(c.del&&/purchases|sales|payments|expenses|preturns|sreturns|discounts/.test(c.bk)?' checked':'')+'></td><td class="mini">'+esc(deptName(c.dk))+'</td><td>'+esc(RC_BOOKS[c.bk]||c.bk)+'</td><td class="name">'+esc(rcSummary({rec:c.rec}))+'</td><td class="mini">'+(c.del?'🗑 محذوف':'غير موجود')+'</td></tr>'; });
+    h+='</tbody></table></div>'; }
+  box.innerHTML=h+'</div>'; box.style.display='block'; }
+function rfApply(){ var sel=[].slice.call(document.querySelectorAll('.rf-ck')).filter(function(c){ return c.checked; }).map(function(c){ return _rfCand[+c.dataset.i]; });
+  if(!sel.length){ toast('حدّد سجلاً واحداً على الأقل'); return; }
+  if(!confirm('استعادة '+sel.length+' سجل من الملف؟')) return;
+  var n=0; sel.forEach(function(c){ var d=db.departments[c.dk]; if(!d) return; if(!Array.isArray(d[c.bk])) d[c.bk]=[]; if(d[c.bk].some(function(r){ return r&&r.id===c.rec.id; })) return;
+    var r=JSON.parse(JSON.stringify(c.rec)); r.editMs=Date.now(); r.editTs=nowTs(); d[c.bk].push(r); if(db.tombstones) delete db.tombstones[r.id]; n++; });
+  loadDept(db.activeDept); log('add','الحماية','استعادة '+n+' سجل محذوف من ملف نسخة احتياطية'); refreshLedger(); commit('↩ استُعيد '+n+' سجل'); document.getElementById('rcBox').style.display='none'; try{ renderAll(); }catch(e){} }
+function recycleRestore(id){ var d=dcur(), x=(d.recycle||[]).filter(function(e){ return e.id===id; })[0]; if(!x) return;
+  if(!Array.isArray(d[x.bk])&&DEPT_BOOKS.indexOf(x.bk)<0){ toast('نوع سجل غير معروف'); return; }
+  var arr=db[x.bk]; if(!Array.isArray(arr)){ toast('تعذّرت الاستعادة'); return; }
+  if(arr.some(function(r){ return r&&r.id===x.rid; })){ toast('السجل موجود بالفعل'); x.restored=nowTs(); x.editMs=Date.now(); persist(); recycleOpen(); return; }
+  if(x.rec.date&&!periodGuard(x.rec.date)) return;
+  if(!confirm('استعادة: '+(RC_BOOKS[x.bk]||x.bk)+' — '+rcSummary(x)+'؟')) return;
+  var r=JSON.parse(JSON.stringify(x.rec)); r.editMs=Date.now(); r.editTs=nowTs(); arr.push(r); if(db.tombstones) delete db.tombstones[x.rid];
+  x.restored=nowTs(); x.editMs=Date.now();
+  log('add','الحماية','استعادة من سلة المحذوفات: '+(RC_BOOKS[x.bk]||x.bk)+' — '+rcSummary(x)); refreshLedger(); commit('↩ تمت الاستعادة'); recycleOpen(); }
+
 function ensureDbShape(){
   ['users','audit','units','interTransfers'].forEach(function(k){ if(!Array.isArray(db[k])) db[k]=[]; });   /* مشترك */
   db.audit.forEach(function(a){ if(a&&a.id==null) a.id=uid(); });   /* معرّف لكل حركة كي تكون قابلة للحذف الدائم */
@@ -11343,7 +11413,7 @@ function removeDupStockCounts(){
     (op.openIds||[]).forEach(function(x){ if(!ks['o'+x]) oi[String(x)]=1; });
   });
   var wB=db.waste.length, oB=db.openingStock.length;
-  db.waste=db.waste.filter(function(w){ return !wi[String(w.id)]; });
+  _bulkDelOK=1; db.waste=db.waste.filter(function(w){ return !wi[String(w.id)]; });
   db.openingStock=db.openingStock.filter(function(o){ return !oi[String(o.id)]; });
   var removedRecs=(wB-db.waste.length)+(oB-db.openingStock.length);
   var rm={}; removeOps.forEach(function(op){ rm[String(op.id)]=1; });
@@ -11375,7 +11445,7 @@ function restoreStockCount(opId){
   var wi={}; (op.wasteIds||[]).forEach(function(x){ wi[String(x)]=1; });
   var oi={}; (op.openIds||[]).forEach(function(x){ oi[String(x)]=1; });
   var wBefore=db.waste.length, oBefore=db.openingStock.length;
-  db.waste=db.waste.filter(function(w){ return !wi[String(w.id)]; });
+  _bulkDelOK=1; db.waste=db.waste.filter(function(w){ return !wi[String(w.id)]; });
   db.openingStock=db.openingStock.filter(function(o){ return !oi[String(o.id)]; });
   var removed=(wBefore-db.waste.length)+(oBefore-db.openingStock.length);
   dcur().stockCountLog=lg.filter(function(o){ return String(o.id)!==S; });
@@ -11483,7 +11553,7 @@ function deleteAdjBatch(i){
   var list=adjBatches(), g=list[i]; if(!g){ toast('الدفعة غير موجودة'); return; }
   if(!confirm('حذف دفعة «'+g.reason+'» بتاريخ '+g.date+' ('+g.n+' حركة بقيمة '+num(g.val)+')؟\nسيزول أثرها من المخزون وقائمة الدخل. نزّل نسخة احتياطية أولاً. متابعة؟')) return;
   var ids={}; g.ids.forEach(function(x){ ids[x]=1; });
-  if(g.kind==='waste') db.waste=db.waste.filter(function(w){ return !ids[w.id]; });
+  _bulkDelOK=1; if(g.kind==='waste') db.waste=db.waste.filter(function(w){ return !ids[w.id]; });
   else db.openingStock=db.openingStock.filter(function(o){ return !ids[o.id]; });
   /* نظّف أي إشارة في سجل الجرد (الخاص بالقسم) */
   (deptCountLog()).forEach(function(op){
@@ -11563,7 +11633,7 @@ function mergeItems(){
     if(srcSet[x.toItemId]){ x.toItemId=target.id; moved++; }
   });
   /* حذف الأصناف المصدر (عدا الهدف) */
-  db.items=db.items.filter(function(i){ return i.id===target.id||!srcSet[i.id]; });
+  _bulkDelOK=1; db.items=db.items.filter(function(i){ return i.id===target.id||!srcSet[i.id]; });
   log('edit','البيانات الأساسية',(others.length?('دمج '+(others.length+1)+' صنف في «'+target.name+'»'):('تحويل «'+target.name+'» للكيلو'))+(toKg?' وتحويل الحركات للكيلو':'')+' ('+moved+' حركة)');
   refreshLedger(); commit(others.length?'تم دمج الأصناف':'تم تحويل الصنف للكيلو'); fillAllSelects(); renderMaster(); renderMergeItemsUI();
   toast('تم تحديث '+moved+' حركة');
@@ -11618,7 +11688,7 @@ function consolidateDepts(){
     +'• سيُستبدل المحتوى الحالي لـ «'+deptName(dst)+'» ('+dc.clients+' عميل · '+dc.sales+' بيع) بالكامل.\n\n'
     +'⚠ هذه العملية لا تُدمج بل تستبدل. نزّل نسخة احتياطية أولاً. المتابعة؟')) return;
   var s=db.departments[src], d=db.departments[dst];
-  DEPT_BOOKS.forEach(function(k){ d[k]=Array.isArray(s[k])?s[k]:[]; s[k]=[]; });
+  _bulkDelOK=1; DEPT_BOOKS.forEach(function(k){ d[k]=Array.isArray(s[k])?s[k]:[]; s[k]=[]; });
   s.warehouses.push({id:uid(),name:'المستودع الرئيسي',clientId:null});   /* القسم المصدر يبدأ نظيفاً بمستودع افتراضي */
   curDept=dst; loadDept(dst);   /* انتقل للقسم الهدف ليرى المستخدم بياناته فوراً */
   dedupeDeptRefs();
@@ -13285,7 +13355,7 @@ function wipeEntries(){
   if(!arrs.length){ toast('اختر نوعاً واحداً على الأقل'); return; }
   var inR=function(d){ if(!from&&!to) return true; return inRange(d,from,to); };
   /* اجمع المحذوف لكل مصفوفة */
-  var removed={}, count=0;
+  var removed={}, count=0; _bulkDelOK=1;
   arrs.forEach(function(k){ removed[k]=(db[k]||[]).filter(function(r){ return inR(r.date); }); count+=removed[k].length; });
   if(!count){ toast('لا توجد إدخالات مطابقة للفترة'); return; }
   var scope=(from||to)?('من '+(from||'البداية')+' إلى '+(to||'اليوم')):'كل الفترات';
@@ -13899,7 +13969,10 @@ function splitApplyRemote(){
 }
 /* موظف مقيّد: لا يحتفظ جهازه بأقسام لا يملكها (ولا يحاول رفعها) */
 function splitPrune(){ if(splitIsAdmin||!db.departments) return; var ch=false;
-  Object.keys(db.departments).forEach(function(k){ if(splitAllowed.indexOf(k)<0&&Object.keys(db.departments).length>1){ delete db.departments[k]; ch=true; } });
+  Object.keys(db.departments).forEach(function(k){ if(splitAllowed.indexOf(k)<0&&Object.keys(db.departments).length>1){
+    try{ var dj=JSON.stringify(db.departments[k]); if(/"id"/.test(dj)) localStorage.setItem('veg_erp_pruned_'+k,JSON.stringify({at:nowTs(),dept:db.departments[k]})); }catch(e){}   /* نسخة محلية قبل الإزالة — لا يضيع ما لم يُرفع */
+    try{ log('data','الحماية','أُزيل قسم «'+deptName(k)+'» من هذا الجهاز لعدم وجود صلاحية خادم له — حُفظت نسخة محلية منه'); }catch(e){}
+    delete db.departments[k]; ch=true; } });
   if(ch){ try{ if(!db.departments[db.activeDept]) loadDept(Object.keys(db.departments)[0]); resetKnownIds();
       var st=JSON.stringify(serializeDB()); _lastLocalStr=st; lsSet(KEY,st);   /* لا تبقى نسخة محلية من أقسام غير مسموحة على جهاز الموظف */
       updateDeptUI(); refreshLedger(); scheduleFullRender(); }catch(e){} } }
@@ -14046,7 +14119,7 @@ function unionUsers(base,extra,tomb){
     if(!hit) base.push(u); });
   return base.filter(function(u){ return u&&!tomb['user:'+u.id]; });
 }
-var DEPT_META_SKIP={notes:1,stockCountLog:1,audit:1}; DEPT_BOOKS.forEach(function(k){ DEPT_META_SKIP[k]=1; });
+var DEPT_META_SKIP={notes:1,stockCountLog:1,audit:1,recycle:1}; DEPT_BOOKS.forEach(function(k){ DEPT_META_SKIP[k]=1; });
 /* بصمة الإعدادات: أي تغيير محلي في الإعدادات العامة أو إعدادات قسم يُختم بتوقيت (_ms) ليفوز في الدمج */
 var _metaSig=null;
 function metaSigs(){ var o={s:''}, strip=function(x){ var c={}; Object.keys(x||{}).forEach(function(k){ if(k!=='_ms'&&!DEPT_META_SKIP[k]) c[k]=x[k]; }); return JSON.stringify(c); };
@@ -14071,6 +14144,7 @@ function mergeCloud(localDb,remote){
       /* دفاتر القسم الخاصة: الملاحظات وسجل الجرد (دمج) والقفل (الأحدث حسب تاريخ القفل) */
       rd.notes=alive(unionById(rd.notes, ld.notes));
       rd.stockCountLog=alive(unionById(rd.stockCountLog, ld.stockCountLog));
+      if(ld.recycle||rd.recycle) rd.recycle=unionById(rd.recycle, ld.recycle);   /* سلة المحذوفات تُدمج ولا تُستبدل */
       if(ld.periodLock&&(!rd.periodLock||String(ld.periodLock.until||'')>String(rd.periodLock.until||''))) rd.periodLock=ld.periodLock;
       if(ld.entry&&!rd.entry) rd.entry=ld.entry;   /* إعدادات تنبيهات الإدخال خاصة بالقسم */
     });
