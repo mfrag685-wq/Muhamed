@@ -2435,7 +2435,7 @@ td.cash-in{color:#1f6b45;font-weight:700}td.cash-out{color:#b42318;font-weight:7
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-08-j';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-08-k';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -2456,7 +2456,7 @@ function lsSet(k,v){
 }
 function lsRemove(k){ try{ localStorage.removeItem(k); }catch(e){} }
 var _lastLocalStr='';   /* آخر نسخة نصية محفوظة محلياً — لتجنّب إعادة التسلسل الثقيل عند فحص صدى السحابة */
-function persist(){ syncActiveDept(); markDeletions(); try{ metaStamp(); }catch(e){} var s=JSON.stringify(serializeDB()); _lastLocalStr=s; lsSet(KEY,s); if(typeof cloudPush==='function') cloudPush(s); }
+function persist(){ syncActiveDept(); markDeletions(); recStamp(); try{ metaStamp(); }catch(e){} var s=JSON.stringify(serializeDB()); _lastLocalStr=s; lsSet(KEY,s); if(typeof cloudPush==='function') cloudPush(s); }
 
 /* ---------- قاعدة البيانات ---------- */
 function hash(s){ var h=5381; s=String(s)+'::mfarag'; for(var i=0;i<s.length;i++) h=((h<<5)+h+s.charCodeAt(i))>>>0; return 'h'+h.toString(36); }
@@ -2647,7 +2647,15 @@ function markDeletions(){
         try{ setTimeout(function(){ toast('🛡 منع النظام اختفاء '+gone.length+' سجل غير مقصود وأعادها'); try{ refreshLedger(); scheduleFullRender(); }catch(e){} },50); }catch(e){} } } }
   _bulkDelOK=0; _knownIds=cur;
 }
-function resetKnownIds(){ _knownIds=collectMergeIds(); }
+/* ختم التعديل تلقائياً: أي تغيير في بيانات أساسية (موردون/عملاء/أصناف/أرصدة افتتاحية/مستخدمون…) يأخذ توقيت تعديل
+   ليفوز في الدمج على النسخ الأقدم من الأجهزة الأخرى — كان التعديل بلا توقيت فتعود النسخة القديمة بعد دقائق */
+var STAMP_BOOKS=['suppliers','clients','items','warehouses','supplierGroups','clientGroups','opAccounts','openingStock','boms','overheadPeriods'], _recSig=null;
+function recSigOf(r){ var c={}; Object.keys(r).forEach(function(k){ if(k!=='editMs'&&k!=='editTs') c[k]=r[k]; }); return JSON.stringify(c); }
+function eachStampRec(fn){ (db.users||[]).forEach(function(r){ if(r&&r.id!=null) fn('u:'+r.id,r); }); (db.units||[]).forEach(function(r){ if(r&&r.id!=null) fn('n:'+r.id,r); });
+  Object.keys(db.departments||{}).forEach(function(dk){ var d=db.departments[dk]; if(!d) return; STAMP_BOOKS.forEach(function(bk){ (d[bk]||[]).forEach(function(r){ if(r&&r.id!=null) fn(dk+':'+bk+':'+r.id,r); }); }); }); }
+function recStamp(){ var cur={}, now=Date.now(); try{ eachStampRec(function(k,r){ var sg=recSigOf(r); cur[k]=sg; if(_recSig&&_recSig[k]!=null&&_recSig[k]!==sg){ r.editMs=now; r.editTs=nowTs(); } }); }catch(e){} _recSig=cur; }
+function recSigReset(){ var cur={}; try{ eachStampRec(function(k,r){ cur[k]=recSigOf(r); }); }catch(e){} _recSig=cur; }
+function resetKnownIds(){ _knownIds=collectMergeIds(); recSigReset(); }
 /* ===== 🗑 سلة المحذوفات (لكل قسم) — استعادة أي سجل حُذف أو اختفى خلال آخر 60 يوماً ===== */
 var RC_BOOKS={purchases:'فاتورة شراء',sales:'فاتورة بيع',payments:'سند تحصيل/سداد',expenses:'مصروف',preturns:'مرتجع شراء',sreturns:'مرتجع بيع',discounts:'خصم',clients:'عميل',suppliers:'مورد',items:'صنف',waste:'فاقد',transfers:'تحويل',openingStock:'رصيد افتتاحي',loads:'براد/تسليم',cashTxns:'حركة خزينة',journals:'قيد'};
 function rcSummary(x){ var r=x.rec||{}, p=[];
@@ -14056,7 +14064,7 @@ function splitListen(){
       /* جهاز قديم: نأخذ إضافاته وتعديلاته فقط — ولا نثق بشواهد الحذف القادمة منه (قد تحذف فواتير صحيحة من كل الأجهزة) */
       var nT=d.tombstones?Object.keys(d.tombstones).length:0; d.tombstones={};
       try{ log('data','الحماية','دمج كتابة من جهاز بإصدار قديم ('+(v.build||'?')+' — '+(v.updatedBy||'')+') — أُخذت إضافاته وتجوهلت شواهد الحذف منه ('+nT+')'); }catch(e){}
-      try{ cloudApplyRemote(d,JSON.stringify(d)); splitPrune(); cloudLoopInfo=nowTs()+' — جهاز بإصدار قديم ('+(v.build||'?')+' — '+(v.updatedBy||'')+') كتب في التخزين القديم؛ دُمج ما كتبه. حدِّث ذلك الجهاز.'; }catch(e){} },function(){}); }
+      try{ var cur0=JSON.parse(JSON.stringify(serializeDB())), mg=mergeCloud(d,cur0); db=mg; ensureDbShape(); resetKnownIds(); if(ME){ var me2=byId(db.users,ME.id); if(me2) ME=me2; } persist(); refreshLedger(); scheduleFullRender(); splitPrune(); cloudLoopInfo=nowTs()+' — جهاز بإصدار قديم ('+(v.build||'?')+' — '+(v.updatedBy||'')+') كتب في التخزين القديم؛ دُمج ما كتبه. حدِّث ذلك الجهاز.'; }catch(e){} },function(){}); }
 }
 function splitDetach(){ Object.keys(splitRefs).forEach(function(k){ try{ splitRefs[k].off(); }catch(e){} }); splitRefs={}; cloudSplit=false; splitCache={core:null,depts:{}}; splitLast={}; }
 /* التحويل (مدير النظام): نسخة احتياطية → عضويات بأقسامها → كتابة العقد → التحول للوضع المفصول */
@@ -14151,8 +14159,9 @@ function unionUsers(base,extra,tomb){
   base=Array.isArray(base)?base.slice():[]; tomb=tomb||{};
   var nm=function(u){ return String(u&&u.username||'').trim().toLowerCase(); };
   (extra||[]).forEach(function(u){ if(!u||u.id==null||tomb['user:'+u.id]) return;
-    var hit=base.some(function(b){ return b&&(b.id===u.id||(u.fbUid&&b.fbUid===u.fbUid)||(nm(u)&&nm(b)===nm(u))); });
-    if(!hit) base.push(u); });
+    var hi=-1; base.forEach(function(b,i){ if(hi<0&&b&&(b.id===u.id||(u.fbUid&&b.fbUid===u.fbUid)||(nm(u)&&nm(b)===nm(u)))) hi=i; });
+    if(hi<0) base.push(u);
+    else if(base[hi].id===u.id&&(+u.editMs||0)>(+base[hi].editMs||0)) base[hi]=u; });   /* الأحدث تعديلاً يفوز (صلاحيات/أقسام/حالة) */
   return base.filter(function(u){ return u&&!tomb['user:'+u.id]; });
 }
 var DEPT_META_SKIP={notes:1,stockCountLog:1,audit:1,recycle:1}; DEPT_BOOKS.forEach(function(k){ DEPT_META_SKIP[k]=1; });
