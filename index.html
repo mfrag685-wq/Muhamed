@@ -2435,7 +2435,7 @@ td.cash-in{color:#1f6b45;font-weight:700}td.cash-out{color:#b42318;font-weight:7
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-08-k';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-08-l';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -13789,7 +13789,7 @@ function cloudMarkPresence(){
   try{
     var ref=firebase.database().ref('workspaces/'+cloudWid()+'/devices/'+cloudDeviceId());
     ref.set({user:(ME.name||ME.username||'—'), uid:(ME.id||0), role:(ME.role||''),
-      build:APP_BUILD, ts:firebase.database.ServerValue.TIMESTAMP,
+      build:APP_BUILD, ts:firebase.database.ServerValue.TIMESTAMP, rl:(_rootLocked==null?-1:(_rootLocked?1:0)),
       ua:String(navigator.userAgent||'').slice(0,90)}).catch(function(){});
     try{ ref.onDisconnect().remove(); }catch(_){}
   }catch(e){}
@@ -13975,7 +13975,7 @@ function cloudPush(s){
    التخزين القديم (root) يبقى كما هو للتوافق؛ وأي كتابة فيه من جهاز قديم بعد التحويل تُدمج تلقائياً.
    الرفع صار لكل عقدة على حدة — يُرفع فقط ما تغيّر (أسرع بكثير من رفع القاعدة كلها).
    ========================================================================== */
-var cloudSplit=false, splitCache={core:null,depts:{}}, splitLast={}, splitAllowed=[], splitIsAdmin=false, splitRefs={}, splitMigratedAt=0, splitOldWrite='';
+var _rootLocked=null, _pruneLogged={}, cloudSplit=false, splitCache={core:null,depts:{}}, splitLast={}, splitAllowed=[], splitIsAdmin=false, splitRefs={}, splitMigratedAt=0, splitOldWrite='';
 function splitBase(){ return 'workspaces/'+cloudWid(); }
 function splitParse(v){ if(!v||v.data==null) return null; var d=v.data; if(typeof d==='string'){ try{ d=JSON.parse(d); }catch(e){ return null; } } return d&&typeof d==='object'?d:null; }
 function splitMemberDepts(mem){ if(!mem) return {admin:false,all:false,list:[]};
@@ -13999,7 +13999,7 @@ function splitAssemble(){
   var c=splitCache.core; if(!c) return null;
   var out={meta:c.meta,settings:c.settings,users:c.users||[],units:c.units||[],interTransfers:c.interTransfers||[],activeDept:c.activeDept,tombstones:c.tombstones||{},departments:{}};
   var audit=(c.audit||[]).slice();
-  Object.keys(splitCache.depts).forEach(function(k){ var d=splitCache.depts[k]; if(!d) return; out.departments[k]=d.dept||{name:k}; audit=audit.concat(d.audit||[]); });
+  Object.keys(splitCache.depts).forEach(function(k){ var d=splitCache.depts[k]; if(!d) return; if(!splitIsAdmin&&splitAllowed.indexOf(k)<0){ delete splitCache.depts[k]; return; } out.departments[k]=d.dept||{name:k}; audit=audit.concat(d.audit||[]); });
   out.audit=unionAudit(audit,[],out.tombstones);
   return out;
 }
@@ -14012,7 +14012,7 @@ function splitApplyRemote(){
 function splitPrune(){ if(splitIsAdmin||!db.departments) return; var ch=false;
   Object.keys(db.departments).forEach(function(k){ if(splitAllowed.indexOf(k)<0&&Object.keys(db.departments).length>1){
     try{ var dj=JSON.stringify(db.departments[k]); if(/"id"/.test(dj)) localStorage.setItem('veg_erp_pruned_'+k,JSON.stringify({at:nowTs(),dept:db.departments[k]})); }catch(e){}   /* نسخة محلية قبل الإزالة — لا يضيع ما لم يُرفع */
-    try{ log('data','الحماية','أُزيل قسم «'+deptName(k)+'» من هذا الجهاز لعدم وجود صلاحية خادم له — حُفظت نسخة محلية منه'); }catch(e){}
+    if(!_pruneLogged[k]){ _pruneLogged[k]=1; try{ log('data','الحماية','أُزيل قسم «'+deptName(k)+'» من هذا الجهاز لعدم وجود صلاحية خادم له — حُفظت نسخة محلية منه'); }catch(e){} }
     delete db.departments[k]; ch=true; } });
   if(ch){ try{ if(!db.departments[db.activeDept]) loadDept(Object.keys(db.departments)[0]); resetKnownIds();
       var st=JSON.stringify(serializeDB()); _lastLocalStr=st; lsSet(KEY,st);   /* لا تبقى نسخة محلية من أقسام غير مسموحة على جهاز الموظف */
@@ -14057,7 +14057,8 @@ function splitListen(){
   onNode('core',base+'/core');
   splitAllowed.forEach(function(k){ onNode('dept:'+k,base+'/depts/'+k); });
   /* جهاز قديم ما زال يكتب في التخزين القديم بعد التحويل ⇒ ادمج ما كتبه ولا تُضِعه */
-  if(!splitRefs.root){ var rr=firebase.database().ref(base+'/root'); splitRefs.root=rr;
+  if(!splitIsAdmin){ if(_rootLocked==null) firebase.database().ref(base+'/root/updatedAt').once('value').then(function(){ _rootLocked=false; cloudMarkPresence(); },function(){ _rootLocked=true; cloudMarkPresence(); }); }
+  else if(!splitRefs.root){ var rr=firebase.database().ref(base+'/root'); splitRefs.root=rr;
     rr.on('value',function(s){ var v=s.val(); if(!v||!v.updatedAt||!splitMigratedAt||v.updatedAt<=splitMigratedAt+5000) return;
       var key=String(v.updatedAt); if(splitOldWrite===key) return; splitOldWrite=key;
       var d=splitParse(v); if(!d||!Array.isArray(d.users)) return;
@@ -14101,9 +14102,14 @@ function renderSplitPanel(){
     +'<ol class="sp-steps">'
     +'<li><b>نشر القواعد الجديدة:</b> اضغط «نسخ القواعد»، ثم في Firebase Console ← Realtime Database ← Rules: احذف القديم والصق، ثم Publish. (تبقى كل الأجهزة تعمل كما هي) <button class="btn-sm" onclick="splitCopyRules(\'database.rules.accounts.json\')">📋 نسخ القواعد</button></li>'
     +'<li><b>تفعيل الفصل:</b> '+(on?'تم ✓':'<button class="btn-sm btn-alt" onclick="splitMigrate()">🔐 تفعيل فصل الأقسام الآن</button> <span class="mini">(نسخة احتياطية تلقائية — لا يُحذف شيء)</span>')+'</li>'
-    +'<li><b>بعد تحديث كل الأجهزة</b> لهذا الإصدار أو أحدث: انشر «القواعد المقفلة» لمنع غير المدير من قراءة التخزين القديم نهائياً. <button class="btn-sm" onclick="splitCopyRules(\'database.rules.accounts.locked.json\')">📋 نسخ القواعد المقفلة</button></li>'
+    +'<li><b>بعد تحديث كل الأجهزة</b> لهذا الإصدار أو أحدث: انشر «القواعد المقفلة» لمنع غير المدير من قراءة التخزين القديم نهائياً. <button class="btn-sm" onclick="splitCopyRules(\'database.rules.accounts.locked.json\')">📋 نسخ القواعد المقفلة</button>'+rulesLockState()+'</li>'
     +'</ol><div class="mini">أقسام كل موظف تُحدَّد من «تعديل المستخدم ← الأقسام المتاحة» وتُرسل لعضويته تلقائياً عند الحفظ.</div>';
 }
+/* هل القواعد المقفلة منشورة؟ Firebase لا يسمح بقراءة القواعد — فيتحقق كل جهاز موظف بمحاولة قراءة التخزين القديم ويُبلغ النتيجة */
+function rulesLockState(){ var L=[], ok=0, bad=[]; Object.keys(_cloudDevices||{}).forEach(function(k){ var d=_cloudDevices[k]; if(!d||d.role==='admin'||d.rl==null||d.rl===-1) return; if(+d.rl===1) ok++; else bad.push((d.user||'?')+' ('+(d.build||'?')+')'); });
+  if(bad.length) return '<div class="sp-state sp-off" style="margin-top:6px">⚠ <b>القواعد المقفلة غير منشورة بعد</b> — هذه الأجهزة ما زالت تقرأ التخزين القديم: '+esc(bad.join('، '))+'. انسخ «القواعد المقفلة» والصقها في Firebase ← Rules ثم اضغط <b>Publish</b> وانتظر رسالة النجاح.</div>';
+  if(ok) return '<div class="sp-state sp-on" style="margin-top:6px">✅ القواعد المقفلة منشورة وفعّالة — تحقق منها '+ok+' جهاز موظف</div>';
+  return '<div class="mini" style="margin-top:6px">⏳ لم يتحقق أي جهاز موظف بعد — يظهر التأكيد تلقائياً عند دخول أي موظف بالإصدار الجديد</div>'; }
 var cloudOffTimer=null, cloudOnline=true, cloudInflightAt=0, cloudPushLog=[], cloudMergePushes=[], cloudLoopUntil=0, cloudLoopInfo='';
 function cloudWatchConnection(){
   if(cloudConnWatched) return; cloudConnWatched=true;
