@@ -2435,7 +2435,7 @@ td.cash-in{color:#1f6b45;font-weight:700}td.cash-out{color:#b42318;font-weight:7
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-08-l';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-08-m';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -14630,9 +14630,9 @@ function renderLoginHealth(force){
   sec.classList.remove('hidden');
   var paint=function(){
     var R=lhIssues(), bad=R.rows.filter(function(x){ return x.iss.some(function(i){ return i.lv==='bad'; }); }).length, nFix=R.rows.filter(function(x){ return x.fix; }).length;
-    var h='<div class="lh-sum">'+(bad?'<span class="pill pill-bad">'+bad+' مستخدم يحتاج تدخّلاً</span>':'<span class="pill pill-ok">✅ كل حسابات الدخول سليمة</span>')
+    var h='<div class="lh-sum">'+(bad?'<span class="pill pill-bad">'+bad+' مستخدم يحتاج تدخّلاً</span>':(_lhErr&&!_lhMembers?'<span class="pill">⏳ الفحص لم يكتمل — يُعاد تلقائياً</span>':'<span class="pill pill-ok">✅ كل حسابات الدخول سليمة</span>'))
       +(nFix?' <button class="btn-sm btn-alt" onclick="lhFixAll()">🔧 إصلاح تلقائي ('+nFix+')</button>':'')
-      +(_lhErr?' <span class="mini">تعذّر قراءة العضويات: '+esc(_lhErr)+'</span>':'')+'</div>';
+      +(_lhErr?' <span class="mini">تعذّر قراءة العضويات الآن ('+esc(_lhErr)+') — غالباً لأن الاتصال بالسحابة لم يكتمل بعد؛ اضغط «فحص الآن» بعد ثوانٍ</span>':'')+'</div>';
     h+='<div class="table-scroll"><table><thead><tr><th class="name">المستخدم</th><th>اسم الدخول</th><th>الدور</th><th>آخر دخول</th><th class="name">الحالة والملاحظات</th><th>إجراء</th></tr></thead><tbody>';
     R.rows.forEach(function(x){ var u=x.u, ok=!x.iss.length;
       h+='<tr><td class="name"><b>'+esc(u.name)+'</b></td><td>'+esc(u.username)+'</td><td>'+esc(ROLES[u.role]||u.role)+'</td><td class="muted">'+esc(u.lastLogin||'—')+'</td>'
@@ -14644,7 +14644,9 @@ function renderLoginHealth(force){
   };
   paint();
   if(cloudAccounts()&&(force||!_lhMembers)){ try{ firebase.database().ref('workspaces/'+cloudWid()+'/members').once('value')
-    .then(function(sn){ _lhMembers=sn.val()||{}; _lhErr=''; paint(); },function(e){ _lhErr=(e&&e.code)||'error'; paint(); }); }catch(e){} }
+    .then(function(sn){ _lhMembers=sn.val()||{}; _lhErr=''; paint(); },function(e){ _lhErr=(e&&e.code)||'error'; paint();
+      /* القراءة تُرفض إن سبقت اكتمال تسجيل الدخول السحابي — أعد المحاولة تلقائياً بعد جاهزية الاتصال */
+      if(!renderLoginHealth._retry){ renderLoginHealth._retry=1; var t0=Date.now(), w=function(){ if(cloudReady&&firebase.auth&&firebase.auth().currentUser){ renderLoginHealth._retry=0; renderLoginHealth(true); } else if(Date.now()-t0<60000) setTimeout(w,1500); else renderLoginHealth._retry=0; }; setTimeout(w,1500); } }); }catch(e){} }
 }
 function lhFix(id){ if(!ME||ME.role!=='admin') return; var u=byId(db.users,id); if(!u||!u.fbUid) return;
   cloudWriteMember(u.fbUid,u).then(function(){ (_lhMembers=_lhMembers||{})[u.fbUid]={username:u.username,role:u.role,active:Number(u.active)?1:0};
