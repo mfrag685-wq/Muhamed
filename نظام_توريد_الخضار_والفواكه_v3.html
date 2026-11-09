@@ -2446,7 +2446,7 @@ td.cash-in{color:#1f6b45;font-weight:700}td.cash-out{color:#b42318;font-weight:7
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-08-p';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-09-a';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -14116,7 +14116,7 @@ function renderSplitPanel(){
     +'<ol class="sp-steps">'
     +'<li><b>نشر القواعد الجديدة:</b> اضغط «نسخ القواعد»، ثم في Firebase Console ← Realtime Database ← Rules: احذف القديم والصق، ثم Publish. (تبقى كل الأجهزة تعمل كما هي) <button class="btn-sm" onclick="splitCopyRules(\'database.rules.accounts.json\')">📋 نسخ القواعد</button></li>'
     +'<li><b>تفعيل الفصل:</b> '+(on?'تم ✓':'<button class="btn-sm btn-alt" onclick="splitMigrate()">🔐 تفعيل فصل الأقسام الآن</button> <span class="mini">(نسخة احتياطية تلقائية — لا يُحذف شيء)</span>')+'</li>'
-    +'<li><b>بعد تحديث كل الأجهزة</b> لهذا الإصدار أو أحدث: انشر «القواعد المقفلة» لمنع غير المدير من قراءة التخزين القديم نهائياً. <button class="btn-sm" onclick="splitCopyRules(\'database.rules.accounts.locked.json\')">📋 نسخ القواعد المقفلة</button>'+rulesLockState()+'</li>'
+    +'<li><b>بعد تحديث كل الأجهزة</b> لهذا الإصدار أو أحدث: انشر «القواعد المقفلة» لمنع غير المدير من قراءة التخزين القديم نهائياً. <button class="btn-sm" onclick="splitCopyRules(\'database.rules.accounts.locked.json\')">📋 نسخ القواعد المقفلة</button> <span class="mini">(تحديث 2026-11-09: القفل يخص هذا النظام فقط ولا يمنع موظفي نظام المخزون — أعد النشر إن نشرتها قبل هذا التاريخ)</span>'+rulesLockState()+'</li>'
     +'</ol><div class="mini">أقسام كل موظف تُحدَّد من «تعديل المستخدم ← الأقسام المتاحة» وتُرسل لعضويته تلقائياً عند الحفظ.</div>';
 }
 /* هل القواعد المقفلة منشورة؟ Firebase لا يسمح بقراءة القواعد — فيتحقق كل جهاز موظف بمحاولة قراءة التخزين القديم ويُبلغ النتيجة */

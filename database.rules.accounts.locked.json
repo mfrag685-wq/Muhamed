@@ -16,8 +16,8 @@
           }
         },
         "root": {
-          ".read": "auth != null && root.child('workspaces').child($wid).child('members').child(auth.uid).child('role').val() === 'admin'",
-          ".write": "auth != null && root.child('workspaces').child($wid).child('members').child(auth.uid).child('role').val() === 'admin'"
+          ".read": "auth != null && root.child('workspaces').child($wid).child('members').child(auth.uid).exists() && ( !root.child('workspaces').child($wid).child('core').exists() || root.child('workspaces').child($wid).child('members').child(auth.uid).child('role').val() === 'admin' )",
+          ".write": "auth != null && root.child('workspaces').child($wid).child('members').child(auth.uid).exists() && ( !root.child('workspaces').child($wid).child('core').exists() || root.child('workspaces').child($wid).child('members').child(auth.uid).child('role').val() === 'admin' )"
         },
         "platform": {
           ".read": "auth != null && root.child('workspaces').child($wid).child('members').child(auth.uid).exists()",
