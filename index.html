@@ -784,7 +784,7 @@ td.cash-in{color:#1f6b45;font-weight:700}td.cash-out{color:#b42318;font-weight:7
 .ds-box{background:var(--card,#fff);border-radius:14px;max-width:960px;width:100%;margin:0 auto;box-shadow:0 20px 60px rgba(0,0,0,.3);overflow:hidden;box-sizing:border-box}
 .ds-bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:10px 12px;border-bottom:1px solid #e3e9f0;position:sticky;top:0;background:var(--card,#fff);border-radius:14px 14px 0 0}
 .ds-nav{display:inline-flex;gap:4px;align-items:center}.ds-nav input{height:34px}.ds-acts{margin-inline-start:auto;display:flex;gap:5px;flex-wrap:wrap}
-.ds-prev{padding:12px;overflow-x:auto;max-width:100%;box-sizing:border-box}.ds-img{display:block;width:100%;max-width:900px;margin:0 auto;border:1px solid #e3e9f0;border-radius:8px}
+.ds-prev{padding:12px;overflow-x:auto;max-width:100%;box-sizing:border-box}.dse{border:1px solid #cfe3d6;background:#f6faf7;border-radius:10px;padding:8px;margin:0 0 12px}.dse-h{font-weight:800;color:#14532d;margin:0 0 6px}.dse-r{display:flex;gap:10px;align-items:center;flex-wrap:wrap;background:#fff;border:1px solid #e3ebe6;border-radius:8px;padding:7px 9px;margin:5px 0}.dse-s{flex:0 0 170px}.dse-ls{flex:1 1 260px;display:flex;flex-wrap:wrap;gap:4px 10px;font-size:13px}.dse-l em{color:#667;font-style:normal}.dse-l i{color:#9a5b00;font-style:normal;font-size:12px}.dse-a{display:flex;gap:6px;flex:0 0 auto}.ds-img{display:block;width:100%;max-width:900px;margin:0 auto;border:1px solid #e3e9f0;border-radius:8px}
 @media (max-width:700px){.ds-modal{padding:6px}.ds-acts{margin:0;width:100%}.ds-acts .btn-alt{flex:1 1 100%;min-height:44px}.ds-prev{padding:6px}.ds-sheet{padding:8px;font-size:12px}.ds-tb td,.ds-tb th{padding:5px 3px}.ds-t{font-size:15px}.ds-nav{width:100%}.ds-nav input{flex:1}}
 .sync-alert{background:#fdecec;border:1px solid #f5b5b5;color:#7a1414;border-radius:10px;padding:9px 12px;margin:8px 0;font-size:13.5px;line-height:1.7}
 .lh-sum{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:6px 0}.lh-i{font-size:12.5px;margin:2px 0}.lh-bad{color:#b42318;font-weight:700}.lh-warn{color:#9a5b00}.lh-info{color:#555}
@@ -2446,7 +2446,7 @@ td.cash-in{color:#1f6b45;font-weight:700}td.cash-out{color:#b42318;font-weight:7
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-09-a';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-13-a';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -5650,6 +5650,21 @@ function dsOpen(d){
   if(!m){ m=document.createElement('div'); m.id='dsModal'; m.className='ds-modal'; m.onclick=function(e){ if(e.target===m) dsClose(); }; document.body.appendChild(m); }
   m.style.display='block'; dsPaint();
 }
+/* ✏️ عرض وتعديل مشتريات اليوم من الورقة نفسها: كل إدخال بأصنافه وكمياته وأسعاره + تعديل/حذف حسب الصلاحية */
+function dsEditHtml(d){ var rs=(db.purchases||[]).filter(function(r){ return r.date===d; }).sort(function(a,b){ return String(supName(a.supplierId)).localeCompare(String(supName(b.supplierId)),'ar'); });
+  if(!rs.length) return '';
+  var fullEdit=can('canEdit')&&!purchLimited(), h='<div class="dse"><div class="dse-h">✏️ عرض وتعديل مشتريات '+esc(dayNameAr(d)+' '+d)+' <span class="mini">('+rs.length+' إدخال)</span></div>';
+  rs.forEach(function(r){ var wait=ttSt(r)==='wait', q=qbCanEdit(r), tot=docGrand(r);
+    var lines=(r.lines||[]).map(function(l){ var n=+l.boxes||+l.units||0, pr=(l.ep!=null?+l.ep:+l.price)||0; return '<span class="dse-l">'+esc(itemName(l.itemId))+' <b>'+qty(n)+'</b>'+(pr>0?' × '+num(pr):' <i>بلا سعر</i>')+(l.note?' <em>('+esc(l.note)+')</em>':'')+'</span>'; }).join('');
+    var act=q?'<button class="btn-sm btn-alt" onclick="dsEdit('+r.id+')">✏️ تعديل</button><button class="btn-sm btn-del" onclick="dsDel('+r.id+')">🗑</button>'
+      :(fullEdit?'<button class="btn-sm" onclick="dsClose();editDoc(\'p\','+r.id+')" title="فاتورة مكتملة — تُعدَّل من نموذج المشتريات">✏️ تعديل الفاتورة</button>':'<span class="mini">🔒 '+(wait?'لا تملك صلاحية التعديل':'وصلت فاتورتها — يعدّلها المحاسب')+'</span>');
+    h+='<div class="dse-r"><div class="dse-s"><b>'+esc(supName(r.supplierId))+'</b>'+(r.no?' <span class="mini">رقم '+esc(r.no)+'</span>':'')+'<div class="mini">'+(wait?'⏳ الفاتورة لم تصل':'✅ وصلت الفاتورة')+(tot>0?' · '+num(tot):'')+'</div></div><div class="dse-ls">'+lines+'</div><div class="dse-a">'+act+'</div></div>'; });
+  return h+'</div>'; }
+function dsEdit(id){ dsClose(); try{ showTab('supply'); }catch(e){} setTimeout(function(){ qbEdit(id); },60); }
+function dsDel(id){ var r=byId(db.purchases,id); if(!qbCanEdit(r)) return; if(!periodGuard(r.date)) return;
+  if(!confirm('حذف إدخال «'+supName(r.supplierId)+'» بتاريخ '+r.date+' نهائياً؟')) return;
+  db.purchases=db.purchases.filter(function(x){ return x.id!==r.id; }); if(_qbEdit&&_qbEdit.id===id){ _qbEdit=null; _qbRows=[{},{},{}]; }
+  log('delete','المشتريات','حذف إدخال سريع — '+supName(r.supplierId)+' بتاريخ '+r.date); commit('تم حذف الإدخال'); try{ renderTaxTrack(); qbPaint(); }catch(e){} dsPaint(); }
 function dsClose(){ var m=document.getElementById('dsModal'); if(m) m.style.display='none'; }
 function dsShift(n){ _dsDate=ivAddDays(_dsDate,n); dsPaint(); }
 function dsSheetHtml(D){
@@ -5673,7 +5688,7 @@ function dsPaint(){
     +'<span class="ds-nav"><button class="btn-sm" onclick="dsShift(-1)" title="اليوم السابق">→</button><input type="date" value="'+esc(_dsDate)+'" onchange="_dsDate=this.value;dsPaint()"><button class="btn-sm" onclick="dsShift(1)" title="اليوم التالي">←</button></span>'
     +'<span class="ds-acts">'+(D.groups.length?'<button class="btn-alt" onclick="dsImage(\'share\')">📤 مشاركة / واتساب</button><button class="btn-sm" onclick="dsImage(\'save\')">🖼 حفظ كصورة</button><button class="btn-sm" onclick="dsImage(\'copy\')">📋 نسخ الصورة</button><button class="btn-sm" onclick="dsPrint()">🖨 طباعة</button>':'')
     +'<button class="btn-sm" onclick="dsClose()">✕ إغلاق</button></span></div><div class="ds-prev">'
-    +(D.groups.length?'<img class="ds-img" alt="ورقة مشتريات '+esc(D.d)+'" src="'+dsCanvas(D).toDataURL('image/png')+'">':dsSheetHtml(D))+'</div></div>';   /* المعاينة = الصورة نفسها التي تُرسل */
+    +dsEditHtml(D.d)+(D.groups.length?'<img class="ds-img" alt="ورقة مشتريات '+esc(D.d)+'" src="'+dsCanvas(D).toDataURL('image/png')+'">':dsSheetHtml(D))+'</div></div>';   /* المعاينة = الصورة نفسها التي تُرسل */
 }
 function dsPrint(){
   var D=dsData(_dsDate), w=window.open('','_blank'); if(!w){ toast('اسمح بالنوافذ المنبثقة للطباعة'); return; }
@@ -5838,7 +5853,7 @@ function qbPaint(){
       +'<button class="btn-sm btn-del qb-del" tabindex="-1" onclick="qbDel('+i+')" title="حذف السطر">✕</button></div>'; });
   var nOk=_qbRows.filter(function(r){ return r.sup&&r.item&&+r.q>0; }).length;
   h+='</div><div class="form-foot"><button class="btn-sm" onclick="_qbRows.push({});qbPaint();qbFocus(_qbRows.length-1,\'sup\')">➕ سطر</button> '
-    +'<button class="btn-alt" id="qbSaveBtn" onclick="qbSave()">💾 '+(_qbEdit?'حفظ التعديل':'حفظ مشتريات اليوم')+(nOk?' ('+nOk+')':'')+'</button>'+' <button class="btn-sm" onclick="dsOpen()">📄 ورقة اليوم (طباعة/صورة)</button>'+(qbOnly()||_qbEdit||(ptOn()&&ttOn())?'':' <button class="btn-sm" onclick="qbClose()">إغلاق</button>')
+    +'<button class="btn-alt" id="qbSaveBtn" onclick="qbSave()">💾 '+(_qbEdit?'حفظ التعديل':'حفظ مشتريات اليوم')+(nOk?' ('+nOk+')':'')+'</button>'+' <button class="btn-sm" onclick="dsOpen()">📄 مشتريات اليوم: عرض · تعديل · طباعة</button>'+(qbOnly()||_qbEdit||(ptOn()&&ttOn())?'':' <button class="btn-sm" onclick="qbClose()">إغلاق</button>')
     +'<span class="mini">Enter في خانة مورد فارغة = نفس مورد السطر السابق.</span></div></div>';
   qb.innerHTML=h;
 }
