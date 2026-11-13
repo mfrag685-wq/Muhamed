@@ -875,6 +875,25 @@ html[data-theme="dark"] .rt td.hl{background:#2e2814;color:var(--accent)}
       <div id="import-status" style="font-size:.78rem;color:var(--muted);margin-top:8px"></div>
     </div>
   </div>
+  <div class="card import-card">
+    <div class="card-header" style="background:#5b2d8a">⚡ تسجيل سريع للشحنات الفائتة <span class="badge" style="background:rgba(255,255,255,.22)">أرصدة فورية</span></div>
+    <div class="card-body">
+      <div class="alert ai" style="margin-bottom:10px;font-size:.8rem">
+        💡 <strong>الفكرة:</strong> سجّل شحنات فاتتك بسرعة (رقم الشحنة · التاريخ · المورد · المحتوى · أجور الشحن · العمولة) فتصبح <strong>أرصدة الموردين وأجور الشحن والعمولة حقيقية فوراً</strong> — وتُنشأ شحنات محفوظة يمكنك فتح أيٍّ منها لاحقاً من «سجل الشحنات» لإضافة باقي المصاريف.
+      </div>
+      <div style="display:flex;gap:9px;flex-wrap:wrap;align-items:center">
+        <button class="btn btn-accent" onclick="downloadQuickTemplate()">⬇️ تحميل نموذج سريع</button>
+        <button class="btn" style="background:#5b2d8a;color:#fff" onclick="document.getElementById('qimport-excel').click()">⚡ استيراد سريع (Excel)</button>
+        <button class="btn btn-outline" onclick="document.getElementById('qimport-csv').click()">📄 CSV</button>
+        <label style="display:flex;align-items:center;gap:5px;font-size:.78rem;color:var(--muted);cursor:pointer">
+          <input type="checkbox" id="qimport-update" style="width:auto"> تحديث الشحنات الموجودة بنفس الرقم
+        </label>
+        <input type="file" id="qimport-excel" accept=".xlsx,.xls" style="display:none" onchange="handleQuickExcel(event)">
+        <input type="file" id="qimport-csv" accept=".csv,.txt" style="display:none" onchange="handleQuickCsv(event)">
+      </div>
+      <div id="qimport-status" style="font-size:.78rem;color:var(--muted);margin-top:8px"></div>
+    </div>
+  </div>
   <div class="card">
     <div class="card-header">🚢 معلومات الشحنة</div>
     <div class="card-body">
@@ -5191,6 +5210,119 @@ function ensureCountOption(n){
 }
 
 // ═══════════════════════════════════════════
+// ⚡ تسجيل سريع للشحنات الفائتة — استيراد يُنشئ شحنات محفوظة بأرصدة فورية
+//   (رقم الشحنة + التاريخ + المورد + المحتوى + أجور الشحن + العمولة) → أرصدة المورد/الشحن/العمولة حقيقية
+// ═══════════════════════════════════════════
+const QIMPORT_HEADERS=['رقم الشحنة','تاريخ الشحنة','المورد','أجور الشحن','عملة الشحن','نسبة العمولة %','قيمة العمولة','الصنف / المحتوى','الكمية','سعر الوحدة','عملة الشراء'];
+function downloadQuickTemplate(){
+  if(typeof XLSX==='undefined'){ toast('⚠️ '+tr('مكتبة Excel غير محمّلة'),true); return; }
+  const label=S.itemLabel||'الصنف';
+  const rows=[QIMPORT_HEADERS,
+    ['SH-2026-010','2026-03-01','مصنع الشرق',2500,'USD',2.5,'',label+' (أ)',10,120,'USD'],
+    ['','','','','','','',label+' (ب)',5,80,'USD'],
+    ['SH-2026-011','2026-03-05','النور للإضاءة',1800,'USD','',450,'مصباح LED',40,35,'USD']
+  ];
+  const ws=XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols']=[{wch:14},{wch:13},{wch:16},{wch:11},{wch:10},{wch:13},{wch:12},{wch:24},{wch:8},{wch:11},{wch:11}];
+  const info=XLSX.utils.aoa_to_sheet([
+    ['📘 تعليمات: تسجيل سريع للشحنات الفائتة'],[''],
+    ['• كل سطر = صنف واحد. الأصناف بنفس «رقم الشحنة» تُجمَّع في شحنة واحدة.'],
+    ['• «رقم الشحنة» و«التاريخ» و«المورد» و«أجور الشحن» و«العمولة»: تُكتب مرة واحدة في أول سطر للشحنة.'],
+    ['• «أجور الشحن»: قيمة إجمالية للشحنة — تظهر في كشف حساب الشحن.'],
+    ['• العمولة: اكتب «نسبة العمولة %» أو «قيمة العمولة» (أحدهما) — تظهر في كشف حساب العمولة.'],
+    ['• «المورد» + قيمة الأصناف = رصيد المورد تلقائياً.'],
+    ['• العملات المسموحة: '+VALID_CURS.join('، ')+'.'],
+    ['• تُنشأ شحنات محفوظة مباشرةً — افتح أيّاً منها لاحقاً من «سجل الشحنات» لإضافة باقي المصاريف.']
+  ]);
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'البيانات'); XLSX.utils.book_append_sheet(wb,info,'تعليمات');
+  XLSX.writeFile(wb,'نموذج_تسجيل_سريع.xlsx');
+  toast('⬇️ '+tr('تم تنزيل النموذج — املأه ثم ارفعه'));
+}
+function handleQuickExcel(e){
+  const file=e.target.files[0]; if(!file) return;
+  if(typeof XLSX==='undefined'){ toast('⚠️ '+tr('مكتبة Excel غير محمّلة'),true); return; }
+  const reader=new FileReader();
+  reader.onload=function(ev){ try{ const wb=XLSX.read(ev.target.result,{type:'array',cellDates:true}); const sh=wb.SheetNames.includes('البيانات')?'البيانات':wb.SheetNames[0]; applyQuickImport(XLSX.utils.sheet_to_json(wb.Sheets[sh],{header:1,defval:''}),file.name); }catch(err){ toast('⚠️ '+err.message,true); } e.target.value=''; };
+  reader.readAsArrayBuffer(file);
+}
+function handleQuickCsv(e){
+  const file=e.target.files[0]; if(!file) return;
+  const reader=new FileReader();
+  reader.onload=function(ev){ try{ applyQuickImport(parseCSV(ev.target.result),file.name); }catch(err){ toast('⚠️ '+err.message,true); } e.target.value=''; };
+  reader.readAsText(file,'utf-8');
+}
+function applyQuickImport(aoa,fname){
+  if(isReadonly()||!can('shipment')){ toast(tr('لا تملك صلاحية إضافة الشحنات'),true); return; }
+  if(!aoa||!aoa.length){ toast('⚠️ '+tr('الملف فارغ'),true); return; }
+  const norm=s=>String(s==null?'':s).replace(/[إأآا]/g,'ا').replace(/[ة]/g,'ه').replace(/\s+/g,'').toLowerCase();
+  let hi=aoa.findIndex(r=>Array.isArray(r)&&r.some(c=>String(c).trim()!==''));
+  if(hi<0){ toast('⚠️ '+tr('لا توجد بيانات في الملف'),true); return; }
+  const header=aoa[hi]||[];
+  const idxOf=(ex,inc)=>{ let i=header.findIndex(h=>norm(h)===norm(ex)); if(i<0&&inc) i=header.findIndex(h=>norm(h).includes(norm(inc))); return i; };
+  let cNo=idxOf('رقم الشحنة','رقمالشحنه'), cDate=idxOf('تاريخ الشحنة','تاريخ'), cSup=idxOf('المورد','مورد'),
+      cFrt=idxOf('أجور الشحن','اجورالشحن'), cFrtCur=idxOf('عملة الشحن','عملهالشحن'),
+      cRate=idxOf('نسبة العمولة %','نسبهالعموله'), cCommAmt=idxOf('قيمة العمولة','قيمهالعموله'),
+      cName=idxOf('الصنف / المحتوى','صنف'), cQty=idxOf('الكمية','كميه'), cPrice=idxOf('سعر الوحدة','سعر'), cCur=idxOf('عملة الشراء','عملهالشراء');
+  let dataStart=hi+1;
+  if(cNo<0 && cName<0){ cNo=0;cDate=1;cSup=2;cFrt=3;cFrtCur=4;cRate=5;cCommAmt=6;cName=7;cQty=8;cPrice=9;cCur=10; dataStart=hi; }
+  const val=(r,c)=>c>=0?String(r[c]!=null?r[c]:'').trim():'';
+  const groups={}, order=[];
+  for(let i=dataStart;i<aoa.length;i++){
+    const r=aoa[i]; if(!Array.isArray(r)) continue;
+    const no=val(r,cNo);
+    const name=val(r,cName), qty=parseFloat(r[cQty])||0, price=parseFloat(r[cPrice])||0;
+    let key=no||(order.length?order[order.length-1]:'');
+    if(!key){ if(!name&&!qty&&!price) continue; key='SH-?'; }
+    if(!groups[key]){ groups[key]={no:no||key,date:'',sup:'',frt:0,frtCur:'USD',rate:null,commAmt:null,items:[]}; order.push(key); }
+    const g=groups[key];
+    if(!g.date && cDate>=0 && val(r,cDate)) g.date=toDateStr(r[cDate]);
+    if(!g.sup && cSup>=0 && val(r,cSup)) g.sup=val(r,cSup);
+    if(cFrt>=0 && val(r,cFrt)!=='' && !g._fs){ g.frt=parseFloat(r[cFrt])||0; g._fs=1; }
+    if(cFrtCur>=0 && val(r,cFrtCur)){ var fc=val(r,cFrtCur).toUpperCase(); if(VALID_CURS.includes(fc)) g.frtCur=fc; }
+    if(cRate>=0 && val(r,cRate)!=='' && g.rate==null){ var rr=parseFloat(r[cRate]); if(!isNaN(rr)) g.rate=rr; }
+    if(cCommAmt>=0 && val(r,cCommAmt)!=='' && g.commAmt==null){ var ca=parseFloat(r[cCommAmt]); if(!isNaN(ca)) g.commAmt=ca; }
+    if(!name && !qty && !price) continue;
+    let cur=val(r,cCur).toUpperCase(); if(!VALID_CURS.includes(cur)) cur=S.invCur||'USD';
+    g.items.push({name:name||(S.itemLabel||'صنف'),qty:qty||1,unitPrice:price||0,cur:cur});
+  }
+  const valid=order.filter(k=>groups[k].items.length>0);
+  if(!valid.length){ toast('⚠️ '+tr('لم يُعثر على شحنات صالحة في الملف'),true); return; }
+  const fx=S.fxUsdSar||3.756;
+  const update=document.getElementById('qimport-update')&&document.getElementById('qimport-update').checked;
+  const db=dbLoad(); const commCfg=commCfgLoad();
+  let added=0, updated=0, skipped=0;
+  valid.forEach((k,gi)=>{
+    const g=groups[k];
+    const byCur={}, curOrder=[];
+    g.items.forEach(it=>{ if(!byCur[it.cur]){ byCur[it.cur]={items:[]}; curOrder.push(it.cur); } byCur[it.cur].items.push({name:it.name,qty:it.qty,unitPrice:it.unitPrice}); });
+    const invoices=curOrder.map((cu,ii)=>({id:ii+1,invNumber:'',purchCur:cu,items:byCur[cu].items,shippingCost:0,shipCur:'USD',commissionRate:0,discount:0,discountType:'amount',otherCost:0,otherCur:'SAR'}));
+    const totalSar=g.items.reduce((s,it)=>s+it.qty*it.unitPrice*(it.cur==='SAR'?1:fx),0);
+    const firstCur=curOrder[0]||'USD';
+    const snap={ savedAt:new Date().toISOString(), shipmentNo:g.no, shipmentDate:g.date||'', supplierName:g.sup||'',
+      originCountry:'', status:'arrived', notes:tr('تسجيل سريع'),
+      activity:S.activity, activityName:S.activityName, activityIcon:S.activityIcon, itemLabel:S.itemLabel,
+      mainCur:S.mainCur||'SAR', invCur:firstCur, fxInvSar:(firstCur==='SAR'?1:fx), fxUsdSar:fx,
+      preparer:S.preparer, company:S.company,
+      containers:[{id:1,number:'CONT-'+String(gi+1).padStart(3,'0'),invoices:invoices,costs:[],freight:g.frt||0,freightCur:g.frtCur||'USD'}],
+      shipCosts:[], summary:{totalSar:totalSar,conCount:1,invCount:invoices.length,itemCount:g.items.length} };
+    let rate=null;
+    if(g.rate!=null) rate=g.rate;
+    else if(g.commAmt!=null && totalSar>0) rate=g.commAmt/totalSar*100;
+    const exIdx=db.findIndex(x=>String(x.shipmentNo||'').trim().toLowerCase()===String(g.no).trim().toLowerCase());
+    if(exIdx>=0){ if(update){ snap.id=db[exIdx].id; db[exIdx]=snap; updated++; } else { skipped++; return; } }
+    else { snap.id='sh_'+Date.now()+'_'+gi; db.push(snap); added++; }
+    if(rate!=null){ if(!commCfg.byShip) commCfg.byShip={}; commCfg.byShip[String(g.no)]=Math.round(rate*1000)/1000; }
+  });
+  dbSave(db); commCfgSave(commCfg);
+  const st=document.getElementById('qimport-status');
+  if(st) st.innerHTML='✅ '+tr('تم')+': <strong>'+added+'</strong> '+tr('جديدة')+(updated?' · <strong>'+updated+'</strong> '+tr('محدّثة'):'')+(skipped?' · <strong>'+skipped+'</strong> '+tr('متجاهَلة (موجودة)'):'')+' — '+escH(fname);
+  logAction('تسجيل سريع للشحنات', added+' جديدة / '+updated+' محدّثة');
+  toast('✅ '+tr('تم تسجيل الشحنات')+' ('+(added+updated)+')');
+  try{ showPage('page-archive'); }catch(e){}
+}
+
+// ═══════════════════════════════════════════
 // 💵 الدفعات المسددة (لكل شركة مستقلة)
 // ═══════════════════════════════════════════
 const PAY_HEADERS=['النموذج / الشركة','التاريخ','المبلغ','العملة','طريقة الدفع','البنك','مرجع العملية','رقم الشحنة','ملاحظات'];
@@ -6889,7 +7021,7 @@ function exportPaymentsExcel(){
 // ═══════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════
-var APP_VERSION='v2026-11-03.35';   // رقم إصدار ظاهر للتحقق من تحميل أحدث نسخة (لا cache قديم)
+var APP_VERSION='v2026-11-13.36';   // رقم إصدار ظاهر للتحقق من تحميل أحدث نسخة (لا cache قديم)
 // ═══════════════════════════════════════════
 // 🌐 محرّك الترجمة الشامل (عربي / English / 中文) — قاموس + مسح DOM + مراقب تغييرات
 // ═══════════════════════════════════════════
@@ -7733,6 +7865,55 @@ Object.assign(TR.zh,{
  'اختر «تثبيت» أو Install':'选择安装',
  'أكّد التثبيت — وسيظهر التطبيق على جهازك':'确认安装 — 应用将出现在您的设备上',
  'استخدم متصفّح Chrome أو Edge لأفضل تجربة تثبيت':'使用 Chrome 或 Edge 浏览器以获得最佳安装体验'
+});
+// الدفعة 14: تسجيل سريع للشحنات الفائتة
+Object.assign(TR.en,{
+ 'تسجيل سريع':'Quick entry',
+ 'تم تنزيل النموذج — املأه ثم ارفعه':'Template downloaded — fill it then upload',
+ 'لا تملك صلاحية إضافة الشحنات':'You don\'t have permission to add shipments',
+ 'لا توجد بيانات في الملف':'No data in the file',
+ 'لم يُعثر على شحنات صالحة في الملف':'No valid shipments found in the file',
+ 'تم':'Done',
+ 'جديدة':'new',
+ 'محدّثة':'updated',
+ 'متجاهَلة (موجودة)':'skipped (existing)',
+ 'تم تسجيل الشحنات':'Shipments recorded',
+ '⚡ تسجيل سريع للشحنات الفائتة':'⚡ Quick entry for missed shipments',
+ 'أرصدة فورية':'Instant balances',
+ 'الفكرة:':'Idea:',
+ 'تحميل نموذج سريع':'Download quick template',
+ 'استيراد سريع (Excel)':'Quick import (Excel)',
+ 'تحديث الشحنات الموجودة بنفس الرقم':'Update existing shipments with the same number',
+ 'الملف فارغ':'The file is empty'
+});
+Object.assign(TR.zh,{
+ 'تسجيل سريع':'快速录入',
+ 'تم تنزيل النموذج — املأه ثم ارفعه':'模板已下载 — 填写后上传',
+ 'لا تملك صلاحية إضافة الشحنات':'您无权添加装运',
+ 'لا توجد بيانات في الملف':'文件中无数据',
+ 'لم يُعثر على شحنات صالحة في الملف':'文件中未找到有效装运',
+ 'تم':'完成',
+ 'جديدة':'新增',
+ 'محدّثة':'已更新',
+ 'متجاهَلة (موجودة)':'已跳过（已存在）',
+ 'تم تسجيل الشحنات':'装运已记录',
+ '⚡ تسجيل سريع للشحنات الفائتة':'⚡ 快速录入遗漏的装运',
+ 'أرصدة فورية':'即时余额',
+ 'الفكرة:':'理念：',
+ 'تحميل نموذج سريع':'下载快速模板',
+ 'استيراد سريع (Excel)':'快速导入（Excel）',
+ 'تحديث الشحنات الموجودة بنفس الرقم':'更新相同编号的现有装运',
+ 'الملف فارغ':'文件为空'
+});
+Object.assign(TR.en,{
+ 'سجّل شحنات فاتتك بسرعة (رقم الشحنة · التاريخ · المورد · المحتوى · أجور الشحن · العمولة) فتصبح':'Quickly record shipments you missed (No. · Date · Supplier · Contents · Freight · Commission) so that',
+ 'أرصدة الموردين وأجور الشحن والعمولة حقيقية فوراً':'supplier, freight and commission balances become real instantly',
+ '— وتُنشأ شحنات محفوظة يمكنك فتح أيٍّ منها لاحقاً من «سجل الشحنات» لإضافة باقي المصاريف.':'— saved shipments are created; open any later from «Shipments Log» to add the rest of the expenses.'
+});
+Object.assign(TR.zh,{
+ 'سجّل شحنات فاتتك بسرعة (رقم الشحنة · التاريخ · المورد · المحتوى · أجور الشحن · العمولة) فتصبح':'快速录入遗漏的装运（编号·日期·供应商·内容·运费·佣金），使',
+ 'أرصدة الموردين وأجور الشحن والعمولة حقيقية فوراً':'供应商、运费和佣金余额立即变为真实',
+ '— وتُنشأ شحنات محفوظة يمكنك فتح أيٍّ منها لاحقاً من «سجل الشحنات» لإضافة باقي المصاريف.':'— 并创建已保存的装运；稍后可从«装运记录»打开任意一个以添加其余费用。'
 });
 var _trOrig=new WeakMap(), _trPh=new WeakMap(), _trTitle=new WeakMap(), _trBusy=false, _trObs=null, _trTimer=null;
 var _emojiLead=/^((?:[←-⇿⌀-➿⬀-⯿☀-⛿️\uD83C-􏰀-\uDFFF\s])+)/;
