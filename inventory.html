@@ -245,7 +245,7 @@ html.lock-scroll,html.lock-scroll body{overflow:hidden!important;overscroll-beha
    ============================================================ */
 const KEY="inv_system_v2";
 /* رقم إصدار التطبيق — يُزاد مع كل تحديث؛ يُقارَن بالنسخة المنشورة لإظهار زر التحديث */
-const APP_VERSION="2026-11-05-01";
+const APP_VERSION="2026-11-14-01";
 let DB,ME;
 /* التحقق من توفّر نسخة أحدث بجلب الملف نفسه (بدون كاش) ومقارنة رقم الإصدار */
 function checkForUpdate(){
@@ -1429,7 +1429,9 @@ function editInvoice(gid){
 function renderInvEditRows(){
   const tb=$("#ieRows");if(!tb)return;
   tb.innerHTML=invEdit.map((l,idx)=>{const it=DB.items.find(x=>x.id===l.itemId)||{};
-    return `<tr><td>${esc(itemModel(it))}</td>
+    return `<tr><td><select style="min-width:150px;max-width:220px;padding:7px" onchange="invEdit[${idx}].itemId=+this.value">
+        ${citems().map(i=>`<option value="${i.id}" ${i.id===l.itemId?"selected":""}>${esc(itemModel(i))}</option>`).join("")}
+      </select></td>
       <td><input type="number" inputmode="numeric" style="width:70px;padding:7px" value="${l.qty}" oninput="invEdit[${idx}].qty=toNum(this.value)"></td>
       <td><input type="number" inputmode="decimal" step="0.01" style="width:80px;padding:7px" value="${l.price}" oninput="invEdit[${idx}].price=toNum(this.value)"></td>
       <td><input type="number" inputmode="decimal" step="0.01" style="width:70px;padding:7px" value="${l.fee||0}" oninput="invEdit[${idx}].fee=toNum(this.value)"></td>
@@ -1466,7 +1468,10 @@ function saveInvoiceEdit(gid){
       date,note:"",balAfter:it.qty,userId:ME.id,userName:ME.name,at:new Date().toISOString()});});
   logAct("تعديل فاتورة",`${inv} — ${invEdit.length} صنف`);save();
   const md=$("#invEditModal");if(md)md.remove();
-  toast("تم حفظ الفاتورة");if(CURRENT_PAGE==="move")renderRecent();else refreshView();
+  const pm=$("#printModal");if(pm)pm.remove();   // أغلق العرض القديم للفاتورة (كان يظهر بيانات قبل التعديل)
+  toast("تم حفظ الفاتورة");
+  if(CURRENT_PAGE==="move")renderRecent();else refreshView();
+  printInvoice(gid,true);   // اعرض الفاتورة محدّثة بعد الحفظ
 }
 function editMovement(id){
   if(!guard("canEdit"))return;
@@ -1618,7 +1623,9 @@ function lookupInvoice(){
     return `<div style="border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:16px">
       <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px;margin-bottom:8px">
         <div>🧾 فاتورة <b>${esc(f.invoice)}</b> · التاريخ <b>${esc(f.date)}</b> · الموظف <b>${esc(f.userName)}</b>${f.address?` · العنوان <b>${esc(f.address)}</b>`:""}</div>
-        ${f.invGid?`<button class="btn red sm no-print" onclick="cancelInvoice('${f.invGid}')">🗑️ إلغاء هذه الفاتورة</button>`:""}</div>
+        ${f.invGid?`<div style="display:flex;gap:6px;flex-wrap:wrap">
+          ${can("canEdit")?`<button class="btn blue sm no-print" onclick="editInvoice('${f.invGid}')">✏️ تعديل الفاتورة</button>`:""}
+          <button class="btn red sm no-print" onclick="cancelInvoice('${f.invGid}')">🗑️ إلغاء هذه الفاتورة</button></div>`:""}</div>
       <div style="font-weight:800;color:var(--amber);margin:4px 0 4px">📤 تفاصيل البيع</div>
       <table><tr><th>الموديل / الصنف</th><th>الكمية</th><th>سعر البيع</th><th>إجمالي البيع</th><th>تكلفة الوحدة</th><th>ربح الصنف</th></tr>${saleRows}
         <tr><td colspan="3"><b>إجمالي البيع</b></td><td colspan="2"><b>${money(total)} ﷼</b></td><td style="font-weight:800;color:${profitTot>=0?'var(--green)':'var(--red)'}">${money(profitTot)}</td></tr>
