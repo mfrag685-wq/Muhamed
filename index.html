@@ -2447,7 +2447,7 @@ td.cash-in{color:#1f6b45;font-weight:700}td.cash-out{color:#b42318;font-weight:7
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-14-b';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-14-c';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -3126,7 +3126,7 @@ function sheetCanvas(o){
   var inner=Math.max(o.minW||900,Math.max.apply(null,widths.map(function(ws){ return ws.reduce(function(a,b){ return a+b; },0); }).concat([0]))), W=inner+pad*2;
   widths=widths.map(function(ws){ var fixed=ws[0]===42?42:0, t=ws.reduce(function(a,b){ return a+b; },0)-fixed, k=(inner-fixed)/t; return ws.map(function(w,j){ return (j===0&&fixed)?w:w*k; }); });
   var hasK=o.kpis&&o.kpis.length, signs=[];   /* بدون توقيعات بناءً على طلب المستخدم */
-  var H=pad+96+92+(o.date?44:0)+(hasK?100:0); secs.forEach(function(sc){ H+=(sc.banner?96:0)+(sc.title?44:0)+36+sc.rows.length*rowH+26; }); H+=(signs.length?110:0)+70;
+  var H=pad+96+92+(o.subBig?34:0)+(o.date?56:0)+(hasK?100:0); secs.forEach(function(sc){ H+=(sc.banner?96:0)+(sc.title?44:0)+36+sc.rows.length*rowH+26; }); H+=(signs.length?110:0)+70;
   var cv=document.createElement('canvas'); cv.width=W*Sx; cv.height=H*Sx; var c=cv.getContext('2d'); c.scale(Sx,Sx); c.direction='rtl'; c.textBaseline='middle';
   c.fillStyle='#fff'; c.fillRect(0,0,W,H);
   /* شريط علوي رفيع + خط ذهبي */
@@ -3148,9 +3148,13 @@ function sheetCanvas(o){
   y=Math.max(y+84,my+mh+10);
   /* عنوان الكشف في المنتصف */
   c.textAlign='center'; c.fillStyle=INK; dsFit(c,o.title,W/2,y+22,inner-40,'800 25px '+F);
-  c.fillStyle=MUTE; dsFit(c,o.sub||'',W/2,y+54,inner-40,'14px '+F);
-  c.fillStyle=(o.theme&&o.theme.gold)||GOLD; c.fillRect(W/2-40,y+72,80,3); y+=92;
-  if(o.date){ var dt='📅 '+dayNameAr(o.date)+' '+o.date; mc.font='800 16px '+F; var dw=mc.measureText(dt).width+36; dsRound(c,W/2-dw/2,y-6,dw,34,17,'#f3f6f5'); c.strokeStyle=ACC; c.lineWidth=1.2; c.stroke(); c.fillStyle=ACC; c.textAlign='center'; c.font='800 16px '+F; c.fillText(dt,W/2,y+11); y+=44; }
+  if(o.subBig){   /* سطر بارز تحت العنوان (مثل «البراد رقم ( 5 )»): شريط ملوّن بخط كبير عريض */
+    mc.font='800 24px '+F; var sw=Math.min(inner-40,mc.measureText(o.sub||'').width+56); dsRound(c,W/2-sw/2,y+48,sw,46,23,ACC);
+    c.fillStyle='#fff'; c.textAlign='center'; dsFit(c,o.sub||'',W/2,y+72,sw-30,'800 24px '+F);
+    c.fillStyle=(o.theme&&o.theme.gold)||GOLD; c.fillRect(W/2-40,y+106,80,3); y+=126; }
+  else { c.fillStyle=MUTE; dsFit(c,o.sub||'',W/2,y+54,inner-40,'14px '+F);
+    c.fillStyle=(o.theme&&o.theme.gold)||GOLD; c.fillRect(W/2-40,y+72,80,3); y+=92; }
+  if(o.date){ var dt='📅 '+dayNameAr(o.date)+'  '+o.date; mc.font='800 21px '+F; var dw=mc.measureText(dt).width+48; dsRound(c,W/2-dw/2,y-6,dw,44,22,'#eef5f1'); c.strokeStyle=ACC; c.lineWidth=2; c.stroke(); c.fillStyle=ACC; c.textAlign='center'; c.font='800 21px '+F; c.fillText(dt,W/2,y+16); y+=56; }
   /* الملخص */
   if(hasK){ var n=o.kpis.length, kw=(inner-(n-1)*12)/n;
     o.kpis.forEach(function(k,i){ var x=W-pad-(i+1)*kw-i*12, col=k[3]||PAL[i%PAL.length]; dsRound(c,x,y,kw,80,12,'#fff'); c.strokeStyle=LINE; c.lineWidth=1; c.stroke();
@@ -5216,7 +5220,7 @@ function ldCanvas(day){
   var gr=go.map(function(k){ var g=G[k]; return [qbName('item',g.item),qty(g.pal),qty(g.u),ldTrkTxt(g.tr)]; }), gc=gr.map(function(){ return ''; });
   gr.push(['الإجمالي — '+go.length+' صنف',qty(sp),qty(su),'']); gc.push('total-row');
   secs.push({banner:'📊 الكشف المجمّع — الأصناف من كل البرادات',head:['الصنف','عدد الطبالي','إجمالي العدد','من البرادات'],rows:gr,cls:gc,color:'#8a6d1d'});
-  return sheetCanvas({clientLogo:rptClientLogoSrc(),date:_ldDate,title:'كشف تحميل البرادات'+deptTag(),sub:day.length===1?'البراد رقم ( '+day[0].no+' )':'البرادات: '+ldTrkTxt(day.map(function(L){ return L.no; })),docNo:'LD-'+String(_ldDate).replace(/-/g,'')+(day.length===1?'-'+day[0].no:''),meta:[['التاريخ',_ldDate]],signs:['موظف التحميل','السائق','المستلم'],rowH:32,minW:860,
+  return sheetCanvas({clientLogo:rptClientLogoSrc(),date:_ldDate,title:'كشف تحميل البرادات'+deptTag(),subBig:1,sub:day.length===1?'البراد رقم ( '+day[0].no+' )':'البرادات: '+ldTrkTxt(day.map(function(L){ return L.no; })),docNo:'LD-'+String(_ldDate).replace(/-/g,'')+(day.length===1?'-'+day[0].no:''),meta:[['التاريخ',_ldDate]],signs:['موظف التحميل','السائق','المستلم'],rowH:32,minW:860,
     kpis:[day.length===1?['رقم البراد',String(day[0].no),'','#1f6b45']:['عدد البرادات',String(day.length),'','#1f6b45'],['عدد الطبالي',qty(sp),'','#2f5fa8'],['إجمالي العدد',qty(su)+' '+(day.length===1?(day[0].unit||'كرتون'):'وحدة'),'','#8a6d1d']],sections:secs});
 }
 /* نافذة معاينة/طباعة/مشاركة لبراد واحد أو لكل برادات اليوم — بنفس أسلوب «ورقة مشتريات اليوم» */
