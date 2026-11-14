@@ -316,6 +316,7 @@ table.mini-months{font-size:12px}table.mini-months th,table.mini-months td{paddi
   *{ -webkit-print-color-adjust:exact!important; print-color-adjust:exact!important; }
   html,body{background:#fff;padding:0;margin:0;font-size:11px;color:#000}
   .wrap{max-width:100%!important;margin:0!important}
+  .pu{display:none!important}   /* لا اسم وحدة (صندوق…) بجانب السعر في المطبوع */
   header,nav.tabs,.filters,.no-print,form,.doc-box,.head-actions,.toast,.cloud-status{display:none!important}
   .panel{box-shadow:none;border:none;padding:0;margin:0;display:none;background:#fff}
   .panel.active{display:block}
@@ -2447,7 +2448,7 @@ td.cash-in{color:#1f6b45;font-weight:700}td.cash-out{color:#b42318;font-weight:7
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-14-f';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-14-g';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -8553,9 +8554,9 @@ function invImage(k,id,ready){ if(!ready){ rptReady(function(){ invImage(k,id,1)
 function invLines(d){ var r=+d.vatRate; if(!isFinite(r)) r=vatRate(); var V=docVat(d), mixed=(d.lines||[]).some(function(l){ return l.vm||l.noTax; });
   var out=(d.lines||[]).map(function(l){ var it=byId(db.items,l.itemId), bk=!!(it&&it.byKg), net=+l.total||0, lm=l.noTax?'none':(l.vm||d.vatMode||'add'), vat=(lm==='none'||!V)?0:round2(net*r/100), pe=enteredPrice(l);
     var tag=mixed||lm!==(d.vatMode||'add')?(lm==='incl'?' · شامل':(lm==='none'?' · بدون ضريبة':' · +ضريبة')):'';
-    var r1=1+r/100, lb=' /'+priceUnitLbl(pe), gp, np; if(lm==='incl'){ gp=(l.ep!=null)?pe.p:pe.p*r1; np=gp/r1; } else if(lm==='add'){ np=pe.p; gp=pe.p*r1; } else { np=gp=pe.p; }
+    var r1=1+r/100, lb='', gp, np;   /* المطبوعات بلا اسم الوحدة (صندوق/كرتون…): أرقام فقط */ if(lm==='incl'){ gp=(l.ep!=null)?pe.p:pe.p*r1; np=gp/r1; } else if(lm==='add'){ np=pe.p; gp=pe.p*r1; } else { np=gp=pe.p; }
     np=Math.round(np*100)/100; gp=Math.round(gp*100)/100;
-    return {pn:fmtPrice(np)+lb,pg:lm==='none'?fmtPrice(gp)+lb+' (معفى)':fmtPrice(gp)+lb,item:itemName(l.itemId),note:l.note||'',cnt:bk?(l.boxes?qty(l.boxes)+' صندوق':'—'):(qty(l.units)+' '+(l.unit||itemUnit(l.itemId)||'')),w:(+l.units||0)*(+l.uw||0),price:fmtPrice((lm==='incl'&&l.ep==null)?pe.p*(1+r/100):pe.p)+' /'+priceUnitLbl(pe)+tag,net:net,vat:vat,grand:net+vat,lm:lm}; });
+    return {pn:fmtPrice(np)+lb,pg:lm==='none'?fmtPrice(gp)+lb+' (معفى)':fmtPrice(gp)+lb,item:itemName(l.itemId),note:l.note||'',cnt:bk?(l.boxes?qty(l.boxes):'—'):qty(l.units),w:(+l.units||0)*(+l.uw||0),price:fmtPrice((lm==='incl'&&l.ep==null)?pe.p*(1+r/100):pe.p)+tag,net:net,vat:vat,grand:net+vat,lm:lm}; });
   /* فروق التقريب تُضاف لآخر سطر خاضع كي يطابق مجموع الأسطر ضريبة الفاتورة المحفوظة */
   var sv=out.reduce(function(a,x){ return a+x.vat; },0), df=round2(V-sv), last=null; out.forEach(function(x){ if(x.lm!=='none') last=x; });
   if(last&&df&&Math.abs(df)<1){ last.vat=round2(last.vat+df); last.grand=last.net+last.vat; }
