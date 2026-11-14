@@ -2448,7 +2448,7 @@ td.cash-in{color:#1f6b45;font-weight:700}td.cash-out{color:#b42318;font-weight:7
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-14-g';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-14-h';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   var box=document.getElementById('bootError');
@@ -8630,7 +8630,34 @@ function actAuto(panelId,h,i){
   ACTS[key]=[ic,name||('قسم '+(i+1)),pal[0],pal[1],pal[2]]; return key; }
 function actPaint(el,key){ var a=ACTS[key]; if(!a) return; el.style.setProperty('--ac',a[2]); el.style.setProperty('--acl',a[3]); el.style.setProperty('--acb',a[4]); }
 function actShown(el,root){ for(var e=el; e&&e!==root; e=e.parentElement){ if((e.style&&e.style.display==='none')||(e.classList&&e.classList.contains('hidden'))) return false; } return true; }
+/* ===== ⚡ انتقال سريع للمبيعات والمشتريات والتوريد اليومي (أقسام هذه الشاشات مخصّصة لا عناوين عامة) =====
+   هدف كل زر: عنصر بالمحدِّد (يمرَّر إليه ويُبرز) · أو تبويب من تبويبات التوريد (tab:) · أو إجراء مباشر (fn:) */
+var QNAV={
+  sales:[['⚡','إدخال سريع','#quickSaleBox'],['✍️','فاتورة بيع جديدة','#saleFormBox'],['🔍','البحث والفلترة','#sales .registry-bar'],['📊','ملخص السجل','#salesKpis'],['📋','سجل الفواتير','#salesCaption'],['🖨','فواتير يوم',"fn:dayInvoicesOpen('s')"]],
+  purchases:[['⚡','إدخال سريع','#mqPurBox'],['✍️','فاتورة شراء جديدة','#purchaseFormBox'],['🔍','البحث والفلترة','#purchases .registry-bar'],['📊','ملخص السجل','#purchaseKpis'],['📋','سجل الفواتير','#purchaseCaption'],['🖨','فواتير يوم',"fn:dayInvoicesOpen('p')"]],
+  supply:[['🚚','البرادات','tab:loads|#loadsBox'],['📊','ملخص الأصناف والتسليم','tab:loads|#loadsBox .ld-sum'],['🧾','المطابقة الثلاثية','tab:loads|#ldTw'],['📒','دفتر التعويضات','tab:loads|#ldCmp'],['🔁','مطابقة العدد','tab:loads|#ldC2'],
+    ['⚡','مشتريات اليوم','tab:qb|#quickBuyBox'],['📄','ورقة مشتريات اليوم (عرض/تعديل)','fn:dsOpen()'],['📑','الفواتير الضريبية','tab:tt|#taxTrackBox']]
+};
+function qnavOk(t){ if(/^fn:/.test(t)) return true; var sel=t.split('|').pop(), e=document.querySelector(sel); if(!e) return false;
+  if(/^tab:/.test(t)) return !!e.innerHTML.trim()&&!/tt-off/.test(e.innerHTML.slice(0,40));
+  return !e.classList.contains('hidden')&&!!(e.offsetHeight||e.innerHTML.trim()); }
+function qnavRender(pid){ var root=document.getElementById(pid); if(!root) return; var L=QNAV[pid].map(function(x,i){ return {x:x,i:i}; }).filter(function(o){ return qnavOk(o.x[2]); });
+  var nav=document.getElementById(pid+'ActNav');
+  if(L.length<2){ if(nav) nav.remove(); return; }
+  if(!nav){ nav=document.createElement('div'); nav.className='act-nav no-print'; nav.id=pid+'ActNav'; var pt=root.querySelector('.panel-title'); if(pt) pt.parentNode.insertBefore(nav,pt.nextSibling); else root.insertBefore(nav,root.firstChild); }
+  nav.innerHTML='<span class="an-l">⚡ انتقال سريع</span>'+L.map(function(o){ var p=ACT_PAL[o.i%ACT_PAL.length];
+    return '<button type="button" class="an-chip" style="--ac:'+p[0]+';--acl:'+p[1]+'" onclick="qnavGo(\''+pid+'\','+o.i+')">'+o.x[0]+' '+esc(o.x[1])+'</button>'; }).join('')
+    +'<input type="search" placeholder="🔎 ابحث عن إجراء…" oninput="actFilter(this)" onkeydown="if(event.key===\'Enter\'){var c=this.parentNode.querySelector(\'.an-chip:not(.dim)\');if(c)c.click();}">'; }
+function qnavGo(pid,i){ var t=QNAV[pid][i][2];
+  if(/^fn:/.test(t)){ try{ (new Function(t.slice(3)))(); }catch(e){} return; }
+  var sel=t, tab=null; if(/^tab:/.test(t)){ var a=t.slice(4).split('|'); tab=a[0]; sel=a[1]; }
+  if(tab){ try{ var pan=document.getElementById('supply'); if(pan&&pan.classList.contains('pt-tabs')){ var cur=lsGet(purTabKey()); if(cur!==tab&&cur!=='all'){ lsSet(purTabKey(),tab); renderPurTabs(); } } }catch(e){} }
+  setTimeout(function(){ var el=document.querySelector(sel); if(!el) return;
+    var nav=document.getElementById(pid+'ActNav'), off=(nav&&nav.offsetHeight?nav.offsetHeight:0)+14, top=el.getBoundingClientRect().top+window.pageYOffset-off;
+    window.scrollTo({top:Math.max(0,top),behavior:'smooth'});
+    el.classList.remove('act-flash'); void el.offsetWidth; el.classList.add('act-flash'); },tab?80:0); }
 function actNavInit(panelId){
+  if(QNAV[panelId]){ qnavRender(panelId); qnavLater(panelId); return; }
   var root=document.getElementById(panelId); if(!root) return;
   var nav=document.getElementById(panelId+'ActNav'), ai=0;
   /* 1) تعيين المفتاح للعناوين حسب نصّها (مرة واحدة) ثم تلوين محتوى كل قسم حتى العنوان التالي */
@@ -8680,6 +8707,9 @@ function actGo(panelId,key){
 }
 var _renderStockBase=renderStock;
 renderStock=function(){ var r=_renderStockBase.apply(this,arguments); try{ actNavInit('stock'); }catch(e){} return r; };
+/* إعادة رسم شريط الانتقال بعد كل رسم للشاشة (الأقسام تُبنى بعد فتح التبويب) */
+function qnavLater(pid){ clearTimeout(qnavLater['_'+pid]); qnavLater['_'+pid]=setTimeout(function(){ try{ var p=document.getElementById(pid); if(p&&p.classList.contains('active')) qnavRender(pid); }catch(e){} },350); }
+['renderSales','renderPurchases','renderPurTabs'].forEach(function(fn){ var base=window[fn]; if(typeof base!=='function') return; window[fn]=function(){ var r=base.apply(this,arguments); qnavLater(fn==='renderSales'?'sales':(fn==='renderPurchases'?'purchases':'supply')); return r; }; });
 /* ===== لمسات تقرير الملخّص: ترتيب بالنقر على العناوين + تجميع (يوم/شهر/طرف) بإجماليات فرعية + مؤشرات ===== */
 var regSort={s:{key:'date',dir:-1},p:{key:'date',dir:-1}}, regGroup={s:'none',p:'none'}, regLastIds={s:[],p:[]};
 try{ var _rp=JSON.parse(localStorage.getItem('regSummaryPrefs')||'null'); if(_rp&&_rp.sort&&_rp.group){ regSort=_rp.sort; regGroup=_rp.group; } }catch(e){}
