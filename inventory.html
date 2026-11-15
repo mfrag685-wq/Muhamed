@@ -159,24 +159,39 @@ html.lock-scroll,html.lock-scroll body{overflow:hidden!important;overscroll-beha
 #printArea td,#printArea th{border:1px solid #cbd5e1;padding:9px;text-align:right;font-size:14px}#printArea th{background:#f1f5f9}
 @media print{body:has(#printModal) *{visibility:hidden}body:has(#printModal) #printModal,body:has(#printModal) #printModal *{visibility:visible}body:has(#printModal) #printModal{position:absolute;inset:0;background:#fff;display:block;padding:0}
   #printModal .sheet{box-shadow:none;max-width:100%;max-height:none}#printModal .actions{display:none!important}}
-/* ===== لمسات بصرية (إضافية، لا تغيّر البنية) — أوضح وأنعم وأكثر احترافية ===== */
-.card{box-shadow:0 1px 2px rgba(15,23,42,.04),0 6px 18px rgba(15,23,42,.05);transition:box-shadow .18s ease}
-.card:hover{box-shadow:0 2px 6px rgba(15,23,42,.06),0 12px 28px rgba(15,23,42,.08)}
-.stat{position:relative;overflow:hidden;transition:transform .15s ease,box-shadow .15s ease}
-.stat:hover{transform:translateY(-2px)}
-.stat::before{content:"";position:absolute;inset-inline-start:0;top:0;bottom:0;width:4px;background:linear-gradient(180deg,var(--brand,#0d9488),transparent)}
-.stat .val{letter-spacing:.3px}
-.btn{transition:transform .08s ease,filter .15s ease,box-shadow .15s ease}
-.btn:not(.ghost):not(.gray):hover{filter:brightness(1.05)}
+/* ===== لمسات بصرية ظاهرة (ثابتة، تظهر على الجوال بلا تفاعل) ===== */
+body{background:radial-gradient(1200px 600px at 100% -5%,#e7f0ef 0%,transparent 55%),var(--bg)}
+/* الشريط العلوي والقائمة الجانبية: تدرّج لوني بدل اللون المسطّح */
+.topbar{background:linear-gradient(120deg,#0f766e 0%,#0f172a 70%)!important;box-shadow:0 2px 10px rgba(15,23,42,.25)}
+.sidebar{background:linear-gradient(185deg,#0f766e 0%,#0f172a 30%,#0f172a 100%)!important}
+.navbtn.active{background:linear-gradient(135deg,#14b8a6,#0d9488)!important;box-shadow:0 4px 12px rgba(13,148,136,.4)}
+/* البطاقات: حواف أنعم وظل واضح */
+.card{border-radius:16px;box-shadow:0 1px 2px rgba(15,23,42,.05),0 10px 24px rgba(15,23,42,.06)}
+.card-title{color:#0f766e;position:relative;padding-inline-start:12px}
+.card-title::before{content:"";position:absolute;inset-inline-start:0;top:2px;bottom:2px;width:4px;border-radius:4px;background:linear-gradient(180deg,#14b8a6,#0d9488)}
+/* بطاقات الأرقام: خلفية متدرّجة خفيفة + شريط علوي ملوّن + رقم أكبر */
+.stat{position:relative;overflow:hidden;border-radius:16px;background:linear-gradient(180deg,#ffffff,#f6fbfa);box-shadow:0 8px 20px rgba(15,23,42,.06)}
+.stat::before{content:"";position:absolute;top:0;inset-inline-start:0;inset-inline-end:0;height:5px;background:linear-gradient(90deg,#14b8a6,#0ea5e9)}
+.stat .val{font-size:27px;letter-spacing:.3px}
+/* الأزرار: تعبئة متدرّجة وزوايا أنعم وظل */
+.btn{border-radius:11px;box-shadow:0 3px 8px rgba(15,23,42,.1);background-image:linear-gradient(135deg,rgba(255,255,255,.14),rgba(255,255,255,0))}
+.btn.green{background:linear-gradient(135deg,#22c55e,#16a34a)}
+.btn.blue{background:linear-gradient(135deg,#3b82f6,#2563eb)}
+.btn.red{background:linear-gradient(135deg,#ef4444,#dc2626)}
+.btn.amber{background:linear-gradient(135deg,#f59e0b,#d97706)}
+.btn:not(.ghost):not(.gray){background-color:var(--brand)}
+.btn.lg{box-shadow:0 8px 18px rgba(13,148,136,.3)}
 .btn:active{transform:translateY(1px) scale(.99)}
-.btn.lg{box-shadow:0 6px 16px rgba(13,148,136,.25)}
-input,select,textarea{transition:border-color .15s ease,box-shadow .15s ease}
-input:focus,select:focus,textarea:focus{outline:none;border-color:var(--brand,#0d9488);box-shadow:0 0 0 3px rgba(13,148,136,.15)}
-table tbody tr{transition:background .12s ease}
-.table-wrap table tbody tr:hover{background:rgba(13,148,136,.05)}
-.tag{box-shadow:0 1px 2px rgba(0,0,0,.08)}
-.navbtn{transition:background .15s ease,color .15s ease}
-.pagehead h1{letter-spacing:.2px}
+/* الحقول: زاوية وتركيز أوضح */
+input,select,textarea{border-radius:10px;transition:border-color .15s,box-shadow .15s}
+input:focus,select:focus,textarea:focus{outline:none;border-color:#0d9488;box-shadow:0 0 0 3px rgba(13,148,136,.18)}
+/* الجداول: رأس ملوّن وصفوف أوضح */
+.table-wrap table thead th{background:#ecfdf5;color:#065f46;border-bottom:2px solid #a7f3d0}
+.table-wrap table tbody tr:nth-child(even){background:rgba(13,148,136,.035)}
+/* الوسوم (حالات) أوضح */
+.tag{border-radius:999px;box-shadow:0 1px 2px rgba(0,0,0,.08);font-weight:700}
+/* عنوان الصفحة بخط أعرض وأوضح */
+.pagehead h1{font-size:21px;letter-spacing:.2px;color:#0f172a}
 @media(prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 </head>
@@ -264,7 +279,7 @@ table tbody tr{transition:background .12s ease}
    ============================================================ */
 const KEY="inv_system_v2";
 /* رقم إصدار التطبيق — يُزاد مع كل تحديث؛ يُقارَن بالنسخة المنشورة لإظهار زر التحديث */
-const APP_VERSION="2026-11-15-01";
+const APP_VERSION="2026-11-15-02";
 let DB,ME;
 /* التحقق من توفّر نسخة أحدث بجلب الملف نفسه (بدون كاش) ومقارنة رقم الإصدار */
 function checkForUpdate(){
