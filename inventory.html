@@ -119,6 +119,11 @@ html.lock-scroll,html.lock-scroll body{overflow:hidden!important;overscroll-beha
 .step{display:flex;align-items:center;gap:9px;font-weight:800;font-size:15px;color:#334155;margin:16px 0 9px}
 .step:first-child{margin-top:2px}
 .step b{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;font-size:14px;flex:none;box-shadow:0 2px 6px rgba(79,70,229,.35)}
+/* تمييز الحركة المُضافة حديثاً في جدول آخر الحركات */
+@keyframes rowflash{0%{background:#fde68a}35%{background:#fef3c7}100%{background:transparent}}
+tr.rowflash>td{animation:rowflash 2.6s ease}
+tr.rowflash>td:first-child{position:relative}
+tr.rowflash>td:first-child::before{content:"✔ أُضيفت";position:absolute;top:-9px;inset-inline-start:4px;background:var(--green);color:#fff;font-size:10.5px;font-weight:800;padding:1px 7px;border-radius:8px;box-shadow:0 2px 6px rgba(22,163,74,.4);animation:rowflash 2.6s ease}
 /* أزرار كبيرة لنوع الحركة — وارد / منصرف */
 .typebtns{display:flex;gap:8px}
 .typebtns button{flex:1;border:2px solid var(--line);background:#fff;color:var(--muted);border-radius:10px;padding:14px 10px;font-weight:800;font-size:16px;line-height:1.4;transition:transform .1s;cursor:pointer}
@@ -283,7 +288,7 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:#0d9488;box-sh
    ============================================================ */
 const KEY="inv_system_v2";
 /* رقم إصدار التطبيق — يُزاد مع كل تحديث؛ يُقارَن بالنسخة المنشورة لإظهار زر التحديث */
-const APP_VERSION="2026-11-15-08";
+const APP_VERSION="2026-11-15-09";
 let DB,ME;
 /* التحقق من توفّر نسخة أحدث بجلب الملف نفسه (بدون كاش) ومقارنة رقم الإصدار */
 function checkForUpdate(){
@@ -1256,13 +1261,23 @@ function nextAfterPrice(){
 }
 function viewImg(src){if(!src)return;const m=document.createElement("div");m.className="modal";m.onclick=()=>m.remove();
   m.innerHTML=`<img src="${src}" style="max-width:92vw;max-height:88vh;border-radius:12px">`;document.body.appendChild(m);}
-function clearMove(all){
+function clearMove(all,noFocus){
   ["mCode","mQty","mPrice","mCustoms"].forEach(i=>$("#"+i)&&($("#"+i).value=""));
   if(all){["mInvoice","mComm","mAddress","mNoteIn","mNoteOut","mFeeVal"].forEach(i=>$("#"+i)&&($("#"+i).value=""));
     feeMode="inv";applyFeeMode();saleCart=[];renderCart();}
   picked=null;$("#mBal").style.display="none";
   const ac=$("#mAc");if(ac)ac.style.display="none";   // إخفاء قائمة البحث عن الموديل بعد الحفظ/المسح
-  $("#mCode").focus();
+  if(!noFocus)$("#mCode").focus();
+}
+/* بعد الحفظ: ينزل إلى الحركة المُضافة في «آخر الحركات» ويُضيئها ليتأكد الموظف أنها سُجّلت */
+function flashRecent(id){
+  renderRecent();
+  setTimeout(()=>{
+    const row=document.getElementById("rc"+id);if(!row)return;
+    row.scrollIntoView({behavior:"smooth",block:"center"});
+    row.classList.add("rowflash");
+    setTimeout(()=>row.classList.remove("rowflash"),2700);
+  },70);
 }
 /* وضع الرسوم: inv = كامل الفاتورة (افتراضي) · line = لكل صنف */
 let feeMode="inv";
@@ -1317,14 +1332,16 @@ function saveMove(){
     const gid="INV"+Date.now();
     const comm=toNum($("#mComm")?.value),addr=$("#mAddress")?.value||"",note=$("#mNoteOut")?.value||"";
     const feesInv=($("#mFeeVal")&&feeType()==="inv")?toNum($("#mFeeVal").value):0;   // رسوم كامل الفاتورة تُضاف للسطر الأول
+    let firstMvId=null;
     lines.forEach((l,idx)=>{const it=DB.items.find(x=>x.id===l.itemId);it.qty-=l.qty;
       const lineFee=(l.fee||0)+(idx===0?feesInv:0);
-      DB.movements.unshift({id:nid("movement"),uid:uidGen(),companyId:CO,itemId:it.id,type:"outbound",qty:l.qty,price:l.price||0,
+      const mid=nid("movement");if(idx===0)firstMvId=mid;
+      DB.movements.unshift({id:mid,uid:uidGen(),companyId:CO,itemId:it.id,type:"outbound",qty:l.qty,price:l.price||0,
         comm:idx===0?comm:0,fee:lineFee,model:itemModel(it),invoice:invNo,invGid:gid,address:addr,supplierId:null,customs:"",
         date,note,balAfter:it.qty,userId:ME.id,userName:ME.name,at:new Date().toISOString()});});
     logAct("منصرف","فاتورة "+invNo+" — "+lines.length+" صنف");save();
     saleCart=[];show(`✔ تم حفظ فاتورة البيع ${invNo} (${lines.length} صنف).`,"ok");
-    clearMove(true);renderRecent();printInvoice(gid);
+    clearMove(true,true);flashRecent(firstMvId);printInvoice(gid);   // يُظهر الفاتورة المطبوعة ويُضيء الحركة في السجل
     return;
   }
   // وارد / تسوية — صنف واحد
@@ -1338,14 +1355,15 @@ function saveMove(){
   // تنبيه: غرف النوم أطقم فريدة — غير معتاد أن يزيد رصيد الموديل الواحد عن 1
   if(mType==="inbound"&&normCat(item.category)==="غرف نوم"&&(stockOf(item.id)+qty)>1
      &&!confirm(`⚠️ تنبيه: «${itemModel(item)}» من فئة غرف النوم، وسيصبح رصيده ${stockOf(item.id)+qty}.\nغير المعتاد وجود أكثر من غرفة واحدة من نفس الموديل. هل أنت متأكد من المتابعة؟`))return;
+  const mvId=nid("movement");
   item.qty+=qty;
-  DB.movements.unshift({id:nid("movement"),uid:uidGen(),companyId:CO,itemId:item.id,type:mType,qty,price:parseFloat($("#mPrice").value)||0,
+  DB.movements.unshift({id:mvId,uid:uidGen(),companyId:CO,itemId:item.id,type:mType,qty,price:parseFloat($("#mPrice").value)||0,
     comm:0,model:itemModel(item),invoice:"",invGid:"",address:"",supplierId:+($("#mSupplier")?.value)||null,
     customs:mType==="inbound"?($("#mCustoms").value||""):"",date,note:$("#mNoteIn")?.value||"",
     balAfter:item.qty,userId:ME.id,userName:ME.name,at:new Date().toISOString()});
   logAct(typeAr(mType),`${itemModel(item)} كمية ${qty}`);save();
   show(`✔ تم تسجيل ${typeAr(mType)} «${itemModel(item)}» بكمية ${qty}. الرصيد الآن: ${item.qty}`,"ok");
-  clearMove(false);renderRecent();
+  clearMove(false,true);flashRecent(mvId);   // لا يعود لإدخال جديد — بل يُظهر الحركة المُضافة
 }
 /* حساب «الرصيد بعد كل حركة» ديناميكياً (ترتيب زمني لكل صنف) — يتحدّث تلقائياً بعد أي حذف/تعديل */
 function balAfterMap(){
@@ -1381,7 +1399,7 @@ function renderRecent(){
         :(lim===0&&total>5?` · <a onclick="showFewerRecent()" style="color:var(--blue);cursor:pointer;font-weight:700">عرض أقل ▴</a>`:""));
   }
   tb.innerHTML=shown.map(m=>{const it=DB.items.find(i=>i.id===m.itemId)||{};const sup=DB.suppliers.find(x=>x.id===m.supplierId);
-    return `<tr><td>${esc(m.date)}</td><td>${esc(m.model||itemModel(it))}</td>
+    return `<tr id="rc${m.id}"><td>${esc(m.date)}</td><td>${esc(m.model||itemModel(it))}</td>
       <td><span class="tag ${m.type}">${typeAr(m.type)}</span></td>
       <td style="font-weight:700;color:${isIn(m.type)?'var(--green)':'var(--amber)'}">${isIn(m.type)?"+":"−"}${m.qty}</td>
       <td>${BAL[m.id]??m.balAfter??"—"}</td><td>${esc(m.type==="inbound"?(m.customs||""):(m.invoice||""))}</td>
