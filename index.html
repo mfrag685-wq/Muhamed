@@ -788,6 +788,7 @@ td.cash-in{color:#1f6b45;font-weight:700}td.cash-out{color:#b42318;font-weight:7
 .ds-nav{display:inline-flex;gap:4px;align-items:center}.ds-nav input{height:34px}.ds-acts{margin-inline-start:auto;display:flex;gap:5px;flex-wrap:wrap}
 .ds-prev{padding:12px;overflow-x:auto;max-width:100%;box-sizing:border-box}.dse{border:1px solid #cfe3d6;background:#f6faf7;border-radius:10px;padding:8px;margin:0 0 12px}.dse-h{font-weight:800;color:#14532d;margin:0 0 6px}.dse-r{display:flex;gap:10px;align-items:center;flex-wrap:wrap;background:#fff;border:1px solid #e3ebe6;border-radius:8px;padding:7px 9px;margin:5px 0}.dse-s{flex:0 0 170px}.dse-ls{flex:1 1 260px;display:flex;flex-wrap:wrap;gap:4px 10px;font-size:13px}.dse-l em{color:#667;font-style:normal}.dse-l i{color:#9a5b00;font-style:normal;font-size:12px}.dse-a{display:flex;gap:6px;flex:0 0 auto}.ds-img{display:block;width:100%;max-width:900px;margin:0 auto;border:1px solid #e3e9f0;border-radius:8px}
 @media (max-width:700px){.ds-modal{padding:6px}.ds-acts{margin:0;width:100%}.ds-acts .btn-alt{flex:1 1 100%;min-height:44px}.ds-prev{padding:6px}.ds-sheet{padding:8px;font-size:12px}.ds-tb td,.ds-tb th{padding:5px 3px}.ds-t{font-size:15px}.ds-nav{width:100%}.ds-nav input{flex:1}}
+.late-line{margin:6px 0}.late-top{display:flex;flex-wrap:wrap;align-items:center;gap:6px}.late-n{background:#fff4e0;color:#8a4b00;border:1px solid #f5c26b;border-radius:999px;padding:2px 10px;font-size:14px;font-weight:700}.late-n b{font-size:17px}.late-days{margin:4px 18px 0 0;font-size:14px;line-height:1.9}.late-mon{background:#f3f6f9;border-radius:8px;padding:2px 8px}.late-mon b{font-size:15px;color:#1e3a5f}
 .sync-alert{background:#fdecec;border:1px solid #f5b5b5;color:#7a1414;border-radius:10px;padding:9px 12px;margin:8px 0;font-size:13.5px;line-height:1.7}
 .lh-sum{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:6px 0}.lh-i{font-size:12.5px;margin:2px 0}.lh-bad{color:#b42318;font-weight:700}.lh-warn{color:#9a5b00}.lh-info{color:#555}
 .tt-title{font-size:15px}
@@ -2448,7 +2449,7 @@ td.cash-in{color:#1f6b45;font-weight:700}td.cash-out{color:#b42318;font-weight:7
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-15-a';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-15-b';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   /* أخطاء سباق عرض غير مؤذية (إعادة رسم أثناء مغادرة خانة) — لا تُعرض كعطل ولا توقف النظام */
@@ -8055,11 +8056,12 @@ function entryDelayAlerts(){
     if(last>=td) return null;   /* محدَّث حتى اليوم الفعّال */
     var nd=ivAddDays(last,1), gap=Math.round((new Date(td)-new Date(last))/86400000);
     if(gap<=grace) return null;   /* ضمن مهلة السماح */
-    if(gap===1) return {name:name,intro:intro,kindDef:kindDef,tier:'soft',sev:2,
+    var lateDays=[]; for(var dd=nd, gg=0; dd<=td&&gg<75; dd=ivAddDays(dd,1), gg++) lateDays.push(dd);
+    if(gap===1) return {n:lateDays.length,days:lateDays,name:name,intro:intro,kindDef:kindDef,tier:'soft',sev:2,
       msg:'لم يُسجَّل إدخال '+kindBare+' ليوم '+td+' بعد — يُرجى تسجيله في وقته.'};
-    if(gap===2) return {name:name,intro:intro,kindDef:kindDef,tier:'mid',sev:1,
+    if(gap===2) return {n:lateDays.length,days:lateDays,name:name,intro:intro,kindDef:kindDef,tier:'mid',sev:1,
       msg:'آخر يوم تم فيه إدخال '+kindDef+' هو '+last+' — الرجاء إدخال '+kindBare+' يوم '+nd+' (متأخّر يومان).'};
-    return {name:name,intro:intro,kindDef:kindDef,tier:'urgent',sev:0,
+    return {n:lateDays.length,days:lateDays,name:name,intro:intro,kindDef:kindDef,tier:'urgent',sev:0,
       msg:'آخر يوم تم فيه إدخال '+kindDef+' هو '+last+' — مضى '+mcDays(gap)+' بلا إدخال. يُرجى استدراك الأيام الفائتة بدءاً من '+nd+'.'};
   }
   var off=function(g){ return String(g)==='off'; };   /* نوع مُخفى التنبيه لهذا القسم */
@@ -8078,7 +8080,7 @@ function entryDelayAlerts(){
     var items=byName[name].slice().sort(function(a,b){ return a.sev-b.sev; });   /* الأعجل أولاً داخل الموظّف */
     var top=items[0];
     return {level:'staff', tier:top.tier, sev:top.sev, title:'متابعة الإدخال — '+name, intro:top.intro,
-      lines:items.map(function(it){ return it.ack?{t:it.kindDef+': '+it.msg,ack:it.ack,cname:it.cname}:(it.kindDef+': '+it.msg); })};
+      lines:items.map(function(it){ return (it.ack||it.n)?{t:it.kindDef+': '+it.msg,ack:it.ack,cname:it.cname,kind:it.kindDef,n:it.n,days:it.days}:(it.kindDef+': '+it.msg); })};
   });
   A.sort(function(a,b){ return (a.sev==null?9:a.sev)-(b.sev==null?9:b.sev); });   /* الموظّف الأعجل أولاً */
   return A;
@@ -8128,10 +8130,15 @@ function dailyClientFollowUps(clients,cfg,td,realTd){
     var msg=miss.length===1
       ? 'لم تُسجَّل مبيعات هذا العميل ليوم '+miss[0]+(age>=2?' (متأخّر '+age+' أيام)':'')+'.'
       : 'أيام بلا مبيعات مسجّلة لهذا العميل ('+miss.length+'): '+miss.map(function(x){ return x.slice(5); }).join('، ')+' — يُرجى استدراكها بدءاً من '+miss[0]+'.';
-    out.push({name:cfg.salesName,intro:intro,kindDef:'مبيعات «'+name+'»',cname:name,tier:tier,sev:sev,msg:msg,ack:{cid:cid,dates:miss}});
+    out.push({n:miss.length,days:miss,name:cfg.salesName,intro:intro,kindDef:'مبيعات «'+name+'»',cname:name,tier:tier,sev:sev,msg:msg,ack:{cid:cid,dates:miss}});
   });
   return out;
 }
+var AR_MONTHS=['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
+function arDaysWord(n){ return n===1?'يوم':(n===2?'يومان':(n<=10?'أيام':'يوماً')); }
+/* الأيام مجمّعة حسب الشهر: «يوم 10 + 11 + 12 نوفمبر» */
+function lateDaysTxt(arr){ var g={}, o=[]; (arr||[]).forEach(function(d){ var k=d.slice(0,7); if(!g[k]){ g[k]=[]; o.push(k); } g[k].push(+d.slice(8,10)); });
+  return o.map(function(k){ return '<span class="late-mon">يوم <b>'+g[k].join('</b> + <b>')+'</b> '+AR_MONTHS[(+k.slice(5,7))-1]+'</span>'; }).join(' · '); }
 /* تأكيد «لا مبيعات فعلية» لعميل في أيام محدّدة — لمدير النظام أو مسؤول المبيعات فقط */
 function ackNoSales(cid,dates){
   if(!ME) return;
@@ -8262,6 +8269,11 @@ function staffCardHtml(a){
     /* بطاقة موظّف مجمَّعة: تحية مرة واحدة ثم سطر لكل نوع إدخال (مبيعات/مصروفات…) */
     body='<div class="staff-alert-t">'+esc(a.intro||'')+'</div>'
       +'<div class="staff-alert-t sd-lines">'+a.lines.map(function(ln){
+        if(ln&&typeof ln==='object'&&ln.n){   /* عدد الأيام المتأخرة بخط واضح ثم الأيام: يوم 10 + 11 + 12 … */
+          var ab2=(ln.ack&&canAckStock('high'))?(' <button type="button" class="ack-btn" style="padding:2px 9px;font-size:12px" title="تأكيد أن العميل لم تكن له مبيعات فعلية في هذه الأيام" onclick="ackNoSales('+ln.ack.cid+',\''+ln.ack.dates.join(',')+'\')">✔ لا مبيعات فعلية</button>'):'';
+          var kd=esc(String(ln.kind||'').replace(/[«»]/g,'')); if(ln.cname){ var en2=esc(ln.cname); kd=kd.replace(en2,function(){ return '<span class="cl-name">'+en2+'</span>'; }); }
+          return '<div class="sd-line late-line"><div class="late-top">• <b>'+kd+'</b> <span class="late-n">⏰ عدد الأيام المتأخرة: <b>'+ln.n+'</b> '+arDaysWord(ln.n)+'</span>'+ab2+'</div>'
+            +'<div class="late-days">'+lateDaysTxt(ln.days)+' <span class="mini">— يُرجى الاستدراك بدءاً من '+esc(ln.days[0])+'</span></div></div>'; }
         if(ln&&typeof ln==='object'){
           var ab=canAckStock('high')?(' <button type="button" class="ack-btn" style="padding:2px 9px;font-size:12px" title="تأكيد أن العميل لم تكن له مبيعات فعلية في هذه الأيام" onclick="ackNoSales('+ln.ack.cid+',\''+ln.ack.dates.join(',')+'\')">✔ لا مبيعات فعلية</button>'):'';
           var lt=esc(ln.t); if(ln.cname){ var en=esc(ln.cname); lt=lt.replace(en,function(){ return '<span class="cl-name">'+en+'</span>'; }); }
