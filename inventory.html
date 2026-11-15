@@ -288,7 +288,7 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:#0d9488;box-sh
    ============================================================ */
 const KEY="inv_system_v2";
 /* رقم إصدار التطبيق — يُزاد مع كل تحديث؛ يُقارَن بالنسخة المنشورة لإظهار زر التحديث */
-const APP_VERSION="2026-11-15-10";
+const APP_VERSION="2026-11-15-11";
 let DB,ME;
 /* التحقق من توفّر نسخة أحدث بجلب الملف نفسه (بدون كاش) ومقارنة رقم الإصدار */
 function checkForUpdate(){
@@ -1136,7 +1136,7 @@ function pMove(){
       <div class="cell c4 ac-wrap"><label>الصنف / الموديل</label>
         <input id="mCode" placeholder="ابحث بالموديل أو الاسم..." autocomplete="off" oninput="acItems(this.value)" onfocus="acItems(this.value)">
         <div class="ac-list" id="mAc"></div></div>
-      <div class="cell c2"><label>الكمية</label><input id="mQty" type="number" inputmode="numeric" min="0" step="1" placeholder="أدخل الكمية" onkeydown="if(event.key==='Enter'){event.preventDefault();$('#mPrice').focus();$('#mPrice').select&&$('#mPrice').select();}"></div>
+      <div class="cell c2"><label>الكمية</label><input id="mQty" type="number" inputmode="numeric" min="0" step="1" placeholder="أدخل الكمية" oninput="mStockHint()" onkeydown="if(event.key==='Enter'){event.preventDefault();$('#mPrice').focus();$('#mPrice').select&&$('#mPrice').select();}"></div>
       <div class="cell c3" id="wrapPrice"><label id="lblPrice">السعر ﷼</label><input id="mPrice" type="number" inputmode="decimal" step="0.01" placeholder="0.00" onkeydown="if(event.key==='Enter'){event.preventDefault();nextAfterPrice();}"></div>
       <div class="cell c2"><label>التاريخ</label><input id="mDate" type="date" value="${today()}"></div>
     </div>
@@ -1222,6 +1222,7 @@ function setType(t){
   if(wp)wp.style.display=(t==="adjustment")?"none":"block";
   if(lp)lp.textContent=(t==="inbound")?(simpleCo()?"سعر التكلفة (اختياري) ﷼":"سعر التكلفة * ﷼"):(simpleCo()?"سعر البيع (اختياري) ﷼":"سعر البيع * (إجباري) ﷼");
   if(sb)sb.textContent=(t==="outbound")?"✓ حفظ الفاتورة":"✓ حفظ الحركة";
+  const mm=$("#mMsg");if(mm)mm.innerHTML="";   // مسح رسالة فحص الرصيد عند تغيير نوع الحركة
   renderCart();
   if($("#rfAll")&&(t==="inbound"||t==="outbound"))setRecentFilter(t);   // يفلتر آخر الحركات حسب النوع المختار
 }
@@ -1250,6 +1251,7 @@ function pickItem(id){
   $("#mBal").style.display="flex";$("#mBalName").textContent="رصيد «"+itemModel(picked)+"»";
   $("#mBalV").textContent=stockOf(picked.id)+" "+(picked.unit||"");
   const im=$("#mBalImg");if(im){if(picked.image){im.src=picked.image;im.style.display="block";}else im.style.display="none";}
+  mStockHint();   // اقرأ المخزون فوراً عند اختيار الصنف واعرض الرسالة قبل الحفظ
   // تنقّل تلقائي: بعد اختيار الصنف انتقل لحقل الكمية
   setTimeout(()=>{const q=$("#mQty");if(q){q.focus();q.select&&q.select();}},30);
 }
@@ -1258,6 +1260,21 @@ function nextAfterPrice(){
   if(mType==="inbound"){const c=$("#mCustoms");if(c)c.focus();}
   else if(mType==="outbound"){addToInvoice();const q=$("#mCode");if(q)q.focus();}
   else{const q=$("#mCode");if(q)q.focus();}
+}
+/* فحص فوري للرصيد عند البيع: يقرأ المخزون بمجرد اختيار الصنف/تغيير الكمية ويعرض الرسالة قبل الحفظ */
+function mStockHint(){
+  const msg=$("#mMsg");if(!msg)return;
+  if(mType!=="outbound"||!picked){return;}
+  const inCart=saleCart.filter(l=>l.itemId===picked.id).reduce((s,l)=>s+l.qty,0);
+  const avail=stockOf(picked.id)-inCart;
+  const qty=parseFloat($("#mQty")?.value)||0;
+  if(avail<=0){
+    msg.innerHTML=`<div class="msg err">⚠️ لا يوجد رصيد متاح للبيع من «${itemModel(picked)}»${inCart?` (مُستهلَك بالكامل في هذه الفاتورة)`:""}.<br><b style="color:var(--green)">➕ الرجاء إضافة الفسح (وارد) أولاً حتى يمكنك البيع.</b></div>`;
+  }else if(qty>avail){
+    msg.innerHTML=`<div class="msg err">⚠️ المتاح للبيع ${avail} فقط من «${itemModel(picked)}» وقد طلبت ${qty}.<br><b style="color:var(--green)">➕ الرجاء إضافة الفسح (وارد) أولاً حتى يمكنك البيع.</b></div>`;
+  }else{
+    msg.innerHTML=`<div class="msg ok">✔ المتاح للبيع من «${itemModel(picked)}»: <b>${avail}</b> — يمكنك المتابعة.</div>`;
+  }
 }
 function viewImg(src){if(!src)return;const m=document.createElement("div");m.className="modal";m.onclick=()=>m.remove();
   m.innerHTML=`<img src="${src}" style="max-width:92vw;max-height:88vh;border-radius:12px">`;document.body.appendChild(m);}
