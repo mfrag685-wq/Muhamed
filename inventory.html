@@ -295,7 +295,7 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:#0d9488;box-sh
    ============================================================ */
 const KEY="inv_system_v2";
 /* رقم إصدار التطبيق — يُزاد مع كل تحديث؛ يُقارَن بالنسخة المنشورة لإظهار زر التحديث */
-const APP_VERSION="2026-11-15-12";
+const APP_VERSION="2026-11-15-13";
 let DB,ME;
 /* التحقق من توفّر نسخة أحدث بجلب الملف نفسه (بدون كاش) ومقارنة رقم الإصدار */
 function checkForUpdate(){
@@ -1129,36 +1129,22 @@ function pMove(){
       <button type="button" class="out" id="tbOut" onclick="setType('outbound')"><span class="ar" style="color:var(--red)">⬆️</span> منصرف (بضاعة خارجة)<small>بيع / صرف للعميل ➖ ينقص الرصيد</small></button>
       <button type="button" class="adj" id="tbAdj" onclick="setType('adjustment')">⚙ تسوية جرد<small>تصحيح الرصيد يدويًا</small></button>
     </div>
+    <div class="step" id="stepDoc"><b>2</b><span id="stepDocT">بيانات المستند</span></div>
+    <div class="formgrid" style="margin-top:6px">
+      <div class="cell c3"><label>التاريخ</label><input id="mDate" type="date" value="${today()}"></div>
+      <div class="cell c4 docIn"><label>المورد ${simpleCo()?"(اختياري)":"* (إجباري للوارد)"}</label><select id="mSupplier"><option value="">— اختر المورد —</option>
+        ${csups().map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join("")}</select></div>
+      <div class="cell c4 docIn"><label>رقم الفسح الجمركي ${simpleCo()?"(اختياري)":"* (إجباري للوارد)"}</label><input id="mCustoms" placeholder="رقم الفسح"></div>
+      <div class="cell c4 docOut"><label>${simpleCo()?"رقم فسح العميل * (إجباري)":"رقم سند/فاتورة البيع * (إجباري)"}</label><input id="mInvoice" placeholder="${simpleCo()?"رقم فسح العميل":"رقم السند / الفاتورة"}"></div>
+    </div>
+
+    <div class="step"><b>3</b><span>الصنف والكمية والسعر</span></div>
     <div class="balbox" id="mBal" style="display:none">
       <div style="display:flex;align-items:center;gap:12px">
         <img id="mBalImg" onclick="viewImg(this.src)" style="display:none;width:56px;height:56px;object-fit:cover;border-radius:10px;border:1px solid #a5f3fc;cursor:zoom-in">
         <span id="mBalName">الرصيد الحالي</span></div>
       <span class="b" id="mBalV">0</span></div>
-
-    <div class="step"><b>2</b><span>الصنف والكمية</span></div>
-    <div class="formgrid">
-      <div class="cell c3"><label>المجموعة</label>
-        <select id="mGroup" onchange="acItems($('#mCode').value)"><option value="">كل المجموعات</option>
-        ${CATS.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join("")}</select></div>
-      <div class="cell c4 ac-wrap"><label>الصنف / الموديل</label>
-        <input id="mCode" placeholder="ابحث بالموديل أو الاسم..." autocomplete="off" oninput="acItems(this.value)" onfocus="acItems(this.value)">
-        <div class="ac-list" id="mAc"></div></div>
-      <div class="cell c2"><label>الكمية</label><input id="mQty" type="number" inputmode="numeric" min="0" step="1" placeholder="أدخل الكمية" oninput="mStockHint()" onkeydown="if(event.key==='Enter'){event.preventDefault();$('#mPrice').focus();$('#mPrice').select&&$('#mPrice').select();}"></div>
-      <div class="cell c3" id="wrapPrice"><label id="lblPrice">السعر ﷼</label><input id="mPrice" type="number" inputmode="decimal" step="0.01" placeholder="0.00" onkeydown="if(event.key==='Enter'){event.preventDefault();nextAfterPrice();}"></div>
-      <div class="cell c2"><label>التاريخ</label><input id="mDate" type="date" value="${today()}"></div>
-    </div>
-
-    <div class="step" id="stepDoc"><b>3</b><span id="stepDocT">بيانات المستند</span></div>
-    <!-- حقول الوارد: المورد + الفسح -->
-    <div class="formgrid" id="rowIn" style="margin-top:6px">
-      <div class="cell c4"><label>المورد ${simpleCo()?"(اختياري)":"* (إجباري للوارد)"}</label><select id="mSupplier"><option value="">— اختر المورد —</option>
-        ${csups().map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join("")}</select></div>
-      <div class="cell c4"><label>رقم الفسح الجمركي ${simpleCo()?"(اختياري)":"* (إجباري للوارد)"}</label><input id="mCustoms" placeholder="رقم الفسح"></div>
-      <div class="cell c4"><label>ملاحظات</label><input id="mNoteIn" placeholder="ملاحظة"></div>
-    </div>
-
-    <!-- حقول المنصرف: فاتورة + عمولة + إمكانية عدة أصناف -->
-    <div id="rowOut" style="margin-top:6px">
+    <div class="docOut">
       <div style="font-weight:800;color:var(--blue);margin:2px 0 6px">⚡ إضافة سريعة للأصناف — اختر الصنف ثم الكمية ثم السعر و«Enter»</div>
       <div class="qrow">
         <select id="qItem" onchange="qHint();if(this.value){const e=$('#qQty');if(e)e.focus();}">
@@ -1170,23 +1156,39 @@ function pMove(){
         <button type="button" class="qbtn" onclick="qAdd()" title="أضِف الصنف للفاتورة">＋</button>
       </div>
       <div id="qHint" style="font-size:13px;margin:6px 2px 10px"></div>
-      <div class="formgrid">
-        <div class="cell c3"><label>${simpleCo()?"رقم فسح العميل * (إجباري)":"رقم فاتورة البيع * (إجباري)"}</label><input id="mInvoice" placeholder="${simpleCo()?"رقم فسح العميل":"رقم الفاتورة"}"></div>
-        ${simpleCo()?"":`<div class="cell c3"><label>العمولة ﷼ (لكامل الفاتورة)</label><input id="mComm" type="number" inputmode="decimal" step="0.01" placeholder="0.00"></div>
-        <div class="cell c3"><label>🚚 رسوم تركيب/توصيل ﷼</label>
-          <input id="mFeeVal" type="number" inputmode="decimal" step="0.01" placeholder="اتركه فارغاً = بدون رسوم">
-          <div style="display:flex;align-items:center;gap:8px;margin-top:4px;flex-wrap:wrap">
-            <button type="button" id="feeModeToggle" onclick="toggleFeeMode()" style="background:#eef2ff;color:#3730a3;border:1px solid #c7d2fe;border-radius:20px;padding:6px 12px;font-size:12.5px;font-weight:700;cursor:pointer">🔀 تحويل إلى: لكل صنف</button>
-            <span id="feeHint" style="font-size:11px;color:var(--muted)">مبلغ واحد لكامل الفاتورة</span></div></div>`}
-        <div class="cell c3"><label>${simpleCo()?"العميل / المستلم (لمن خرجت) *":"العنوان"}</label>
-          ${simpleCo()
-            ? `<select id="mAddress"><option value="">— اختر العميل —</option>${ccusts().map(c=>`<option value="${esc(c.name)}">${esc(c.name)}</option>`).join("")}</select>
-               <div style="font-size:11px;color:var(--muted);margin-top:3px">لإضافة عميل جديد: <a onclick="go('customers')" style="color:var(--blue);cursor:pointer;font-weight:700">افتح شاشة العملاء 🧑‍💼</a></div>`
-            : `<input id="mAddress" placeholder="العنوان">`}</div>
-        <div class="cell c3"><label>ملاحظات</label><input id="mNoteOut" placeholder="ملاحظة"></div>
-      </div>
+    </div>
+    <div class="formgrid">
+      <div class="cell c3"><label>المجموعة</label>
+        <select id="mGroup" onchange="acItems($('#mCode').value)"><option value="">كل المجموعات</option>
+        ${CATS.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join("")}</select></div>
+      <div class="cell c4 ac-wrap"><label>الصنف / الموديل</label>
+        <input id="mCode" placeholder="ابحث بالموديل أو الاسم..." autocomplete="off" oninput="acItems(this.value)" onfocus="acItems(this.value)">
+        <div class="ac-list" id="mAc"></div></div>
+      <div class="cell c2"><label>الكمية</label><input id="mQty" type="number" inputmode="numeric" min="0" step="1" placeholder="أدخل الكمية" oninput="mStockHint()" onkeydown="if(event.key==='Enter'){event.preventDefault();$('#mPrice').focus();$('#mPrice').select&&$('#mPrice').select();}"></div>
+      <div class="cell c3" id="wrapPrice"><label id="lblPrice">السعر ﷼</label><input id="mPrice" type="number" inputmode="decimal" step="0.01" placeholder="0.00" onkeydown="if(event.key==='Enter'){event.preventDefault();nextAfterPrice();}"></div>
+    </div>
+    <div class="formgrid docIn" style="margin-top:6px">
+      <div class="cell c6"><label>ملاحظات</label><input id="mNoteIn" placeholder="ملاحظة"></div>
+    </div>
+    <div class="docOut">
       <button class="btn blue" onclick="addToInvoice()">➕ أضِف الصنف الحالي إلى الفاتورة</button>
       <div id="cartBox" style="margin-top:10px"></div>
+    </div>
+
+    <div class="step docOut"><b>4</b><span>الخدمة/التركيب والعمولة والعميل</span></div>
+    <div class="formgrid docOut">
+      ${simpleCo()?"":`<div class="cell c3"><label>🚚 رسوم تركيب/توصيل ﷼</label>
+        <input id="mFeeVal" type="number" inputmode="decimal" step="0.01" placeholder="اتركه فارغاً = بدون رسوم">
+        <div style="display:flex;align-items:center;gap:8px;margin-top:4px;flex-wrap:wrap">
+          <button type="button" id="feeModeToggle" onclick="toggleFeeMode()" style="background:#eef2ff;color:#3730a3;border:1px solid #c7d2fe;border-radius:20px;padding:6px 12px;font-size:12.5px;font-weight:700;cursor:pointer">🔀 تحويل إلى: لكل صنف</button>
+          <span id="feeHint" style="font-size:11px;color:var(--muted)">مبلغ واحد لكامل الفاتورة</span></div></div>
+      <div class="cell c3"><label>العمولة ﷼ (لكامل الفاتورة)</label><input id="mComm" type="number" inputmode="decimal" step="0.01" placeholder="0.00"></div>`}
+      <div class="cell c3"><label>${simpleCo()?"العميل / المستلم (لمن خرجت) *":"العنوان"}</label>
+        ${simpleCo()
+          ? `<select id="mAddress"><option value="">— اختر العميل —</option>${ccusts().map(c=>`<option value="${esc(c.name)}">${esc(c.name)}</option>`).join("")}</select>
+             <div style="font-size:11px;color:var(--muted);margin-top:3px">لإضافة عميل جديد: <a onclick="go('customers')" style="color:var(--blue);cursor:pointer;font-weight:700">افتح شاشة العملاء 🧑‍💼</a></div>`
+          : `<input id="mAddress" placeholder="العنوان">`}</div>
+      <div class="cell c3"><label>ملاحظات</label><input id="mNoteOut" placeholder="ملاحظة"></div>
     </div>
 
     <div style="display:flex;gap:10px;margin-top:14px">
@@ -1231,12 +1233,13 @@ function setType(t){
   ["tbIn","tbOut","tbAdj"].forEach(id=>$("#"+id)?.classList.remove("on"));
   const map={inbound:"tbIn",outbound:"tbOut",adjustment:"tbAdj"};
   if($("#"+map[t]))$("#"+map[t]).classList.add("on");
-  const rin=$("#rowIn"),rout=$("#rowOut"),wp=$("#wrapPrice"),lp=$("#lblPrice"),sb=$("#saveBtn");
-  if(rin)rin.style.display=(t==="inbound")?"grid":"none";
-  if(rout)rout.style.display=(t==="outbound")?"block":"none";
+  const wp=$("#wrapPrice"),lp=$("#lblPrice"),sb=$("#saveBtn");
+  // إظهار/إخفاء حقول كل نوع عبر الأصناف docIn / docOut
+  document.querySelectorAll(".docIn").forEach(e=>e.style.display=(t==="inbound")?"":"none");
+  document.querySelectorAll(".docOut").forEach(e=>e.style.display=(t==="outbound")?"":"none");
   const sd=$("#stepDoc"),sdt=$("#stepDocT");
-  if(sd)sd.style.display=(t==="adjustment")?"none":"flex";
-  if(sdt)sdt.textContent=(t==="inbound")?"بيانات المورد والفسح":(simpleCo()?"بيانات العميل والفسح":"بيانات الفاتورة والعميل");
+  if(sd)sd.style.display="flex";   // التاريخ يظهر دائماً
+  if(sdt)sdt.textContent=(t==="inbound")?"بيانات المورد والفسح والتاريخ":(t==="outbound")?(simpleCo()?"بيانات العميل والفسح والتاريخ":"بيانات السند/الفاتورة والتاريخ"):"التاريخ";
   if(wp)wp.style.display=(t==="adjustment")?"none":"block";
   if(lp)lp.textContent=(t==="inbound")?(simpleCo()?"سعر التكلفة (اختياري) ﷼":"سعر التكلفة * ﷼"):(simpleCo()?"سعر البيع (اختياري) ﷼":"سعر البيع * (إجباري) ﷼");
   if(sb)sb.textContent=(t==="outbound")?"✓ حفظ الفاتورة":"✓ حفظ الحركة";
