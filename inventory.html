@@ -279,7 +279,7 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:#0d9488;box-sh
    ============================================================ */
 const KEY="inv_system_v2";
 /* رقم إصدار التطبيق — يُزاد مع كل تحديث؛ يُقارَن بالنسخة المنشورة لإظهار زر التحديث */
-const APP_VERSION="2026-11-15-02";
+const APP_VERSION="2026-11-15-03";
 let DB,ME;
 /* التحقق من توفّر نسخة أحدث بجلب الملف نفسه (بدون كاش) ومقارنة رقم الإصدار */
 function checkForUpdate(){
@@ -1102,7 +1102,8 @@ function pMove(){
   $("#view").innerHTML=`
   <div class="pagehead"><h1>➕ تسجيل حركة صنف</h1>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
-      <button class="btn ghost no-print" onclick="lookupInvoice()">🔎 استرجاع فاتورة</button>
+      <button class="btn ghost no-print" onclick="lookupCustoms()">📦 البحث عن رقم فسح (وارد)</button>
+      <button class="btn ghost no-print" onclick="lookupInvoice()">🧾 البحث عن رقم فاتورة بيع</button>
       ${can("canAdd")?`<button class="btn blue no-print" onclick="downloadMovesTemplate()">⬇ قالب حركات Excel</button>
       <label class="btn amber no-print" style="margin:0">⬆ استيراد حركات<input type="file" accept=".csv,text/csv" style="display:none" onchange="importMovesFile(event)"></label>`:""}</div></div>
   <div class="card"><div id="mMsg"></div>
@@ -1642,6 +1643,23 @@ function sourcesForSale(mv){
 }
 /* تكلفة البيع الحقيقية وفق الدفعات المستهلكة */
 function saleCost(mv){return sourcesForSale(mv).reduce((s,x)=>s+x.take*(x.m.price||0),0);}
+/* البحث عن رقم فسح — يعرض كل حركات الوارد المرتبطة به (التاريخ/الصنف/المورد/الكمية/التكلفة/المتبقي) */
+function lookupCustoms(){
+  const no=prompt("أدخل رقم الفسح للبحث عن حركات الوارد المرتبطة به:");if(no===null)return;
+  const q=no.trim();if(!q)return;
+  const lines=cmoves().filter(m=>m.type==="inbound"&&String(m.customs||"").trim()===q).sort((a,b)=>mvCmpAsc(b,a));
+  if(!lines.length){toast("لا يوجد فسح بهذا الرقم");return;}
+  const totalQty=lines.reduce((s,m)=>s+m.qty,0),totalVal=lines.reduce((s,m)=>s+m.qty*(m.price||0),0);
+  const rows=lines.map(m=>{const it=DB.items.find(x=>x.id===m.itemId)||{};const sup=DB.suppliers.find(s=>s.id===m.supplierId);
+    const b=itemBatches(m.itemId).find(x=>x.id===m.id);const left=b?b.left:"—";
+    return `<tr><td>${esc((m.date||"").slice(0,10))}</td><td style="font-weight:600">${esc(m.model||itemModel(it))}</td>
+      <td>${esc(sup?sup.name:"—")}</td><td>${m.qty}</td><td>${money(m.price||0)}</td><td>${money(m.qty*(m.price||0))}</td>
+      <td style="font-weight:700;color:${(+left>0)?'var(--green)':'var(--muted)'}">${left}</td><td>${esc(m.userName||"")}</td>
+      <td class="no-print" style="white-space:nowrap">${can("canEdit")?`<button class="btn blue sm" onclick="editMovement(${m.id})">تعديل</button>`:""}<button class="btn ghost sm" onclick="printReceipt(${m.id})">🖨️</button></td></tr>`;}).join("");
+  showPrint(`${brandHead()}<h2>📦 نتائج البحث عن رقم الفسح ${esc(q)}</h2>
+    <div style="margin-bottom:10px;color:var(--muted)">عدد حركات الوارد: <b>${lines.length}</b> · إجمالي الكمية: <b>${totalQty}</b> · إجمالي التكلفة: <b>${money(totalVal)} ﷼</b></div>
+    <table><tr><th>التاريخ</th><th>الموديل / الصنف</th><th>المورد</th><th>الكمية</th><th>سعر التكلفة</th><th>الإجمالي</th><th>المتبقي من الدفعة</th><th>الموظف</th><th class="no-print"></th></tr>${rows}</table>`);
+}
 function lookupInvoice(){
   const no=prompt("أدخل رقم فاتورة البيع للبحث عن جميع تفاصيلها:");if(no===null)return;
   const q=no.trim();if(!q)return;
