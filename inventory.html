@@ -288,7 +288,7 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:#0d9488;box-sh
    ============================================================ */
 const KEY="inv_system_v2";
 /* رقم إصدار التطبيق — يُزاد مع كل تحديث؛ يُقارَن بالنسخة المنشورة لإظهار زر التحديث */
-const APP_VERSION="2026-11-15-09";
+const APP_VERSION="2026-11-15-10";
 let DB,ME;
 /* التحقق من توفّر نسخة أحدث بجلب الملف نفسه (بدون كاش) ومقارنة رقم الإصدار */
 function checkForUpdate(){
@@ -1325,7 +1325,7 @@ function saveMove(){
     if(!simpleCo()&&lines.some(l=>!(l.price>0)))return show("أدخل سعر البيع لكل صنف.","err"); // النمط الكامل: سعر البيع إجباري
     if(simpleCo()&&!(($("#mAddress")?.value||"").trim()))return show("اختر العميل الذي خرجت له البضاعة (أضِفه من شاشة العملاء إن لم يكن موجوداً).","err");
     const need={};lines.forEach(l=>need[l.itemId]=(need[l.itemId]||0)+l.qty);
-    for(const id in need){const it=DB.items.find(x=>x.id===+id);const avail=stockOf(+id);if(need[id]>avail)return show(`⚠️ الرصيد غير كافٍ للصنف «${itemModel(it)}» — المتاح ${avail} فقط، وطلبت ${need[id]}. لا يُسمح بالبيع بأكثر من المتاح.`,"err");}
+    for(const id in need){const it=DB.items.find(x=>x.id===+id);const avail=stockOf(+id);if(need[id]>avail)return show(`⚠️ الرصيد غير كافٍ للصنف «${itemModel(it)}» — المتاح ${avail} فقط، وطلبت ${need[id]}. لا يُسمح بالبيع بأكثر من المتاح.<br><b style="color:var(--green)">➕ الرجاء إضافة الفسح (وارد) أولاً حتى يمكنك البيع.</b>`,"err");}
     const invNo=($("#mInvoice").value||"").trim();
     if(!invNo)return show(simpleCo()?"أدخل رقم فسح العميل (إجباري).":"أدخل رقم الفاتورة (إجباري للمنصرف).","err");
     if(invNo&&invoiceExists(invNo)&&!confirm(`⚠️ رقم الفاتورة «${invNo}» مُسجّل مسبقاً في فاتورة بيع أخرى.\nهل تريد المتابعة وحفظها على أي حال؟`))return;
@@ -1556,7 +1556,7 @@ function saveInvoiceEdit(gid){
   const restore={};old.forEach(m=>{restore[m.itemId]=(restore[m.itemId]||0)+m.qty;});
   const need={};invEdit.forEach(l=>need[l.itemId]=(need[l.itemId]||0)+l.qty);
   for(const id in need){const it=DB.items.find(x=>x.id===+id);const avail=stockOf(+id)+(restore[id]||0);
-    if(!allowOversell()&&need[id]>avail){$("#ie_msg").textContent=`الرصيد غير كافٍ للصنف «${itemModel(it||{})}» (المتاح ${avail}).`;return;}}
+    if(!allowOversell()&&need[id]>avail){$("#ie_msg").innerHTML=`الرصيد غير كافٍ للصنف «${itemModel(it||{})}» (المتاح ${avail}). ➕ <b>الرجاء إضافة الفسح (وارد) أولاً حتى يمكنك البيع.</b>`;return;}}
   // نفّذ: أرجع القديم واحذفه (بشواهد حذف)، ثم أنشئ البنود الجديدة بنفس الفاتورة
   old.forEach(m=>{const it=DB.items.find(x=>x.id===m.itemId);if(it)it.qty+=m.qty;});
   tombAddMany("movements",old);
@@ -1654,7 +1654,7 @@ function saveMovement(id){
   const availNew=stockOf(newItemId)+(m.itemId===newItemId?(isIn(m.type)?-m.qty:m.qty):0);
   if(m.type==="outbound"&&!allowOversell()&&nq>availNew){
     if(oldIt)oldIt.qty+=isIn(m.type)?m.qty:-m.qty;   // تراجع عن العكس
-    $("#em_msg").textContent=`الرصيد غير كافٍ للصنف «${itemModel(newIt)}» (المتاح ${availNew}).`;return;
+    $("#em_msg").innerHTML=`الرصيد غير كافٍ للصنف «${itemModel(newIt)}» (المتاح ${availNew}). ➕ <b>الرجاء إضافة الفسح (وارد) أولاً حتى يمكنك البيع.</b>`;return;
   }
   if(m.type==="inbound"&&!simpleCo()&&!(+($("#em_sup")?.value))){
     if(oldIt)oldIt.qty+=isIn(m.type)?m.qty:-m.qty;   // تراجع عن العكس
