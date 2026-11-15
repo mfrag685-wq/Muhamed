@@ -881,6 +881,9 @@ html[data-theme="dark"] .rt td.hl{background:#2e2814;color:var(--accent)}
       <div class="alert ai" style="margin-bottom:10px;font-size:.8rem">
         💡 <strong>الفكرة:</strong> سجّل شحنات فاتتك بسرعة (رقم الشحنة · التاريخ · المورد · المحتوى · أجور الشحن · العمولة) فتصبح <strong>أرصدة الموردين وأجور الشحن والعمولة حقيقية فوراً</strong> — وتُنشأ شحنات محفوظة يمكنك فتح أيٍّ منها لاحقاً من «سجل الشحنات» لإضافة باقي المصاريف.
       </div>
+      <div class="alert as" style="margin-bottom:10px;font-size:.78rem">
+        🔀 <strong>عمود «النموذج»:</strong> يوجّه كل شحنة لمكانها — النموذج الأول = الفعلي (يحرّك الأرصدة)، والثاني = المقارنة فقط. يمكن وضع النموذجين في ملف واحد، أو استيراد نموذج ثم الآخر لاحقاً دون التأثير على الحسابات (يشتركان في رقم الشحنة والمصاريف).
+      </div>
       <div style="display:flex;gap:9px;flex-wrap:wrap;align-items:center">
         <button class="btn btn-accent" onclick="downloadQuickTemplate()">⬇️ تحميل نموذج سريع</button>
         <button class="btn" style="background:#5b2d8a;color:#fff" onclick="document.getElementById('qimport-excel').click()">⚡ استيراد سريع (Excel)</button>
@@ -5213,26 +5216,29 @@ function ensureCountOption(n){
 // ⚡ تسجيل سريع للشحنات الفائتة — استيراد يُنشئ شحنات محفوظة بأرصدة فورية
 //   (رقم الشحنة + التاريخ + المورد + المحتوى + أجور الشحن + العمولة) → أرصدة المورد/الشحن/العمولة حقيقية
 // ═══════════════════════════════════════════
-const QIMPORT_HEADERS=['رقم الشحنة','تاريخ الشحنة','المورد','أجور الشحن','عملة الشحن','نسبة العمولة %','قيمة العمولة','الصنف / المحتوى','الكمية','سعر الوحدة','عملة الشراء'];
+const QIMPORT_HEADERS=['النموذج','رقم الشحنة','تاريخ الشحنة','المورد','أجور الشحن','عملة الشحن','نسبة العمولة %','قيمة العمولة','الصنف / المحتوى','الكمية','سعر الوحدة','عملة الشراء'];
 function downloadQuickTemplate(){
   if(typeof XLSX==='undefined'){ toast('⚠️ '+tr('مكتبة Excel غير محمّلة'),true); return; }
-  const label=S.itemLabel||'الصنف';
+  const label=S.itemLabel||'الصنف'; const L=cmpLabels();
   const rows=[QIMPORT_HEADERS,
-    ['SH-2026-010','2026-03-01','مصنع الشرق',2500,'USD',2.5,'',label+' (أ)',10,120,'USD'],
-    ['','','','','','','',label+' (ب)',5,80,'USD'],
-    ['SH-2026-011','2026-03-05','النور للإضاءة',1800,'USD','',450,'مصباح LED',40,35,'USD']
+    [L.a,'SH-2026-010','2026-03-01','مصنع الشرق',2500,'USD',2.5,'',label+' (أ)',10,120,'USD'],
+    ['','','','','','','','',label+' (ب)',5,80,'USD'],
+    [L.b,'SH-2026-010','','','','','','',label+' (أ)',10,135,'USD'],
+    ['','','','','','','','',label+' (ب)',5,95,'USD'],
+    [L.a,'SH-2026-011','2026-03-05','النور للإضاءة',1800,'USD','',450,'مصباح LED',40,35,'USD']
   ];
   const ws=XLSX.utils.aoa_to_sheet(rows);
-  ws['!cols']=[{wch:14},{wch:13},{wch:16},{wch:11},{wch:10},{wch:13},{wch:12},{wch:24},{wch:8},{wch:11},{wch:11}];
+  ws['!cols']=[{wch:12},{wch:14},{wch:13},{wch:16},{wch:11},{wch:10},{wch:13},{wch:12},{wch:24},{wch:8},{wch:11},{wch:11}];
   const info=XLSX.utils.aoa_to_sheet([
     ['📘 تعليمات: تسجيل سريع للشحنات الفائتة'],[''],
-    ['• كل سطر = صنف واحد. الأصناف بنفس «رقم الشحنة» تُجمَّع في شحنة واحدة.'],
-    ['• «رقم الشحنة» و«التاريخ» و«المورد» و«أجور الشحن» و«العمولة»: تُكتب مرة واحدة في أول سطر للشحنة.'],
-    ['• «أجور الشحن»: قيمة إجمالية للشحنة — تظهر في كشف حساب الشحن.'],
-    ['• العمولة: اكتب «نسبة العمولة %» أو «قيمة العمولة» (أحدهما) — تظهر في كشف حساب العمولة.'],
-    ['• «المورد» + قيمة الأصناف = رصيد المورد تلقائياً.'],
-    ['• العملات المسموحة: '+VALID_CURS.join('، ')+'.'],
-    ['• تُنشأ شحنات محفوظة مباشرةً — افتح أيّاً منها لاحقاً من «سجل الشحنات» لإضافة باقي المصاريف.']
+    ['• «النموذج»: اكتب «'+L.a+'» (الفعلي — يُنشئ الشحنة ويحرّك أرصدة المورد/الشحن/العمولة) أو «'+L.b+'» (للمقارنة فقط).'],
+    ['• يمكن وضع النموذجين في نفس الملف — ويُوضع كلٌّ في مكانه. أو استيراد نموذج ثم الآخر لاحقاً دون التأثير على الحسابات.'],
+    ['• كل سطر = صنف/موديل واحد. تُجمَّع الأسطر بنفس (النموذج + رقم الشحنة) معاً.'],
+    ['• عند كتابة النموذج الثاني لنفس الشحنة: اكتب اسم النموذج ورقم الشحنة في أول سطر له.'],
+    ['• «'+L.a+'»: «رقم الشحنة» و«التاريخ» و«المورد» و«أجور الشحن» و«العمولة» تُكتب مرة واحدة في أول سطر للشحنة.'],
+    ['• «أجور الشحن» و«العمولة» تخصّ «'+L.a+'» فقط (مصاريف الشحنة مشتركة). «'+L.b+'» للمقارنة فقط بلا مصاريف.'],
+    ['• العمولة: «نسبة العمولة %» أو «قيمة العمولة» (أحدهما). العملات المسموحة: '+VALID_CURS.join('، ')+'.'],
+    ['• «'+L.a+'» يُنشئ شحنات محفوظة — افتح أيّاً منها لاحقاً من «سجل الشحنات» لإضافة باقي المصاريف.']
   ]);
   const wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb,ws,'البيانات'); XLSX.utils.book_append_sheet(wb,info,'تعليمات');
@@ -5256,25 +5262,30 @@ function applyQuickImport(aoa,fname){
   if(isReadonly()||!can('shipment')){ toast(tr('لا تملك صلاحية إضافة الشحنات'),true); return; }
   if(!aoa||!aoa.length){ toast('⚠️ '+tr('الملف فارغ'),true); return; }
   const norm=s=>String(s==null?'':s).replace(/[إأآا]/g,'ا').replace(/[ة]/g,'ه').replace(/\s+/g,'').toLowerCase();
+  const L=cmpLabels();
+  const qModel=v=>{ var n=norm(v); if(!n) return 'a'; if(n==='ب'||n==='b'||n==='2'||n===norm(L.b)) return 'b'; if(n==='ا'||n==='أ'||n==='a'||n==='1'||n===norm(L.a)) return 'a'; return 'a'; };
   let hi=aoa.findIndex(r=>Array.isArray(r)&&r.some(c=>String(c).trim()!==''));
   if(hi<0){ toast('⚠️ '+tr('لا توجد بيانات في الملف'),true); return; }
   const header=aoa[hi]||[];
   const idxOf=(ex,inc)=>{ let i=header.findIndex(h=>norm(h)===norm(ex)); if(i<0&&inc) i=header.findIndex(h=>norm(h).includes(norm(inc))); return i; };
-  let cNo=idxOf('رقم الشحنة','رقمالشحنه'), cDate=idxOf('تاريخ الشحنة','تاريخ'), cSup=idxOf('المورد','مورد'),
+  let cModel=idxOf('النموذج','نموذج'),
+      cNo=idxOf('رقم الشحنة','رقمالشحنه'), cDate=idxOf('تاريخ الشحنة','تاريخ'), cSup=idxOf('المورد','مورد'),
       cFrt=idxOf('أجور الشحن','اجورالشحن'), cFrtCur=idxOf('عملة الشحن','عملهالشحن'),
       cRate=idxOf('نسبة العمولة %','نسبهالعموله'), cCommAmt=idxOf('قيمة العمولة','قيمهالعموله'),
       cName=idxOf('الصنف / المحتوى','صنف'), cQty=idxOf('الكمية','كميه'), cPrice=idxOf('سعر الوحدة','سعر'), cCur=idxOf('عملة الشراء','عملهالشراء');
   let dataStart=hi+1;
-  if(cNo<0 && cName<0){ cNo=0;cDate=1;cSup=2;cFrt=3;cFrtCur=4;cRate=5;cCommAmt=6;cName=7;cQty=8;cPrice=9;cCur=10; dataStart=hi; }
+  if(cNo<0 && cName<0){ cModel=-1;cNo=0;cDate=1;cSup=2;cFrt=3;cFrtCur=4;cRate=5;cCommAmt=6;cName=7;cQty=8;cPrice=9;cCur=10; dataStart=hi; }
   const val=(r,c)=>c>=0?String(r[c]!=null?r[c]:'').trim():'';
-  const groups={}, order=[];
+  const groups={}, order=[]; let curNo='', curModel='a';
   for(let i=dataStart;i<aoa.length;i++){
     const r=aoa[i]; if(!Array.isArray(r)) continue;
-    const no=val(r,cNo);
+    const noVal=val(r,cNo); if(noVal) curNo=noVal;
+    const mVal=val(r,cModel); if(mVal!=='') curModel=qModel(mVal);
     const name=val(r,cName), qty=parseFloat(r[cQty])||0, price=parseFloat(r[cPrice])||0;
-    let key=no||(order.length?order[order.length-1]:'');
-    if(!key){ if(!name&&!qty&&!price) continue; key='SH-?'; }
-    if(!groups[key]){ groups[key]={no:no||key,date:'',sup:'',frt:0,frtCur:'USD',rate:null,commAmt:null,items:[]}; order.push(key); }
+    const no=curNo;
+    if(!no){ if(!name&&!qty&&!price) continue; curNo='SH-?'; }
+    const key=norm(curNo)+'::'+curModel;
+    if(!groups[key]){ groups[key]={no:curNo,model:curModel,date:'',sup:'',frt:0,frtCur:'USD',rate:null,commAmt:null,items:[]}; order.push(key); }
     const g=groups[key];
     if(!g.date && cDate>=0 && val(r,cDate)) g.date=toDateStr(r[cDate]);
     if(!g.sup && cSup>=0 && val(r,cSup)) g.sup=val(r,cSup);
@@ -5290,10 +5301,17 @@ function applyQuickImport(aoa,fname){
   if(!valid.length){ toast('⚠️ '+tr('لم يُعثر على شحنات صالحة في الملف'),true); return; }
   const fx=S.fxUsdSar||3.756;
   const update=document.getElementById('qimport-update')&&document.getElementById('qimport-update').checked;
-  const db=dbLoad(); const commCfg=commCfgLoad();
-  let added=0, updated=0, skipped=0;
+  const db=dbLoad(); const commCfg=commCfgLoad(); const bobj=bLoad();
+  let addedA=0, updatedA=0, skippedA=0, addedB=0, itemsB=0, dbDirty=false, commDirty=false, bDirty=false;
   valid.forEach((k,gi)=>{
     const g=groups[k];
+    if(g.model==='b'){   // نموذج ب (الجمارك/المقارنة) — مخزن منفصل، لا يمسّ الأرصدة
+      const fcur=(g.items[0]&&g.items[0].cur)||'USD';
+      bobj[String(g.no)]={ cur:(fcur==='SAR'?'SAR':(fcur==='USD'?'USD':'')), rate:(fcur==='SAR'?'':fx),
+        items:g.items.map(it=>({model:it.name,qty:it.qty,price:it.unitPrice})) };
+      addedB++; itemsB+=g.items.length; bDirty=true; return;
+    }
+    // نموذج أ (الفعلي) — شحنة محفوظة تحرّك أرصدة المورد/الشحن/العمولة
     const byCur={}, curOrder=[];
     g.items.forEach(it=>{ if(!byCur[it.cur]){ byCur[it.cur]={items:[]}; curOrder.push(it.cur); } byCur[it.cur].items.push({name:it.name,qty:it.qty,unitPrice:it.unitPrice}); });
     const invoices=curOrder.map((cu,ii)=>({id:ii+1,invNumber:'',purchCur:cu,items:byCur[cu].items,shippingCost:0,shipCur:'USD',commissionRate:0,discount:0,discountType:'amount',otherCost:0,otherCur:'SAR'}));
@@ -5310,16 +5328,20 @@ function applyQuickImport(aoa,fname){
     if(g.rate!=null) rate=g.rate;
     else if(g.commAmt!=null && totalSar>0) rate=g.commAmt/totalSar*100;
     const exIdx=db.findIndex(x=>String(x.shipmentNo||'').trim().toLowerCase()===String(g.no).trim().toLowerCase());
-    if(exIdx>=0){ if(update){ snap.id=db[exIdx].id; db[exIdx]=snap; updated++; } else { skipped++; return; } }
-    else { snap.id='sh_'+Date.now()+'_'+gi; db.push(snap); added++; }
-    if(rate!=null){ if(!commCfg.byShip) commCfg.byShip={}; commCfg.byShip[String(g.no)]=Math.round(rate*1000)/1000; }
+    if(exIdx>=0){ if(update){ snap.id=db[exIdx].id; db[exIdx]=snap; updatedA++; dbDirty=true; } else { skippedA++; return; } }
+    else { snap.id='sh_'+Date.now()+'_'+gi; db.push(snap); addedA++; dbDirty=true; }
+    if(rate!=null){ if(!commCfg.byShip) commCfg.byShip={}; commCfg.byShip[String(g.no)]=Math.round(rate*1000)/1000; commDirty=true; }
   });
-  dbSave(db); commCfgSave(commCfg);
+  if(dbDirty) dbSave(db);
+  if(commDirty) commCfgSave(commCfg);
+  if(bDirty) bSave(bobj);
   const st=document.getElementById('qimport-status');
-  if(st) st.innerHTML='✅ '+tr('تم')+': <strong>'+added+'</strong> '+tr('جديدة')+(updated?' · <strong>'+updated+'</strong> '+tr('محدّثة'):'')+(skipped?' · <strong>'+skipped+'</strong> '+tr('متجاهَلة (موجودة)'):'')+' — '+escH(fname);
-  logAction('تسجيل سريع للشحنات', added+' جديدة / '+updated+' محدّثة');
-  toast('✅ '+tr('تم تسجيل الشحنات')+' ('+(added+updated)+')');
-  try{ showPage('page-archive'); }catch(e){}
+  if(st){ var pa='<strong>'+escH(L.a)+'</strong>: '+addedA+' '+tr('جديدة')+(updatedA?' · '+updatedA+' '+tr('محدّثة'):'')+(skippedA?' · '+skippedA+' '+tr('متجاهَلة (موجودة)'):'');
+    var pb=addedB?(' | <strong>'+escH(L.b)+'</strong>: '+addedB+' '+tr('شحنة')+' ('+itemsB+' '+tr('موديل')+')'):'';
+    st.innerHTML='✅ '+pa+pb+' — '+escH(fname); }
+  logAction('تسجيل سريع للشحنات', L.a+':'+(addedA+updatedA)+' / '+L.b+':'+addedB);
+  toast('✅ '+tr('تم تسجيل الشحنات')+' ('+(addedA+updatedA+addedB)+')');
+  try{ if(addedA||updatedA) showPage('page-archive'); else if(addedB) showPage('page-compare'); }catch(e){}
 }
 
 // ═══════════════════════════════════════════
@@ -7021,7 +7043,7 @@ function exportPaymentsExcel(){
 // ═══════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════
-var APP_VERSION='v2026-11-13.36';   // رقم إصدار ظاهر للتحقق من تحميل أحدث نسخة (لا cache قديم)
+var APP_VERSION='v2026-11-15.37';   // رقم إصدار ظاهر للتحقق من تحميل أحدث نسخة (لا cache قديم)
 // ═══════════════════════════════════════════
 // 🌐 محرّك الترجمة الشامل (عربي / English / 中文) — قاموس + مسح DOM + مراقب تغييرات
 // ═══════════════════════════════════════════
@@ -7914,6 +7936,22 @@ Object.assign(TR.zh,{
  'سجّل شحنات فاتتك بسرعة (رقم الشحنة · التاريخ · المورد · المحتوى · أجور الشحن · العمولة) فتصبح':'快速录入遗漏的装运（编号·日期·供应商·内容·运费·佣金），使',
  'أرصدة الموردين وأجور الشحن والعمولة حقيقية فوراً':'供应商、运费和佣金余额立即变为真实',
  '— وتُنشأ شحنات محفوظة يمكنك فتح أيٍّ منها لاحقاً من «سجل الشحنات» لإضافة باقي المصاريف.':'— 并创建已保存的装运；稍后可从«装运记录»打开任意一个以添加其余费用。'
+});
+Object.assign(TR.en,{
+ 'موديل':'models',
+ '🔀 عمود «النموذج»: يوجّه كل شحنة لمكانها — النموذج الأول = الفعلي (يحرّك الأرصدة)، والثاني = المقارنة فقط. يمكن وضع النموذجين في ملف واحد، أو استيراد نموذج ثم الآخر لاحقاً دون التأثير على الحسابات (يشتركان في رقم الشحنة والمصاريف).':'🔀 «Model» column: routes each shipment — the first model = actual (moves balances), the second = comparison only. Both can be in one file, or import one then the other later without affecting the calculations (they share the shipment number and expenses).'
+});
+Object.assign(TR.zh,{
+ 'موديل':'型号',
+ '🔀 عمود «النموذج»: يوجّه كل شحنة لمكانها — النموذج الأول = الفعلي (يحرّك الأرصدة)، والثاني = المقارنة فقط. يمكن وضع النموذجين في ملف واحد، أو استيراد نموذج ثم الآخر لاحقاً دون التأثير على الحسابات (يشتركان في رقم الشحنة والمصاريف).':'🔀 «型号»列：将每批装运分流 — 第一个型号=实际（影响余额），第二个=仅对比。两者可在同一文件中，或先后导入而不影响计算（共享装运编号和费用）。'
+});
+Object.assign(TR.en,{
+ 'عمود «النموذج»:':'«Model» column:',
+ 'يوجّه كل شحنة لمكانها — النموذج الأول = الفعلي (يحرّك الأرصدة)، والثاني = المقارنة فقط. يمكن وضع النموذجين في ملف واحد، أو استيراد نموذج ثم الآخر لاحقاً دون التأثير على الحسابات (يشتركان في رقم الشحنة والمصاريف).':'routes each shipment — the first model = actual (moves balances), the second = comparison only. Both can be in one file, or import one then the other later without affecting the calculations (they share the shipment number and expenses).'
+});
+Object.assign(TR.zh,{
+ 'عمود «النموذج»:':'«型号»列：',
+ 'يوجّه كل شحنة لمكانها — النموذج الأول = الفعلي (يحرّك الأرصدة)، والثاني = المقارنة فقط. يمكن وضع النموذجين في ملف واحد، أو استيراد نموذج ثم الآخر لاحقاً دون التأثير على الحسابات (يشتركان في رقم الشحنة والمصاريف).':'将每批装运分流 — 第一个型号=实际（影响余额），第二个=仅对比。两者可在同一文件中，或先后导入而不影响计算（共享装运编号和费用）。'
 });
 var _trOrig=new WeakMap(), _trPh=new WeakMap(), _trTitle=new WeakMap(), _trBusy=false, _trObs=null, _trTimer=null;
 var _emojiLead=/^((?:[←-⇿⌀-➿⬀-⯿☀-⛿️\uD83C-􏰀-\uDFFF\s])+)/;
