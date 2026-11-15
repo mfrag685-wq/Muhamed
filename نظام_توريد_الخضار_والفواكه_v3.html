@@ -788,7 +788,7 @@ td.cash-in{color:#1f6b45;font-weight:700}td.cash-out{color:#b42318;font-weight:7
 .ds-nav{display:inline-flex;gap:4px;align-items:center}.ds-nav input{height:34px}.ds-acts{margin-inline-start:auto;display:flex;gap:5px;flex-wrap:wrap}
 .ds-prev{padding:12px;overflow-x:auto;max-width:100%;box-sizing:border-box}.dse{border:1px solid #cfe3d6;background:#f6faf7;border-radius:10px;padding:8px;margin:0 0 12px}.dse-h{font-weight:800;color:#14532d;margin:0 0 6px}.dse-r{display:flex;gap:10px;align-items:center;flex-wrap:wrap;background:#fff;border:1px solid #e3ebe6;border-radius:8px;padding:7px 9px;margin:5px 0}.dse-s{flex:0 0 170px}.dse-ls{flex:1 1 260px;display:flex;flex-wrap:wrap;gap:4px 10px;font-size:13px}.dse-l em{color:#667;font-style:normal}.dse-l i{color:#9a5b00;font-style:normal;font-size:12px}.dse-a{display:flex;gap:6px;flex:0 0 auto}.ds-img{display:block;width:100%;max-width:900px;margin:0 auto;border:1px solid #e3e9f0;border-radius:8px}
 @media (max-width:700px){.ds-modal{padding:6px}.ds-acts{margin:0;width:100%}.ds-acts .btn-alt{flex:1 1 100%;min-height:44px}.ds-prev{padding:6px}.ds-sheet{padding:8px;font-size:12px}.ds-tb td,.ds-tb th{padding:5px 3px}.ds-t{font-size:15px}.ds-nav{width:100%}.ds-nav input{flex:1}}
-.late-line{margin:6px 0}.late-top{display:flex;flex-wrap:wrap;align-items:center;gap:6px}.late-n{background:#fff4e0;color:#8a4b00;border:1px solid #f5c26b;border-radius:999px;padding:2px 10px;font-size:14px;font-weight:700}.late-n b{font-size:17px}.late-days{margin:4px 18px 0 0;font-size:14px;line-height:1.9}.late-mon{background:#f3f6f9;border-radius:8px;padding:2px 8px}.late-mon b{font-size:15px;color:#1e3a5f}
+.sd-lines:has(.late-line){display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:6px;margin-top:4px}.sd-lines .sd-line:not(.late-line){grid-column:1/-1}.late-line{margin:0;background:rgba(255,255,255,.75);border:1px solid rgba(0,0,0,.08);border-radius:10px;padding:5px 9px}.late-top{display:flex;flex-wrap:wrap;align-items:center;gap:5px}.late-k{font-size:13px}.late-n{background:#fff4e0;color:#8a4b00;border:1px solid #f5c26b;border-radius:999px;padding:0 8px;font-size:12.5px;font-weight:700}.late-n b{font-size:15px}.late-days{margin-top:3px;font-size:12.5px;line-height:1.7}.late-mon{background:#f3f6f9;border-radius:7px;padding:1px 7px}.late-mon b{font-size:13.5px;color:#1e3a5f}.late-line .ack-btn{padding:1px 8px!important;font-size:11.5px!important;margin-inline-start:auto}.sa-sum{font-weight:600;font-size:12px;opacity:.8;margin-inline-start:6px}.sa-tg{margin-inline-start:auto;border:1px solid currentColor;background:transparent;color:inherit;border-radius:999px;padding:1px 10px;font-size:12px;cursor:pointer}.sa-fold .sa-body{display:none}.sa-fold{padding:8px 13px}.staff-alert .staff-alert-t:first-child{font-size:12.5px;margin-bottom:2px}
 .sync-alert{background:#fdecec;border:1px solid #f5b5b5;color:#7a1414;border-radius:10px;padding:9px 12px;margin:8px 0;font-size:13.5px;line-height:1.7}
 .lh-sum{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:6px 0}.lh-i{font-size:12.5px;margin:2px 0}.lh-bad{color:#b42318;font-weight:700}.lh-warn{color:#9a5b00}.lh-info{color:#555}
 .tt-title{font-size:15px}
@@ -2449,7 +2449,7 @@ td.cash-in{color:#1f6b45;font-weight:700}td.cash-out{color:#b42318;font-weight:7
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-15-c';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-15-d';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   /* أخطاء سباق عرض غير مؤذية (إعادة رسم أثناء مغادرة خانة) — لا تُعرض كعطل ولا توقف النظام */
@@ -8183,11 +8183,14 @@ function dailyClientFollowUps(clients,cfg,td,realTd){
   });
   return out;
 }
+function saFold(b){ var c=b.closest('.staff-alert'); if(!c) return; var f=!c.classList.contains('sa-fold'); c.classList.toggle('sa-fold',f); b.textContent=f?'▾ عرض':'▴ طيّ'; try{ sessionStorage.setItem(c.dataset.ck,f?'1':'0'); }catch(e){} }
 var AR_MONTHS=['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
 function arDaysWord(n){ return n===1?'يوم':(n===2?'يومان':(n<=10?'أيام':'يوماً')); }
 /* الأيام مجمّعة حسب الشهر: «يوم 10 + 11 + 12 نوفمبر» */
 function lateDaysTxt(arr){ var g={}, o=[]; (arr||[]).forEach(function(d){ var k=d.slice(0,7); if(!g[k]){ g[k]=[]; o.push(k); } g[k].push(+d.slice(8,10)); });
-  return o.map(function(k){ return '<span class="late-mon">يوم <b>'+g[k].join('</b> + <b>')+'</b> '+AR_MONTHS[(+k.slice(5,7))-1]+'</span>'; }).join(' · '); }
+  var fmt=function(a){ var out=[], i=0; while(i<a.length){ var j=i; while(j+1<a.length&&a[j+1]===a[j]+1) j++;
+      var run=a.slice(i,j+1); if(run.length>5) out.push('<b>'+run[0]+'</b> + <b>'+run[1]+'</b> + … + <b>'+run[run.length-1]+'</b>'); else out.push('<b>'+run.join('</b> + <b>')+'</b>'); i=j+1; } return out.join(' + '); };
+  return o.map(function(k){ return '<span class="late-mon">يوم '+fmt(g[k])+' '+AR_MONTHS[(+k.slice(5,7))-1]+'</span>'; }).join(' · '); }
 /* تأكيد «لا مبيعات فعلية» لعميل في أيام محدّدة — لمدير النظام أو مسؤول المبيعات فقط */
 function ackNoSales(cid,dates){
   if(!ME) return;
@@ -8321,8 +8324,8 @@ function staffCardHtml(a){
         if(ln&&typeof ln==='object'&&ln.n){   /* عدد الأيام المتأخرة بخط واضح ثم الأيام: يوم 10 + 11 + 12 … */
           var ab2=(ln.ack&&canAckStock('high'))?(' <button type="button" class="ack-btn" style="padding:2px 9px;font-size:12px" title="تأكيد أن العميل لم تكن له مبيعات فعلية في هذه الأيام" onclick="ackNoSales('+ln.ack.cid+',\''+ln.ack.dates.join(',')+'\')">✔ لا مبيعات فعلية</button>'):'';
           var kd=esc(String(ln.kind||'').replace(/[«»]/g,'')); if(ln.cname){ var en2=esc(ln.cname); kd=kd.replace(en2,function(){ return '<span class="cl-name">'+en2+'</span>'; }); }
-          return '<div class="sd-line late-line"><div class="late-top">• <b>'+kd+'</b> <span class="late-n">⏰ عدد الأيام المتأخرة: <b>'+ln.n+'</b> '+arDaysWord(ln.n)+'</span>'+ab2+'</div>'
-            +'<div class="late-days">'+lateDaysTxt(ln.days)+' <span class="mini">— يُرجى الاستدراك بدءاً من '+esc(ln.days[0])+'</span></div></div>'; }
+          return '<div class="sd-line late-line"><div class="late-top"><b class="late-k">'+kd+'</b> <span class="late-n">⏰ متأخر <b>'+ln.n+'</b> '+arDaysWord(ln.n)+'</span>'+ab2+'</div>'
+            +'<div class="late-days" title="ابدأ الاستدراك من '+esc(ln.days[0])+'">'+lateDaysTxt(ln.days)+'</div></div>'; }
         if(ln&&typeof ln==='object'){
           var ab=canAckStock('high')?(' <button type="button" class="ack-btn" style="padding:2px 9px;font-size:12px" title="تأكيد أن العميل لم تكن له مبيعات فعلية في هذه الأيام" onclick="ackNoSales('+ln.ack.cid+',\''+ln.ack.dates.join(',')+'\')">✔ لا مبيعات فعلية</button>'):'';
           var lt=esc(ln.t); if(ln.cname){ var en=esc(ln.cname); lt=lt.replace(en,function(){ return '<span class="cl-name">'+en+'</span>'; }); }
@@ -8332,9 +8335,13 @@ function staffCardHtml(a){
     var ack=a.ackKind?('<div style="margin-top:9px"><button type="button" class="ack-btn" onclick="ackStockReview(\''+a.ackKind+'\')">✔ أقِرّ بصحة الرصيد وأُخفي التنبيه</button></div>'):'';
     body='<div class="staff-alert-t">'+esc(a.text)+'</div>'+ack;
   }
-  return '<div class="staff-alert t-'+tier+'">'
-    +'<div class="staff-alert-h"><span class="staff-bang">'+(tierIc[tier]||'!')+'</span> '+esc(a.title)+'</div>'
-    +body+'</div>';
+  var ck='sa_fold_'+a.title, fold=false; try{ fold=sessionStorage.getItem(ck)==='1'; }catch(e){}
+  var nL=(a.lines||[]).filter(function(x){ return x&&x.n; }), mx=nL.reduce(function(m,x){ return Math.max(m,x.n); },0);
+  var sum=nL.length?(nL.length+' بند متأخر · أقصى تأخير '+mx+' '+arDaysWord(mx)):'';
+  return '<div class="staff-alert t-'+tier+(fold?' sa-fold':'')+'" data-ck="'+esc(ck)+'">'
+    +'<div class="staff-alert-h"><span class="staff-bang">'+(tierIc[tier]||'!')+'</span> '+esc(a.title)+(sum?' <span class="sa-sum">'+esc(sum)+'</span>':'')
+    +(nL.length?'<button type="button" class="sa-tg" onclick="saFold(this)" title="طيّ / إظهار التفاصيل">'+(fold?'▾ عرض':'▴ طيّ')+'</button>':'')+'</div>'
+    +'<div class="sa-body">'+body+'</div></div>';
 }
 /* البانر العلوي العالمي لتأخّر الإدخالات — يظهر لكل المستخدمين على كل الشاشات وأعلى تنبيهات المخزون */
 /* ===== رسالة إقفال الشهر المالي =====
