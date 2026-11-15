@@ -124,6 +124,13 @@ html.lock-scroll,html.lock-scroll body{overflow:hidden!important;overscroll-beha
 tr.rowflash>td{animation:rowflash 2.6s ease}
 tr.rowflash>td:first-child{position:relative}
 tr.rowflash>td:first-child::before{content:"✔ أُضيفت";position:absolute;top:-9px;inset-inline-start:4px;background:var(--green);color:#fff;font-size:10.5px;font-weight:800;padding:1px 7px;border-radius:8px;box-shadow:0 2px 6px rgba(22,163,74,.4);animation:rowflash 2.6s ease}
+/* صف الإدخال السريع للبيع — مربعات صغيرة متتالية */
+.qrow{display:flex;gap:8px;align-items:stretch;flex-wrap:wrap;background:linear-gradient(135deg,#eff6ff,#f0fdfa);border:1px solid #bfdbfe;border-radius:12px;padding:10px}
+.qrow select,.qrow input{padding:11px 10px;border:1.5px solid #cbd5e1;border-radius:9px;font-size:15px;font-weight:600;background:#fff}
+.qrow select{flex:3 1 170px;min-width:150px}
+.qrow input{flex:1 1 84px;min-width:74px;text-align:center}
+.qrow .qbtn{flex:0 0 auto;background:var(--green);color:#fff;border:none;border-radius:9px;padding:0 20px;font-size:20px;font-weight:900;cursor:pointer}
+.qrow .qbtn:active{transform:scale(.96)}
 /* أزرار كبيرة لنوع الحركة — وارد / منصرف */
 .typebtns{display:flex;gap:8px}
 .typebtns button{flex:1;border:2px solid var(--line);background:#fff;color:var(--muted);border-radius:10px;padding:14px 10px;font-weight:800;font-size:16px;line-height:1.4;transition:transform .1s;cursor:pointer}
@@ -288,7 +295,7 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:#0d9488;box-sh
    ============================================================ */
 const KEY="inv_system_v2";
 /* رقم إصدار التطبيق — يُزاد مع كل تحديث؛ يُقارَن بالنسخة المنشورة لإظهار زر التحديث */
-const APP_VERSION="2026-11-15-11";
+const APP_VERSION="2026-11-15-12";
 let DB,ME;
 /* التحقق من توفّر نسخة أحدث بجلب الملف نفسه (بدون كاش) ومقارنة رقم الإصدار */
 function checkForUpdate(){
@@ -1152,6 +1159,17 @@ function pMove(){
 
     <!-- حقول المنصرف: فاتورة + عمولة + إمكانية عدة أصناف -->
     <div id="rowOut" style="margin-top:6px">
+      <div style="font-weight:800;color:var(--blue);margin:2px 0 6px">⚡ إضافة سريعة للأصناف — اختر الصنف ثم الكمية ثم السعر و«Enter»</div>
+      <div class="qrow">
+        <select id="qItem" onchange="qHint();if(this.value){const e=$('#qQty');if(e)e.focus();}">
+          <option value="">— اختر الصنف —</option>
+          ${citems().map(i=>`<option value="${i.id}">${esc(itemModel(i))} — الرصيد ${stockOf(i.id)}</option>`).join("")}
+        </select>
+        <input id="qQty" type="number" inputmode="numeric" placeholder="الكمية" onkeydown="if(event.key==='Enter'){event.preventDefault();const e=$('#qPrice');if(e){e.focus();e.select&&e.select();}}">
+        <input id="qPrice" type="number" inputmode="decimal" step="0.01" placeholder="السعر" onkeydown="if(event.key==='Enter'){event.preventDefault();qAdd();}">
+        <button type="button" class="qbtn" onclick="qAdd()" title="أضِف الصنف للفاتورة">＋</button>
+      </div>
+      <div id="qHint" style="font-size:13px;margin:6px 2px 10px"></div>
       <div class="formgrid">
         <div class="cell c3"><label>${simpleCo()?"رقم فسح العميل * (إجباري)":"رقم فاتورة البيع * (إجباري)"}</label><input id="mInvoice" placeholder="${simpleCo()?"رقم فسح العميل":"رقم الفاتورة"}"></div>
         ${simpleCo()?"":`<div class="cell c3"><label>العمولة ﷼ (لكامل الفاتورة)</label><input id="mComm" type="number" inputmode="decimal" step="0.01" placeholder="0.00"></div>
@@ -1275,6 +1293,30 @@ function mStockHint(){
   }else{
     msg.innerHTML=`<div class="msg ok">✔ المتاح للبيع من «${itemModel(picked)}»: <b>${avail}</b> — يمكنك المتابعة.</div>`;
   }
+}
+/* ===== الإدخال السريع للبيع: صف صغير (صنف · كمية · سعر · ＋) ===== */
+function qAvail(id){const inCart=saleCart.filter(l=>l.itemId===id).reduce((s,l)=>s+l.qty,0);return stockOf(id)-inCart;}
+function qHint(){
+  const box=$("#qHint");if(!box)return;
+  const id=+($("#qItem")?.value)||0;
+  if(!id){box.innerHTML="";return;}
+  const avail=qAvail(id),it=DB.items.find(x=>x.id===id)||{};
+  box.innerHTML=avail>0
+    ? `<span style="color:var(--green);font-weight:800">✔ المتاح للبيع من «${esc(itemModel(it))}»: ${avail}</span>`
+    : `<span style="color:var(--red);font-weight:800">⚠️ لا رصيد متاح لـ«${esc(itemModel(it))}» — ➕ أضِف الفسح (وارد) أولاً حتى يمكنك البيع.</span>`;
+}
+function qAdd(){
+  const msg=$("#mMsg");const show=(t,c)=>msg.innerHTML=`<div class="msg ${c}">${t}</div>`;
+  const id=+($("#qItem")?.value)||0,q=toNum($("#qQty")?.value),p=toNum($("#qPrice")?.value);
+  if(!id)return show("اختر الصنف من القائمة السريعة.","err");
+  if(!(q>0))return show("أدخل كمية صحيحة.","err");
+  if(!simpleCo()&&!(p>0))return show("أدخل سعر البيع للصنف.","err");
+  const avail=qAvail(id),it=DB.items.find(x=>x.id===id)||{};
+  if(q>avail)return show(`⚠️ المتاح للبيع ${avail} فقط من «${esc(itemModel(it))}»${avail<=0?"":` وقد طلبت ${q}`}.<br><b style="color:var(--green)">➕ الرجاء إضافة الفسح (وارد) أولاً حتى يمكنك البيع.</b>`,"err");
+  saleCart.push({itemId:id,qty:q,price:p,fee:0});
+  renderCart();msg.innerHTML="";
+  $("#qQty").value="";$("#qPrice").value="";$("#qItem").value="";$("#qHint").innerHTML="";
+  const qi=$("#qItem");if(qi)qi.focus();   // عُد للصنف للسطر التالي — إدخال سريع
 }
 function viewImg(src){if(!src)return;const m=document.createElement("div");m.className="modal";m.onclick=()=>m.remove();
   m.innerHTML=`<img src="${src}" style="max-width:92vw;max-height:88vh;border-radius:12px">`;document.body.appendChild(m);}
