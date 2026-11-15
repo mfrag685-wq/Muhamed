@@ -159,6 +159,25 @@ html.lock-scroll,html.lock-scroll body{overflow:hidden!important;overscroll-beha
 #printArea td,#printArea th{border:1px solid #cbd5e1;padding:9px;text-align:right;font-size:14px}#printArea th{background:#f1f5f9}
 @media print{body:has(#printModal) *{visibility:hidden}body:has(#printModal) #printModal,body:has(#printModal) #printModal *{visibility:visible}body:has(#printModal) #printModal{position:absolute;inset:0;background:#fff;display:block;padding:0}
   #printModal .sheet{box-shadow:none;max-width:100%;max-height:none}#printModal .actions{display:none!important}}
+/* ===== لمسات بصرية (إضافية، لا تغيّر البنية) — أوضح وأنعم وأكثر احترافية ===== */
+.card{box-shadow:0 1px 2px rgba(15,23,42,.04),0 6px 18px rgba(15,23,42,.05);transition:box-shadow .18s ease}
+.card:hover{box-shadow:0 2px 6px rgba(15,23,42,.06),0 12px 28px rgba(15,23,42,.08)}
+.stat{position:relative;overflow:hidden;transition:transform .15s ease,box-shadow .15s ease}
+.stat:hover{transform:translateY(-2px)}
+.stat::before{content:"";position:absolute;inset-inline-start:0;top:0;bottom:0;width:4px;background:linear-gradient(180deg,var(--brand,#0d9488),transparent)}
+.stat .val{letter-spacing:.3px}
+.btn{transition:transform .08s ease,filter .15s ease,box-shadow .15s ease}
+.btn:not(.ghost):not(.gray):hover{filter:brightness(1.05)}
+.btn:active{transform:translateY(1px) scale(.99)}
+.btn.lg{box-shadow:0 6px 16px rgba(13,148,136,.25)}
+input,select,textarea{transition:border-color .15s ease,box-shadow .15s ease}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--brand,#0d9488);box-shadow:0 0 0 3px rgba(13,148,136,.15)}
+table tbody tr{transition:background .12s ease}
+.table-wrap table tbody tr:hover{background:rgba(13,148,136,.05)}
+.tag{box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.navbtn{transition:background .15s ease,color .15s ease}
+.pagehead h1{letter-spacing:.2px}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 </head>
 <body>
@@ -245,7 +264,7 @@ html.lock-scroll,html.lock-scroll body{overflow:hidden!important;overscroll-beha
    ============================================================ */
 const KEY="inv_system_v2";
 /* رقم إصدار التطبيق — يُزاد مع كل تحديث؛ يُقارَن بالنسخة المنشورة لإظهار زر التحديث */
-const APP_VERSION="2026-11-14-02";
+const APP_VERSION="2026-11-15-01";
 let DB,ME;
 /* التحقق من توفّر نسخة أحدث بجلب الملف نفسه (بدون كاش) ومقارنة رقم الإصدار */
 function checkForUpdate(){
@@ -384,7 +403,7 @@ function stockOf(itemId){
   return n;
 }
 /* هل يُسمح بالبيع بالسالب؟ (إعداد) */
-function allowOversell(){return !!(DB.settings&&DB.settings.allowOversell);}
+function allowOversell(){return false;}   /* ممنوع البيع بالسالب نهائياً (لا يتجاوز الرصيد المتاح) */
 function csups(){return DB.suppliers.filter(s=>s.companyId===CO);}
 function ccusts(){return (DB.customers||[]).filter(c=>c.companyId===CO).sort((a,b)=>String(a.name||"").localeCompare(String(b.name||""),"ar"));}
 function cpays(){return DB.payments.filter(p=>p.companyId===CO);}
@@ -1258,7 +1277,7 @@ function saveMove(){
     if(!simpleCo()&&lines.some(l=>!(l.price>0)))return show("أدخل سعر البيع لكل صنف.","err"); // النمط الكامل: سعر البيع إجباري
     if(simpleCo()&&!(($("#mAddress")?.value||"").trim()))return show("اختر العميل الذي خرجت له البضاعة (أضِفه من شاشة العملاء إن لم يكن موجوداً).","err");
     const need={};lines.forEach(l=>need[l.itemId]=(need[l.itemId]||0)+l.qty);
-    for(const id in need){const it=DB.items.find(x=>x.id===+id);const avail=stockOf(+id);if(!allowOversell()&&need[id]>avail)return show(`الرصيد غير كافٍ للصنف «${itemModel(it)}» (المتاح ${avail}). فعّل «السماح بالبيع بالسالب» من الإعدادات إن أردت.`,"err");}
+    for(const id in need){const it=DB.items.find(x=>x.id===+id);const avail=stockOf(+id);if(need[id]>avail)return show(`⚠️ الرصيد غير كافٍ للصنف «${itemModel(it)}» — المتاح ${avail} فقط، وطلبت ${need[id]}. لا يُسمح بالبيع بأكثر من المتاح.`,"err");}
     const invNo=($("#mInvoice").value||"").trim();
     if(!invNo)return show(simpleCo()?"أدخل رقم فسح العميل (إجباري).":"أدخل رقم الفاتورة (إجباري للمنصرف).","err");
     if(invNo&&invoiceExists(invNo)&&!confirm(`⚠️ رقم الفاتورة «${invNo}» مُسجّل مسبقاً في فاتورة بيع أخرى.\nهل تريد المتابعة وحفظها على أي حال؟`))return;
@@ -1283,6 +1302,9 @@ function saveMove(){
   if(mType==="inbound"&&!simpleCo()&&!($("#mCustoms").value||"").trim())return show("أدخل رقم الفسح (إجباري للوارد).","err");
   if(mType==="inbound"&&($("#mCustoms").value||"").trim()&&customsExists(picked.id,$("#mCustoms").value)&&!confirm(`⚠️ رقم الفسح «${($("#mCustoms").value||"").trim()}» مُسجّل مسبقاً لنفس الصنف.\nقد يؤدي تكراره إلى ازدواج الرصيد. هل تريد المتابعة؟`))return;
   const item=DB.items.find(i=>i.id===picked.id);
+  // تنبيه: غرف النوم أطقم فريدة — غير معتاد أن يزيد رصيد الموديل الواحد عن 1
+  if(mType==="inbound"&&normCat(item.category)==="غرف نوم"&&(stockOf(item.id)+qty)>1
+     &&!confirm(`⚠️ تنبيه: «${itemModel(item)}» من فئة غرف النوم، وسيصبح رصيده ${stockOf(item.id)+qty}.\nغير المعتاد وجود أكثر من غرفة واحدة من نفس الموديل. هل أنت متأكد من المتابعة؟`))return;
   item.qty+=qty;
   DB.movements.unshift({id:nid("movement"),uid:uidGen(),companyId:CO,itemId:item.id,type:mType,qty,price:parseFloat($("#mPrice").value)||0,
     comm:0,model:itemModel(item),invoice:"",invGid:"",address:"",supplierId:+($("#mSupplier")?.value)||null,
@@ -1866,6 +1888,7 @@ function pDashboard(){
     <div class="stat"><div class="lbl">💰 قيمة المخزون (بالتكلفة)</div><div class="val" style="color:var(--blue,#2563eb)">${money(stockValue)} <span style="font-size:11px;color:var(--muted)">﷼</span></div></div>
     <div class="stat"><div class="lbl">أصناف بالسالب</div><div class="val" style="color:var(--red)">${neg.length}</div></div>
   </div>
+  ${(function(){const b=CI.filter(i=>normCat(i.category)==="غرف نوم"&&bal(i)>1);return b.length?`<div style="background:#fef3c7;color:#92400e;border:1px solid #fcd34d;border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:13px;font-weight:600">⚠️ تنبيه: يوجد <b>${b.length}</b> من غرف النوم برصيد أكثر من 1 (${b.map(i=>esc(itemModel(i))+"="+bal(i)).join("، ")}) — غير معتاد، راجِعها من «تدقيق الدفتر».</div>`:"";})()}
   <div class="card">
     <div class="card-title" style="display:flex;justify-content:space-between;align-items:center"><span>جرد الأرصدة الحالية</span>
       <button class="btn green sm" onclick="exportBalances()">⬇ تصدير Excel</button></div>
@@ -2153,6 +2176,8 @@ function auditStock(){
   Object.values(grp).forEach(a=>{if(a.length<2)return;
     a.sort((x,y)=>_recTime(y)-_recTime(x)); // نُبقي الأحدث تعديلاً ونعرض الباقي للحذف
     for(let i=1;i<a.length;i++)dupExtras.push(a[i]);});
+  // ٥) غرف نوم برصيد أكثر من 1 (غير معتاد — أطقم فريدة)
+  const bedExcess=citems().filter(i=>normCat(i.category)==="غرف نوم"&&stockOf(i.id)>1).map(i=>({m:itemModel(i),q:stockOf(i.id)}));
   const el=document.createElement("div");el.className="modal";
   el.innerHTML=`<div class="box" style="max-width:640px;max-height:88vh;overflow:auto"><h3>🔍 تدقيق دفتر المخزون</h3>
     <p style="font-size:13px;color:var(--muted);margin-bottom:8px">المصدر الوحيد للرصيد هو دفتر الحركات؛ هذه فحوص للتحقق من التطابق.</p>
@@ -2165,6 +2190,9 @@ function auditStock(){
     <div style="font-weight:800;color:${dupExtras.length?'var(--red)':'var(--green)'};margin:10px 0 4px">٤) حركات مكرّرة مشتبهة (${dupExtras.length})</div>
     ${dupExtras.length?`<p style="font-size:12px;color:var(--muted);margin-bottom:6px">حركات بنفس الصنف والكمية والتاريخ والمستند (فسح/فاتورة) — راجِعها واحذف المكرّر منها فقط إن كان خطأً.</p>
       <div class="table-wrap"><table><thead><tr><th>الموديل</th><th>النوع</th><th>الكمية</th><th>التاريخ</th><th>فسح/فاتورة</th><th></th></tr></thead><tbody>${dupExtras.map(m=>{const it=DB.items.find(i=>i.id===m.itemId)||{};return `<tr><td>${esc(m.model||itemModel(it))}</td><td>${typeAr(m.type)}</td><td>${m.qty}</td><td>${esc(m.date||"")}</td><td>${esc(m.type==="inbound"?(m.customs||""):(m.invoice||""))}</td><td>${can("canDelete")?`<button class="btn red sm" onclick="if(delMovement(${m.id})!==false){this.closest('.modal').remove();auditStock();}">حذف المكرّر</button>`:""}</td></tr>`;}).join("")}</tbody></table></div>`:`<p style="color:var(--green);font-size:13px">✔ لا حركات مكرّرة</p>`}
+    <div style="font-weight:800;color:${bedExcess.length?'var(--amber)':'var(--green)'};margin:10px 0 4px">٥) غرف نوم برصيد أكثر من 1 (${bedExcess.length})</div>
+    ${bedExcess.length?`<p style="font-size:12px;color:var(--muted);margin-bottom:6px">غرف النوم أطقم فريدة — تحقّق من هذه الأرصدة فقد تدل على إدخال مكرر.</p>
+      <div class="table-wrap"><table><thead><tr><th>الموديل</th><th>الرصيد</th></tr></thead><tbody>${bedExcess.map(x=>`<tr><td>${esc(x.m)}</td><td style="color:var(--amber);font-weight:700">${x.q}</td></tr>`).join("")}</tbody></table></div>`:`<p style="color:var(--green);font-size:13px">✔ لا توجد غرف نوم برصيد غير معتاد</p>`}
     <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
       ${mism.length?`<button class="btn green" onclick="recalcStock();save();this.closest('.modal').remove();toast('تمت مزامنة الأرصدة مع الدفتر');if(CURRENT_PAGE)refreshView();">🔧 مزامنة الأرصدة مع الدفتر</button>`:""}
       <button class="btn gray" onclick="this.closest('.modal').remove()">إغلاق</button></div></div>`;
@@ -3098,8 +3126,7 @@ function pSettings(){
       <div class="field" style="margin-bottom:12px"><label>الشعار (اختياري — يظهر بدل الرمز)</label>
         <input type="file" id="setLogo" accept="image/*" onchange="pickLogo(event)">
         <div style="margin-top:8px">${c.logo?`<img src="${c.logo}" class="brandlogo">`:`<span style="font-size:26px">${esc(c.icon||"🏢")}</span>`}</div></div>
-      <label style="display:flex;align-items:center;gap:8px;margin:10px 0;font-size:13px;font-weight:600;cursor:pointer">
-        <input type="checkbox" id="setOversell" ${DB.settings&&DB.settings.allowOversell?"checked":""} style="width:auto"> السماح بالبيع بالسالب (تجاوز الرصيد المتاح)</label>
+      <div style="display:flex;align-items:center;gap:8px;margin:10px 0;font-size:12.5px;color:var(--green);font-weight:600">🔒 البيع بالسالب ممنوع — لا يمكن صرف أكثر من الرصيد المتاح.</div>
       <label style="display:flex;align-items:flex-start;gap:8px;margin:10px 0;font-size:13px;font-weight:600;cursor:pointer;background:var(--card2,rgba(0,0,0,.03));padding:10px;border-radius:9px">
         <input type="checkbox" id="setSimple" ${c.simple?"checked":""} style="width:auto;margin-top:3px">
         <span>📦 نمط «المتابعة فقط» لهذه الشركة<br><span style="font-weight:400;color:var(--muted);font-size:12px">تتبّع الوارد والمنصرف بسهولة — التكاليف والأسعار ورقم الفسح/الفاتورة تصبح <b>اختيارية</b> (مناسب لمخزون الجملة).</span></span></label>
@@ -3128,7 +3155,7 @@ function saveSettings(){
   if(!guard("settings"))return;
   const c=curCompany();c.name=$("#setCompany").value.trim()||"شركتي";c.icon=$("#setIcon").value.trim()||"🏢";
   DB.settings.appName=$("#setApp").value.trim()||"نظام إدارة المخزون";
-  DB.settings.allowOversell=!!($("#setOversell")&&$("#setOversell").checked);
+  DB.settings.allowOversell=false;   // ممنوع نهائياً
   c.simple=!!($("#setSimple")&&$("#setSimple").checked);
   if(_logoData){c.logo=_logoData;_logoData="";}
   if(DB.companies[0]&&DB.companies[0].id===c.id)DB.settings.company=c.name;
