@@ -115,6 +115,10 @@ html.lock-scroll,html.lock-scroll body{overflow:hidden!important;overscroll-beha
   table th,table td{padding:8px 6px;font-size:13px}
 }
 
+/* عناوين الخطوات في شاشة الإدخال */
+.step{display:flex;align-items:center;gap:9px;font-weight:800;font-size:15px;color:#334155;margin:16px 0 9px}
+.step:first-child{margin-top:2px}
+.step b{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;font-size:14px;flex:none;box-shadow:0 2px 6px rgba(79,70,229,.35)}
 /* أزرار كبيرة لنوع الحركة — وارد / منصرف */
 .typebtns{display:flex;gap:8px}
 .typebtns button{flex:1;border:2px solid var(--line);background:#fff;color:var(--muted);border-radius:10px;padding:14px 10px;font-weight:800;font-size:16px;line-height:1.4;transition:transform .1s;cursor:pointer}
@@ -279,7 +283,7 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:#0d9488;box-sh
    ============================================================ */
 const KEY="inv_system_v2";
 /* رقم إصدار التطبيق — يُزاد مع كل تحديث؛ يُقارَن بالنسخة المنشورة لإظهار زر التحديث */
-const APP_VERSION="2026-11-15-05";
+const APP_VERSION="2026-11-15-06";
 let DB,ME;
 /* التحقق من توفّر نسخة أحدث بجلب الملف نفسه (بدون كاش) ومقارنة رقم الإصدار */
 function checkForUpdate(){
@@ -1107,6 +1111,7 @@ function pMove(){
       ${can("canAdd")?`<button class="btn blue no-print" onclick="downloadMovesTemplate()">⬇ قالب حركات Excel</button>
       <label class="btn amber no-print" style="margin:0">⬆ استيراد حركات<input type="file" accept=".csv,text/csv" style="display:none" onchange="importMovesFile(event)"></label>`:""}</div></div>
   <div class="card"><div id="mMsg"></div>
+    <div class="step"><b>1</b><span>نوع الحركة</span></div>
     <div class="typebtns" style="margin-bottom:12px">
       <button type="button" class="in" id="tbIn"  onclick="setType('inbound')"><span class="ar" style="color:var(--green)">⬇️</span> وارد (بضاعة داخلة)<small>استلام من مورد ➕ يزيد الرصيد</small></button>
       <button type="button" class="out" id="tbOut" onclick="setType('outbound')"><span class="ar" style="color:var(--red)">⬆️</span> منصرف (بضاعة خارجة)<small>بيع / صرف للعميل ➖ ينقص الرصيد</small></button>
@@ -1118,6 +1123,7 @@ function pMove(){
         <span id="mBalName">الرصيد الحالي</span></div>
       <span class="b" id="mBalV">0</span></div>
 
+    <div class="step"><b>2</b><span>الصنف والكمية</span></div>
     <div class="formgrid">
       <div class="cell c3"><label>المجموعة</label>
         <select id="mGroup" onchange="acItems($('#mCode').value)"><option value="">كل المجموعات</option>
@@ -1130,6 +1136,7 @@ function pMove(){
       <div class="cell c2"><label>التاريخ</label><input id="mDate" type="date" value="${today()}"></div>
     </div>
 
+    <div class="step" id="stepDoc"><b>3</b><span id="stepDocT">بيانات المستند</span></div>
     <!-- حقول الوارد: المورد + الفسح -->
     <div class="formgrid" id="rowIn" style="margin-top:6px">
       <div class="cell c4"><label>المورد ${simpleCo()?"(اختياري)":"* (إجباري للوارد)"}</label><select id="mSupplier"><option value="">— اختر المورد —</option>
@@ -1204,6 +1211,9 @@ function setType(t){
   const rin=$("#rowIn"),rout=$("#rowOut"),wp=$("#wrapPrice"),lp=$("#lblPrice"),sb=$("#saveBtn");
   if(rin)rin.style.display=(t==="inbound")?"grid":"none";
   if(rout)rout.style.display=(t==="outbound")?"block":"none";
+  const sd=$("#stepDoc"),sdt=$("#stepDocT");
+  if(sd)sd.style.display=(t==="adjustment")?"none":"flex";
+  if(sdt)sdt.textContent=(t==="inbound")?"بيانات المورد والفسح":(simpleCo()?"بيانات العميل والفسح":"بيانات الفاتورة والعميل");
   if(wp)wp.style.display=(t==="adjustment")?"none":"block";
   if(lp)lp.textContent=(t==="inbound")?(simpleCo()?"سعر التكلفة (اختياري) ﷼":"سعر التكلفة * ﷼"):(simpleCo()?"سعر البيع (اختياري) ﷼":"سعر البيع * (إجباري) ﷼");
   if(sb)sb.textContent=(t==="outbound")?"✓ حفظ الفاتورة":"✓ حفظ الحركة";
