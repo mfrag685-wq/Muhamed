@@ -2449,7 +2449,7 @@ td.cash-in{color:#1f6b45;font-weight:700}td.cash-out{color:#b42318;font-weight:7
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-15-d';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-15-e';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   /* أخطاء سباق عرض غير مؤذية (إعادة رسم أثناء مغادرة خانة) — لا تُعرض كعطل ولا توقف النظام */
@@ -4381,6 +4381,7 @@ function editDraftCell(k,i,field,el){
   paintDocTotals(k);
 }
 function cancelDoc(k){
+  if(k==='p'&&window._ttRet){ window._ttRet=0; setTimeout(function(){ try{ showTab('supply'); lsSet(purTabKey(),'tt'); renderPurTabs(); renderTaxTrack(); var tb=document.getElementById('taxTrackBox'); if(tb) tb.scrollIntoView({behavior:'smooth',block:'start'}); }catch(e){} },80); }   /* حفظ أو إلغاء فاتورة فُتحت من «الفواتير الضريبية» ⇒ العودة إليها */
   if(k==='p'||k==='s'){
     var _wasId=draft[k]&&draft[k].editId;
     draft[k]={lines:[],editId:null}; renderDraft(k);
@@ -4541,7 +4542,7 @@ function renderTaxTrack(){
           +'<td>'+(st==='wait'?'<span class="pill '+(dd>=7?'pill-bad':'pill-warn')+'">⏳ لم تصل</span>':'<span class="pill pill-ok">✅ '+esc(r.tax.no||r.no||'')+'</span>')+'</td>'
           +'<td class="tt-act">'+(qbCanEdit(r)?'<button class="btn-sm" onclick="qbEdit('+r.id+')" title="تعديل في شاشة الإدخال">✏️ تعديل</button> ':'')
           +(!can('taxRecv')?'':(st==='wait'?'<button class="btn-sm btn-alt" onclick="ttConfirmOpen('+r.id+')" title="تأكيد الوصول مع الرقم والأسعار — ثم الفاتورة التالية">✔ وصلت</button>':'<button class="btn-sm" onclick="ttMarkWait('+r.id+')" title="إرجاع إلى المنتظر">↺</button>'))
-          +(can('canEdit')&&!qbOnly()?' <button class="btn-sm" onclick="editDoc(\'p\','+r.id+')" title="فتح في فاتورة الشراء الكاملة">فتح</button>':'')+'</td></tr>'; });
+          +((can('canEdit')||can('taxRecv'))?' <button class="btn-sm" onclick="ttConfirmOpen('+r.id+',1)" title="عرض الفاتورة وتعديل رقمها وأسعارها هنا دون مغادرة الشاشة">فتح</button>':'')+'</td></tr>'; });
     });
     h+='</tbody></table></div>';
   } else if(all.length) h+='<div class="tt-allok" style="background:#f3f6f9;color:#556">لا توجد فواتير مطابقة للفلتر</div>';
@@ -4643,35 +4644,38 @@ var _ttc=null;
 function ttWaitQueue(){ var L=(typeof ttVisibleList==='function'?ttVisibleList():[]).filter(function(r){ return ttSt(r)==='wait'; });
   if(!L.length) L=(db.purchases||[]).filter(function(r){ return ttSt(r)==='wait'; }).sort(function(a,b){ return a.date<b.date?-1:a.date>b.date?1:String(supName(a.supplierId)).localeCompare(String(supName(b.supplierId)),'ar'); });
   return L; }
-function ttConfirmOpen(id){
-  if(!guard('taxRecv','تأكيد وصول الفواتير الضريبية لمدير النظام أو الموظف المخوَّل فقط')) return;
+function ttConfirmOpen(id,editOnly){
+  if(!editOnly&&!guard('taxRecv','تأكيد وصول الفواتير الضريبية لمدير النظام أو الموظف المخوَّل فقط')) return;
   var r=byId(db.purchases,id); if(!r) return; if(!periodGuard(r.date)) return;
   var Q=ttWaitQueue(), pos=Q.map(function(x){ return x.id; }).indexOf(id), canP=ME.role==='admin'||can('canEdit')||qbCanEdit(r);
-  _ttc={id:id};
+  var isWait=ttSt(r)==='wait', mayGot=isWait&&can('taxRecv'); _ttc={id:id,edit:!!editOnly};
   var m=document.getElementById('dsModal'); if(!m){ m=document.createElement('div'); m.id='dsModal'; m.className='ds-modal'; m.onclick=function(e){ if(e.target===m) dsClose(); }; document.body.appendChild(m); }
   var vm=r.vatMode||'add', rows=(r.lines||[]).map(function(l,i){ var q=(l.boxes!=null?+l.boxes:+l.units)||0, ep=(l.ep!=null?+l.ep:+l.price)||0, lm=l.noTax?'none':(l.vm||'');
     return '<tr><td class="name"><b>'+esc(itemName(l.itemId))+'</b>'+(l.note?' <span class="mini">📝 '+esc(l.note)+'</span>':'')+'</td><td class="ld-num">'+qty(q)+'</td>'
       +'<td><input type="number" step="0.01" min="0" inputmode="decimal" class="ttc-p" data-i="'+i+'" value="'+(ep>0?ep:'')+'" placeholder="السعر"'+(canP?'':' readonly')+' style="width:110px" onkeydown="ttcKey(event,this)"></td>'
       +'<td><select class="ttc-v" data-i="'+i+'"'+(canP?'':' disabled')+'>'+[['','حسب الفاتورة'],['incl','شامل الضريبة'],['add','+ ضريبة'],['none','معفى']].map(function(o){ return '<option value="'+o[0]+'"'+(o[0]===lm?' selected':'')+'>'+o[1]+'</option>'; }).join('')+'</select></td></tr>'; }).join('');
-  m.innerHTML='<div class="ds-box" style="max-width:760px"><div class="ds-bar"><b>✔ تأكيد وصول الفاتورة'+(Q.length?' <span class="mini">('+(pos>-1?pos+1:1)+' من '+Q.length+' بانتظار التأكيد)</span>':'')+'</b><span class="ds-acts"><button class="btn-sm" onclick="dsClose()">✕</button></span></div>'
+  m.innerHTML='<div class="ds-box" style="max-width:760px"><div class="ds-bar"><b>'+(isWait?'🧾 الفاتورة — لم تصل بعد':'🧾 الفاتورة — وصلت ✅')+(isWait&&Q.length?' <span class="mini">('+(pos>-1?pos+1:1)+' من '+Q.length+' بانتظار التأكيد)</span>':'')+'</b><span class="ds-acts"><button class="btn-sm" onclick="dsClose()">✕</button></span></div>'
     +'<div style="padding:12px"><div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin-bottom:8px">'
     +'<div><div class="mini">المورد</div><b style="font-size:16px">'+esc(supName(r.supplierId))+'</b></div><div><div class="mini">تاريخ المشتريات</div><b>'+esc(dayNameAr(r.date)+' '+r.date)+'</b></div>'
     +'<label class="mini">رقم الفاتورة الضريبية<br><input id="ttc_no" value="'+esc(r.no||'')+'" style="width:150px;font-size:15px" onkeydown="if(event.key===\'Enter\'){event.preventDefault();var p=document.querySelector(\'.ttc-p\');if(p&&!p.readOnly)p.focus();else ttcSave(1);}"></label>'
     +'<label class="mini">طريقة الضريبة<br><select id="ttc_vm"'+(canP?'':' disabled')+'><option value="add"'+(vm==='add'?' selected':'')+'>الأسعار غير شاملة (+ضريبة)</option><option value="incl"'+(vm==='incl'?' selected':'')+'>الأسعار شاملة الضريبة</option><option value="none"'+(vm==='none'?' selected':'')+'>بدون ضريبة</option></select></label></div>'
     +'<div class="table-scroll"><table class="ld-sumtb"><thead><tr><th class="name">الصنف</th><th>العدد</th><th>السعر</th><th>ضريبة الصنف</th></tr></thead><tbody>'+rows+'</tbody></table></div>'
     +'<div id="ttc_msg" class="mini" style="margin:6px 0"></div>'
-    +'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"><button class="btn" onclick="ttcSave(1)">✔ تأكيد الوصول ← الفاتورة التالية</button><button class="btn-alt" onclick="ttcSave(0)">✔ تأكيد وإغلاق</button>'
-    +(Q.length>1?'<button class="btn-sm" onclick="ttcNext()">⏭ تخطي ← التالية</button>':'')+'</div></div></div>';
+    +'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">'
+    +(mayGot?'<button class="btn" onclick="ttcSave(1)">✔ تأكيد الوصول ← الفاتورة التالية</button><button class="btn-alt" onclick="ttcSave(0)">✔ تأكيد وإغلاق</button>':'')
+    +(canP?'<button class="btn-sm" onclick="ttcSave(0,1)">💾 حفظ التعديل'+(isWait?' (دون تأكيد الوصول)':'')+'</button>':'')
+    +(isWait&&Q.length>1?'<button class="btn-sm" onclick="ttcNext()">⏭ تخطي ← التالية</button>':'')
+    +(can('canEdit')&&!qbOnly()?'<button class="btn-sm" style="margin-inline-start:auto" onclick="window._ttRet=1;dsClose();editDoc(\'p\','+id+')" title="لتغيير الأصناف أو الكميات أو المستودع — ويعود بعد الحفظ لهذه الشاشة">↗ الفاتورة الكاملة</button>':'')+'</div></div></div>';
   m.style.display='block'; setTimeout(function(){ var e=document.getElementById('ttc_no'); if(e){ e.focus(); e.select(); } },50); }
 /* Enter ينتقل لسعر الصنف التالي، وفي آخر صنف يؤكد وينتقل للفاتورة التالية */
 function ttcKey(e,el){ if(e.key!=='Enter') return; e.preventDefault(); var all=[].slice.call(document.querySelectorAll('.ttc-p')), i=all.indexOf(el); if(i<all.length-1) all[i+1].focus(); else ttcSave(1); }
 function ttcNextId(cur){ var Q=ttWaitQueue().filter(function(x){ return x.id!==cur; }), all=ttWaitQueue(), i=all.map(function(x){ return x.id; }).indexOf(cur);
   var nx=(i>-1&&all[i+1])?all[i+1]:Q[0]; return nx?nx.id:null; }
 function ttcNext(){ if(!_ttc) return; var n=ttcNextId(_ttc.id); if(n) ttConfirmOpen(n); else { dsClose(); toast('لا توجد فواتير أخرى بانتظار التأكيد'); } }
-function ttcSave(goNext){ if(!_ttc) return; var r=byId(db.purchases,_ttc.id); if(!r) return;
+function ttcSave(goNext,keep){ if(!_ttc) return; var r=byId(db.purchases,_ttc.id); if(!r) return;
   var no=String(val('ttc_no')||'').trim(), msg=document.getElementById('ttc_msg');
-  if(!no){ if(msg){ msg.textContent='⚠ اكتب رقم الفاتورة الضريبية'; msg.style.color='#9a5b00'; } var e=document.getElementById('ttc_no'); if(e) e.focus(); return; }
-  if(docNoDup('p',no,r.id,r.supplierId)&&!confirm('الرقم «'+no+'» مسجّل لفاتورة أخرى لنفس المورد — المتابعة؟')) return;
+  if(!no&&!keep){ if(msg){ msg.textContent='⚠ اكتب رقم الفاتورة الضريبية'; msg.style.color='#9a5b00'; } var e=document.getElementById('ttc_no'); if(e) e.focus(); return; }
+  if(no&&docNoDup('p',no,r.id,r.supplierId)&&!confirm('الرقم «'+no+'» مسجّل لفاتورة أخرى لنفس المورد — المتابعة؟')) return;
   var old=JSON.parse(JSON.stringify(r)), canP=ME.role==='admin'||can('canEdit')||qbCanEdit(r);
   if(canP){ var mode=val('ttc_vm')||r.vatMode||'add', rate=(r.vatRate!=null&&r.vatRate!=='')?+r.vatRate:vatRate();
     var nl=(r.lines||[]).map(function(l,i){ var pe=document.querySelector('.ttc-p[data-i="'+i+'"]'), ve=document.querySelector('.ttc-v[data-i="'+i+'"]');
@@ -4680,7 +4684,10 @@ function ttcSave(goNext){ if(!_ttc) return; var r=byId(db.purchases,_ttc.id); if
       var v=ve?ve.value:''; if(v==='none') x.noTax=true; else if(v) x.vm=v; return x; });
     var pv=applyVat(nl,rate,mode), wt=0; pv.lines.forEach(function(l){ wt+=(+l.units||0)*(+l.uw||0); });
     r.lines=pv.lines; r.total=pv.net; r.vat=pv.vat; r.vatMode=mode; r.vatRate=rate; r.weight=wt; }
-  r.no=no; r.tax={st:'got',no:no,at:nowTs(),by:ME?ME.name:''}; stampEdit(r,old);
+  r.no=no;
+  if(keep){ if(ttSt(r)==='got'&&no) r.tax.no=no; stampEdit(r,old); log('edit','المشتريات','تعديل فاتورة '+(no||'بدون رقم')+' من الفواتير الضريبية — '+supName(r.supplierId)+' (مشتريات '+r.date+') بقيمة '+num(docGrand(r)));
+    commit('💾 تم حفظ التعديل'); try{ renderTaxTrack(); }catch(e){} dsClose(); return; }
+  r.tax={st:'got',no:no,at:nowTs(),by:ME?ME.name:''}; stampEdit(r,old);
   log('edit','المشتريات','وصول الفاتورة الضريبية '+no+' — '+supName(r.supplierId)+' (مشتريات '+r.date+')'+(canP?' بقيمة '+num(docGrand(r)):''));
   var nx=goNext?ttcNextId(r.id):null;
   commit('✅ تم تأكيد وصول الفاتورة '+no+(ttNoPrice(r)?' — بلا سعر لبعض الأصناف':''));
@@ -6077,6 +6084,7 @@ function savePurchase(){
   /* شراء بأثر رجعي: يوجد مبيعات سابقة لأصنافه ستُعاد تكلفتها تلقائياً عند إعادة بناء الدفتر */
   var retro=retroPurchaseInfo(rec);
   if(wasEdit) cancelDoc('p'); else clearDocForNext('p');   /* بعد الإضافة: أبقِ رأس الفاتورة لتسريع التالي */
+  if(window._ttRet){ window._ttRet=0; setTimeout(function(){ try{ showTab('supply'); lsSet(purTabKey(),'tt'); renderPurTabs(); renderTaxTrack(); var tb=document.getElementById('taxTrackBox'); if(tb) tb.scrollIntoView({behavior:'smooth',block:'start'}); }catch(e){} },80); }   /* فُتحت من «الفواتير الضريبية» ⇒ العودة إليها */
   commit('تم حفظ فاتورة الشراء');   /* commit → refreshLedger يعيد احتساب تكلفة كل المبيعات اللاحقة بالترتيب الزمني */
   if(retro.n>0){
     log('data','المشتريات','شراء بأثر رجعي بتاريخ '+rec.date+' — إعادة احتساب تكلفة '+retro.n+' فاتورة بيع لاحقة');
