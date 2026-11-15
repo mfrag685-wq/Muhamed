@@ -279,7 +279,7 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:#0d9488;box-sh
    ============================================================ */
 const KEY="inv_system_v2";
 /* رقم إصدار التطبيق — يُزاد مع كل تحديث؛ يُقارَن بالنسخة المنشورة لإظهار زر التحديث */
-const APP_VERSION="2026-11-15-03";
+const APP_VERSION="2026-11-15-04";
 let DB,ME;
 /* التحقق من توفّر نسخة أحدث بجلب الملف نفسه (بدون كاش) ومقارنة رقم الإصدار */
 function checkForUpdate(){
@@ -1220,6 +1220,11 @@ function acItems(q){
     <span style="color:var(--muted)"> (الرصيد: ${stockOf(i.id)})</span></div></div>`).join("")||`<div class="ac-item">لا نتائج</div>`;
   box.style.display="block";
 }
+/* إغلاق قائمة البحث عن الموديل عند الضغط خارجها (مرة واحدة) */
+if(!window._acClickAway){window._acClickAway=1;document.addEventListener("click",function(e){
+  var ac=document.getElementById("mAc");if(!ac||ac.style.display==="none")return;
+  var code=document.getElementById("mCode");if(e.target===code||ac.contains(e.target))return;
+  ac.style.display="none";});}
 function pickItem(id){
   picked=DB.items.find(i=>i.id===id);
   $("#mCode").value=itemModel(picked);
@@ -1245,7 +1250,9 @@ function clearMove(all){
   ["mCode","mQty","mPrice","mCustoms"].forEach(i=>$("#"+i)&&($("#"+i).value=""));
   if(all){["mInvoice","mComm","mAddress","mNoteIn","mNoteOut","mFeeVal"].forEach(i=>$("#"+i)&&($("#"+i).value=""));
     feeMode="inv";applyFeeMode();saleCart=[];renderCart();}
-  picked=null;$("#mBal").style.display="none";$("#mCode").focus();
+  picked=null;$("#mBal").style.display="none";
+  const ac=$("#mAc");if(ac)ac.style.display="none";   // إخفاء قائمة البحث عن الموديل بعد الحفظ/المسح
+  $("#mCode").focus();
 }
 /* وضع الرسوم: inv = كامل الفاتورة (افتراضي) · line = لكل صنف */
 let feeMode="inv";
