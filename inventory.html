@@ -279,7 +279,7 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:#0d9488;box-sh
    ============================================================ */
 const KEY="inv_system_v2";
 /* رقم إصدار التطبيق — يُزاد مع كل تحديث؛ يُقارَن بالنسخة المنشورة لإظهار زر التحديث */
-const APP_VERSION="2026-11-15-04";
+const APP_VERSION="2026-11-15-05";
 let DB,ME;
 /* التحقق من توفّر نسخة أحدث بجلب الملف نفسه (بدون كاش) ومقارنة رقم الإصدار */
 function checkForUpdate(){
@@ -1375,7 +1375,7 @@ function renderRecent(){
       <td><span class="tag ${m.type}">${typeAr(m.type)}</span></td>
       <td style="font-weight:700;color:${isIn(m.type)?'var(--green)':'var(--amber)'}">${isIn(m.type)?"+":"−"}${m.qty}</td>
       <td>${BAL[m.id]??m.balAfter??"—"}</td><td>${esc(m.type==="inbound"?(m.customs||""):(m.invoice||""))}</td>
-      <td>${esc(m.type==="inbound"?(sup?sup.name:""):(m.address||""))}</td><td>${esc(m.userName)}</td>
+      <td>${esc(m.type==="inbound"?(sup?sup.name:""):(m.address||""))}</td><td>${userCell(m)}</td>
       <td style="color:var(--muted)">${esc(m.note||"")}</td>
       <td style="white-space:nowrap"><button class="btn ghost sm" onclick="printReceipt(${m.id})">🖨️</button>
         ${can("canEdit")?`<button class="btn blue sm" onclick="editMovement(${m.id})">تعديل</button>`:""}
@@ -1452,12 +1452,13 @@ function editInvoice(gid){
     <div class="formgrid">
       <div class="cell c6"><label>رقم الفاتورة *</label><input id="ie_inv" value="${esc(f.invoice||"")}"></div>
       <div class="cell c6"><label>التاريخ</label><input id="ie_date" type="date" value="${esc(f.date||today())}"></div>
-      <div class="cell c6"><label>العمولة ﷼ (كامل الفاتورة)</label><input id="ie_comm" type="number" inputmode="decimal" step="0.01" value="${comm||0}"></div>
+      <div class="cell c6"><label>العمولة ﷼ (كامل الفاتورة)</label><input id="ie_comm" type="number" inputmode="decimal" step="0.01" value="${comm||0}" oninput="updateIeTotals()"></div>
       <div class="cell c6"><label>العنوان</label><input id="ie_addr" value="${esc(f.address||"")}"></div>
     </div>
     <div style="font-weight:800;color:var(--amber);margin:10px 0 6px">بنود الفاتورة</div>
     <div class="table-wrap"><table><thead><tr><th>الصنف</th><th>الكمية</th><th>السعر</th><th>رسوم</th><th></th></tr></thead>
       <tbody id="ieRows"></tbody></table></div>
+    <div id="ieTotals" style="margin:8px 0"></div>
     <div style="font-weight:800;color:var(--green);margin:12px 0 6px">➕ إضافة صنف</div>
     <input id="ie_search" placeholder="🔍 ابحث عن موديل/صنف لإضافته..." oninput="filterIeItems()" style="width:100%;margin-bottom:6px;padding:9px">
     <div class="formgrid">
@@ -1488,11 +1489,26 @@ function renderInvEditRows(){
     return `<tr><td><select style="min-width:150px;max-width:220px;padding:7px" onchange="invEdit[${idx}].itemId=+this.value">
         ${citems().map(i=>`<option value="${i.id}" ${i.id===l.itemId?"selected":""}>${esc(itemModel(i))}</option>`).join("")}
       </select></td>
-      <td><input type="number" inputmode="numeric" style="width:70px;padding:7px" value="${l.qty}" oninput="invEdit[${idx}].qty=toNum(this.value)"></td>
-      <td><input type="number" inputmode="decimal" step="0.01" style="width:80px;padding:7px" value="${l.price}" oninput="invEdit[${idx}].price=toNum(this.value)"></td>
-      <td><input type="number" inputmode="decimal" step="0.01" style="width:70px;padding:7px" value="${l.fee||0}" oninput="invEdit[${idx}].fee=toNum(this.value)"></td>
+      <td><input type="number" inputmode="numeric" style="width:70px;padding:7px" value="${l.qty}" oninput="invEdit[${idx}].qty=toNum(this.value);updateIeTotals()"></td>
+      <td><input type="number" inputmode="decimal" step="0.01" style="width:80px;padding:7px" value="${l.price}" oninput="invEdit[${idx}].price=toNum(this.value);updateIeTotals()"></td>
+      <td><input type="number" inputmode="decimal" step="0.01" style="width:70px;padding:7px" value="${l.fee||0}" oninput="invEdit[${idx}].fee=toNum(this.value);updateIeTotals()"></td>
       <td><button class="btn red sm" onclick="invEditDel(${idx})">حذف</button></td></tr>`;}).join("")
     ||`<tr><td colspan="5" class="empty">لا بنود — أضِف صنفاً.</td></tr>`;
+  updateIeTotals();
+}
+/* معاينة فورية لإجمالي الفاتورة أثناء التعديل */
+function updateIeTotals(){
+  const box=$("#ieTotals");if(!box)return;
+  const sub=invEdit.reduce((s,l)=>s+(toNum(l.qty)*toNum(l.price)),0);
+  const fees=invEdit.reduce((s,l)=>s+toNum(l.fee),0);
+  const comm=toNum($("#ie_comm")?.value);
+  const net=sub+fees-comm;
+  const rows=[["إجمالي البيع",sub]];
+  if(fees)rows.push(["الرسوم",fees]);
+  if(comm)rows.push(["− العمولة",-comm]);
+  box.innerHTML=`<div style="background:linear-gradient(135deg,#ecfdf5,#f0fdfa);border:1px solid #a7f3d0;border-radius:12px;padding:10px 14px">
+    ${rows.map(r=>`<div style="display:flex;justify-content:space-between;font-size:13px;color:#047857;padding:2px 0"><span>${r[0]}</span><span>${money(r[1])} ﷼</span></div>`).join("")}
+    <div style="display:flex;justify-content:space-between;font-weight:800;font-size:16px;color:#065f46;border-top:1px dashed #6ee7b7;margin-top:6px;padding-top:6px"><span>الصافي</span><span>${money(net)} ﷼</span></div></div>`;
 }
 function invEditAdd(){
   const id=+($("#ie_item").value)||0,q=toNum($("#ie_q").value),p=toNum($("#ie_p").value);
@@ -1518,10 +1534,21 @@ function saveInvoiceEdit(gid){
   tombAddMany("movements",old);
   const oldIds=new Set(old.map(m=>m.id));DB.movements=DB.movements.filter(m=>!oldIds.has(m.id));
   const date=$("#ie_date").value||today(),comm=toNum($("#ie_comm").value),addr=$("#ie_addr").value||"";
+  // احفظ مُنشئ الفاتورة الأصلي وسجّل من عدّلها (قبل ← بعد) على البند الأول
+  const origCreator=(old[0]&&old[0].userName)||ME.name,origUserId=(old[0]&&old[0].userId)||ME.id,origAt=(old[0]&&old[0].at)||new Date().toISOString();
+  const editedAt=new Date().toISOString(),editedBy=(origCreator!==ME.name)?ME.name:(old[0]&&old[0].editedBy||"");
+  const oldTot=old.reduce((s,m)=>s+m.qty*(m.price||0),0),newTot=invEdit.reduce((s,l)=>s+l.qty*(l.price||0),0);
+  const ch=[];const oldInv=(old[0]&&old[0].invoice)||"";
+  if(oldInv!==inv)ch.push({f:"رقم الفاتورة",from:oldInv||"—",to:inv});
+  if(old.length!==invEdit.length)ch.push({f:"عدد الأصناف",from:old.length,to:invEdit.length});
+  if(oldTot!==newTot)ch.push({f:"إجمالي البيع",from:money(oldTot),to:money(newTot)});
+  const prevHist=(old[0]&&old[0].hist)||[];
   invEdit.forEach((l,idx)=>{const it=DB.items.find(x=>x.id===l.itemId);if(!it)return;it.qty-=l.qty;
-    DB.movements.unshift({id:nid("movement"),uid:uidGen(),companyId:CO,itemId:it.id,type:"outbound",qty:l.qty,price:l.price||0,
+    const mv={id:nid("movement"),uid:uidGen(),companyId:CO,itemId:it.id,type:"outbound",qty:l.qty,price:l.price||0,
       comm:idx===0?comm:0,fee:l.fee||0,model:itemModel(it),invoice:inv,invGid:gid,address:addr,supplierId:null,customs:"",
-      date,note:"",balAfter:it.qty,userId:ME.id,userName:ME.name,at:new Date().toISOString()});});
+      date,note:"",balAfter:it.qty,userId:origUserId,userName:origCreator,at:origAt,editedBy:editedBy||undefined,editedAt};
+    if(idx===0&&(ch.length||prevHist.length))mv.hist=prevHist.concat(ch.length?[{at:editedAt,by:ME.name,ch}]:[]);
+    DB.movements.unshift(mv);});
   logAct("تعديل فاتورة",`${inv} — ${invEdit.length} صنف`);save();
   const md=$("#invEditModal");if(md)md.remove();
   const pm=$("#printModal");if(pm)pm.remove();   // أغلق العرض القديم للفاتورة (كان يظهر بيانات قبل التعديل)
@@ -1550,8 +1577,45 @@ function editMovement(id){
       <button class="btn gray" onclick="this.closest('.modal').remove()">إلغاء</button></div></div>`;
   document.body.appendChild(el);
 }
+/* ===== سجل التعديلات المرئي: ما الذي تغيّر في الحركة (قبل ← بعد) ===== */
+function supName(id){const s=DB.suppliers.find(x=>x.id===id);return s?s.name:(id?("#"+id):"—");}
+function recordMoveEdit(m,snap){
+  const F=[["model","الموديل",v=>v||"—"],["qty","الكمية",v=>v],["price","السعر",v=>money(v||0)],
+    ["date","التاريخ",v=>v||"—"],["customs","رقم الفسح",v=>v||"—"],["invoice","رقم الفاتورة",v=>v||"—"],
+    ["supplierId","المورد",v=>supName(v)],["fee","الرسوم",v=>money(v||0)],["note","ملاحظة",v=>v||"—"]];
+  const ch=[];F.forEach(([k,lbl,fmt])=>{const a=snap[k],b=(k==="supplierId"?(m[k]||null):(m[k]??(k==="note"||k==="customs"||k==="invoice"||k==="model"?"":0)));
+    if(String(a)!==String(b))ch.push({f:lbl,from:fmt(a),to:fmt(b)});});
+  if(!ch.length)return;
+  m.hist=m.hist||[];m.hist.push({at:new Date().toISOString(),by:ME?ME.name:"",ch});
+  if(m.hist.length>15)m.hist=m.hist.slice(-15);
+}
+function showMoveHist(id){
+  const m=DB.movements.find(x=>x.id===id);if(!m)return;
+  const h=(m.hist||[]).slice().reverse();
+  const el=document.createElement("div");el.className="modal";
+  el.innerHTML=`<div class="box" style="max-width:560px;max-height:88vh;overflow:auto"><h3>📝 سجل تعديلات الحركة</h3>
+    <div style="font-size:13px;color:var(--muted);margin-bottom:8px">${esc(m.model||"")} · ${esc(m.date||"")}${m.editedBy?` · آخر تعديل: ${esc(m.editedBy)}`:""}</div>
+    ${h.length?h.map(e=>`<div style="border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:8px">
+      <div style="font-size:12px;color:var(--muted);margin-bottom:6px">🕒 ${esc(fmt(e.at))} · بواسطة <b>${esc(e.by||"—")}</b></div>
+      <table style="width:100%"><thead><tr><th style="text-align:right">الحقل</th><th style="text-align:right">قبل</th><th></th><th style="text-align:right">بعد</th></tr></thead>
+      <tbody>${e.ch.map(c=>`<tr><td style="font-weight:600">${esc(c.f)}</td><td style="color:var(--red)">${esc(c.from)}</td><td style="color:var(--muted)">←</td><td style="color:var(--green);font-weight:700">${esc(c.to)}</td></tr>`).join("")}</tbody></table></div>`).join("")
+      :`<p class="empty">لا توجد تعديلات مسجّلة على هذه الحركة.</p>`}
+    <div style="margin-top:8px"><button class="btn gray" onclick="this.closest('.modal').remove()">إغلاق</button></div></div>`;
+  document.body.appendChild(el);
+}
+/* خلية الموظف: تُظهر مُنشئ الحركة، ومُعدّلها إن اختلف، ورابط سجل التعديلات */
+function userCell(m){
+  const creator=esc(m.userName||"—");
+  const edited=m.editedBy&&m.editedBy!==m.userName;
+  const hist=(m.hist||[]).length;
+  if(!edited&&!hist&&!m.editedBy)return creator;
+  return `<div>👤 ${creator}</div>`+
+    (m.editedBy?`<div style="font-size:11px;color:var(--amber);font-weight:700">✎ عدّلها: ${esc(m.editedBy)}</div>`:"")+
+    (hist?`<button class="btn ghost sm no-print" style="padding:2px 8px;font-size:11px;margin-top:3px" onclick="showMoveHist(${m.id})">📝 سجل التعديلات</button>`:"");
+}
 function saveMovement(id){
   const m=DB.movements.find(x=>x.id===id);if(!m)return;
+  const _snap={model:m.model||"",qty:m.qty,price:m.price||0,date:m.date||"",customs:m.customs||"",invoice:m.invoice||"",supplierId:m.supplierId||null,fee:m.fee||0,note:m.note||""};
   const nq=parseFloat($("#em_qty").value);if(!nq||nq<=0){$("#em_msg").textContent="أدخل كمية صحيحة.";return;}
   const newItemId=+($("#em_item").value)||m.itemId;
   const oldIt=DB.items.find(i=>i.id===m.itemId),newIt=DB.items.find(i=>i.id===newItemId);
@@ -1594,6 +1658,7 @@ function saveMovement(id){
   if(m.type==="inbound")m.supplierId=+($("#em_sup").value)||null;
   const ref=$("#em_ref").value||"";if(m.type==="inbound")m.customs=ref;else m.invoice=ref;
   m.balAfter=newIt.qty;m.editedBy=ME.name;m.editedAt=new Date().toISOString();
+  recordMoveEdit(m,_snap);   // سجل ما تغيّر (قبل ← بعد)
   logAct("تعديل حركة",`${m.model||""} كمية ${nq}`);save();
   document.querySelector(".modal").remove();toast("تم تعديل الحركة");keepScroll();
   if($("#recentMoves"))renderRecent();if($("#lTbl"))renderLedger();if($("#reportOut"))renderReport();
@@ -2417,7 +2482,7 @@ function renderLedger(){
     return `<tr><td>${esc(m.date||fmt(m.at))}</td><td><span class="tag ${m.type}">${typeAr(m.type)}</span></td>
       <td style="font-weight:700;color:${isIn(m.type)?'var(--green)':'var(--amber)'}">${isIn(m.type)?"+":"−"}${m.qty}</td>
       <td>${BAL[m.id]??m.balAfter??"—"}</td><td>${esc(m.model||it.model||"")}</td><td>${esc(m.customs||"")}</td>
-      <td>${esc(m.invoice||"")}</td><td>${esc(sup?sup.name:"")}</td><td>${esc(m.userName)}</td><td>${esc(m.note||"")}</td>
+      <td>${esc(m.invoice||"")}</td><td>${esc(sup?sup.name:"")}</td><td>${userCell(m)}</td><td>${esc(m.note||"")}</td>
       <td style="white-space:nowrap">${can("canEdit")?`<button class="btn blue sm" onclick="editMovement(${m.id});return false">تعديل</button>`:""}
         ${can("canDelete")?`<button class="btn red sm" onclick="if(delMovement(${m.id})!==false)renderLedger()">حذف</button>`:""}</td></tr>`;}).join("")
     ||`<tr><td colspan="11" class="empty">لا حركات مطابقة.</td></tr>`;
