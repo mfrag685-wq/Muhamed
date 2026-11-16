@@ -295,7 +295,7 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:#0d9488;box-sh
    ============================================================ */
 const KEY="inv_system_v2";
 /* رقم إصدار التطبيق — يُزاد مع كل تحديث؛ يُقارَن بالنسخة المنشورة لإظهار زر التحديث */
-const APP_VERSION="2026-11-16-03";
+const APP_VERSION="2026-11-16-04";
 let DB,ME;
 /* التحقق من توفّر نسخة أحدث بجلب الملف نفسه (بدون كاش) ومقارنة رقم الإصدار */
 function checkForUpdate(){
@@ -1140,7 +1140,10 @@ function pMove(){
         ${csups().map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join("")}</select></div>
       <div class="cell c4 docIn"><label>رقم الفسح الجمركي ${simpleCo()?"(اختياري)":"* (إجباري للوارد)"}</label><input id="mCustoms" placeholder="رقم الفسح"></div>
       <div class="cell c4 docOut"><label>${simpleCo()?"رقم فسح العميل * (إجباري)":"رقم سند/فاتورة البيع * (إجباري)"}</label><input id="mInvoice" placeholder="${simpleCo()?"رقم فسح العميل":"رقم السند / الفاتورة"}"></div>
+      ${simpleCo()?"":`<div class="cell c6 docOut"><label>🧾 إجمالي الفاتورة كما هو مسجّل لديك ﷼</label><input id="mInvTotal" type="number" inputmode="decimal" step="0.01" placeholder="مثال: 4000" oninput="recoCheck()"></div>
+      <div class="cell c6 docOut"><label>ملاحظة الإجمالي المسجّل</label><input id="mInvTotalNote" placeholder="ملاحظة (اختياري)"></div>`}
     </div>
+    <div id="recoBox" class="docOut" style="margin:4px 2px 10px"></div>
 
     <div class="step"><b>3</b><span>الموديل والكمية والسعر</span></div>
     <div class="balbox" id="mBal" style="display:none">
@@ -1164,23 +1167,19 @@ function pMove(){
     </div>
     <div class="docOut"><div id="cartBox" style="margin-top:10px"></div></div>
 
-    <div class="step docOut"><b>4</b><span>رسوم التوصيل/التركيب ثم العمولة ثم العميل</span></div>
+    <div class="step docOut"><b>4</b><span>رسوم التوصيل/التركيب ثم العمولة</span></div>
     <div class="formgrid docOut">
-      ${simpleCo()?"":`<div class="cell c6"><label>🧾 إجمالي الفاتورة كما هو مسجّل لديك ﷼ (للمراجعة فقط)</label><input id="mInvTotal" type="number" inputmode="decimal" step="0.01" placeholder="مثال: 4000" oninput="recoCheck()"></div>
-      <div class="cell c6"><label>🚚 رسوم تركيب/توصيل ﷼</label>
+      ${simpleCo()?"":`<div class="cell c6"><label>🚚 رسوم تركيب/توصيل ﷼</label>
         <input id="mFeeVal" type="number" inputmode="decimal" step="0.01" placeholder="اتركه فارغاً = بدون رسوم" oninput="recoCheck()">
         <div style="display:flex;align-items:center;gap:8px;margin-top:4px;flex-wrap:wrap">
           <button type="button" id="feeModeToggle" onclick="toggleFeeMode()" style="background:#eef2ff;color:#3730a3;border:1px solid #c7d2fe;border-radius:20px;padding:6px 12px;font-size:12.5px;font-weight:700;cursor:pointer">🔀 تحويل إلى: لكل صنف</button>
           <span id="feeHint" style="font-size:11px;color:var(--muted)">مبلغ واحد لكامل الفاتورة</span></div></div>
       <div class="cell c6"><label>العمولة ﷼ (غير محتسبة ضمن قيمة الفاتورة)</label><input id="mComm" type="number" inputmode="decimal" step="0.01" placeholder="0.00"></div>`}
-      <div class="cell c6"><label>${simpleCo()?"العميل / المستلم (لمن خرجت) *":"العنوان"}</label>
-        ${simpleCo()
-          ? `<select id="mAddress"><option value="">— اختر العميل —</option>${ccusts().map(c=>`<option value="${esc(c.name)}">${esc(c.name)}</option>`).join("")}</select>
-             <div style="font-size:11px;color:var(--muted);margin-top:3px">لإضافة عميل جديد: <a onclick="go('customers')" style="color:var(--blue);cursor:pointer;font-weight:700">افتح شاشة العملاء 🧑‍💼</a></div>`
-          : `<input id="mAddress" placeholder="العنوان">`}</div>
+      ${simpleCo()?`<div class="cell c6"><label>العميل / المستلم (لمن خرجت) *</label>
+        <select id="mAddress"><option value="">— اختر العميل —</option>${ccusts().map(c=>`<option value="${esc(c.name)}">${esc(c.name)}</option>`).join("")}</select>
+        <div style="font-size:11px;color:var(--muted);margin-top:3px">لإضافة عميل جديد: <a onclick="go('customers')" style="color:var(--blue);cursor:pointer;font-weight:700">افتح شاشة العملاء 🧑‍💼</a></div></div>`:""}
       <div class="cell c6"><label>ملاحظات</label><input id="mNoteOut" placeholder="ملاحظة"></div>
     </div>
-    <div id="recoBox" class="docOut" style="margin:6px 2px 0"></div>
 
     <div style="display:flex;gap:10px;margin-top:14px">
       <button class="btn green lg" style="flex:1" id="saveBtn" onclick="saveMove()">✓ حفظ</button>
@@ -1201,7 +1200,7 @@ function pMove(){
       <div class="cell c3"><label>من تاريخ</label><input id="rcFrom" type="date" onchange="renderRecent()"></div>
       <div class="cell c3"><label>إلى تاريخ</label><input id="rcTo" type="date" onchange="renderRecent()"></div>
       <div class="cell c2"><label>عدد الحركات</label><select id="rcLimit" onchange="renderRecent()">
-        <option value="5">آخر 5</option><option value="25">آخر 25</option><option value="100">آخر 100</option><option value="500">آخر 500</option><option value="0">كل الحركات</option></select></div>
+        <option value="10" selected>آخر 10</option><option value="5">آخر 5</option><option value="25">آخر 25</option><option value="100">آخر 100</option><option value="500">آخر 500</option><option value="0">كل الحركات</option></select></div>
     </div>
     <div id="rcCount" style="font-size:12px;color:var(--muted);margin-bottom:8px"></div>
     <div class="table-wrap"><table><thead><tr><th>التاريخ</th><th>الصنف/الموديل</th><th>النوع</th><th>الكمية</th>
@@ -1238,7 +1237,7 @@ function setType(t){
   const mm=$("#mMsg");if(mm)mm.innerHTML="";   // مسح الرسائل عند تغيير نوع الحركة
   const rb=$("#recoBox");if(rb)rb.innerHTML="";
   renderCart();
-  if($("#rfAll")&&(t==="inbound"||t==="outbound"))setRecentFilter(t);   // يفلتر آخر الحركات حسب النوع المختار
+  // «آخر الحركات» تبقى على «الكل» (وارد ومنصرف) ولا تُفلتَر تلقائياً حسب النوع المختار
 }
 function acItems(q){
   const box=$("#mAc");q=(q||"").trim();const grp=$("#mGroup")?.value||"";
@@ -1347,15 +1346,14 @@ function recoCheck(){
   if(mType!=="outbound"){box.innerHTML="";return;}
   let items=saleCart.reduce((s,l)=>s+l.qty*l.price,0);
   const cur=qCurrentLine();if(cur)items+=cur.qty*cur.price;
-  const fee=toNum($("#mFeeVal")?.value),computed=items+fee,rec=toNum($("#mInvTotal")?.value);
+  const fee=toNum($("#mFeeVal")?.value),used=items+fee,rec=toNum($("#mInvTotal")?.value);
   if(items<=0&&fee<=0&&rec<=0){box.innerHTML="";return;}
   if(rec>0){
-    const diff=Math.round((computed-rec)*100)/100;
-    box.innerHTML=(Math.abs(diff)<0.005)
-      ? `<div class="msg ok">✔ مطابق — الأصناف ${money(items)} + التركيب ${money(fee)} = ${money(computed)} ﷼ = القيمة المسجّلة. (العمولة غير محتسبة)</div>`
-      : `<div class="msg err">⚠️ فرق ${money(Math.abs(diff))} ﷼ (${diff>0?"زيادة":"نقص"}) — الأصناف ${money(items)} + التركيب ${money(fee)} = <b>${money(computed)} ﷼</b>، والقيمة المسجّلة ${money(rec)}. راجع الأرقام. (العمولة غير محتسبة)</div>`;
+    const rem=Math.round((rec-used)*100)/100;
+    const ok=Math.abs(rem)<0.005,col=ok?"var(--green)":(rem<0?"var(--red)":"var(--amber)");
+    box.innerHTML=`<div class="msg ${ok?'ok':'err'}" style="font-size:14px">🧾 المسجّل ${money(rec)} − (الأصناف ${money(items)} + التركيب ${money(fee)} = ${money(used)}) = <b style="color:${col}">المتبقّي ${money(rem)} ﷼</b> ${ok?"✔ مطابق":(rem<0?"⚠️ تجاوزت المبلغ المسجّل":"— باقٍ لم يُدخَل")}<br><small>(العمولة غير محتسبة ضمن قيمة الفاتورة)</small></div>`;
   }else{
-    box.innerHTML=`<div class="msg ok">إجمالي الأصناف ${money(items)} + التركيب ${money(fee)} = <b>${money(computed)} ﷼</b> (العمولة غير محتسبة)</div>`;
+    box.innerHTML=`<div class="msg ok">إجمالي الأصناف ${money(items)} + التركيب ${money(fee)} = <b>${money(used)} ﷼</b> (العمولة غير محتسبة)</div>`;
   }
 }
 function qAdd(){
@@ -1418,6 +1416,18 @@ function addToInvoice(){
   if(feeType()==="line"&&$("#mFeeVal"))$("#mFeeVal").value=""; // رسوم كل صنف تُفرَّغ للصنف التالي
   renderCart();
 }
+/* تعديل صنف أُضيف للفاتورة قبل الحفظ: يُعيده إلى صف الإدخال السريع ثم يزيله من القائمة */
+function qEditCart(idx){
+  const l=saleCart[idx];if(!l)return;
+  qPicked=DB.items.find(x=>x.id===l.itemId)||null;
+  $("#qItem").value=qPicked?itemModel(qPicked):"";
+  $("#qQty").value=l.qty;$("#qPrice").value=l.price;
+  saleCart.splice(idx,1);renderCart();
+  if(qPicked){$("#mBal").style.display="flex";$("#mBalName").textContent="رصيد «"+itemModel(qPicked)+"»";$("#mBalV").textContent=stockOf(qPicked.id)+" "+(qPicked.unit||"");
+    const im=$("#mBalImg");if(im){if(qPicked.image){im.src=qPicked.image;im.style.display="block";}else im.style.display="none";}}
+  qHint();recoCheck();
+  const e=$("#qQty");if(e){e.focus();e.select&&e.select();}
+}
 function renderCart(){
   const box=$("#cartBox");if(!box)return;
   if(mType!=="outbound"||!saleCart.length){box.innerHTML="";try{recoCheck();}catch(e){}return;}
@@ -1428,7 +1438,8 @@ function renderCart(){
   box.innerHTML=`<div class="table-wrap"><table><thead><tr><th>الصنف/الموديل</th><th>الكمية</th><th>السعر</th><th>الإجمالي</th>${anyFee?"<th>رسوم تركيب/توصيل</th>":""}<th></th></tr></thead>
     <tbody>${saleCart.map((l,idx)=>{const it=DB.items.find(x=>x.id===l.itemId)||{};
       return `<tr><td>${esc(itemModel(it))}</td><td>${l.qty}</td><td>${money(l.price)}</td><td>${money(l.qty*l.price)}</td>${anyFee?`<td>${l.fee?money(l.fee):"—"}</td>`:""}
-        <td><button class="btn red sm" onclick="saleCart.splice(${idx},1);renderCart()">حذف</button></td></tr>`;}).join("")}
+        <td style="white-space:nowrap"><button class="btn amber sm" onclick="qEditCart(${idx})">تعديل</button>
+          <button class="btn red sm" onclick="saleCart.splice(${idx},1);renderCart()">حذف</button></td></tr>`;}).join("")}
     <tr><td colspan="3"><b>إجمالي البيع</b></td><td colspan="${anyFee?3:2}"><b>${money(total)} ﷼</b></td></tr>
     ${anyFee?`<tr><td colspan="3"><b>رسوم التركيب/التوصيل (للأصناف)</b></td><td colspan="3"><b>${money(feeLines)} ﷼</b></td></tr>`:""}</tbody></table></div>`;
 }
@@ -1446,17 +1457,32 @@ function saveMove(){
     if(!invNo)return show(simpleCo()?"أدخل رقم فسح العميل (إجباري).":"أدخل رقم الفاتورة (إجباري للمنصرف).","err");
     if(invNo&&invoiceExists(invNo)&&!confirm(`⚠️ رقم الفاتورة «${invNo}» مُسجّل مسبقاً في فاتورة بيع أخرى.\nهل تريد المتابعة وحفظها على أي حال؟`))return;
     const gid="INV"+Date.now();
-    const comm=toNum($("#mComm")?.value),addr=$("#mAddress")?.value||"",note=$("#mNoteOut")?.value||"";
+    const comm=toNum($("#mComm")?.value),addr=$("#mAddress")?.value||"";
+    const invTotalNote=($("#mInvTotalNote")?.value||"").trim();
+    let note=$("#mNoteOut")?.value||"";if(invTotalNote)note=(note?note+" | ":"")+"ملاحظة الإجمالي: "+invTotalNote;
     const feesInv=($("#mFeeVal")&&feeType()==="inv")?toNum($("#mFeeVal").value):0;   // رسوم كامل الفاتورة تُضاف للسطر الأول
+    // المبلغ المسجّل والمتبقّي (العمولة غير محتسبة)
+    const recTotal=toNum($("#mInvTotal")?.value);
+    const itemsSum=lines.reduce((s,l)=>s+l.qty*l.price,0);
+    const feeSum=lines.reduce((s,l)=>s+(l.fee||0),0)+feesInv;
+    const remain=Math.round((recTotal-(itemsSum+feeSum))*100)/100;
     let firstMvId=null;
     lines.forEach((l,idx)=>{const it=DB.items.find(x=>x.id===l.itemId);it.qty-=l.qty;
       const lineFee=(l.fee||0)+(idx===0?feesInv:0);
       const mid=nid("movement");if(idx===0)firstMvId=mid;
       DB.movements.unshift({id:mid,uid:uidGen(),companyId:CO,itemId:it.id,type:"outbound",qty:l.qty,price:l.price||0,
         comm:idx===0?comm:0,fee:lineFee,model:itemModel(it),invoice:invNo,invGid:gid,address:addr,supplierId:null,customs:"",
+        invTotal:idx===0?(recTotal||0):0,invRemain:idx===0?remain:0,
         date,note,balAfter:it.qty,userId:ME.id,userName:ME.name,at:new Date().toISOString()});});
     logAct("منصرف","فاتورة "+invNo+" — "+lines.length+" صنف");save();
-    saleCart=[];show(`✔ تم حفظ فاتورة البيع ${invNo} (${lines.length} صنف).`,"ok");
+    saleCart=[];
+    let msgTxt=`✔ تم حفظ فاتورة البيع ${invNo} (${lines.length} صنف).`;
+    if(recTotal>0){
+      msgTxt+= Math.abs(remain)<0.005
+        ? `<br>🧾 مطابق للمبلغ المسجّل ${money(recTotal)} ﷼ تماماً.`
+        : `<br>🧾 المبلغ المسجّل ${money(recTotal)} ﷼ — <b>المتبقّي ${money(remain)} ﷼</b> ${remain<0?"(تجاوز عن المسجّل)":"(لم يُدخَل)"} (العمولة غير محتسبة).`;
+    }
+    show(msgTxt,"ok");
     clearMove(true,true);flashRecent(firstMvId);printInvoice(gid);   // يُظهر الفاتورة المطبوعة ويُضيء الحركة في السجل
     return;
   }
