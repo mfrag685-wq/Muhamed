@@ -295,7 +295,7 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:#0d9488;box-sh
    ============================================================ */
 const KEY="inv_system_v2";
 /* رقم إصدار التطبيق — يُزاد مع كل تحديث؛ يُقارَن بالنسخة المنشورة لإظهار زر التحديث */
-const APP_VERSION="2026-11-16-04";
+const APP_VERSION="2026-11-16-05";
 let DB,ME;
 /* التحقق من توفّر نسخة أحدث بجلب الملف نفسه (بدون كاش) ومقارنة رقم الإصدار */
 function checkForUpdate(){
@@ -1138,8 +1138,10 @@ function pMove(){
       <div class="cell c3"><label>التاريخ</label><input id="mDate" type="date" value="${today()}"></div>
       <div class="cell c4 docIn"><label>المورد ${simpleCo()?"(اختياري)":"* (إجباري للوارد)"}</label><select id="mSupplier"><option value="">— اختر المورد —</option>
         ${csups().map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join("")}</select></div>
-      <div class="cell c4 docIn"><label>رقم الفسح الجمركي ${simpleCo()?"(اختياري)":"* (إجباري للوارد)"}</label><input id="mCustoms" placeholder="رقم الفسح"></div>
-      <div class="cell c4 docOut"><label>${simpleCo()?"رقم فسح العميل * (إجباري)":"رقم سند/فاتورة البيع * (إجباري)"}</label><input id="mInvoice" placeholder="${simpleCo()?"رقم فسح العميل":"رقم السند / الفاتورة"}"></div>
+      <div class="cell c4 docIn"><label>رقم الفسح الجمركي ${simpleCo()?"(اختياري)":"* (إجباري للوارد)"}</label><input id="mCustoms" placeholder="رقم الفسح" oninput="checkCustomsDup()">
+        <div id="customsHint" style="font-size:12px;margin-top:3px"></div></div>
+      <div class="cell c4 docOut"><label>${simpleCo()?"رقم فسح العميل * (إجباري)":"رقم سند/فاتورة البيع * (إجباري)"}</label><input id="mInvoice" placeholder="${simpleCo()?"رقم فسح العميل":"رقم السند / الفاتورة"}" oninput="checkInvoiceDup()">
+        <div id="invoiceHint" style="font-size:12px;margin-top:3px"></div></div>
       ${simpleCo()?"":`<div class="cell c6 docOut"><label>🧾 إجمالي الفاتورة كما هو مسجّل لديك ﷼</label><input id="mInvTotal" type="number" inputmode="decimal" step="0.01" placeholder="مثال: 4000" oninput="recoCheck()"></div>
       <div class="cell c6 docOut"><label>ملاحظة الإجمالي المسجّل</label><input id="mInvTotalNote" placeholder="ملاحظة (اختياري)"></div>`}
     </div>
@@ -1236,6 +1238,9 @@ function setType(t){
   if(sb)sb.textContent=(t==="outbound")?"✓ حفظ الفاتورة":"✓ حفظ الحركة";
   const mm=$("#mMsg");if(mm)mm.innerHTML="";   // مسح الرسائل عند تغيير نوع الحركة
   const rb=$("#recoBox");if(rb)rb.innerHTML="";
+  ["customsHint","invoiceHint"].forEach(id=>{const e=$("#"+id);if(e)e.innerHTML="";});
+  const mc=$("#mCustoms"),mi=$("#mInvoice");[mc,mi].forEach(e=>{if(e){e.style.borderColor="";e.style.background="";}});
+  updateSaveLock();
   renderCart();
   // «آخر الحركات» تبقى على «الكل» (وارد ومنصرف) ولا تُفلتَر تلقائياً حسب النوع المختار
 }
@@ -1356,6 +1361,48 @@ function recoCheck(){
     box.innerHTML=`<div class="msg ok">إجمالي الأصناف ${money(items)} + التركيب ${money(fee)} = <b>${money(used)} ﷼</b> (العمولة غير محتسبة)</div>`;
   }
 }
+/* ===== منع تكرار رقم الفسح (وارد) ورقم الفاتورة (بيع) — فحص فوري يمنع الإكمال ===== */
+function customsUsed(customs,exceptId){customs=(customs||"").trim();if(!customs)return false;
+  return uniqMovements().some(m=>m.type==="inbound"&&String(m.customs||"").trim()===customs&&m.id!==exceptId);}
+/* مجموعة الأرقام المسجّلة (فسح للوارد / فاتورة للمنصرف) لاكتشاف الأرقام الناقصة */
+function numSeqSet(kind){const set=new Set();uniqMovements().forEach(m=>{
+  const raw=kind==="inbound"?(m.type==="inbound"&&m.customs):(m.type==="outbound"&&m.invoice);
+  if(raw){const n=parseInt(String(raw).trim(),10);if(!isNaN(n)&&String(n)===String(raw).trim())set.add(n);}});return set;}
+/* أرقام ناقصة قبل الرقم المُدخَل (تنبيه فقط، لا يمنع) */
+function seqGap(kind,v){
+  const n=parseInt(String(v||"").trim(),10);if(isNaN(n)||String(n)!==String(v||"").trim())return null;
+  const set=numSeqSet(kind);if(!set.size||set.has(n))return null;
+  let below=-Infinity;set.forEach(x=>{if(x<n&&x>below)below=x;});
+  if(below===-Infinity||n-below<=1)return null;
+  const miss=[];for(let i=below+1;i<n&&miss.length<10;i++)if(!set.has(i))miss.push(i);
+  return miss.length?miss:null;
+}
+function checkCustomsDup(){
+  const el=$("#mCustoms"),hint=$("#customsHint");if(!el)return;
+  const v=(el.value||"").trim(),dup=!!(v&&customsUsed(v));
+  if(hint){
+    if(dup)hint.innerHTML=`<span style="color:var(--red);font-weight:800">⛔ رقم الفسح «${esc(v)}» مُسجّل مسبقاً — لا يُقبل تكراره.</span>`;
+    else{const miss=seqGap("inbound",v);hint.innerHTML=miss?`<span style="color:var(--amber);font-weight:800">⚠️ يوجد رقم فسح غير مسجّل: ${miss.join("، ")} (يمكنك الإكمال)</span>`:"";}
+  }
+  el.style.borderColor=dup?"var(--red)":"";el.style.background=dup?"#fef2f2":"";
+  updateSaveLock();
+}
+function checkInvoiceDup(){
+  const el=$("#mInvoice"),hint=$("#invoiceHint");if(!el)return;
+  const v=(el.value||"").trim(),dup=!!(v&&invoiceExists(v)),nm=simpleCo()?"الفسح":"الفاتورة";
+  if(hint){
+    if(dup)hint.innerHTML=`<span style="color:var(--red);font-weight:800">⛔ رقم ${nm} «${esc(v)}» مُسجّل مسبقاً — لا يُقبل تكراره.</span>`;
+    else{const miss=seqGap("outbound",v);hint.innerHTML=miss?`<span style="color:var(--amber);font-weight:800">⚠️ يوجد رقم ${nm} غير مسجّل: ${miss.join("، ")} (يمكنك الإكمال)</span>`:"";}
+  }
+  el.style.borderColor=dup?"var(--red)":"";el.style.background=dup?"#fef2f2":"";
+  updateSaveLock();
+}
+function updateSaveLock(){
+  const sb=$("#saveBtn");if(!sb)return;let lock=false;
+  if(mType==="inbound"){const v=($("#mCustoms")?.value||"").trim();if(v&&customsUsed(v))lock=true;}
+  if(mType==="outbound"){const v=($("#mInvoice")?.value||"").trim();if(v&&invoiceExists(v))lock=true;}
+  sb.disabled=lock;sb.style.opacity=lock?".5":"";sb.style.cursor=lock?"not-allowed":"";sb.title=lock?"لا يمكن الحفظ: رقم مُكرّر":"";
+}
 function qAdd(){
   const msg=$("#mMsg");const show=(t,c)=>msg.innerHTML=`<div class="msg ${c}">${t}</div>`;
   if(!qPicked)return show("اكتب أول حروف الموديل واختر الصنف من القائمة المنسدلة.","err");
@@ -1380,6 +1427,9 @@ function clearMove(all,noFocus){
     feeMode="inv";applyFeeMode();saleCart=[];renderCart();const rb=$("#recoBox");if(rb)rb.innerHTML="";}
   picked=null;$("#mBal").style.display="none";
   const ac=$("#mAc");if(ac)ac.style.display="none";   // إخفاء قائمة البحث عن الموديل بعد الحفظ/المسح
+  ["customsHint","invoiceHint"].forEach(id=>{const e=$("#"+id);if(e)e.innerHTML="";});
+  const mc=$("#mCustoms"),mi=$("#mInvoice");[mc,mi].forEach(e=>{if(e){e.style.borderColor="";e.style.background="";}});
+  updateSaveLock();
   if(!noFocus){const qi=$("#qItem");if(qi)qi.focus();}
 }
 /* بعد الحفظ: ينزل إلى الحركة المُضافة في «آخر الحركات» ويُضيئها ليتأكد الموظف أنها سُجّلت */
@@ -1455,7 +1505,7 @@ function saveMove(){
     for(const id in need){const it=DB.items.find(x=>x.id===+id);const avail=stockOf(+id);if(need[id]>avail)return show(`⚠️ الرصيد غير كافٍ للصنف «${itemModel(it)}» — المتاح ${avail} فقط، وطلبت ${need[id]}. لا يُسمح بالبيع بأكثر من المتاح.<br><b style="color:var(--green)">➕ الرجاء إضافة الفسح (وارد) أولاً حتى يمكنك البيع.</b>`,"err");}
     const invNo=($("#mInvoice").value||"").trim();
     if(!invNo)return show(simpleCo()?"أدخل رقم فسح العميل (إجباري).":"أدخل رقم الفاتورة (إجباري للمنصرف).","err");
-    if(invNo&&invoiceExists(invNo)&&!confirm(`⚠️ رقم الفاتورة «${invNo}» مُسجّل مسبقاً في فاتورة بيع أخرى.\nهل تريد المتابعة وحفظها على أي حال؟`))return;
+    if(invNo&&invoiceExists(invNo)){checkInvoiceDup();return show(`⛔ رقم ${simpleCo()?"الفسح":"الفاتورة"} «${invNo}» مُسجّل مسبقاً — لا يُقبل تكراره.`,"err");}
     const gid="INV"+Date.now();
     const comm=toNum($("#mComm")?.value),addr=$("#mAddress")?.value||"";
     const invTotalNote=($("#mInvTotalNote")?.value||"").trim();
@@ -1492,7 +1542,7 @@ function saveMove(){
   if(mType==="inbound"&&!(toNum($("#qPrice")?.value)>0))return show("أدخل سعر التكلفة (إجباري).","err");
   if(mType==="inbound"&&!simpleCo()&&!(+($("#mSupplier")?.value)))return show("اختر المورد (إجباري للوارد).","err");
   if(mType==="inbound"&&!simpleCo()&&!($("#mCustoms").value||"").trim())return show("أدخل رقم الفسح (إجباري للوارد).","err");
-  if(mType==="inbound"&&($("#mCustoms").value||"").trim()&&customsExists(qPicked.id,$("#mCustoms").value)&&!confirm(`⚠️ رقم الفسح «${($("#mCustoms").value||"").trim()}» مُسجّل مسبقاً لنفس الصنف.\nقد يؤدي تكراره إلى ازدواج الرصيد. هل تريد المتابعة؟`))return;
+  if(mType==="inbound"){const cv=($("#mCustoms").value||"").trim();if(cv&&customsUsed(cv)){checkCustomsDup();return show(`⛔ رقم الفسح «${cv}» مُسجّل مسبقاً — لا يُقبل تكراره.`,"err");}}
   const item=DB.items.find(i=>i.id===qPicked.id);
   // تنبيه: غرف النوم أطقم فريدة — غير معتاد أن يزيد رصيد الموديل الواحد عن 1
   if(mType==="inbound"&&normCat(item.category)==="غرف نوم"&&(stockOf(item.id)+qty)>1
