@@ -2449,7 +2449,7 @@ td.cash-in{color:#1f6b45;font-weight:700}td.cash-out{color:#b42318;font-weight:7
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-16-e';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-16-f';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   /* أخطاء سباق عرض غير مؤذية (إعادة رسم أثناء مغادرة خانة) — لا تُعرض كعطل ولا توقف النظام */
@@ -4759,13 +4759,20 @@ function ldDel(id){ var L=byId(ldArr(),id); if(!L||!ldCanEditLoad(L)) return;
   if(!confirm('حذف البراد رقم '+L.no+' بكل محتوياته؟')) return;
   db.loads=ldArr().filter(function(x){ return x.id!==id; }); log('delete','البرادات','حذف البراد رقم '+L.no+' بتاريخ '+L.date); persist(); renderLoads(); }
 function ldSet(el){ var L=byId(ldArr(),+el.dataset.ld); if(!L) return; var f=el.dataset.lf, v=el.value;
-  if(el.dataset.li==null){ L[f]=f==='no'?(+v||v):v; ldSave(L); return; }
+  if(el.dataset.li==null){ L[f]=f==='no'?(+v||v):v; ldSave(L); ldSumRefreshSoon(); return; }
   var l=L.lines[+el.dataset.li]; if(!l) return; l[f]=v; ldSave(L);
   var row=el.closest('.ld-row'); if(row){ row.classList.toggle('qb-ok',!!ldLineOk(l)); var t=row.querySelector('.ld-tot'); if(t) t.textContent=ldTot(l)?qty(ldTot(l)):''; }
+  ldSumRefreshSoon();   /* صنف جديد/كمية جديدة في براد ⇒ يظهر فوراً في ملخص الأصناف والمطابقات */
 }
+/* إعادة رسم «ملخص الأصناف» والمطابقات ودفتر التعويضات فقط (دون بطاقات البرادات فلا يضيع موضع الكتابة) */
+var _ldSumT=null;
+function ldSumRefreshSoon(){ clearTimeout(_ldSumT); _ldSumT=setTimeout(ldSumRefresh,500); }
+function ldSumRefresh(){ var w=document.getElementById('ldSumWrap'); if(!w) return;
+  var a=document.activeElement; if(a&&w.contains(a)){ ldSumRefreshSoon(); return; }   /* المستخدم يكتب داخل الملخص — أجّل */
+  try{ cmpInval(); setBoxHTML(w,ldSummaryHtml()); ldPaintTotals(); qnavLater('supply'); }catch(e){} }
 function ldChoose(el,k,id,silent){ var L=byId(ldArr(),+el.dataset.ld); if(!L) return; var i=+el.dataset.li, l=L.lines[i]; if(!l) return;
   l.item=id; el.value=qbName('item',id); ldSave(L);
-  if(i===L.lines.length-1){ L.lines.push({}); renderLoads(); }   /* سطر جديد تلقائياً */
+  if(i===L.lines.length-1){ L.lines.push({}); renderLoads(); } else ldSumRefreshSoon();   /* سطر جديد تلقائياً · أو تغيير صنف سطر قائم ⇒ تحديث الملخص */
   if(!silent) ldFocus(L.id,i,'pal'); }
 function ldFocus(id,i,f){ var go=function(){ var e=document.querySelector('[data-ld="'+id+'"][data-li="'+i+'"][data-lf="'+f+'"]'); if(e){ e.focus(); if(e.select) e.select(); if(window.innerWidth<=700){ try{ e.scrollIntoView({block:'center',behavior:'smooth'}); }catch(_){} } return true; } return false; };
   if(!go()) setTimeout(go,0); }
@@ -5273,7 +5280,7 @@ function renderLoads(){ cmpInval();
           +'<input enterkeyhint="next" class="qb-in ld-n ld-r" '+a+' data-lf="ret" type="number" min="0" inputmode="decimal" placeholder="مرتجع" value="'+esc(l.ret!=null?l.ret:'')+'" oninput="ldSet(this)" onkeydown="ldKey(event,this)">':'')
         +(ed?'<button class="btn-sm btn-del qb-del" tabindex="-1" onclick="ldDelLine('+L.id+','+i+')">✕</button>':'<span></span>')+'</div>'; });
     h+='<div class="ld-foot" id="ldt_'+L.id+'">'+ldTotHtml(L)+'</div></div>'; });
-  h+='</div><div class="ld-day" id="ldDaySum">'+ldDaySumHtml()+'</div>'+ldSummaryHtml()+'</div>';
+  h+='</div><div class="ld-day" id="ldDaySum">'+ldDaySumHtml()+'</div><div id="ldSumWrap">'+ldSummaryHtml()+'</div></div>';
   setBoxHTML(box,h);
   if(keep){ var e=document.querySelector('[data-ld="'+keep.ld+'"]'+(keep.li!=null?'[data-li="'+keep.li+'"]':'')+'[data-lf="'+keep.lf+'"]'); if(e&&e!==document.activeElement) e.focus(); }
 }
