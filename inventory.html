@@ -295,7 +295,7 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:#0d9488;box-sh
    ============================================================ */
 const KEY="inv_system_v2";
 /* رقم إصدار التطبيق — يُزاد مع كل تحديث؛ يُقارَن بالنسخة المنشورة لإظهار زر التحديث */
-const APP_VERSION="2026-11-15-13";
+const APP_VERSION="2026-11-16-01";
 let DB,ME;
 /* التحقق من توفّر نسخة أحدث بجلب الملف نفسه (بدون كاش) ومقارنة رقم الإصدار */
 function checkForUpdate(){
@@ -1145,12 +1145,12 @@ function pMove(){
         <span id="mBalName">الرصيد الحالي</span></div>
       <span class="b" id="mBalV">0</span></div>
     <div class="docOut">
-      <div style="font-weight:800;color:var(--blue);margin:2px 0 6px">⚡ إضافة سريعة للأصناف — اختر الصنف ثم الكمية ثم السعر و«Enter»</div>
+      <div style="font-weight:800;color:var(--blue);margin:2px 0 6px">⚡ إضافة سريعة للأصناف — اكتب أول حروف الموديل فيظهر تلقائياً (مثال: «38» → 3825 · «كر» → كريستال)</div>
       <div class="qrow">
-        <select id="qItem" onchange="qHint();if(this.value){const e=$('#qQty');if(e)e.focus();}">
-          <option value="">— اختر الصنف —</option>
-          ${citems().map(i=>`<option value="${i.id}">${esc(itemModel(i))} — الرصيد ${stockOf(i.id)}</option>`).join("")}
-        </select>
+        <div class="ac-wrap" style="flex:3 1 180px;min-width:150px;position:relative">
+          <input id="qItem" placeholder="🔍 اكتب الموديل أو الصنف..." autocomplete="off" style="width:100%;text-align:right" oninput="qAc(this.value)" onfocus="qAc(this.value)" onkeydown="qItemKey(event)">
+          <div class="ac-list" id="qAcList"></div>
+        </div>
         <input id="qQty" type="number" inputmode="numeric" placeholder="الكمية" onkeydown="if(event.key==='Enter'){event.preventDefault();const e=$('#qPrice');if(e){e.focus();e.select&&e.select();}}">
         <input id="qPrice" type="number" inputmode="decimal" step="0.01" placeholder="السعر" onkeydown="if(event.key==='Enter'){event.preventDefault();qAdd();}">
         <button type="button" class="qbtn" onclick="qAdd()" title="أضِف الصنف للفاتورة">＋</button>
@@ -1259,9 +1259,11 @@ function acItems(q){
 }
 /* إغلاق قائمة البحث عن الموديل عند الضغط خارجها (مرة واحدة) */
 if(!window._acClickAway){window._acClickAway=1;document.addEventListener("click",function(e){
-  var ac=document.getElementById("mAc");if(!ac||ac.style.display==="none")return;
-  var code=document.getElementById("mCode");if(e.target===code||ac.contains(e.target))return;
-  ac.style.display="none";});}
+  var ac=document.getElementById("mAc");
+  if(ac&&ac.style.display!=="none"){var code=document.getElementById("mCode");if(!(e.target===code||ac.contains(e.target)))ac.style.display="none";}
+  var qa=document.getElementById("qAcList");
+  if(qa&&qa.style.display!=="none"){var qi=document.getElementById("qItem");if(!(e.target===qi||qa.contains(e.target)))qa.style.display="none";}
+});}
 function pickItem(id){
   picked=DB.items.find(i=>i.id===id);
   $("#mCode").value=itemModel(picked);
@@ -1299,26 +1301,53 @@ function mStockHint(){
 }
 /* ===== الإدخال السريع للبيع: صف صغير (صنف · كمية · سعر · ＋) ===== */
 function qAvail(id){const inCart=saleCart.filter(l=>l.itemId===id).reduce((s,l)=>s+l.qty,0);return stockOf(id)-inCart;}
+let qPicked=null;   // الصنف المختار في الإدخال السريع
+/* تنبّؤ فوري بالصنف أثناء الكتابة (موديل/اسم/مجموعة) */
+function qAc(q){
+  const box=$("#qAcList");if(!box)return;q=(q||"").trim();
+  qPicked=null;$("#qHint").innerHTML="";
+  if(!q){box.style.display="none";return;}
+  const ql=q.toLowerCase();
+  const res=citems().filter(i=>i.active!==false&&(itemModel(i)+" "+(i.name||"")+" "+(i.category||"")).toLowerCase().includes(ql)).slice(0,12);
+  box.innerHTML=res.map(i=>`<div class="ac-item" data-id="${i.id}" onclick="qPick(${i.id})" style="display:flex;align-items:center;gap:10px">
+    ${i.image?`<img src="${i.image}" style="width:34px;height:34px;object-fit:cover;border-radius:7px;flex:0 0 auto">`:""}
+    <div><b>${esc(itemModel(i))}</b>${(i.name&&i.name!==itemModel(i))?`<span style="color:var(--muted)"> — ${esc(i.name)}</span>`:""}
+    <span style="color:${stockOf(i.id)>0?'var(--green)':'var(--red)'}"> (الرصيد: ${stockOf(i.id)})</span></div></div>`).join("")||`<div class="ac-item">لا نتائج</div>`;
+  box.style.display="block";
+}
+function qPick(id){
+  qPicked=DB.items.find(i=>i.id===id)||null;
+  $("#qItem").value=qPicked?itemModel(qPicked):"";
+  $("#qAcList").style.display="none";
+  qHint();
+  const e=$("#qQty");if(e){e.focus();e.select&&e.select();}
+}
+/* Enter في حقل الصنف: يختار أول نتيجة ظاهرة */
+function qItemKey(ev){
+  if(ev.key==="Enter"){ev.preventDefault();
+    const first=$("#qAcList")?.querySelector(".ac-item[data-id]");
+    if(first)qPick(+first.getAttribute("data-id"));
+  }
+}
 function qHint(){
   const box=$("#qHint");if(!box)return;
-  const id=+($("#qItem")?.value)||0;
-  if(!id){box.innerHTML="";return;}
-  const avail=qAvail(id),it=DB.items.find(x=>x.id===id)||{};
+  if(!qPicked){box.innerHTML="";return;}
+  const avail=qAvail(qPicked.id);
   box.innerHTML=avail>0
-    ? `<span style="color:var(--green);font-weight:800">✔ المتاح للبيع من «${esc(itemModel(it))}»: ${avail}</span>`
-    : `<span style="color:var(--red);font-weight:800">⚠️ لا رصيد متاح لـ«${esc(itemModel(it))}» — ➕ أضِف الفسح (وارد) أولاً حتى يمكنك البيع.</span>`;
+    ? `<span style="color:var(--green);font-weight:800">✔ المتاح للبيع من «${esc(itemModel(qPicked))}»: ${avail}</span>`
+    : `<span style="color:var(--red);font-weight:800">⚠️ لا رصيد متاح لـ«${esc(itemModel(qPicked))}» — ➕ أضِف الفسح (وارد) أولاً حتى يمكنك البيع.</span>`;
 }
 function qAdd(){
   const msg=$("#mMsg");const show=(t,c)=>msg.innerHTML=`<div class="msg ${c}">${t}</div>`;
-  const id=+($("#qItem")?.value)||0,q=toNum($("#qQty")?.value),p=toNum($("#qPrice")?.value);
-  if(!id)return show("اختر الصنف من القائمة السريعة.","err");
+  if(!qPicked)return show("اكتب أول حروف الموديل واختر الصنف من القائمة المنسدلة.","err");
+  const id=qPicked.id,q=toNum($("#qQty")?.value),p=toNum($("#qPrice")?.value);
   if(!(q>0))return show("أدخل كمية صحيحة.","err");
   if(!simpleCo()&&!(p>0))return show("أدخل سعر البيع للصنف.","err");
-  const avail=qAvail(id),it=DB.items.find(x=>x.id===id)||{};
-  if(q>avail)return show(`⚠️ المتاح للبيع ${avail} فقط من «${esc(itemModel(it))}»${avail<=0?"":` وقد طلبت ${q}`}.<br><b style="color:var(--green)">➕ الرجاء إضافة الفسح (وارد) أولاً حتى يمكنك البيع.</b>`,"err");
+  const avail=qAvail(id);
+  if(q>avail)return show(`⚠️ المتاح للبيع ${avail} فقط من «${esc(itemModel(qPicked))}»${avail<=0?"":` وقد طلبت ${q}`}.<br><b style="color:var(--green)">➕ الرجاء إضافة الفسح (وارد) أولاً حتى يمكنك البيع.</b>`,"err");
   saleCart.push({itemId:id,qty:q,price:p,fee:0});
   renderCart();msg.innerHTML="";
-  $("#qQty").value="";$("#qPrice").value="";$("#qItem").value="";$("#qHint").innerHTML="";
+  qPicked=null;$("#qItem").value="";$("#qQty").value="";$("#qPrice").value="";$("#qHint").innerHTML="";
   const qi=$("#qItem");if(qi)qi.focus();   // عُد للصنف للسطر التالي — إدخال سريع
 }
 function viewImg(src){if(!src)return;const m=document.createElement("div");m.className="modal";m.onclick=()=>m.remove();
