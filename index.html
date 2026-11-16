@@ -2449,7 +2449,7 @@ td.cash-in{color:#1f6b45;font-weight:700}td.cash-out{color:#b42318;font-weight:7
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-16-d';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-16-e';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   /* أخطاء سباق عرض غير مؤذية (إعادة رسم أثناء مغادرة خانة) — لا تُعرض كعطل ولا توقف النظام */
@@ -3326,6 +3326,7 @@ function doLogout(){
   finishLogout();
 }
 function finishLogout(){
+  _myClaim=0; _devInactive=false; try{ devLockHide(); }catch(e){}   /* الدخول التالي يستلم الحساب من جديد */
   try{ sessionStorage.removeItem(SKEY); }catch(e){}
   lsRemove(RKEY);   /* الخروج يُلغي التذكّر على الجهاز */
   var rem=document.getElementById('lg_remember'); if(rem) rem.checked=false;
@@ -14012,17 +14013,34 @@ function cloudMarkPresence(){
   try{
     var ref=firebase.database().ref('workspaces/'+cloudWid()+'/devices/'+cloudDeviceId());
     ref.set({user:(ME.name||ME.username||'—'), uid:(ME.id||0), role:(ME.role||''),
-      build:APP_BUILD, ts:firebase.database.ServerValue.TIMESTAMP, rl:(_rootLocked==null?-1:(_rootLocked?1:0)),
+      build:APP_BUILD, ts:firebase.database.ServerValue.TIMESTAMP, rl:(_rootLocked==null?-1:(_rootLocked?1:0)), claim:(_myClaim||(_myClaim=Date.now())),
       ua:String(navigator.userAgent||'').slice(0,90)}).catch(function(){});
     try{ ref.onDisconnect().remove(); }catch(_){}
   }catch(e){}
 }
+/* ===== 📱 جهاز نشط واحد لكل مستخدم =====
+   نفس الحساب مفتوح على أكثر من جهاز: آخر جهاز «استلم» الحساب هو النشط، والأجهزة الأخرى تتوقف عن الحفظ والرفع
+   وتعرض رسالة حتى يضغط المستخدم «استخدم هذا الجهاز الآن» — يمنع تعارض النسخ ورفع بيانات قديمة من جهاز منسي */
+var _myClaim=0, _devInactive=false;
+function devActiveCheck(){ if(!ME||!cloudReady) return; var me=cloudDeviceId(), other=null;
+  Object.keys(_cloudDevices||{}).forEach(function(k){ var d=_cloudDevices[k]; if(!d||k===me||+d.uid!==+ME.id||!d.claim) return; if(+d.claim>_myClaim&&(!other||+d.claim>+other.claim)) other=d; });
+  if(other&&!_devInactive){ _devInactive=true; devLockShow(other); }
+  else if(!other&&_devInactive){ _devInactive=false; devLockHide(); try{ if(cloudDirty) cloudPush(); }catch(e){} } }
+function devLockShow(d){ var o=document.getElementById('devLock'); if(!o){ o=document.createElement('div'); o.id='devLock'; document.body.appendChild(o); }
+  o.style.cssText='position:fixed;inset:0;z-index:20000;background:rgba(10,20,15,.6);display:flex;align-items:center;justify-content:center;padding:16px';
+  o.innerHTML='<div style="background:#fff;border-radius:16px;max-width:460px;width:100%;padding:20px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.35)">'
+    +'<div style="font-size:42px">📱</div><h3 style="margin:6px 0">حسابك مفتوح الآن على جهاز آخر</h3>'
+    +'<div style="color:#475569;line-height:1.8">«'+esc(ME.name||ME.username||'')+'» يعمل حالياً على: <b>'+esc(deviceLabel(d.ua||''))+'</b><br>لحماية البيانات من التعارض أُوقف الحفظ والمزامنة على هذا الجهاز.</div>'
+    +'<div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:14px"><button class="btn-alt" onclick="devClaim()">📲 استخدم هذا الجهاز الآن</button><button class="btn" onclick="try{doLogout()}catch(e){location.reload()}">🚪 خروج</button></div>'
+    +'<div class="mini" style="margin-top:10px;color:#64748b">عند الضغط يتوقف الجهاز الآخر تلقائياً، وتصلك هنا آخر البيانات.</div></div>'; }
+function devLockHide(){ var o=document.getElementById('devLock'); if(o) o.remove(); }
+function devClaim(){ _myClaim=Date.now(); _devInactive=false; devLockHide(); try{ cloudMarkPresence(); }catch(e){} try{ log('auth','الدخول','استلام الحساب على هذا الجهاز ('+deviceLabel(navigator.userAgent||'')+')'); if(cloudDirty) cloudPush(); }catch(e){} }
 /* يراقب بصمات كل الأجهزة (للمدير) */
 function cloudWatchDevices(){
   if(_cloudDevicesWatched||!cloudEnabled()||typeof firebase==='undefined') return;
   try{
     firebase.database().ref('workspaces/'+cloudWid()+'/devices').on('value',function(snap){
-      _cloudDevices=snap.val()||{}; renderStaleUsers(); refreshBuildWarn(); checkStaleFromPresence(); try{ dormantSweep(); autoPushDeviceUpdates(); }catch(e){}
+      _cloudDevices=snap.val()||{}; renderStaleUsers(); refreshBuildWarn(); checkStaleFromPresence(); try{ dormantSweep(); autoPushDeviceUpdates(); }catch(e){} try{ devActiveCheck(); }catch(e){}
     });
     _cloudDevicesWatched=true;
   }catch(e){}
@@ -14181,6 +14199,7 @@ function refreshBuildWarn(){
 }
 function cloudPush(s){
   cloudDirty=true;   /* ضع علم «هناك تغيير غير مرفوع» دائماً — يُرفع الآن أو عند عودة الاتصال */
+  if(_devInactive) return;   /* الحساب نشط على جهاز آخر — لا رفع من هنا حتى «استخدم هذا الجهاز الآن» */
   if(!cloudReady||!cloudRef){ if(cloudEnabled()) setCloudStatus('pending'); return; }   /* محفوظ محلياً؛ سيرفعه الحارس/الدمج */
   clearTimeout(cloudPushTimer);
   cloudPushTimer=setTimeout(cloudFlush,cloudLastSize>1000000?2500:(cloudLastSize>400000?1200:600));   /* تجميع الحفظات المتتابعة — أطول كلما كبر حجم البيانات (أقل رفعاً على الجوال) */
