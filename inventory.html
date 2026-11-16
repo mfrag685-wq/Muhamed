@@ -295,7 +295,7 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:#0d9488;box-sh
    ============================================================ */
 const KEY="inv_system_v2";
 /* رقم إصدار التطبيق — يُزاد مع كل تحديث؛ يُقارَن بالنسخة المنشورة لإظهار زر التحديث */
-const APP_VERSION="2026-11-16-02";
+const APP_VERSION="2026-11-16-03";
 let DB,ME;
 /* التحقق من توفّر نسخة أحدث بجلب الملف نفسه (بدون كاش) ومقارنة رقم الإصدار */
 function checkForUpdate(){
@@ -1142,58 +1142,45 @@ function pMove(){
       <div class="cell c4 docOut"><label>${simpleCo()?"رقم فسح العميل * (إجباري)":"رقم سند/فاتورة البيع * (إجباري)"}</label><input id="mInvoice" placeholder="${simpleCo()?"رقم فسح العميل":"رقم السند / الفاتورة"}"></div>
     </div>
 
-    <div class="step"><b>3</b><span>الصنف والكمية والسعر</span></div>
+    <div class="step"><b>3</b><span>الموديل والكمية والسعر</span></div>
     <div class="balbox" id="mBal" style="display:none">
       <div style="display:flex;align-items:center;gap:12px">
         <img id="mBalImg" onclick="viewImg(this.src)" style="display:none;width:56px;height:56px;object-fit:cover;border-radius:10px;border:1px solid #a5f3fc;cursor:zoom-in">
         <span id="mBalName">الرصيد الحالي</span></div>
       <span class="b" id="mBalV">0</span></div>
-    <div class="docOut">
-      <div style="font-weight:800;color:var(--blue);margin:2px 0 6px">⚡ إضافة سريعة للأصناف — اكتب أول حروف الموديل فيظهر تلقائياً (مثال: «38» → 3825 · «كر» → كريستال)</div>
-      <div class="qrow">
-        <div class="ac-wrap" style="flex:3 1 180px;min-width:150px;position:relative">
-          <input id="qItem" placeholder="🔍 اكتب الموديل أو الصنف..." autocomplete="off" style="width:100%;text-align:right" oninput="qAc(this.value)" onfocus="qAc(this.value)" onkeydown="qItemKey(event)">
-          <div class="ac-list" id="qAcList"></div>
-        </div>
-        <input id="qQty" type="number" inputmode="numeric" placeholder="الكمية" onkeydown="if(event.key==='Enter'){event.preventDefault();const e=$('#qPrice');if(e){e.focus();e.select&&e.select();}}">
-        <input id="qPrice" type="number" inputmode="decimal" step="0.01" placeholder="السعر" onkeydown="if(event.key==='Enter'){event.preventDefault();qAdd();}">
-        <button type="button" class="qbtn" onclick="qAdd()" title="أضِف الصنف للفاتورة">＋</button>
+    <div style="font-weight:800;color:var(--blue);margin:2px 0 6px">⚡ اكتب أول حروف الموديل فيظهر تلقائياً، ثم الكمية فالسعر و«Enter»</div>
+    <div class="qrow">
+      <div class="ac-wrap" style="flex:3 1 180px;min-width:150px;position:relative">
+        <input id="qItem" placeholder="🔍 اكتب الموديل أو الصنف..." autocomplete="off" style="width:100%;text-align:right" oninput="qAc(this.value)" onfocus="qAc(this.value)" onkeydown="qItemKey(event)">
+        <div class="ac-list" id="qAcList"></div>
       </div>
-      <div id="qHint" style="font-size:13px;margin:6px 2px 10px"></div>
+      <input id="qQty" type="number" inputmode="numeric" placeholder="الكمية" oninput="recoCheck()" onkeydown="if(event.key==='Enter'){event.preventDefault();const e=$('#qPrice');if(e){e.focus();e.select&&e.select();}}">
+      <input id="qPrice" type="number" inputmode="decimal" step="0.01" placeholder="السعر *" oninput="recoCheck()" onkeydown="if(event.key==='Enter'){event.preventDefault();qPriceEnter();}">
+      <button type="button" class="qbtn docOut" onclick="qAdd()" title="أضِف الصنف للفاتورة">＋</button>
     </div>
-    <div class="formgrid">
-      <div class="cell c3"><label>المجموعة</label>
-        <select id="mGroup" onchange="acItems($('#mCode').value)"><option value="">كل المجموعات</option>
-        ${CATS.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join("")}</select></div>
-      <div class="cell c4 ac-wrap"><label>الصنف / الموديل</label>
-        <input id="mCode" placeholder="ابحث بالموديل أو الاسم..." autocomplete="off" oninput="acItems(this.value)" onfocus="acItems(this.value)">
-        <div class="ac-list" id="mAc"></div></div>
-      <div class="cell c2"><label>الكمية</label><input id="mQty" type="number" inputmode="numeric" min="0" step="1" placeholder="أدخل الكمية" oninput="mStockHint()" onkeydown="if(event.key==='Enter'){event.preventDefault();$('#mPrice').focus();$('#mPrice').select&&$('#mPrice').select();}"></div>
-      <div class="cell c3" id="wrapPrice"><label id="lblPrice">السعر ﷼</label><input id="mPrice" type="number" inputmode="decimal" step="0.01" placeholder="0.00" onkeydown="if(event.key==='Enter'){event.preventDefault();nextAfterPrice();}"></div>
-    </div>
+    <div id="qHint" style="font-size:13px;margin:6px 2px 10px"></div>
     <div class="formgrid docIn" style="margin-top:6px">
       <div class="cell c6"><label>ملاحظات</label><input id="mNoteIn" placeholder="ملاحظة"></div>
     </div>
-    <div class="docOut">
-      <button class="btn blue" onclick="addToInvoice()">➕ أضِف الصنف الحالي إلى الفاتورة</button>
-      <div id="cartBox" style="margin-top:10px"></div>
-    </div>
+    <div class="docOut"><div id="cartBox" style="margin-top:10px"></div></div>
 
-    <div class="step docOut"><b>4</b><span>الخدمة/التركيب والعمولة والعميل</span></div>
+    <div class="step docOut"><b>4</b><span>رسوم التوصيل/التركيب ثم العمولة ثم العميل</span></div>
     <div class="formgrid docOut">
-      ${simpleCo()?"":`<div class="cell c3"><label>🚚 رسوم تركيب/توصيل ﷼</label>
-        <input id="mFeeVal" type="number" inputmode="decimal" step="0.01" placeholder="اتركه فارغاً = بدون رسوم">
+      ${simpleCo()?"":`<div class="cell c6"><label>🧾 إجمالي الفاتورة كما هو مسجّل لديك ﷼ (للمراجعة فقط)</label><input id="mInvTotal" type="number" inputmode="decimal" step="0.01" placeholder="مثال: 4000" oninput="recoCheck()"></div>
+      <div class="cell c6"><label>🚚 رسوم تركيب/توصيل ﷼</label>
+        <input id="mFeeVal" type="number" inputmode="decimal" step="0.01" placeholder="اتركه فارغاً = بدون رسوم" oninput="recoCheck()">
         <div style="display:flex;align-items:center;gap:8px;margin-top:4px;flex-wrap:wrap">
           <button type="button" id="feeModeToggle" onclick="toggleFeeMode()" style="background:#eef2ff;color:#3730a3;border:1px solid #c7d2fe;border-radius:20px;padding:6px 12px;font-size:12.5px;font-weight:700;cursor:pointer">🔀 تحويل إلى: لكل صنف</button>
           <span id="feeHint" style="font-size:11px;color:var(--muted)">مبلغ واحد لكامل الفاتورة</span></div></div>
-      <div class="cell c3"><label>العمولة ﷼ (لكامل الفاتورة)</label><input id="mComm" type="number" inputmode="decimal" step="0.01" placeholder="0.00"></div>`}
-      <div class="cell c3"><label>${simpleCo()?"العميل / المستلم (لمن خرجت) *":"العنوان"}</label>
+      <div class="cell c6"><label>العمولة ﷼ (غير محتسبة ضمن قيمة الفاتورة)</label><input id="mComm" type="number" inputmode="decimal" step="0.01" placeholder="0.00"></div>`}
+      <div class="cell c6"><label>${simpleCo()?"العميل / المستلم (لمن خرجت) *":"العنوان"}</label>
         ${simpleCo()
           ? `<select id="mAddress"><option value="">— اختر العميل —</option>${ccusts().map(c=>`<option value="${esc(c.name)}">${esc(c.name)}</option>`).join("")}</select>
              <div style="font-size:11px;color:var(--muted);margin-top:3px">لإضافة عميل جديد: <a onclick="go('customers')" style="color:var(--blue);cursor:pointer;font-weight:700">افتح شاشة العملاء 🧑‍💼</a></div>`
           : `<input id="mAddress" placeholder="العنوان">`}</div>
-      <div class="cell c3"><label>ملاحظات</label><input id="mNoteOut" placeholder="ملاحظة"></div>
+      <div class="cell c6"><label>ملاحظات</label><input id="mNoteOut" placeholder="ملاحظة"></div>
     </div>
+    <div id="recoBox" class="docOut" style="margin:6px 2px 0"></div>
 
     <div style="display:flex;gap:10px;margin-top:14px">
       <button class="btn green lg" style="flex:1" id="saveBtn" onclick="saveMove()">✓ حفظ</button>
@@ -1245,9 +1232,11 @@ function setType(t){
   if(sd)sd.style.display="flex";   // التاريخ يظهر دائماً
   if(sdt)sdt.textContent=(t==="inbound")?"بيانات المورد والفسح والتاريخ":(t==="outbound")?(simpleCo()?"بيانات العميل والفسح والتاريخ":"بيانات السند/الفاتورة والتاريخ"):"التاريخ";
   if(wp)wp.style.display=(t==="adjustment")?"none":"block";
-  if(lp)lp.textContent=(t==="inbound")?(simpleCo()?"سعر التكلفة (اختياري) ﷼":"سعر التكلفة * ﷼"):(simpleCo()?"سعر البيع (اختياري) ﷼":"سعر البيع * (إجباري) ﷼");
+  if(lp)lp.textContent=(t==="inbound")?"سعر التكلفة * ﷼":"سعر البيع * ﷼";
+  const qp=$("#qPrice");if(qp)qp.placeholder=(t==="inbound")?"التكلفة *":(t==="adjustment")?"السعر":"سعر البيع *";
   if(sb)sb.textContent=(t==="outbound")?"✓ حفظ الفاتورة":"✓ حفظ الحركة";
-  const mm=$("#mMsg");if(mm)mm.innerHTML="";   // مسح رسالة فحص الرصيد عند تغيير نوع الحركة
+  const mm=$("#mMsg");if(mm)mm.innerHTML="";   // مسح الرسائل عند تغيير نوع الحركة
+  const rb=$("#recoBox");if(rb)rb.innerHTML="";
   renderCart();
   if($("#rfAll")&&(t==="inbound"||t==="outbound"))setRecentFilter(t);   // يفلتر آخر الحركات حسب النوع المختار
 }
@@ -1323,6 +1312,11 @@ function qPick(id){
   qPicked=DB.items.find(i=>i.id===id)||null;
   $("#qItem").value=qPicked?itemModel(qPicked):"";
   $("#qAcList").style.display="none";
+  if(qPicked){   // اعرض الرصيد الحالي للصنف فور اختياره (وارد ومنصرف)
+    $("#mBal").style.display="flex";$("#mBalName").textContent="رصيد «"+itemModel(qPicked)+"»";
+    $("#mBalV").textContent=stockOf(qPicked.id)+" "+(qPicked.unit||"");
+    const im=$("#mBalImg");if(im){if(qPicked.image){im.src=qPicked.image;im.style.display="block";}else im.style.display="none";}
+  }
   qHint();
   const e=$("#qQty");if(e){e.focus();e.select&&e.select();}
 }
@@ -1336,33 +1330,59 @@ function qItemKey(ev){
 function qHint(){
   const box=$("#qHint");if(!box)return;
   if(!qPicked){box.innerHTML="";return;}
+  if(mType!=="outbound"){box.innerHTML=`<span style="color:var(--muted);font-weight:700">الرصيد الحالي لـ«${esc(itemModel(qPicked))}»: ${stockOf(qPicked.id)}</span>`;return;}
   const avail=qAvail(qPicked.id);
   box.innerHTML=avail>0
     ? `<span style="color:var(--green);font-weight:800">✔ المتاح للبيع من «${esc(itemModel(qPicked))}»: ${avail}</span>`
     : `<span style="color:var(--red);font-weight:800">⚠️ لا رصيد متاح لـ«${esc(itemModel(qPicked))}» — ➕ أضِف الفسح (وارد) أولاً حتى يمكنك البيع.</span>`;
+}
+/* Enter في حقل السعر: منصرف → يضيف للفاتورة · وارد/تسوية → يحفظ مباشرة */
+function qPriceEnter(){ if(mType==="outbound")qAdd(); else saveMove(); }
+/* السطر المعلّق في صف الإدخال السريع (لم يُضَف بعد للفاتورة) */
+function qCurrentLine(){ if(!qPicked)return null; const q=toNum($("#qQty")?.value); if(!(q>0))return null; return {itemId:qPicked.id,qty:q,price:toNum($("#qPrice")?.value),fee:0}; }
+/* مراجعة فورية: إجمالي الأصناف + التركيب مقابل قيمة الفاتورة المسجّلة (العمولة غير محتسبة) */
+function recoCheck(){
+  qHint();
+  const box=$("#recoBox");if(!box)return;
+  if(mType!=="outbound"){box.innerHTML="";return;}
+  let items=saleCart.reduce((s,l)=>s+l.qty*l.price,0);
+  const cur=qCurrentLine();if(cur)items+=cur.qty*cur.price;
+  const fee=toNum($("#mFeeVal")?.value),computed=items+fee,rec=toNum($("#mInvTotal")?.value);
+  if(items<=0&&fee<=0&&rec<=0){box.innerHTML="";return;}
+  if(rec>0){
+    const diff=Math.round((computed-rec)*100)/100;
+    box.innerHTML=(Math.abs(diff)<0.005)
+      ? `<div class="msg ok">✔ مطابق — الأصناف ${money(items)} + التركيب ${money(fee)} = ${money(computed)} ﷼ = القيمة المسجّلة. (العمولة غير محتسبة)</div>`
+      : `<div class="msg err">⚠️ فرق ${money(Math.abs(diff))} ﷼ (${diff>0?"زيادة":"نقص"}) — الأصناف ${money(items)} + التركيب ${money(fee)} = <b>${money(computed)} ﷼</b>، والقيمة المسجّلة ${money(rec)}. راجع الأرقام. (العمولة غير محتسبة)</div>`;
+  }else{
+    box.innerHTML=`<div class="msg ok">إجمالي الأصناف ${money(items)} + التركيب ${money(fee)} = <b>${money(computed)} ﷼</b> (العمولة غير محتسبة)</div>`;
+  }
 }
 function qAdd(){
   const msg=$("#mMsg");const show=(t,c)=>msg.innerHTML=`<div class="msg ${c}">${t}</div>`;
   if(!qPicked)return show("اكتب أول حروف الموديل واختر الصنف من القائمة المنسدلة.","err");
   const id=qPicked.id,q=toNum($("#qQty")?.value),p=toNum($("#qPrice")?.value);
   if(!(q>0))return show("أدخل كمية صحيحة.","err");
-  if(!simpleCo()&&!(p>0))return show("أدخل سعر البيع للصنف.","err");
+  if(!(p>0))return show("أدخل سعر البيع للصنف (إجباري).","err");
   const avail=qAvail(id);
   if(q>avail)return show(`⚠️ المتاح للبيع ${avail} فقط من «${esc(itemModel(qPicked))}»${avail<=0?"":` وقد طلبت ${q}`}.<br><b style="color:var(--green)">➕ الرجاء إضافة الفسح (وارد) أولاً حتى يمكنك البيع.</b>`,"err");
   saleCart.push({itemId:id,qty:q,price:p,fee:0});
   renderCart();msg.innerHTML="";
   qPicked=null;$("#qItem").value="";$("#qQty").value="";$("#qPrice").value="";$("#qHint").innerHTML="";
+  $("#mBal").style.display="none";recoCheck();
   const qi=$("#qItem");if(qi)qi.focus();   // عُد للصنف للسطر التالي — إدخال سريع
 }
 function viewImg(src){if(!src)return;const m=document.createElement("div");m.className="modal";m.onclick=()=>m.remove();
   m.innerHTML=`<img src="${src}" style="max-width:92vw;max-height:88vh;border-radius:12px">`;document.body.appendChild(m);}
 function clearMove(all,noFocus){
-  ["mCode","mQty","mPrice","mCustoms"].forEach(i=>$("#"+i)&&($("#"+i).value=""));
-  if(all){["mInvoice","mComm","mAddress","mNoteIn","mNoteOut","mFeeVal"].forEach(i=>$("#"+i)&&($("#"+i).value=""));
-    feeMode="inv";applyFeeMode();saleCart=[];renderCart();}
+  ["qItem","qQty","qPrice","mCustoms"].forEach(i=>$("#"+i)&&($("#"+i).value=""));
+  qPicked=null;const qh=$("#qHint");if(qh)qh.innerHTML="";
+  const qa=$("#qAcList");if(qa)qa.style.display="none";
+  if(all){["mInvoice","mComm","mAddress","mNoteIn","mNoteOut","mFeeVal","mInvTotal"].forEach(i=>$("#"+i)&&($("#"+i).value=""));
+    feeMode="inv";applyFeeMode();saleCart=[];renderCart();const rb=$("#recoBox");if(rb)rb.innerHTML="";}
   picked=null;$("#mBal").style.display="none";
   const ac=$("#mAc");if(ac)ac.style.display="none";   // إخفاء قائمة البحث عن الموديل بعد الحفظ/المسح
-  if(!noFocus)$("#mCode").focus();
+  if(!noFocus){const qi=$("#qItem");if(qi)qi.focus();}
 }
 /* بعد الحفظ: ينزل إلى الحركة المُضافة في «آخر الحركات» ويُضيئها ليتأكد الموظف أنها سُجّلت */
 function flashRecent(id){
@@ -1400,7 +1420,8 @@ function addToInvoice(){
 }
 function renderCart(){
   const box=$("#cartBox");if(!box)return;
-  if(mType!=="outbound"||!saleCart.length){box.innerHTML="";return;}
+  if(mType!=="outbound"||!saleCart.length){box.innerHTML="";try{recoCheck();}catch(e){}return;}
+  try{recoCheck();}catch(e){}
   const total=saleCart.reduce((s,l)=>s+l.qty*l.price,0);
   const feeLines=saleCart.reduce((s,l)=>s+(l.fee||0),0);
   const anyFee=feeLines>0;
@@ -1415,9 +1436,9 @@ function saveMove(){
   const msg=$("#mMsg");const show=(t,c)=>msg.innerHTML=`<div class="msg ${c}">${t}</div>`;
   const date=$("#mDate").value||today();
   if(mType==="outbound"){
-    const lines=saleCart.slice();const cur=currentLine();if(cur)lines.push(cur);
+    const lines=saleCart.slice();const cur=qCurrentLine();if(cur)lines.push(cur);
     if(!lines.length)return show("أضِف صنفاً واحداً على الأقل للفاتورة.","err");
-    if(!simpleCo()&&lines.some(l=>!(l.price>0)))return show("أدخل سعر البيع لكل صنف.","err"); // النمط الكامل: سعر البيع إجباري
+    if(lines.some(l=>!(l.price>0)))return show("أدخل سعر البيع لكل صنف (إجباري).","err"); // سعر البيع إجباري دائماً
     if(simpleCo()&&!(($("#mAddress")?.value||"").trim()))return show("اختر العميل الذي خرجت له البضاعة (أضِفه من شاشة العملاء إن لم يكن موجوداً).","err");
     const need={};lines.forEach(l=>need[l.itemId]=(need[l.itemId]||0)+l.qty);
     for(const id in need){const it=DB.items.find(x=>x.id===+id);const avail=stockOf(+id);if(need[id]>avail)return show(`⚠️ الرصيد غير كافٍ للصنف «${itemModel(it)}» — المتاح ${avail} فقط، وطلبت ${need[id]}. لا يُسمح بالبيع بأكثر من المتاح.<br><b style="color:var(--green)">➕ الرجاء إضافة الفسح (وارد) أولاً حتى يمكنك البيع.</b>`,"err");}
@@ -1439,20 +1460,20 @@ function saveMove(){
     clearMove(true,true);flashRecent(firstMvId);printInvoice(gid);   // يُظهر الفاتورة المطبوعة ويُضيء الحركة في السجل
     return;
   }
-  // وارد / تسوية — صنف واحد
-  if(!picked)return show("اختر صنفاً أولاً.","err");
-  const qty=parseFloat($("#mQty").value);if(!qty||qty<=0)return show("أدخل كمية صحيحة.","err");
+  // وارد / تسوية — صنف واحد (من صف الإدخال السريع)
+  if(!qPicked)return show("اكتب الموديل واختره من القائمة أولاً.","err");
+  const qty=toNum($("#qQty")?.value);if(!qty||qty<=0)return show("أدخل كمية صحيحة.","err");
+  if(mType==="inbound"&&!(toNum($("#qPrice")?.value)>0))return show("أدخل سعر التكلفة (إجباري).","err");
   if(mType==="inbound"&&!simpleCo()&&!(+($("#mSupplier")?.value)))return show("اختر المورد (إجباري للوارد).","err");
-  if(mType==="inbound"&&!simpleCo()&&!(parseFloat($("#mPrice").value)>0))return show("أدخل سعر التكلفة (إجباري للوارد).","err");
   if(mType==="inbound"&&!simpleCo()&&!($("#mCustoms").value||"").trim())return show("أدخل رقم الفسح (إجباري للوارد).","err");
-  if(mType==="inbound"&&($("#mCustoms").value||"").trim()&&customsExists(picked.id,$("#mCustoms").value)&&!confirm(`⚠️ رقم الفسح «${($("#mCustoms").value||"").trim()}» مُسجّل مسبقاً لنفس الصنف.\nقد يؤدي تكراره إلى ازدواج الرصيد. هل تريد المتابعة؟`))return;
-  const item=DB.items.find(i=>i.id===picked.id);
+  if(mType==="inbound"&&($("#mCustoms").value||"").trim()&&customsExists(qPicked.id,$("#mCustoms").value)&&!confirm(`⚠️ رقم الفسح «${($("#mCustoms").value||"").trim()}» مُسجّل مسبقاً لنفس الصنف.\nقد يؤدي تكراره إلى ازدواج الرصيد. هل تريد المتابعة؟`))return;
+  const item=DB.items.find(i=>i.id===qPicked.id);
   // تنبيه: غرف النوم أطقم فريدة — غير معتاد أن يزيد رصيد الموديل الواحد عن 1
   if(mType==="inbound"&&normCat(item.category)==="غرف نوم"&&(stockOf(item.id)+qty)>1
      &&!confirm(`⚠️ تنبيه: «${itemModel(item)}» من فئة غرف النوم، وسيصبح رصيده ${stockOf(item.id)+qty}.\nغير المعتاد وجود أكثر من غرفة واحدة من نفس الموديل. هل أنت متأكد من المتابعة؟`))return;
   const mvId=nid("movement");
   item.qty+=qty;
-  DB.movements.unshift({id:mvId,uid:uidGen(),companyId:CO,itemId:item.id,type:mType,qty,price:parseFloat($("#mPrice").value)||0,
+  DB.movements.unshift({id:mvId,uid:uidGen(),companyId:CO,itemId:item.id,type:mType,qty,price:toNum($("#qPrice")?.value)||0,
     comm:0,model:itemModel(item),invoice:"",invGid:"",address:"",supplierId:+($("#mSupplier")?.value)||null,
     customs:mType==="inbound"?($("#mCustoms").value||""):"",date,note:$("#mNoteIn")?.value||"",
     balAfter:item.qty,userId:ME.id,userName:ME.name,at:new Date().toISOString()});
