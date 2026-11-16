@@ -2449,7 +2449,7 @@ td.cash-in{color:#1f6b45;font-weight:700}td.cash-out{color:#b42318;font-weight:7
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-16-c';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-16-d';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   /* أخطاء سباق عرض غير مؤذية (إعادة رسم أثناء مغادرة خانة) — لا تُعرض كعطل ولا توقف النظام */
@@ -11933,7 +11933,7 @@ function renderDeptImages(){
       +'<input type="text" class="dept-name" value="'+esc(deptName(k))+'" onchange="renameDept(\''+k+'\',this.value)" title="اسم القسم">'
       +'<div class="form-foot" style="margin-top:0"><button class="btn" onclick="pickDeptImage(\''+k+'\')">'+(img?'تغيير الصورة':'رفع صورة')+'</button>'
       +(img?'<button class="btn btn-del" onclick="removeDeptImage(\''+k+'\')">إزالة الصورة</button>':'')
-      +(only1?'':'<button class="btn btn-del" onclick="delDepartment(\''+k+'\')" title="حذف القسم (يجب أن يكون فارغاً)">حذف القسم</button>')
+      +(only1?'':(deptIsEmpty(k)?'<button class="btn btn-del" onclick="delDepartment(\''+k+'\')" title="حذف القسم الفارغ">حذف القسم</button>':'<button class="btn btn-del" onclick="archiveDeleteDept(\''+k+'\')" title="تنزيل أرشيف كامل للقسم ثم حذفه نهائياً لتوفير المساحة">🗄 أرشفة وحذف القسم</button>'))
       +'</div></div>';
   }).join('')||'<div class="note">لا توجد أقسام.</div>';
 }
@@ -12042,6 +12042,41 @@ function deptIsEmpty(key){
   var it=(db.interTransfers||[]).some(function(x){return x.fromDept===key||x.toDept===key;});
   return !has&&!wh&&!it;
 }
+/* ===== 🗄 أرشفة قسم وحذفه نهائياً (لتوفير المساحة) =====
+   1) تنزيل أرشيف كامل للقسم (ملف JSON بصيغة النسخة الاحتياطية — يُستعاد بـ«استيراد يدمج»)  2) تأكيد بكتابة اسم القسم
+   3) الحذف من هذا الجهاز ومن الخادم + شاهد حذف للقسم كي لا تعيده أجهزة أخرى ما زالت تحمل نسخة منه */
+function deptCountAll(k){ var d=db.departments[k]||{}, n=0; DEPT_BOOKS.forEach(function(b){ n+=(d[b]||[]).length; }); return n; }
+function archiveDeleteDept(k){
+  if(!ME||ME.role!=='admin'){ toast('أرشفة الأقسام وحذفها لمدير النظام فقط'); return; }
+  var d=db.departments[k]; if(!d) return; if(Object.keys(db.departments).length<=1){ toast('لا يمكن حذف القسم الوحيد'); return; }
+  var nm=deptName(k), c=deptCounts(k), n=deptCountAll(k);
+  if(!confirm('أرشفة وحذف قسم «'+nm+'» نهائياً لتوفير المساحة؟\n\nيحتوي: '+c.sales+' بيع · '+c.purchases+' شراء · '+c.clients+' عميل — إجمالي '+n+' سجل.\n\nالخطوة 1: سيُنزَّل الآن ملف أرشيف كامل للقسم على جهازك (احتفظ به — منه تُستعاد البيانات عند الحاجة).\nالخطوة 2: تأكيد بكتابة اسم القسم ثم الحذف.\n\nالمتابعة؟')) return;
+  var aud=(db.audit||[]).filter(function(a){ return a&&a.dept===k; });
+  var arc={meta:{author:AUTHOR,version:APP_VERSION,exported:nowTs(),by:ME.name,deptArchive:k,deptArchiveName:nm,note:'أرشيف قسم «'+nm+'» قبل حذفه — يُستعاد من الإعدادات ← «🔗 استيراد يدمج»'},
+    settings:db.settings,users:db.users,units:db.units||[],interTransfers:[],activeDept:k,tombstones:{},departments:{},audit:aud};
+  arc.departments[k]=d;
+  try{ var blob=new Blob([JSON.stringify(arc)],{type:'application/json'}), a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='أرشيف_قسم_'+String(nm).replace(/[\\/:*?"<>|\s]+/g,'_')+'_'+today()+'.json'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(function(){ URL.revokeObjectURL(a.href); },2000); }
+  catch(e){ alert('تعذّر تنزيل ملف الأرشيف — لم يُحذف شيء.'); return; }
+  setTimeout(function(){
+    var typed=prompt('تأكد أن ملف الأرشيف نُزِّل على جهازك.\n\nللحذف النهائي اكتب اسم القسم كما هو: '+nm,'');
+    if(typed==null) { toast('أُلغي الحذف — لم يتغيّر شيء'); return; }
+    if(arN(typed)!==arN(nm)){ alert('الاسم غير مطابق — لم يُحذف شيء.'); return; }
+    _bulkDelOK=1; if(!db.tombstones) db.tombstones={}; db.tombstones['dept:'+k]=Date.now();
+    delete db.departments[k];
+    db.users.forEach(function(u){ if(Array.isArray(u.depts)) u.depts=u.depts.filter(function(x){ return x!==k; });
+      if(u.deptPerms&&u.deptPerms[k]){ delete u.deptPerms[k]; if(!Object.keys(u.deptPerms).length) delete u.deptPerms; } });
+    db.audit=(db.audit||[]).filter(function(a){ return !(a&&a.dept===k); });
+    if(curDept===k||db.activeDept===k){ curDept=Object.keys(db.departments)[0]; loadDept(curDept); }
+    log('delete','الإعدادات','أرشفة وحذف قسم «'+nm+'» ('+n+' سجل) — الأرشيف نُزِّل على جهاز '+ME.name);
+    commit('🗄 أُرشف قسم «'+nm+'» وحُذف'); applyPerms(); updateDeptUI(); renderAll(); try{ renderDeptImages(); }catch(e){}
+    /* الخادم: حذف عقدة القسم وتحديث العضويات */
+    try{ if(typeof cloudSplit!=='undefined'&&cloudSplit&&splitIsAdmin){ firebase.database().ref(splitBase()+'/depts/'+k).remove().catch(function(){});
+      delete splitCache.depts[k]; delete splitLast['dept:'+k]; splitAllowed=splitAllowed.filter(function(x){ return x!==k; }); if(splitRefs['dept:'+k]){ try{ splitRefs['dept:'+k].off(); }catch(e){} delete splitRefs['dept:'+k]; } }
+      _memRecDone=false; setTimeout(cloudReconcileMembers,1500); }catch(e){}
+  },900); }
+/* قسم محذوف (شاهد dept:) لا يعود من أي جهاز أو مزامنة */
+function deptDead(t,k){ return !!(t&&t['dept:'+k]&&(+t['dept:'+k])>(+t['deptrev:'+k]||0)); }   /* محذوف ما لم يُستعَد بعد حذفه */
+function purgeDeletedDepts(o){ var t=(o&&o.tombstones)||{}; if(!o||!o.departments) return; Object.keys(o.departments).forEach(function(k){ if(deptDead(t,k)&&Object.keys(o.departments).length>1) delete o.departments[k]; }); }
 function delDepartment(key){
   if(!guard('settings')) return;
   if(Object.keys(db.departments).length<=1){ toast('لا يمكن حذف القسم الوحيد'); return; }
@@ -13420,6 +13455,9 @@ function importBackupMerge(ev){
       /* الحالي هو الأساس (نحافظ على الإعدادات/المستخدمين/القسم النشط الحاليّة)،
          ونعتبر الملف المستورد «المحلي» فتُوحَّد حركاته وسجلّه داخل الحالي دون فقد:
          mergeCloud(localDb=المستورد, remote=الحالي) يبقي أساس الحالي ويضم بيانات المستورد. */
+      if(incoming.meta&&incoming.meta.deptArchive){ if(!db.tombstones) db.tombstones={}; var ak=incoming.meta.deptArchive, ad=(incoming.departments||{})[ak]||{};
+        db.tombstones['deptrev:'+ak]=Date.now();   /* استعادة قسم مؤرشف: علامة استعادة أحدث من شاهد الحذف */
+        DEPT_BOOKS.forEach(function(b){ (ad[b]||[]).forEach(function(r){ if(r&&r.id!=null) delete db.tombstones[r.id]; }); }); }   /* وسجلاته تعود كما كانت */
       var current=JSON.parse(JSON.stringify(serializeDB()));
       var imported=JSON.parse(JSON.stringify(incoming));
       var merged=mergeCloud(imported, current);
@@ -14176,7 +14214,7 @@ function splitBuild(){
     deptNames:(function(){ var o=(splitCache.core&&splitCache.core.deptNames)||{}; keys.forEach(function(k){ o[k]=(deps[k]&&deps[k].name)||k; }); return o; })(),
     migratedAt:splitMigratedAt||(splitCache.core&&splitCache.core.migratedAt)||Date.now()};
   var nodes={core:JSON.stringify(core)};
-  keys.forEach(function(k){ if(splitIsAdmin||splitAllowed.indexOf(k)>-1) nodes['dept:'+k]=JSON.stringify({dept:deps[k],audit:deptAudit[k]}); });
+  keys.forEach(function(k){ if(deptDead(ser.tombstones,k)) return; if(splitIsAdmin||splitAllowed.indexOf(k)>-1) nodes['dept:'+k]=JSON.stringify({dept:deps[k],audit:deptAudit[k]}); });
   return nodes;
 }
 /* تجميع البيانات المقروءة في شكل القاعدة المعتاد (لتعمل كل الشاشات والدمج كما هي) */
@@ -14184,7 +14222,7 @@ function splitAssemble(){
   var c=splitCache.core; if(!c) return null;
   var out={meta:c.meta,settings:c.settings,users:c.users||[],units:c.units||[],interTransfers:c.interTransfers||[],activeDept:c.activeDept,tombstones:c.tombstones||{},departments:{}};
   var audit=(c.audit||[]).slice();
-  Object.keys(splitCache.depts).forEach(function(k){ var d=splitCache.depts[k]; if(!d) return; if(!splitIsAdmin&&splitAllowed.indexOf(k)<0){ delete splitCache.depts[k]; return; } out.departments[k]=d.dept||{name:k}; audit=audit.concat(d.audit||[]); });
+  Object.keys(splitCache.depts).forEach(function(k){ var d=splitCache.depts[k]; if(!d) return; if(deptDead(out.tombstones,k)) return; if(!splitIsAdmin&&splitAllowed.indexOf(k)<0){ delete splitCache.depts[k]; return; } out.departments[k]=d.dept||{name:k}; audit=audit.concat(d.audit||[]); });
   out.audit=unionAudit(audit,[],out.tombstones);
   return out;
 }
@@ -14369,6 +14407,8 @@ function mergeCloud(localDb,remote){
   var lt=localDb.tombstones&&typeof localDb.tombstones==='object'?localDb.tombstones:{};
   Object.keys(lt).forEach(function(id){ if(!tomb[id]||lt[id]>tomb[id]) tomb[id]=lt[id]; });
   remote.tombstones=tomb;
+  if(localDb.departments) Object.keys(localDb.departments).forEach(function(dk){ if(deptDead(tomb,dk)) delete localDb.departments[dk]; });   /* قسم مؤرشف محذوف لا يعود */
+  purgeDeletedDepts(remote);
   var alive=function(arr){ return (arr||[]).filter(function(r){ return !(r&&r.id!=null&&tomb[r.id]); }); };
   if(localDb.departments){
     if(!remote.departments) remote.departments={};
