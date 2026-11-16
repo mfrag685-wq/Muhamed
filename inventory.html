@@ -295,7 +295,7 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:#0d9488;box-sh
    ============================================================ */
 const KEY="inv_system_v2";
 /* رقم إصدار التطبيق — يُزاد مع كل تحديث؛ يُقارَن بالنسخة المنشورة لإظهار زر التحديث */
-const APP_VERSION="2026-11-16-01";
+const APP_VERSION="2026-11-16-02";
 let DB,ME;
 /* التحقق من توفّر نسخة أحدث بجلب الملف نفسه (بدون كاش) ومقارنة رقم الإصدار */
 function checkForUpdate(){
@@ -307,14 +307,18 @@ function checkForUpdate(){
     }).catch(function(){});
   }catch(e){}
 }
+/* تحديث إجباري على كل الأجهزة: غطاء كامل لا يُغلَق + تحديث تلقائي خلال ثوانٍ */
 function showUpdateBanner(){
-  if(document.getElementById("updBar"))return;
-  const b=document.createElement("div");b.id="updBar";
-  b.style.cssText="position:fixed;left:0;right:0;bottom:0;z-index:300;background:linear-gradient(135deg,#0d9488,#0f3b34);color:#fff;padding:12px 16px;display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap;box-shadow:0 -4px 16px rgba(0,0,0,.3);font-weight:700";
-  b.innerHTML='<span>🔄 يتوفّر إصدار أحدث من النظام</span>'+
-    '<button onclick="doAppUpdate()" style="background:#f5d67a;color:#0f3b34;border:0;border-radius:8px;padding:8px 18px;font-weight:800;cursor:pointer">تحديث الآن</button>'+
-    '<button onclick="this.closest(\'#updBar\').remove()" style="background:transparent;color:#cbeee7;border:1px solid rgba(255,255,255,.4);border-radius:8px;padding:8px 12px;cursor:pointer">لاحقاً</button>';
-  document.body.appendChild(b);
+  if(document.getElementById("updOverlay"))return;
+  const o=document.createElement("div");o.id="updOverlay";
+  o.style.cssText="position:fixed;inset:0;z-index:99999;background:linear-gradient(135deg,#0d9488,#0f3b34);color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;text-align:center;padding:24px;font-weight:700";
+  o.innerHTML='<div style="font-size:52px">🔄</div>'+
+    '<div style="font-size:22px;font-weight:900">يتوفّر إصدار أحدث من النظام</div>'+
+    '<div style="font-size:15px;opacity:.9;max-width:420px">التحديث إلزامي لضمان توافق البيانات على كل الأجهزة. سيتم التحديث تلقائياً خلال <b id="updCd">5</b> ثانية…</div>'+
+    '<button onclick="doAppUpdate()" style="background:#f5d67a;color:#0f3b34;border:0;border-radius:10px;padding:12px 26px;font-weight:900;font-size:16px;cursor:pointer">تحديث الآن</button>';
+  document.body.appendChild(o);
+  try{document.documentElement.style.overflow="hidden";}catch(e){}
+  let n=5;const t=setInterval(function(){n--;const c=document.getElementById("updCd");if(c)c.textContent=n;if(n<=0){clearInterval(t);doAppUpdate();}},1000);
 }
 function doAppUpdate(){
   try{if(window.caches&&caches.keys)caches.keys().then(function(ks){ks.forEach(function(k){caches.delete(k);});});}catch(e){}
