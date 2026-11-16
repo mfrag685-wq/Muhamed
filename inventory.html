@@ -115,6 +115,22 @@ html.lock-scroll,html.lock-scroll body{overflow:hidden!important;overscroll-beha
   table th,table td{padding:8px 6px;font-size:13px}
 }
 
+/* عناوين الخطوات في شاشة الإدخال */
+.step{display:flex;align-items:center;gap:9px;font-weight:800;font-size:15px;color:#334155;margin:16px 0 9px}
+.step:first-child{margin-top:2px}
+.step b{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;font-size:14px;flex:none;box-shadow:0 2px 6px rgba(79,70,229,.35)}
+/* تمييز الحركة المُضافة حديثاً في جدول آخر الحركات */
+@keyframes rowflash{0%{background:#fde68a}35%{background:#fef3c7}100%{background:transparent}}
+tr.rowflash>td{animation:rowflash 2.6s ease}
+tr.rowflash>td:first-child{position:relative}
+tr.rowflash>td:first-child::before{content:"✔ أُضيفت";position:absolute;top:-9px;inset-inline-start:4px;background:var(--green);color:#fff;font-size:10.5px;font-weight:800;padding:1px 7px;border-radius:8px;box-shadow:0 2px 6px rgba(22,163,74,.4);animation:rowflash 2.6s ease}
+/* صف الإدخال السريع للبيع — مربعات صغيرة متتالية */
+.qrow{display:flex;gap:8px;align-items:stretch;flex-wrap:wrap;background:linear-gradient(135deg,#eff6ff,#f0fdfa);border:1px solid #bfdbfe;border-radius:12px;padding:10px}
+.qrow select,.qrow input{padding:11px 10px;border:1.5px solid #cbd5e1;border-radius:9px;font-size:15px;font-weight:600;background:#fff}
+.qrow select{flex:3 1 170px;min-width:150px}
+.qrow input{flex:1 1 84px;min-width:74px;text-align:center}
+.qrow .qbtn{flex:0 0 auto;background:var(--green);color:#fff;border:none;border-radius:9px;padding:0 20px;font-size:20px;font-weight:900;cursor:pointer}
+.qrow .qbtn:active{transform:scale(.96)}
 /* أزرار كبيرة لنوع الحركة — وارد / منصرف */
 .typebtns{display:flex;gap:8px}
 .typebtns button{flex:1;border:2px solid var(--line);background:#fff;color:var(--muted);border-radius:10px;padding:14px 10px;font-weight:800;font-size:16px;line-height:1.4;transition:transform .1s;cursor:pointer}
@@ -159,6 +175,40 @@ html.lock-scroll,html.lock-scroll body{overflow:hidden!important;overscroll-beha
 #printArea td,#printArea th{border:1px solid #cbd5e1;padding:9px;text-align:right;font-size:14px}#printArea th{background:#f1f5f9}
 @media print{body:has(#printModal) *{visibility:hidden}body:has(#printModal) #printModal,body:has(#printModal) #printModal *{visibility:visible}body:has(#printModal) #printModal{position:absolute;inset:0;background:#fff;display:block;padding:0}
   #printModal .sheet{box-shadow:none;max-width:100%;max-height:none}#printModal .actions{display:none!important}}
+/* ===== لمسات بصرية ظاهرة (ثابتة، تظهر على الجوال بلا تفاعل) ===== */
+body{background:radial-gradient(1200px 600px at 100% -5%,#e7f0ef 0%,transparent 55%),var(--bg)}
+/* الشريط العلوي والقائمة الجانبية: تدرّج لوني بدل اللون المسطّح */
+.topbar{background:linear-gradient(120deg,#0f766e 0%,#0f172a 70%)!important;box-shadow:0 2px 10px rgba(15,23,42,.25)}
+.sidebar{background:linear-gradient(185deg,#0f766e 0%,#0f172a 30%,#0f172a 100%)!important}
+.navbtn.active{background:linear-gradient(135deg,#14b8a6,#0d9488)!important;box-shadow:0 4px 12px rgba(13,148,136,.4)}
+/* البطاقات: حواف أنعم وظل واضح */
+.card{border-radius:16px;box-shadow:0 1px 2px rgba(15,23,42,.05),0 10px 24px rgba(15,23,42,.06)}
+.card-title{color:#0f766e;position:relative;padding-inline-start:12px}
+.card-title::before{content:"";position:absolute;inset-inline-start:0;top:2px;bottom:2px;width:4px;border-radius:4px;background:linear-gradient(180deg,#14b8a6,#0d9488)}
+/* بطاقات الأرقام: خلفية متدرّجة خفيفة + شريط علوي ملوّن + رقم أكبر */
+.stat{position:relative;overflow:hidden;border-radius:16px;background:linear-gradient(180deg,#ffffff,#f6fbfa);box-shadow:0 8px 20px rgba(15,23,42,.06)}
+.stat::before{content:"";position:absolute;top:0;inset-inline-start:0;inset-inline-end:0;height:5px;background:linear-gradient(90deg,#14b8a6,#0ea5e9)}
+.stat .val{font-size:27px;letter-spacing:.3px}
+/* الأزرار: تعبئة متدرّجة وزوايا أنعم وظل */
+.btn{border-radius:11px;box-shadow:0 3px 8px rgba(15,23,42,.1);background-image:linear-gradient(135deg,rgba(255,255,255,.14),rgba(255,255,255,0))}
+.btn.green{background:linear-gradient(135deg,#22c55e,#16a34a)}
+.btn.blue{background:linear-gradient(135deg,#3b82f6,#2563eb)}
+.btn.red{background:linear-gradient(135deg,#ef4444,#dc2626)}
+.btn.amber{background:linear-gradient(135deg,#f59e0b,#d97706)}
+.btn:not(.ghost):not(.gray){background-color:var(--brand)}
+.btn.lg{box-shadow:0 8px 18px rgba(13,148,136,.3)}
+.btn:active{transform:translateY(1px) scale(.99)}
+/* الحقول: زاوية وتركيز أوضح */
+input,select,textarea{border-radius:10px;transition:border-color .15s,box-shadow .15s}
+input:focus,select:focus,textarea:focus{outline:none;border-color:#0d9488;box-shadow:0 0 0 3px rgba(13,148,136,.18)}
+/* الجداول: رأس ملوّن وصفوف أوضح */
+.table-wrap table thead th{background:#ecfdf5;color:#065f46;border-bottom:2px solid #a7f3d0}
+.table-wrap table tbody tr:nth-child(even){background:rgba(13,148,136,.035)}
+/* الوسوم (حالات) أوضح */
+.tag{border-radius:999px;box-shadow:0 1px 2px rgba(0,0,0,.08);font-weight:700}
+/* عنوان الصفحة بخط أعرض وأوضح */
+.pagehead h1{font-size:21px;letter-spacing:.2px;color:#0f172a}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 </head>
 <body>
@@ -245,7 +295,7 @@ html.lock-scroll,html.lock-scroll body{overflow:hidden!important;overscroll-beha
    ============================================================ */
 const KEY="inv_system_v2";
 /* رقم إصدار التطبيق — يُزاد مع كل تحديث؛ يُقارَن بالنسخة المنشورة لإظهار زر التحديث */
-const APP_VERSION="2026-11-14-02";
+const APP_VERSION="2026-11-15-13";
 let DB,ME;
 /* التحقق من توفّر نسخة أحدث بجلب الملف نفسه (بدون كاش) ومقارنة رقم الإصدار */
 function checkForUpdate(){
@@ -384,7 +434,7 @@ function stockOf(itemId){
   return n;
 }
 /* هل يُسمح بالبيع بالسالب؟ (إعداد) */
-function allowOversell(){return !!(DB.settings&&DB.settings.allowOversell);}
+function allowOversell(){return false;}   /* ممنوع البيع بالسالب نهائياً (لا يتجاوز الرصيد المتاح) */
 function csups(){return DB.suppliers.filter(s=>s.companyId===CO);}
 function ccusts(){return (DB.customers||[]).filter(c=>c.companyId===CO).sort((a,b)=>String(a.name||"").localeCompare(String(b.name||""),"ar"));}
 function cpays(){return DB.payments.filter(p=>p.companyId===CO);}
@@ -1068,21 +1118,45 @@ function pMove(){
   $("#view").innerHTML=`
   <div class="pagehead"><h1>➕ تسجيل حركة صنف</h1>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
-      <button class="btn ghost no-print" onclick="lookupInvoice()">🔎 استرجاع فاتورة</button>
+      <button class="btn ghost no-print" onclick="lookupCustoms()">📦 البحث عن رقم فسح (وارد)</button>
+      <button class="btn ghost no-print" onclick="lookupInvoice()">🧾 البحث عن رقم فاتورة بيع</button>
       ${can("canAdd")?`<button class="btn blue no-print" onclick="downloadMovesTemplate()">⬇ قالب حركات Excel</button>
       <label class="btn amber no-print" style="margin:0">⬆ استيراد حركات<input type="file" accept=".csv,text/csv" style="display:none" onchange="importMovesFile(event)"></label>`:""}</div></div>
   <div class="card"><div id="mMsg"></div>
+    <div class="step"><b>1</b><span>نوع الحركة</span></div>
     <div class="typebtns" style="margin-bottom:12px">
-      <button type="button" class="in" id="tbIn"  onclick="setType('inbound')"><span class="ar" style="color:var(--green)">⬇️</span> وارد (بضاعة داخلة)<small>استلام من مورد ➕ يزيد الرصيد</small></button>
+      <button type="button" class="in" id="tbIn"  onclick="setType('inbound')"><span class="ar" style="color:var(--green)">⬇️</span> وارد — فسح<small>استلام من مورد (فسح) ➕ يزيد الرصيد</small></button>
       <button type="button" class="out" id="tbOut" onclick="setType('outbound')"><span class="ar" style="color:var(--red)">⬆️</span> منصرف (بضاعة خارجة)<small>بيع / صرف للعميل ➖ ينقص الرصيد</small></button>
       <button type="button" class="adj" id="tbAdj" onclick="setType('adjustment')">⚙ تسوية جرد<small>تصحيح الرصيد يدويًا</small></button>
     </div>
+    <div class="step" id="stepDoc"><b>2</b><span id="stepDocT">بيانات المستند</span></div>
+    <div class="formgrid" style="margin-top:6px">
+      <div class="cell c3"><label>التاريخ</label><input id="mDate" type="date" value="${today()}"></div>
+      <div class="cell c4 docIn"><label>المورد ${simpleCo()?"(اختياري)":"* (إجباري للوارد)"}</label><select id="mSupplier"><option value="">— اختر المورد —</option>
+        ${csups().map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join("")}</select></div>
+      <div class="cell c4 docIn"><label>رقم الفسح الجمركي ${simpleCo()?"(اختياري)":"* (إجباري للوارد)"}</label><input id="mCustoms" placeholder="رقم الفسح"></div>
+      <div class="cell c4 docOut"><label>${simpleCo()?"رقم فسح العميل * (إجباري)":"رقم سند/فاتورة البيع * (إجباري)"}</label><input id="mInvoice" placeholder="${simpleCo()?"رقم فسح العميل":"رقم السند / الفاتورة"}"></div>
+    </div>
+
+    <div class="step"><b>3</b><span>الصنف والكمية والسعر</span></div>
     <div class="balbox" id="mBal" style="display:none">
       <div style="display:flex;align-items:center;gap:12px">
         <img id="mBalImg" onclick="viewImg(this.src)" style="display:none;width:56px;height:56px;object-fit:cover;border-radius:10px;border:1px solid #a5f3fc;cursor:zoom-in">
         <span id="mBalName">الرصيد الحالي</span></div>
       <span class="b" id="mBalV">0</span></div>
-
+    <div class="docOut">
+      <div style="font-weight:800;color:var(--blue);margin:2px 0 6px">⚡ إضافة سريعة للأصناف — اختر الصنف ثم الكمية ثم السعر و«Enter»</div>
+      <div class="qrow">
+        <select id="qItem" onchange="qHint();if(this.value){const e=$('#qQty');if(e)e.focus();}">
+          <option value="">— اختر الصنف —</option>
+          ${citems().map(i=>`<option value="${i.id}">${esc(itemModel(i))} — الرصيد ${stockOf(i.id)}</option>`).join("")}
+        </select>
+        <input id="qQty" type="number" inputmode="numeric" placeholder="الكمية" onkeydown="if(event.key==='Enter'){event.preventDefault();const e=$('#qPrice');if(e){e.focus();e.select&&e.select();}}">
+        <input id="qPrice" type="number" inputmode="decimal" step="0.01" placeholder="السعر" onkeydown="if(event.key==='Enter'){event.preventDefault();qAdd();}">
+        <button type="button" class="qbtn" onclick="qAdd()" title="أضِف الصنف للفاتورة">＋</button>
+      </div>
+      <div id="qHint" style="font-size:13px;margin:6px 2px 10px"></div>
+    </div>
     <div class="formgrid">
       <div class="cell c3"><label>المجموعة</label>
         <select id="mGroup" onchange="acItems($('#mCode').value)"><option value="">كل المجموعات</option>
@@ -1090,38 +1164,31 @@ function pMove(){
       <div class="cell c4 ac-wrap"><label>الصنف / الموديل</label>
         <input id="mCode" placeholder="ابحث بالموديل أو الاسم..." autocomplete="off" oninput="acItems(this.value)" onfocus="acItems(this.value)">
         <div class="ac-list" id="mAc"></div></div>
-      <div class="cell c2"><label>الكمية</label><input id="mQty" type="number" inputmode="numeric" min="0" step="1" placeholder="أدخل الكمية" onkeydown="if(event.key==='Enter'){event.preventDefault();$('#mPrice').focus();$('#mPrice').select&&$('#mPrice').select();}"></div>
+      <div class="cell c2"><label>الكمية</label><input id="mQty" type="number" inputmode="numeric" min="0" step="1" placeholder="أدخل الكمية" oninput="mStockHint()" onkeydown="if(event.key==='Enter'){event.preventDefault();$('#mPrice').focus();$('#mPrice').select&&$('#mPrice').select();}"></div>
       <div class="cell c3" id="wrapPrice"><label id="lblPrice">السعر ﷼</label><input id="mPrice" type="number" inputmode="decimal" step="0.01" placeholder="0.00" onkeydown="if(event.key==='Enter'){event.preventDefault();nextAfterPrice();}"></div>
-      <div class="cell c2"><label>التاريخ</label><input id="mDate" type="date" value="${today()}"></div>
     </div>
-
-    <!-- حقول الوارد: المورد + الفسح -->
-    <div class="formgrid" id="rowIn" style="margin-top:6px">
-      <div class="cell c4"><label>المورد ${simpleCo()?"(اختياري)":"* (إجباري للوارد)"}</label><select id="mSupplier"><option value="">— اختر المورد —</option>
-        ${csups().map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join("")}</select></div>
-      <div class="cell c4"><label>رقم الفسح الجمركي ${simpleCo()?"(اختياري)":"* (إجباري للوارد)"}</label><input id="mCustoms" placeholder="رقم الفسح"></div>
-      <div class="cell c4"><label>ملاحظات</label><input id="mNoteIn" placeholder="ملاحظة"></div>
+    <div class="formgrid docIn" style="margin-top:6px">
+      <div class="cell c6"><label>ملاحظات</label><input id="mNoteIn" placeholder="ملاحظة"></div>
     </div>
-
-    <!-- حقول المنصرف: فاتورة + عمولة + إمكانية عدة أصناف -->
-    <div id="rowOut" style="margin-top:6px">
-      <div class="formgrid">
-        <div class="cell c3"><label>${simpleCo()?"رقم فسح العميل * (إجباري)":"رقم فاتورة البيع * (إجباري)"}</label><input id="mInvoice" placeholder="${simpleCo()?"رقم فسح العميل":"رقم الفاتورة"}"></div>
-        ${simpleCo()?"":`<div class="cell c3"><label>العمولة ﷼ (لكامل الفاتورة)</label><input id="mComm" type="number" inputmode="decimal" step="0.01" placeholder="0.00"></div>
-        <div class="cell c3"><label>🚚 رسوم تركيب/توصيل ﷼</label>
-          <input id="mFeeVal" type="number" inputmode="decimal" step="0.01" placeholder="اتركه فارغاً = بدون رسوم">
-          <div style="display:flex;align-items:center;gap:8px;margin-top:4px;flex-wrap:wrap">
-            <button type="button" id="feeModeToggle" onclick="toggleFeeMode()" style="background:#eef2ff;color:#3730a3;border:1px solid #c7d2fe;border-radius:20px;padding:6px 12px;font-size:12.5px;font-weight:700;cursor:pointer">🔀 تحويل إلى: لكل صنف</button>
-            <span id="feeHint" style="font-size:11px;color:var(--muted)">مبلغ واحد لكامل الفاتورة</span></div></div>`}
-        <div class="cell c3"><label>${simpleCo()?"العميل / المستلم (لمن خرجت) *":"العنوان"}</label>
-          ${simpleCo()
-            ? `<select id="mAddress"><option value="">— اختر العميل —</option>${ccusts().map(c=>`<option value="${esc(c.name)}">${esc(c.name)}</option>`).join("")}</select>
-               <div style="font-size:11px;color:var(--muted);margin-top:3px">لإضافة عميل جديد: <a onclick="go('customers')" style="color:var(--blue);cursor:pointer;font-weight:700">افتح شاشة العملاء 🧑‍💼</a></div>`
-            : `<input id="mAddress" placeholder="العنوان">`}</div>
-        <div class="cell c3"><label>ملاحظات</label><input id="mNoteOut" placeholder="ملاحظة"></div>
-      </div>
+    <div class="docOut">
       <button class="btn blue" onclick="addToInvoice()">➕ أضِف الصنف الحالي إلى الفاتورة</button>
       <div id="cartBox" style="margin-top:10px"></div>
+    </div>
+
+    <div class="step docOut"><b>4</b><span>الخدمة/التركيب والعمولة والعميل</span></div>
+    <div class="formgrid docOut">
+      ${simpleCo()?"":`<div class="cell c3"><label>🚚 رسوم تركيب/توصيل ﷼</label>
+        <input id="mFeeVal" type="number" inputmode="decimal" step="0.01" placeholder="اتركه فارغاً = بدون رسوم">
+        <div style="display:flex;align-items:center;gap:8px;margin-top:4px;flex-wrap:wrap">
+          <button type="button" id="feeModeToggle" onclick="toggleFeeMode()" style="background:#eef2ff;color:#3730a3;border:1px solid #c7d2fe;border-radius:20px;padding:6px 12px;font-size:12.5px;font-weight:700;cursor:pointer">🔀 تحويل إلى: لكل صنف</button>
+          <span id="feeHint" style="font-size:11px;color:var(--muted)">مبلغ واحد لكامل الفاتورة</span></div></div>
+      <div class="cell c3"><label>العمولة ﷼ (لكامل الفاتورة)</label><input id="mComm" type="number" inputmode="decimal" step="0.01" placeholder="0.00"></div>`}
+      <div class="cell c3"><label>${simpleCo()?"العميل / المستلم (لمن خرجت) *":"العنوان"}</label>
+        ${simpleCo()
+          ? `<select id="mAddress"><option value="">— اختر العميل —</option>${ccusts().map(c=>`<option value="${esc(c.name)}">${esc(c.name)}</option>`).join("")}</select>
+             <div style="font-size:11px;color:var(--muted);margin-top:3px">لإضافة عميل جديد: <a onclick="go('customers')" style="color:var(--blue);cursor:pointer;font-weight:700">افتح شاشة العملاء 🧑‍💼</a></div>`
+          : `<input id="mAddress" placeholder="العنوان">`}</div>
+      <div class="cell c3"><label>ملاحظات</label><input id="mNoteOut" placeholder="ملاحظة"></div>
     </div>
 
     <div style="display:flex;gap:10px;margin-top:14px">
@@ -1135,7 +1202,7 @@ function pMove(){
       <span>🕒 آخر الحركات</span>
       <div class="typebtns" style="max-width:360px">
         <button type="button" id="rfAll" onclick="setRecentFilter('')">الكل</button>
-        <button type="button" class="in" id="rfIn" onclick="setRecentFilter('inbound')">📥 وارد</button>
+        <button type="button" class="in" id="rfIn" onclick="setRecentFilter('inbound')">📥 وارد — فسح</button>
         <button type="button" class="out" id="rfOut" onclick="setRecentFilter('outbound')">📤 منصرف</button>
       </div></div>
     <div class="formgrid" style="margin-bottom:10px">
@@ -1166,12 +1233,17 @@ function setType(t){
   ["tbIn","tbOut","tbAdj"].forEach(id=>$("#"+id)?.classList.remove("on"));
   const map={inbound:"tbIn",outbound:"tbOut",adjustment:"tbAdj"};
   if($("#"+map[t]))$("#"+map[t]).classList.add("on");
-  const rin=$("#rowIn"),rout=$("#rowOut"),wp=$("#wrapPrice"),lp=$("#lblPrice"),sb=$("#saveBtn");
-  if(rin)rin.style.display=(t==="inbound")?"grid":"none";
-  if(rout)rout.style.display=(t==="outbound")?"block":"none";
+  const wp=$("#wrapPrice"),lp=$("#lblPrice"),sb=$("#saveBtn");
+  // إظهار/إخفاء حقول كل نوع عبر الأصناف docIn / docOut
+  document.querySelectorAll(".docIn").forEach(e=>e.style.display=(t==="inbound")?"":"none");
+  document.querySelectorAll(".docOut").forEach(e=>e.style.display=(t==="outbound")?"":"none");
+  const sd=$("#stepDoc"),sdt=$("#stepDocT");
+  if(sd)sd.style.display="flex";   // التاريخ يظهر دائماً
+  if(sdt)sdt.textContent=(t==="inbound")?"بيانات المورد والفسح والتاريخ":(t==="outbound")?(simpleCo()?"بيانات العميل والفسح والتاريخ":"بيانات السند/الفاتورة والتاريخ"):"التاريخ";
   if(wp)wp.style.display=(t==="adjustment")?"none":"block";
   if(lp)lp.textContent=(t==="inbound")?(simpleCo()?"سعر التكلفة (اختياري) ﷼":"سعر التكلفة * ﷼"):(simpleCo()?"سعر البيع (اختياري) ﷼":"سعر البيع * (إجباري) ﷼");
   if(sb)sb.textContent=(t==="outbound")?"✓ حفظ الفاتورة":"✓ حفظ الحركة";
+  const mm=$("#mMsg");if(mm)mm.innerHTML="";   // مسح رسالة فحص الرصيد عند تغيير نوع الحركة
   renderCart();
   if($("#rfAll")&&(t==="inbound"||t==="outbound"))setRecentFilter(t);   // يفلتر آخر الحركات حسب النوع المختار
 }
@@ -1185,6 +1257,11 @@ function acItems(q){
     <span style="color:var(--muted)"> (الرصيد: ${stockOf(i.id)})</span></div></div>`).join("")||`<div class="ac-item">لا نتائج</div>`;
   box.style.display="block";
 }
+/* إغلاق قائمة البحث عن الموديل عند الضغط خارجها (مرة واحدة) */
+if(!window._acClickAway){window._acClickAway=1;document.addEventListener("click",function(e){
+  var ac=document.getElementById("mAc");if(!ac||ac.style.display==="none")return;
+  var code=document.getElementById("mCode");if(e.target===code||ac.contains(e.target))return;
+  ac.style.display="none";});}
 function pickItem(id){
   picked=DB.items.find(i=>i.id===id);
   $("#mCode").value=itemModel(picked);
@@ -1195,6 +1272,7 @@ function pickItem(id){
   $("#mBal").style.display="flex";$("#mBalName").textContent="رصيد «"+itemModel(picked)+"»";
   $("#mBalV").textContent=stockOf(picked.id)+" "+(picked.unit||"");
   const im=$("#mBalImg");if(im){if(picked.image){im.src=picked.image;im.style.display="block";}else im.style.display="none";}
+  mStockHint();   // اقرأ المخزون فوراً عند اختيار الصنف واعرض الرسالة قبل الحفظ
   // تنقّل تلقائي: بعد اختيار الصنف انتقل لحقل الكمية
   setTimeout(()=>{const q=$("#mQty");if(q){q.focus();q.select&&q.select();}},30);
 }
@@ -1204,13 +1282,64 @@ function nextAfterPrice(){
   else if(mType==="outbound"){addToInvoice();const q=$("#mCode");if(q)q.focus();}
   else{const q=$("#mCode");if(q)q.focus();}
 }
+/* فحص فوري للرصيد عند البيع: يقرأ المخزون بمجرد اختيار الصنف/تغيير الكمية ويعرض الرسالة قبل الحفظ */
+function mStockHint(){
+  const msg=$("#mMsg");if(!msg)return;
+  if(mType!=="outbound"||!picked){return;}
+  const inCart=saleCart.filter(l=>l.itemId===picked.id).reduce((s,l)=>s+l.qty,0);
+  const avail=stockOf(picked.id)-inCart;
+  const qty=parseFloat($("#mQty")?.value)||0;
+  if(avail<=0){
+    msg.innerHTML=`<div class="msg err">⚠️ لا يوجد رصيد متاح للبيع من «${itemModel(picked)}»${inCart?` (مُستهلَك بالكامل في هذه الفاتورة)`:""}.<br><b style="color:var(--green)">➕ الرجاء إضافة الفسح (وارد) أولاً حتى يمكنك البيع.</b></div>`;
+  }else if(qty>avail){
+    msg.innerHTML=`<div class="msg err">⚠️ المتاح للبيع ${avail} فقط من «${itemModel(picked)}» وقد طلبت ${qty}.<br><b style="color:var(--green)">➕ الرجاء إضافة الفسح (وارد) أولاً حتى يمكنك البيع.</b></div>`;
+  }else{
+    msg.innerHTML=`<div class="msg ok">✔ المتاح للبيع من «${itemModel(picked)}»: <b>${avail}</b> — يمكنك المتابعة.</div>`;
+  }
+}
+/* ===== الإدخال السريع للبيع: صف صغير (صنف · كمية · سعر · ＋) ===== */
+function qAvail(id){const inCart=saleCart.filter(l=>l.itemId===id).reduce((s,l)=>s+l.qty,0);return stockOf(id)-inCart;}
+function qHint(){
+  const box=$("#qHint");if(!box)return;
+  const id=+($("#qItem")?.value)||0;
+  if(!id){box.innerHTML="";return;}
+  const avail=qAvail(id),it=DB.items.find(x=>x.id===id)||{};
+  box.innerHTML=avail>0
+    ? `<span style="color:var(--green);font-weight:800">✔ المتاح للبيع من «${esc(itemModel(it))}»: ${avail}</span>`
+    : `<span style="color:var(--red);font-weight:800">⚠️ لا رصيد متاح لـ«${esc(itemModel(it))}» — ➕ أضِف الفسح (وارد) أولاً حتى يمكنك البيع.</span>`;
+}
+function qAdd(){
+  const msg=$("#mMsg");const show=(t,c)=>msg.innerHTML=`<div class="msg ${c}">${t}</div>`;
+  const id=+($("#qItem")?.value)||0,q=toNum($("#qQty")?.value),p=toNum($("#qPrice")?.value);
+  if(!id)return show("اختر الصنف من القائمة السريعة.","err");
+  if(!(q>0))return show("أدخل كمية صحيحة.","err");
+  if(!simpleCo()&&!(p>0))return show("أدخل سعر البيع للصنف.","err");
+  const avail=qAvail(id),it=DB.items.find(x=>x.id===id)||{};
+  if(q>avail)return show(`⚠️ المتاح للبيع ${avail} فقط من «${esc(itemModel(it))}»${avail<=0?"":` وقد طلبت ${q}`}.<br><b style="color:var(--green)">➕ الرجاء إضافة الفسح (وارد) أولاً حتى يمكنك البيع.</b>`,"err");
+  saleCart.push({itemId:id,qty:q,price:p,fee:0});
+  renderCart();msg.innerHTML="";
+  $("#qQty").value="";$("#qPrice").value="";$("#qItem").value="";$("#qHint").innerHTML="";
+  const qi=$("#qItem");if(qi)qi.focus();   // عُد للصنف للسطر التالي — إدخال سريع
+}
 function viewImg(src){if(!src)return;const m=document.createElement("div");m.className="modal";m.onclick=()=>m.remove();
   m.innerHTML=`<img src="${src}" style="max-width:92vw;max-height:88vh;border-radius:12px">`;document.body.appendChild(m);}
-function clearMove(all){
+function clearMove(all,noFocus){
   ["mCode","mQty","mPrice","mCustoms"].forEach(i=>$("#"+i)&&($("#"+i).value=""));
   if(all){["mInvoice","mComm","mAddress","mNoteIn","mNoteOut","mFeeVal"].forEach(i=>$("#"+i)&&($("#"+i).value=""));
     feeMode="inv";applyFeeMode();saleCart=[];renderCart();}
-  picked=null;$("#mBal").style.display="none";$("#mCode").focus();
+  picked=null;$("#mBal").style.display="none";
+  const ac=$("#mAc");if(ac)ac.style.display="none";   // إخفاء قائمة البحث عن الموديل بعد الحفظ/المسح
+  if(!noFocus)$("#mCode").focus();
+}
+/* بعد الحفظ: ينزل إلى الحركة المُضافة في «آخر الحركات» ويُضيئها ليتأكد الموظف أنها سُجّلت */
+function flashRecent(id){
+  renderRecent();
+  setTimeout(()=>{
+    const row=document.getElementById("rc"+id);if(!row)return;
+    row.scrollIntoView({behavior:"smooth",block:"center"});
+    row.classList.add("rowflash");
+    setTimeout(()=>row.classList.remove("rowflash"),2700);
+  },70);
 }
 /* وضع الرسوم: inv = كامل الفاتورة (افتراضي) · line = لكل صنف */
 let feeMode="inv";
@@ -1258,21 +1387,23 @@ function saveMove(){
     if(!simpleCo()&&lines.some(l=>!(l.price>0)))return show("أدخل سعر البيع لكل صنف.","err"); // النمط الكامل: سعر البيع إجباري
     if(simpleCo()&&!(($("#mAddress")?.value||"").trim()))return show("اختر العميل الذي خرجت له البضاعة (أضِفه من شاشة العملاء إن لم يكن موجوداً).","err");
     const need={};lines.forEach(l=>need[l.itemId]=(need[l.itemId]||0)+l.qty);
-    for(const id in need){const it=DB.items.find(x=>x.id===+id);const avail=stockOf(+id);if(!allowOversell()&&need[id]>avail)return show(`الرصيد غير كافٍ للصنف «${itemModel(it)}» (المتاح ${avail}). فعّل «السماح بالبيع بالسالب» من الإعدادات إن أردت.`,"err");}
+    for(const id in need){const it=DB.items.find(x=>x.id===+id);const avail=stockOf(+id);if(need[id]>avail)return show(`⚠️ الرصيد غير كافٍ للصنف «${itemModel(it)}» — المتاح ${avail} فقط، وطلبت ${need[id]}. لا يُسمح بالبيع بأكثر من المتاح.<br><b style="color:var(--green)">➕ الرجاء إضافة الفسح (وارد) أولاً حتى يمكنك البيع.</b>`,"err");}
     const invNo=($("#mInvoice").value||"").trim();
     if(!invNo)return show(simpleCo()?"أدخل رقم فسح العميل (إجباري).":"أدخل رقم الفاتورة (إجباري للمنصرف).","err");
     if(invNo&&invoiceExists(invNo)&&!confirm(`⚠️ رقم الفاتورة «${invNo}» مُسجّل مسبقاً في فاتورة بيع أخرى.\nهل تريد المتابعة وحفظها على أي حال؟`))return;
     const gid="INV"+Date.now();
     const comm=toNum($("#mComm")?.value),addr=$("#mAddress")?.value||"",note=$("#mNoteOut")?.value||"";
     const feesInv=($("#mFeeVal")&&feeType()==="inv")?toNum($("#mFeeVal").value):0;   // رسوم كامل الفاتورة تُضاف للسطر الأول
+    let firstMvId=null;
     lines.forEach((l,idx)=>{const it=DB.items.find(x=>x.id===l.itemId);it.qty-=l.qty;
       const lineFee=(l.fee||0)+(idx===0?feesInv:0);
-      DB.movements.unshift({id:nid("movement"),uid:uidGen(),companyId:CO,itemId:it.id,type:"outbound",qty:l.qty,price:l.price||0,
+      const mid=nid("movement");if(idx===0)firstMvId=mid;
+      DB.movements.unshift({id:mid,uid:uidGen(),companyId:CO,itemId:it.id,type:"outbound",qty:l.qty,price:l.price||0,
         comm:idx===0?comm:0,fee:lineFee,model:itemModel(it),invoice:invNo,invGid:gid,address:addr,supplierId:null,customs:"",
         date,note,balAfter:it.qty,userId:ME.id,userName:ME.name,at:new Date().toISOString()});});
     logAct("منصرف","فاتورة "+invNo+" — "+lines.length+" صنف");save();
     saleCart=[];show(`✔ تم حفظ فاتورة البيع ${invNo} (${lines.length} صنف).`,"ok");
-    clearMove(true);renderRecent();printInvoice(gid);
+    clearMove(true,true);flashRecent(firstMvId);printInvoice(gid);   // يُظهر الفاتورة المطبوعة ويُضيء الحركة في السجل
     return;
   }
   // وارد / تسوية — صنف واحد
@@ -1283,14 +1414,18 @@ function saveMove(){
   if(mType==="inbound"&&!simpleCo()&&!($("#mCustoms").value||"").trim())return show("أدخل رقم الفسح (إجباري للوارد).","err");
   if(mType==="inbound"&&($("#mCustoms").value||"").trim()&&customsExists(picked.id,$("#mCustoms").value)&&!confirm(`⚠️ رقم الفسح «${($("#mCustoms").value||"").trim()}» مُسجّل مسبقاً لنفس الصنف.\nقد يؤدي تكراره إلى ازدواج الرصيد. هل تريد المتابعة؟`))return;
   const item=DB.items.find(i=>i.id===picked.id);
+  // تنبيه: غرف النوم أطقم فريدة — غير معتاد أن يزيد رصيد الموديل الواحد عن 1
+  if(mType==="inbound"&&normCat(item.category)==="غرف نوم"&&(stockOf(item.id)+qty)>1
+     &&!confirm(`⚠️ تنبيه: «${itemModel(item)}» من فئة غرف النوم، وسيصبح رصيده ${stockOf(item.id)+qty}.\nغير المعتاد وجود أكثر من غرفة واحدة من نفس الموديل. هل أنت متأكد من المتابعة؟`))return;
+  const mvId=nid("movement");
   item.qty+=qty;
-  DB.movements.unshift({id:nid("movement"),uid:uidGen(),companyId:CO,itemId:item.id,type:mType,qty,price:parseFloat($("#mPrice").value)||0,
+  DB.movements.unshift({id:mvId,uid:uidGen(),companyId:CO,itemId:item.id,type:mType,qty,price:parseFloat($("#mPrice").value)||0,
     comm:0,model:itemModel(item),invoice:"",invGid:"",address:"",supplierId:+($("#mSupplier")?.value)||null,
     customs:mType==="inbound"?($("#mCustoms").value||""):"",date,note:$("#mNoteIn")?.value||"",
     balAfter:item.qty,userId:ME.id,userName:ME.name,at:new Date().toISOString()});
   logAct(typeAr(mType),`${itemModel(item)} كمية ${qty}`);save();
   show(`✔ تم تسجيل ${typeAr(mType)} «${itemModel(item)}» بكمية ${qty}. الرصيد الآن: ${item.qty}`,"ok");
-  clearMove(false);renderRecent();
+  clearMove(false,true);flashRecent(mvId);   // لا يعود لإدخال جديد — بل يُظهر الحركة المُضافة
 }
 /* حساب «الرصيد بعد كل حركة» ديناميكياً (ترتيب زمني لكل صنف) — يتحدّث تلقائياً بعد أي حذف/تعديل */
 function balAfterMap(){
@@ -1326,11 +1461,11 @@ function renderRecent(){
         :(lim===0&&total>5?` · <a onclick="showFewerRecent()" style="color:var(--blue);cursor:pointer;font-weight:700">عرض أقل ▴</a>`:""));
   }
   tb.innerHTML=shown.map(m=>{const it=DB.items.find(i=>i.id===m.itemId)||{};const sup=DB.suppliers.find(x=>x.id===m.supplierId);
-    return `<tr><td>${esc(m.date)}</td><td>${esc(m.model||itemModel(it))}</td>
+    return `<tr id="rc${m.id}"><td>${esc(m.date)}</td><td>${esc(m.model||itemModel(it))}</td>
       <td><span class="tag ${m.type}">${typeAr(m.type)}</span></td>
       <td style="font-weight:700;color:${isIn(m.type)?'var(--green)':'var(--amber)'}">${isIn(m.type)?"+":"−"}${m.qty}</td>
       <td>${BAL[m.id]??m.balAfter??"—"}</td><td>${esc(m.type==="inbound"?(m.customs||""):(m.invoice||""))}</td>
-      <td>${esc(m.type==="inbound"?(sup?sup.name:""):(m.address||""))}</td><td>${esc(m.userName)}</td>
+      <td>${esc(m.type==="inbound"?(sup?sup.name:""):(m.address||""))}</td><td>${userCell(m)}</td>
       <td style="color:var(--muted)">${esc(m.note||"")}</td>
       <td style="white-space:nowrap"><button class="btn ghost sm" onclick="printReceipt(${m.id})">🖨️</button>
         ${can("canEdit")?`<button class="btn blue sm" onclick="editMovement(${m.id})">تعديل</button>`:""}
@@ -1407,12 +1542,13 @@ function editInvoice(gid){
     <div class="formgrid">
       <div class="cell c6"><label>رقم الفاتورة *</label><input id="ie_inv" value="${esc(f.invoice||"")}"></div>
       <div class="cell c6"><label>التاريخ</label><input id="ie_date" type="date" value="${esc(f.date||today())}"></div>
-      <div class="cell c6"><label>العمولة ﷼ (كامل الفاتورة)</label><input id="ie_comm" type="number" inputmode="decimal" step="0.01" value="${comm||0}"></div>
+      <div class="cell c6"><label>العمولة ﷼ (كامل الفاتورة)</label><input id="ie_comm" type="number" inputmode="decimal" step="0.01" value="${comm||0}" oninput="updateIeTotals()"></div>
       <div class="cell c6"><label>العنوان</label><input id="ie_addr" value="${esc(f.address||"")}"></div>
     </div>
     <div style="font-weight:800;color:var(--amber);margin:10px 0 6px">بنود الفاتورة</div>
     <div class="table-wrap"><table><thead><tr><th>الصنف</th><th>الكمية</th><th>السعر</th><th>رسوم</th><th></th></tr></thead>
       <tbody id="ieRows"></tbody></table></div>
+    <div id="ieTotals" style="margin:8px 0"></div>
     <div style="font-weight:800;color:var(--green);margin:12px 0 6px">➕ إضافة صنف</div>
     <input id="ie_search" placeholder="🔍 ابحث عن موديل/صنف لإضافته..." oninput="filterIeItems()" style="width:100%;margin-bottom:6px;padding:9px">
     <div class="formgrid">
@@ -1443,11 +1579,26 @@ function renderInvEditRows(){
     return `<tr><td><select style="min-width:150px;max-width:220px;padding:7px" onchange="invEdit[${idx}].itemId=+this.value">
         ${citems().map(i=>`<option value="${i.id}" ${i.id===l.itemId?"selected":""}>${esc(itemModel(i))}</option>`).join("")}
       </select></td>
-      <td><input type="number" inputmode="numeric" style="width:70px;padding:7px" value="${l.qty}" oninput="invEdit[${idx}].qty=toNum(this.value)"></td>
-      <td><input type="number" inputmode="decimal" step="0.01" style="width:80px;padding:7px" value="${l.price}" oninput="invEdit[${idx}].price=toNum(this.value)"></td>
-      <td><input type="number" inputmode="decimal" step="0.01" style="width:70px;padding:7px" value="${l.fee||0}" oninput="invEdit[${idx}].fee=toNum(this.value)"></td>
+      <td><input type="number" inputmode="numeric" style="width:70px;padding:7px" value="${l.qty}" oninput="invEdit[${idx}].qty=toNum(this.value);updateIeTotals()"></td>
+      <td><input type="number" inputmode="decimal" step="0.01" style="width:80px;padding:7px" value="${l.price}" oninput="invEdit[${idx}].price=toNum(this.value);updateIeTotals()"></td>
+      <td><input type="number" inputmode="decimal" step="0.01" style="width:70px;padding:7px" value="${l.fee||0}" oninput="invEdit[${idx}].fee=toNum(this.value);updateIeTotals()"></td>
       <td><button class="btn red sm" onclick="invEditDel(${idx})">حذف</button></td></tr>`;}).join("")
     ||`<tr><td colspan="5" class="empty">لا بنود — أضِف صنفاً.</td></tr>`;
+  updateIeTotals();
+}
+/* معاينة فورية لإجمالي الفاتورة أثناء التعديل */
+function updateIeTotals(){
+  const box=$("#ieTotals");if(!box)return;
+  const sub=invEdit.reduce((s,l)=>s+(toNum(l.qty)*toNum(l.price)),0);
+  const fees=invEdit.reduce((s,l)=>s+toNum(l.fee),0);
+  const comm=toNum($("#ie_comm")?.value);
+  const net=sub+fees-comm;
+  const rows=[["إجمالي البيع",sub]];
+  if(fees)rows.push(["الرسوم",fees]);
+  if(comm)rows.push(["− العمولة",-comm]);
+  box.innerHTML=`<div style="background:linear-gradient(135deg,#ecfdf5,#f0fdfa);border:1px solid #a7f3d0;border-radius:12px;padding:10px 14px">
+    ${rows.map(r=>`<div style="display:flex;justify-content:space-between;font-size:13px;color:#047857;padding:2px 0"><span>${r[0]}</span><span>${money(r[1])} ﷼</span></div>`).join("")}
+    <div style="display:flex;justify-content:space-between;font-weight:800;font-size:16px;color:#065f46;border-top:1px dashed #6ee7b7;margin-top:6px;padding-top:6px"><span>الصافي</span><span>${money(net)} ﷼</span></div></div>`;
 }
 function invEditAdd(){
   const id=+($("#ie_item").value)||0,q=toNum($("#ie_q").value),p=toNum($("#ie_p").value);
@@ -1467,16 +1618,27 @@ function saveInvoiceEdit(gid){
   const restore={};old.forEach(m=>{restore[m.itemId]=(restore[m.itemId]||0)+m.qty;});
   const need={};invEdit.forEach(l=>need[l.itemId]=(need[l.itemId]||0)+l.qty);
   for(const id in need){const it=DB.items.find(x=>x.id===+id);const avail=stockOf(+id)+(restore[id]||0);
-    if(!allowOversell()&&need[id]>avail){$("#ie_msg").textContent=`الرصيد غير كافٍ للصنف «${itemModel(it||{})}» (المتاح ${avail}).`;return;}}
+    if(!allowOversell()&&need[id]>avail){$("#ie_msg").innerHTML=`الرصيد غير كافٍ للصنف «${itemModel(it||{})}» (المتاح ${avail}). ➕ <b>الرجاء إضافة الفسح (وارد) أولاً حتى يمكنك البيع.</b>`;return;}}
   // نفّذ: أرجع القديم واحذفه (بشواهد حذف)، ثم أنشئ البنود الجديدة بنفس الفاتورة
   old.forEach(m=>{const it=DB.items.find(x=>x.id===m.itemId);if(it)it.qty+=m.qty;});
   tombAddMany("movements",old);
   const oldIds=new Set(old.map(m=>m.id));DB.movements=DB.movements.filter(m=>!oldIds.has(m.id));
   const date=$("#ie_date").value||today(),comm=toNum($("#ie_comm").value),addr=$("#ie_addr").value||"";
+  // احفظ مُنشئ الفاتورة الأصلي وسجّل من عدّلها (قبل ← بعد) على البند الأول
+  const origCreator=(old[0]&&old[0].userName)||ME.name,origUserId=(old[0]&&old[0].userId)||ME.id,origAt=(old[0]&&old[0].at)||new Date().toISOString();
+  const editedAt=new Date().toISOString(),editedBy=(origCreator!==ME.name)?ME.name:(old[0]&&old[0].editedBy||"");
+  const oldTot=old.reduce((s,m)=>s+m.qty*(m.price||0),0),newTot=invEdit.reduce((s,l)=>s+l.qty*(l.price||0),0);
+  const ch=[];const oldInv=(old[0]&&old[0].invoice)||"";
+  if(oldInv!==inv)ch.push({f:"رقم الفاتورة",from:oldInv||"—",to:inv});
+  if(old.length!==invEdit.length)ch.push({f:"عدد الأصناف",from:old.length,to:invEdit.length});
+  if(oldTot!==newTot)ch.push({f:"إجمالي البيع",from:money(oldTot),to:money(newTot)});
+  const prevHist=(old[0]&&old[0].hist)||[];
   invEdit.forEach((l,idx)=>{const it=DB.items.find(x=>x.id===l.itemId);if(!it)return;it.qty-=l.qty;
-    DB.movements.unshift({id:nid("movement"),uid:uidGen(),companyId:CO,itemId:it.id,type:"outbound",qty:l.qty,price:l.price||0,
+    const mv={id:nid("movement"),uid:uidGen(),companyId:CO,itemId:it.id,type:"outbound",qty:l.qty,price:l.price||0,
       comm:idx===0?comm:0,fee:l.fee||0,model:itemModel(it),invoice:inv,invGid:gid,address:addr,supplierId:null,customs:"",
-      date,note:"",balAfter:it.qty,userId:ME.id,userName:ME.name,at:new Date().toISOString()});});
+      date,note:"",balAfter:it.qty,userId:origUserId,userName:origCreator,at:origAt,editedBy:editedBy||undefined,editedAt};
+    if(idx===0&&(ch.length||prevHist.length))mv.hist=prevHist.concat(ch.length?[{at:editedAt,by:ME.name,ch}]:[]);
+    DB.movements.unshift(mv);});
   logAct("تعديل فاتورة",`${inv} — ${invEdit.length} صنف`);save();
   const md=$("#invEditModal");if(md)md.remove();
   const pm=$("#printModal");if(pm)pm.remove();   // أغلق العرض القديم للفاتورة (كان يظهر بيانات قبل التعديل)
@@ -1505,8 +1667,45 @@ function editMovement(id){
       <button class="btn gray" onclick="this.closest('.modal').remove()">إلغاء</button></div></div>`;
   document.body.appendChild(el);
 }
+/* ===== سجل التعديلات المرئي: ما الذي تغيّر في الحركة (قبل ← بعد) ===== */
+function supName(id){const s=DB.suppliers.find(x=>x.id===id);return s?s.name:(id?("#"+id):"—");}
+function recordMoveEdit(m,snap){
+  const F=[["model","الموديل",v=>v||"—"],["qty","الكمية",v=>v],["price","السعر",v=>money(v||0)],
+    ["date","التاريخ",v=>v||"—"],["customs","رقم الفسح",v=>v||"—"],["invoice","رقم الفاتورة",v=>v||"—"],
+    ["supplierId","المورد",v=>supName(v)],["fee","الرسوم",v=>money(v||0)],["note","ملاحظة",v=>v||"—"]];
+  const ch=[];F.forEach(([k,lbl,fmt])=>{const a=snap[k],b=(k==="supplierId"?(m[k]||null):(m[k]??(k==="note"||k==="customs"||k==="invoice"||k==="model"?"":0)));
+    if(String(a)!==String(b))ch.push({f:lbl,from:fmt(a),to:fmt(b)});});
+  if(!ch.length)return;
+  m.hist=m.hist||[];m.hist.push({at:new Date().toISOString(),by:ME?ME.name:"",ch});
+  if(m.hist.length>15)m.hist=m.hist.slice(-15);
+}
+function showMoveHist(id){
+  const m=DB.movements.find(x=>x.id===id);if(!m)return;
+  const h=(m.hist||[]).slice().reverse();
+  const el=document.createElement("div");el.className="modal";
+  el.innerHTML=`<div class="box" style="max-width:560px;max-height:88vh;overflow:auto"><h3>📝 سجل تعديلات الحركة</h3>
+    <div style="font-size:13px;color:var(--muted);margin-bottom:8px">${esc(m.model||"")} · ${esc(m.date||"")}${m.editedBy?` · آخر تعديل: ${esc(m.editedBy)}`:""}</div>
+    ${h.length?h.map(e=>`<div style="border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:8px">
+      <div style="font-size:12px;color:var(--muted);margin-bottom:6px">🕒 ${esc(fmt(e.at))} · بواسطة <b>${esc(e.by||"—")}</b></div>
+      <table style="width:100%"><thead><tr><th style="text-align:right">الحقل</th><th style="text-align:right">قبل</th><th></th><th style="text-align:right">بعد</th></tr></thead>
+      <tbody>${e.ch.map(c=>`<tr><td style="font-weight:600">${esc(c.f)}</td><td style="color:var(--red)">${esc(c.from)}</td><td style="color:var(--muted)">←</td><td style="color:var(--green);font-weight:700">${esc(c.to)}</td></tr>`).join("")}</tbody></table></div>`).join("")
+      :`<p class="empty">لا توجد تعديلات مسجّلة على هذه الحركة.</p>`}
+    <div style="margin-top:8px"><button class="btn gray" onclick="this.closest('.modal').remove()">إغلاق</button></div></div>`;
+  document.body.appendChild(el);
+}
+/* خلية الموظف: تُظهر مُنشئ الحركة، ومُعدّلها إن اختلف، ورابط سجل التعديلات */
+function userCell(m){
+  const creator=esc(m.userName||"—");
+  const edited=m.editedBy&&m.editedBy!==m.userName;
+  const hist=(m.hist||[]).length;
+  if(!edited&&!hist&&!m.editedBy)return creator;
+  return `<div>👤 ${creator}</div>`+
+    (m.editedBy?`<div style="font-size:11px;color:var(--amber);font-weight:700">✎ عدّلها: ${esc(m.editedBy)}</div>`:"")+
+    (hist?`<button class="btn ghost sm no-print" style="padding:2px 8px;font-size:11px;margin-top:3px" onclick="showMoveHist(${m.id})">📝 سجل التعديلات</button>`:"");
+}
 function saveMovement(id){
   const m=DB.movements.find(x=>x.id===id);if(!m)return;
+  const _snap={model:m.model||"",qty:m.qty,price:m.price||0,date:m.date||"",customs:m.customs||"",invoice:m.invoice||"",supplierId:m.supplierId||null,fee:m.fee||0,note:m.note||""};
   const nq=parseFloat($("#em_qty").value);if(!nq||nq<=0){$("#em_msg").textContent="أدخل كمية صحيحة.";return;}
   const newItemId=+($("#em_item").value)||m.itemId;
   const oldIt=DB.items.find(i=>i.id===m.itemId),newIt=DB.items.find(i=>i.id===newItemId);
@@ -1517,7 +1716,7 @@ function saveMovement(id){
   const availNew=stockOf(newItemId)+(m.itemId===newItemId?(isIn(m.type)?-m.qty:m.qty):0);
   if(m.type==="outbound"&&!allowOversell()&&nq>availNew){
     if(oldIt)oldIt.qty+=isIn(m.type)?m.qty:-m.qty;   // تراجع عن العكس
-    $("#em_msg").textContent=`الرصيد غير كافٍ للصنف «${itemModel(newIt)}» (المتاح ${availNew}).`;return;
+    $("#em_msg").innerHTML=`الرصيد غير كافٍ للصنف «${itemModel(newIt)}» (المتاح ${availNew}). ➕ <b>الرجاء إضافة الفسح (وارد) أولاً حتى يمكنك البيع.</b>`;return;
   }
   if(m.type==="inbound"&&!simpleCo()&&!(+($("#em_sup")?.value))){
     if(oldIt)oldIt.qty+=isIn(m.type)?m.qty:-m.qty;   // تراجع عن العكس
@@ -1549,6 +1748,7 @@ function saveMovement(id){
   if(m.type==="inbound")m.supplierId=+($("#em_sup").value)||null;
   const ref=$("#em_ref").value||"";if(m.type==="inbound")m.customs=ref;else m.invoice=ref;
   m.balAfter=newIt.qty;m.editedBy=ME.name;m.editedAt=new Date().toISOString();
+  recordMoveEdit(m,_snap);   // سجل ما تغيّر (قبل ← بعد)
   logAct("تعديل حركة",`${m.model||""} كمية ${nq}`);save();
   document.querySelector(".modal").remove();toast("تم تعديل الحركة");keepScroll();
   if($("#recentMoves"))renderRecent();if($("#lTbl"))renderLedger();if($("#reportOut"))renderReport();
@@ -1605,6 +1805,23 @@ function sourcesForSale(mv){
 }
 /* تكلفة البيع الحقيقية وفق الدفعات المستهلكة */
 function saleCost(mv){return sourcesForSale(mv).reduce((s,x)=>s+x.take*(x.m.price||0),0);}
+/* البحث عن رقم فسح — يعرض كل حركات الوارد المرتبطة به (التاريخ/الصنف/المورد/الكمية/التكلفة/المتبقي) */
+function lookupCustoms(){
+  const no=prompt("أدخل رقم الفسح للبحث عن حركات الوارد المرتبطة به:");if(no===null)return;
+  const q=no.trim();if(!q)return;
+  const lines=cmoves().filter(m=>m.type==="inbound"&&String(m.customs||"").trim()===q).sort((a,b)=>mvCmpAsc(b,a));
+  if(!lines.length){toast("لا يوجد فسح بهذا الرقم");return;}
+  const totalQty=lines.reduce((s,m)=>s+m.qty,0),totalVal=lines.reduce((s,m)=>s+m.qty*(m.price||0),0);
+  const rows=lines.map(m=>{const it=DB.items.find(x=>x.id===m.itemId)||{};const sup=DB.suppliers.find(s=>s.id===m.supplierId);
+    const b=itemBatches(m.itemId).find(x=>x.id===m.id);const left=b?b.left:"—";
+    return `<tr><td>${esc((m.date||"").slice(0,10))}</td><td style="font-weight:600">${esc(m.model||itemModel(it))}</td>
+      <td>${esc(sup?sup.name:"—")}</td><td>${m.qty}</td><td>${money(m.price||0)}</td><td>${money(m.qty*(m.price||0))}</td>
+      <td style="font-weight:700;color:${(+left>0)?'var(--green)':'var(--muted)'}">${left}</td><td>${esc(m.userName||"")}</td>
+      <td class="no-print" style="white-space:nowrap">${can("canEdit")?`<button class="btn blue sm" onclick="editMovement(${m.id})">تعديل</button>`:""}<button class="btn ghost sm" onclick="printReceipt(${m.id})">🖨️</button></td></tr>`;}).join("");
+  showPrint(`${brandHead()}<h2>📦 نتائج البحث عن رقم الفسح ${esc(q)}</h2>
+    <div style="margin-bottom:10px;color:var(--muted)">عدد حركات الوارد: <b>${lines.length}</b> · إجمالي الكمية: <b>${totalQty}</b> · إجمالي التكلفة: <b>${money(totalVal)} ﷼</b></div>
+    <table><tr><th>التاريخ</th><th>الموديل / الصنف</th><th>المورد</th><th>الكمية</th><th>سعر التكلفة</th><th>الإجمالي</th><th>المتبقي من الدفعة</th><th>الموظف</th><th class="no-print"></th></tr>${rows}</table>`);
+}
 function lookupInvoice(){
   const no=prompt("أدخل رقم فاتورة البيع للبحث عن جميع تفاصيلها:");if(no===null)return;
   const q=no.trim();if(!q)return;
@@ -1866,6 +2083,7 @@ function pDashboard(){
     <div class="stat"><div class="lbl">💰 قيمة المخزون (بالتكلفة)</div><div class="val" style="color:var(--blue,#2563eb)">${money(stockValue)} <span style="font-size:11px;color:var(--muted)">﷼</span></div></div>
     <div class="stat"><div class="lbl">أصناف بالسالب</div><div class="val" style="color:var(--red)">${neg.length}</div></div>
   </div>
+  ${(function(){const b=CI.filter(i=>normCat(i.category)==="غرف نوم"&&bal(i)>1);return b.length?`<div style="background:#fef3c7;color:#92400e;border:1px solid #fcd34d;border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:13px;font-weight:600">⚠️ تنبيه: يوجد <b>${b.length}</b> من غرف النوم برصيد أكثر من 1 (${b.map(i=>esc(itemModel(i))+"="+bal(i)).join("، ")}) — غير معتاد، راجِعها من «تدقيق الدفتر».</div>`:"";})()}
   <div class="card">
     <div class="card-title" style="display:flex;justify-content:space-between;align-items:center"><span>جرد الأرصدة الحالية</span>
       <button class="btn green sm" onclick="exportBalances()">⬇ تصدير Excel</button></div>
@@ -2153,6 +2371,8 @@ function auditStock(){
   Object.values(grp).forEach(a=>{if(a.length<2)return;
     a.sort((x,y)=>_recTime(y)-_recTime(x)); // نُبقي الأحدث تعديلاً ونعرض الباقي للحذف
     for(let i=1;i<a.length;i++)dupExtras.push(a[i]);});
+  // ٥) غرف نوم برصيد أكثر من 1 (غير معتاد — أطقم فريدة)
+  const bedExcess=citems().filter(i=>normCat(i.category)==="غرف نوم"&&stockOf(i.id)>1).map(i=>({m:itemModel(i),q:stockOf(i.id)}));
   const el=document.createElement("div");el.className="modal";
   el.innerHTML=`<div class="box" style="max-width:640px;max-height:88vh;overflow:auto"><h3>🔍 تدقيق دفتر المخزون</h3>
     <p style="font-size:13px;color:var(--muted);margin-bottom:8px">المصدر الوحيد للرصيد هو دفتر الحركات؛ هذه فحوص للتحقق من التطابق.</p>
@@ -2165,6 +2385,9 @@ function auditStock(){
     <div style="font-weight:800;color:${dupExtras.length?'var(--red)':'var(--green)'};margin:10px 0 4px">٤) حركات مكرّرة مشتبهة (${dupExtras.length})</div>
     ${dupExtras.length?`<p style="font-size:12px;color:var(--muted);margin-bottom:6px">حركات بنفس الصنف والكمية والتاريخ والمستند (فسح/فاتورة) — راجِعها واحذف المكرّر منها فقط إن كان خطأً.</p>
       <div class="table-wrap"><table><thead><tr><th>الموديل</th><th>النوع</th><th>الكمية</th><th>التاريخ</th><th>فسح/فاتورة</th><th></th></tr></thead><tbody>${dupExtras.map(m=>{const it=DB.items.find(i=>i.id===m.itemId)||{};return `<tr><td>${esc(m.model||itemModel(it))}</td><td>${typeAr(m.type)}</td><td>${m.qty}</td><td>${esc(m.date||"")}</td><td>${esc(m.type==="inbound"?(m.customs||""):(m.invoice||""))}</td><td>${can("canDelete")?`<button class="btn red sm" onclick="if(delMovement(${m.id})!==false){this.closest('.modal').remove();auditStock();}">حذف المكرّر</button>`:""}</td></tr>`;}).join("")}</tbody></table></div>`:`<p style="color:var(--green);font-size:13px">✔ لا حركات مكرّرة</p>`}
+    <div style="font-weight:800;color:${bedExcess.length?'var(--amber)':'var(--green)'};margin:10px 0 4px">٥) غرف نوم برصيد أكثر من 1 (${bedExcess.length})</div>
+    ${bedExcess.length?`<p style="font-size:12px;color:var(--muted);margin-bottom:6px">غرف النوم أطقم فريدة — تحقّق من هذه الأرصدة فقد تدل على إدخال مكرر.</p>
+      <div class="table-wrap"><table><thead><tr><th>الموديل</th><th>الرصيد</th></tr></thead><tbody>${bedExcess.map(x=>`<tr><td>${esc(x.m)}</td><td style="color:var(--amber);font-weight:700">${x.q}</td></tr>`).join("")}</tbody></table></div>`:`<p style="color:var(--green);font-size:13px">✔ لا توجد غرف نوم برصيد غير معتاد</p>`}
     <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
       ${mism.length?`<button class="btn green" onclick="recalcStock();save();this.closest('.modal').remove();toast('تمت مزامنة الأرصدة مع الدفتر');if(CURRENT_PAGE)refreshView();">🔧 مزامنة الأرصدة مع الدفتر</button>`:""}
       <button class="btn gray" onclick="this.closest('.modal').remove()">إغلاق</button></div></div>`;
@@ -2349,7 +2572,7 @@ function renderLedger(){
     return `<tr><td>${esc(m.date||fmt(m.at))}</td><td><span class="tag ${m.type}">${typeAr(m.type)}</span></td>
       <td style="font-weight:700;color:${isIn(m.type)?'var(--green)':'var(--amber)'}">${isIn(m.type)?"+":"−"}${m.qty}</td>
       <td>${BAL[m.id]??m.balAfter??"—"}</td><td>${esc(m.model||it.model||"")}</td><td>${esc(m.customs||"")}</td>
-      <td>${esc(m.invoice||"")}</td><td>${esc(sup?sup.name:"")}</td><td>${esc(m.userName)}</td><td>${esc(m.note||"")}</td>
+      <td>${esc(m.invoice||"")}</td><td>${esc(sup?sup.name:"")}</td><td>${userCell(m)}</td><td>${esc(m.note||"")}</td>
       <td style="white-space:nowrap">${can("canEdit")?`<button class="btn blue sm" onclick="editMovement(${m.id});return false">تعديل</button>`:""}
         ${can("canDelete")?`<button class="btn red sm" onclick="if(delMovement(${m.id})!==false)renderLedger()">حذف</button>`:""}</td></tr>`;}).join("")
     ||`<tr><td colspan="11" class="empty">لا حركات مطابقة.</td></tr>`;
@@ -3098,8 +3321,7 @@ function pSettings(){
       <div class="field" style="margin-bottom:12px"><label>الشعار (اختياري — يظهر بدل الرمز)</label>
         <input type="file" id="setLogo" accept="image/*" onchange="pickLogo(event)">
         <div style="margin-top:8px">${c.logo?`<img src="${c.logo}" class="brandlogo">`:`<span style="font-size:26px">${esc(c.icon||"🏢")}</span>`}</div></div>
-      <label style="display:flex;align-items:center;gap:8px;margin:10px 0;font-size:13px;font-weight:600;cursor:pointer">
-        <input type="checkbox" id="setOversell" ${DB.settings&&DB.settings.allowOversell?"checked":""} style="width:auto"> السماح بالبيع بالسالب (تجاوز الرصيد المتاح)</label>
+      <div style="display:flex;align-items:center;gap:8px;margin:10px 0;font-size:12.5px;color:var(--green);font-weight:600">🔒 البيع بالسالب ممنوع — لا يمكن صرف أكثر من الرصيد المتاح.</div>
       <label style="display:flex;align-items:flex-start;gap:8px;margin:10px 0;font-size:13px;font-weight:600;cursor:pointer;background:var(--card2,rgba(0,0,0,.03));padding:10px;border-radius:9px">
         <input type="checkbox" id="setSimple" ${c.simple?"checked":""} style="width:auto;margin-top:3px">
         <span>📦 نمط «المتابعة فقط» لهذه الشركة<br><span style="font-weight:400;color:var(--muted);font-size:12px">تتبّع الوارد والمنصرف بسهولة — التكاليف والأسعار ورقم الفسح/الفاتورة تصبح <b>اختيارية</b> (مناسب لمخزون الجملة).</span></span></label>
@@ -3128,7 +3350,7 @@ function saveSettings(){
   if(!guard("settings"))return;
   const c=curCompany();c.name=$("#setCompany").value.trim()||"شركتي";c.icon=$("#setIcon").value.trim()||"🏢";
   DB.settings.appName=$("#setApp").value.trim()||"نظام إدارة المخزون";
-  DB.settings.allowOversell=!!($("#setOversell")&&$("#setOversell").checked);
+  DB.settings.allowOversell=false;   // ممنوع نهائياً
   c.simple=!!($("#setSimple")&&$("#setSimple").checked);
   if(_logoData){c.logo=_logoData;_logoData="";}
   if(DB.companies[0]&&DB.companies[0].id===c.id)DB.settings.company=c.name;
