@@ -295,7 +295,7 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:#0d9488;box-sh
    ============================================================ */
 const KEY="inv_system_v2";
 /* رقم إصدار التطبيق — يُزاد مع كل تحديث؛ يُقارَن بالنسخة المنشورة لإظهار زر التحديث */
-const APP_VERSION="2026-11-17-02";
+const APP_VERSION="2026-11-17-03";
 let DB,ME;
 /* التحقق من توفّر نسخة أحدث بجلب الملف نفسه (بدون كاش) ومقارنة رقم الإصدار */
 function checkForUpdate(){
@@ -1140,7 +1140,7 @@ function pMove(){
         ${csups().map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join("")}</select></div>
       <div class="cell c4 docIn"><label>رقم الفسح الجمركي ${simpleCo()?"(اختياري)":"* (إجباري للوارد)"}</label><input id="mCustoms" placeholder="رقم الفسح" oninput="checkCustomsDup()">
         <div id="customsHint" style="font-size:12px;margin-top:3px"></div>
-        <a onclick="openCancelCustoms()" style="color:var(--amber);cursor:pointer;font-weight:700;font-size:12px">🚫 تسجيل رقم فسح ملغي (بدون تفاصيل)</a></div>
+        ${(ME&&ME.role==="admin")?`<a onclick="openCancelCustoms()" style="color:var(--amber);cursor:pointer;font-weight:700;font-size:12px">🚫 تسجيل رقم فسح ملغي (بدون تفاصيل)</a>`:""}</div>
       <div class="cell c4 docOut"><label>${simpleCo()?"رقم فسح العميل * (إجباري)":"رقم سند/فاتورة البيع * (إجباري)"}</label><input id="mInvoice" placeholder="${simpleCo()?"رقم فسح العميل":"رقم السند / الفاتورة"}" oninput="checkInvoiceDup()">
         <div id="invoiceHint" style="font-size:12px;margin-top:3px"></div></div>
       ${simpleCo()?"":`<div class="cell c6 docOut"><label>🧾 إجمالي الفاتورة كما هو مسجّل لديك ﷼</label><input id="mInvTotal" type="number" inputmode="decimal" step="0.01" placeholder="مثال: 4000" oninput="recoCheck()"></div>
@@ -1404,7 +1404,7 @@ function checkInvoiceDup(){
 }
 /* تسجيل رقم فسح ملغي: التاريخ + الرقم فقط، بلا أصناف — يحجز الرقم في التسلسل ويمنع تكراره */
 function openCancelCustoms(){
-  if(!guard("canAdd"))return;
+  if(!ME||ME.role!=="admin"){toast("هذه الخاصية لمدير النظام فقط");return;}
   const el=document.createElement("div");el.className="modal";el.id="cancelCustomsModal";
   el.innerHTML=`<div class="box" style="max-width:440px"><h3>🚫 تسجيل رقم فسح ملغي</h3>
     <p style="font-size:13px;color:var(--muted)">يُسجَّل الرقم كملغى (بدون أصناف أو تفاصيل) ليُحجَز في التسلسل ولا يُعاد استخدامه، ولا يظهر كرقم ناقص.</p>
