@@ -2449,7 +2449,7 @@ td.cash-in{color:#1f6b45;font-weight:700}td.cash-out{color:#b42318;font-weight:7
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-16-f';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-17-a';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   /* أخطاء سباق عرض غير مؤذية (إعادة رسم أثناء مغادرة خانة) — لا تُعرض كعطل ولا توقف النظام */
@@ -8654,16 +8654,23 @@ function invLines(d){ var r=+d.vatRate; if(!isFinite(r)) r=vatRate(); var V=docV
   var sv=out.reduce(function(a,x){ return a+x.vat; },0), df=round2(V-sv), last=null; out.forEach(function(x){ if(x.lm!=='none') last=x; });
   if(last&&df&&Math.abs(df)<1){ last.vat=round2(last.vat+df); last.grand=last.net+last.vat; }
   return out; }
+/* فواتير يوم: نفس الشرط للعدّاد وللطباعة — لا تتأثر بفلاتر شاشة التقارير، وتحترم «يرى إدخالاته فقط» للموظف */
+function diDocs(k,date,tf){ return (k==='s'?db.sales:db.purchases).filter(function(x){ return x.date===date&&canSeeRec(x)&&(!tf||tf==='all'||(tf==='tax')===(docVat(x)>0.005)); }); }
+function diLastDate(k,before){ var m=''; (k==='s'?db.sales:db.purchases).forEach(function(x){ if(x.date&&canSeeRec(x)&&(!before||x.date<=before)&&x.date>m) m=x.date; }); return m; }
 function dayInvoicesOpen(k){ var def=val(k==='s'?'s_date':'p_date')||today(), m=document.getElementById('dsModal');
+  if(!diDocs(k,def).length){ var ld=diLastDate(k,def)||diLastDate(k); if(ld) def=ld; }   /* اليوم بلا فواتير ⇒ افتح على آخر يوم فيه فواتير */
   if(!m){ m=document.createElement('div'); m.id='dsModal'; m.className='ds-modal'; m.onclick=function(e){ if(e.target===m) dsClose(); }; document.body.appendChild(m); }
-  var cnt=function(tf){ return (k==='s'?db.sales:db.purchases).filter(function(x){ return x.date===(val('di_date')||def)&&(tf==='all'||(tf==='tax')===(docVat(x)>0.005)); }).length; };
+  var cnt=function(tf){ return diDocs(k,val('di_date')||def,tf).length; };
   var B=function(tf,t){ return '<button class="btn'+(tf==='all'?'':'-alt')+'" style="flex:1 1 180px" onclick="var d=val(\'di_date\');dsClose();rptReady(function(){ dayInvoices(\''+k+'\',d,\''+tf+'\'); })">'+t+'</button>'; };
   m.innerHTML='<div class="ds-box" style="max-width:560px"><div class="ds-bar"><b>🖨 '+(k==='s'?'فواتير البيع':'فواتير الشراء')+' ليوم معيّن</b><span class="ds-acts"><button class="btn-sm" onclick="dsClose()">✕</button></span></div>'
     +'<div style="padding:14px"><label class="mini">التاريخ</label><br><input type="date" id="di_date" value="'+esc(def)+'" onchange="dayInvoicesOpen._paint&&dayInvoicesOpen._paint()"><div id="di_cnt" class="mini" style="margin:8px 0"></div>'
     +'<div style="display:flex;gap:8px;flex-wrap:wrap">'+B('all','📄 كل الفواتير')+B('tax','🧾 الخاضعة للضريبة فقط')+B('notax','📄 بدون ضريبة فقط')+'</div></div></div>';
-  dayInvoicesOpen._paint=function(){ var e=document.getElementById('di_cnt'); if(e) e.textContent='في هذا اليوم: '+cnt('all')+' فاتورة — منها '+cnt('tax')+' بضريبة و'+cnt('notax')+' بدون ضريبة'; };
+  dayInvoicesOpen._paint=function(){ var e=document.getElementById('di_cnt'); if(!e) return; var d=val('di_date')||def, n=cnt('all');
+    if(n){ e.innerHTML='في هذا اليوم: <b>'+n+'</b> فاتورة — منها '+cnt('tax')+' بضريبة و'+cnt('notax')+' بدون ضريبة'; return; }
+    var ld=diLastDate(k,d)||diLastDate(k);
+    e.innerHTML='⚠ لا توجد '+(k==='s'?'فواتير بيع':'فواتير شراء')+' بتاريخ '+esc(d)+(ld?' — آخر يوم فيه فواتير: <b>'+esc(ld)+'</b> <button class="btn-sm" onclick="setVal(\'di_date\',\''+ld+'\');dayInvoicesOpen._paint()">اختيار هذا اليوم</button>':''); };
   m.style.display='block'; dayInvoicesOpen._paint(); }
-function dayInvoices(k,date,tf){ var sale=k==='s', docs=(sale?db.sales:db.purchases).filter(function(x){ return x.date===date&&inPartyScope(sale?'client':'supplier',sale?x.clientId:x.supplierId)&&(!tf||tf==='all'||(tf==='tax')===(docVat(x)>0.005)); })
+function dayInvoices(k,date,tf){ var sale=k==='s', docs=diDocs(k,date,tf)
     .sort(function(a,b){ return String(a.no||'').localeCompare(String(b.no||''))||(a.id-b.id); });
   if(!docs.length){ toast('لا توجد '+(sale?'فواتير بيع':'فواتير شراء')+(tf==='tax'?' بضريبة':(tf==='notax'?' بدون ضريبة':''))+' بتاريخ '+date); return; }
   var TFL=tf==='tax'?' — الفواتير الخاضعة للضريبة فقط':(tf==='notax'?' — الفواتير بدون ضريبة فقط':'');
