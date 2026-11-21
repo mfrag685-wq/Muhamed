@@ -141,9 +141,9 @@
   <main>
     <!-- ===== الحالة ===== -->
     <section class="page on" id="dash">
-      <div class="head"><h2>الحالة العامة</h2><p>محرّك يعمل بالكامل داخل متصفحك — يشارك بياناتك بين ٣ أنظمة دفترة، ويحفظ حالته تلقائياً.</p></div>
+      <div class="head"><h2>الحالة العامة</h2><p>محرّك يعمل بالكامل داخل متصفحك — يشارك بياناتك بين أنظمة دفترة (<span id="s-sys-txt">٥</span> حالياً، وتقبل الإضافة)، ويحفظ حالته تلقائياً.</p></div>
       <div class="cmdbar">
-        <input id="cmd" placeholder="سطر أوامر… مثال: سمِّ نظام: 1 = فرع جدة  |  فعّل نظام: 2  |  حدّث حساب: 1101 ← الخزينة  |  الحالة" onkeydown="if(event.key==='Enter')runCmd()">
+        <input id="cmd" placeholder="سطر أوامر… مثال: فعّل نظام: منارة 110  |  سمِّ نظام: 6 = فرع جديد  |  أضف نظام: الاسم  |  الأنظمة  |  الحالة" onkeydown="if(event.key==='Enter')runCmd()">
         <button class="btn-primary" onclick="runCmd()">تنفيذ</button>
       </div>
       <div class="notice" id="persist-note"></div>
@@ -156,7 +156,7 @@
       <div class="split">
         <div class="card">
           <h3>ابدأ بسرعة</h3>
-          <div class="hint">حمّل بيانات جاهزة للتجربة، سمِّ أنظمتك الثلاثة، أو ارفع أول ملف.</div>
+          <div class="hint">حمّل بيانات جاهزة للتجربة، سمِّ أنظمتك أو أضف نظاماً جديداً، أو ارفع أول ملف.</div>
           <button class="btn-primary" onclick="seedDemo()">بيانات نموذجية</button>
           <button onclick="go('systems')">سمِّ الأنظمة</button>
           <button onclick="go('p1')">ارفع ملف مبيعات</button>
@@ -171,14 +171,14 @@
 
     <!-- ===== الأنظمة ===== -->
     <section class="page" id="systems">
-      <div class="head"><h2>الأنظمة المحاسبية <span style="font-weight:400;color:var(--muted);font-size:13px">— ٣ أنظمة دفترة تتشارك نفس البيانات</span></h2>
+      <div class="head"><h2>الأنظمة المحاسبية <span style="font-weight:400;color:var(--muted);font-size:13px">— <span id="sys-count-txt">٥</span> أنظمة دفترة، أضف أو احذف ما تشاء</span></h2>
         <p>سمِّ كل نظام باسمٍ يخصّه (فرع، شركة، أو مرحلة)، واضبط اتصاله الخاص بدفترة. الحسابات والمطابقة والضريبة تبقى مشتركة بينها جميعاً.</p></div>
       <div class="notice">💡 الفكرة: بيانات واحدة (دليل حسابات + مطابقة + ضرائب) تُدار مركزياً، بينما لكل نظام <b>اسمه</b> و<b>اتصاله</b> المستقل. بدّل النظام النشِط من القائمة الجانبية لتوجيه الاستيراد والنقل إليه.</p></div>
       <div class="card">
         <h3>إدارة الأنظمة</h3>
         <div class="hint">النظام المُحاط بإطار أخضر هو النشِط حالياً. اضغط «تعيين نشِطاً» للتبديل.</div>
         <div class="sys-grid" id="sys-grid"></div>
-        <button style="margin-top:14px" onclick="addSystem()">＋ إضافة نظام آخر</button>
+        <div class="row" style="margin-top:14px"><div class="field"><input id="new-sys-name" placeholder="اسم النظام الجديد… مثال: أركان 330" onkeydown="if(event.key==='Enter'){addSystem(this.value);this.value='';}"></div><button onclick="const el=$('#new-sys-name');addSystem(el.value);el.value='';">＋ إضافة نظام</button></div>
       </div>
     </section>
 
@@ -368,13 +368,16 @@
 <script>
 /* ============ الحالة + الحفظ الدائم ============ */
 const KEY='daftra_sys_v3';
+/* الحسابات الافتراضية — كل حساب دفترة كيان مستقل. يمكن إضافة أي عدد آخر لاحقاً. */
+const DEFAULT_SYSTEM_NAMES=['منارة 110','منارة 220','أركان 110','أركان 220','المعرض'];
+function defaultSystems(){return DEFAULT_SYSTEM_NAMES.map(n=>({name:n,sub:'',hdr:'APIKEY',key:''}));}
+/* توحيد الأسماء للمقارنة: يتجاهل التشكيل والهمزات والتاء المربوطة والأرقام الهندية */
+function normName(s){return String(s||'').replace(/[\u064B-\u0652\u0640]/g,'').replace(/[أإآ]/g,'ا').replace(/ة/g,'ه').replace(/ى/g,'ي').replace(/[٠-٩]/g,d=>'٠١٢٣٤٥٦٧٨٩'.indexOf(d)).replace(/\s+/g,' ').trim().toLowerCase();}
+const PLACEHOLDER_NAMES=['النظام الأول','النظام الثاني','النظام الثالث'].map(normName);
 let PERSIST=true;
 const S={
-  systems:[
-    {name:'النظام الأول',sub:'',hdr:'APIKEY',key:''},
-    {name:'النظام الثاني',sub:'',hdr:'APIKEY',key:''},
-    {name:'النظام الثالث',sub:'',hdr:'APIKEY',key:''}
-  ],
+  ver:4,
+  systems:defaultSystems(),
   activeSystem:0,
   xmap:{},
   keys:[],accounts:[],matches:[],tax:[
@@ -383,18 +386,35 @@ const S={
 let p3lines=[], parsed=null;
 
 function save(){ if(!PERSIST)return; try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){PERSIST=false;} }
-function load(){ try{const r=localStorage.getItem(KEY); if(r){Object.assign(S,JSON.parse(r));} migrate(); return true;}catch(e){PERSIST=false;return false;} }
+function load(){ try{const r=localStorage.getItem(KEY); if(r){const o=JSON.parse(r);/* بيانات محفوظة قديمة بلا رقم إصدار أو بلا أنظمة (v2) تمرّ على الترحيل */if(!('ver' in o))o.ver=0;if(!Array.isArray(o.systems))o.systems=[];Object.assign(S,o);} migrate(); return true;}catch(e){PERSIST=false;return false;} }
 /* ترحيل من الإصدار v2 (conn مفرد) إلى الأنظمة المتعددة */
 function migrate(){
   if(!Array.isArray(S.systems)||!S.systems.length){
-    const c=S.conn||{sub:'',hdr:'APIKEY',key:''};
-    S.systems=[{name:'النظام الأول',sub:c.sub||'',hdr:c.hdr||'APIKEY',key:c.key||''},
-               {name:'النظام الثاني',sub:'',hdr:'APIKEY',key:''},
-               {name:'النظام الثالث',sub:'',hdr:'APIKEY',key:''}];
+    const c=S.conn;
+    /* v2: اتصال مفرد — يُحفظ كما هو كنظام مستقل حتى لا يُنسب لحساب بالتخمين */
+    S.systems=(c&&(c.sub||c.key))?[{name:'النظام الأول',sub:c.sub||'',hdr:c.hdr||'APIKEY',key:c.key||''}]:[];
+    if(!S.systems.length){S.systems=defaultSystems();S.ver=4;}
   }
-  if(typeof S.activeSystem!=='number'||S.activeSystem>=S.systems.length)S.activeSystem=0;
   if(!S.xmap||typeof S.xmap!=='object')S.xmap={};
+  if(!(S.ver>=4))ensureDefaultSystems();
+  S.ver=4;
+  if(typeof S.activeSystem!=='number'||S.activeSystem<0||S.activeSystem>=S.systems.length)S.activeSystem=0;
   delete S.conn;
+}
+/* ترحيل v3 → v4: يضمن وجود الحسابات الخمسة دون المساس بأي بيانات محفوظة.
+   النظام ذو الاسم الافتراضي (الأول/الثاني/الثالث) يُعاد تسميته فقط إن كان فارغاً تماماً
+   (بلا نطاق ولا مفتاح ولا حسابات ولا ربط). غير ذلك تُضاف الأسماء الناقصة كأنظمة جديدة. */
+function sysIsEmpty(i){const sy=S.systems[i];if(!sy||sy.sub||sy.key)return false;
+  if(S.accounts.some(a=>(a.sys==null?0:a.sys)===i))return false;
+  if(Object.keys(S.xmap).some(k=>{const[f,t]=k.split('>').map(Number);return (f===i||t===i)&&Object.keys(S.xmap[k]||{}).length;}))return false;
+  return true;}
+function ensureDefaultSystems(){
+  const have=new Set(S.systems.map(sy=>normName(sy.name)));
+  const missing=DEFAULT_SYSTEM_NAMES.filter(n=>!have.has(normName(n)));
+  missing.forEach(n=>{
+    const ix=S.systems.findIndex((sy,i)=>PLACEHOLDER_NAMES.includes(normName(sy.name))&&sysIsEmpty(i));
+    if(ix>=0)S.systems[ix].name=n;else S.systems.push({name:n,sub:'',hdr:'APIKEY',key:''});
+  });
 }
 
 /* ============ ربط أكواد الحسابات بين الأنظمة ============ */
@@ -445,9 +465,22 @@ document.querySelectorAll('.nav-item').forEach(n=>n.onclick=()=>go(n.dataset.pag
 /* ============ الأنظمة المحاسبية ============ */
 function activeSys(){return S.systems[S.activeSystem]||S.systems[0];}
 function setActiveSystem(i){S.activeSystem=Math.max(0,Math.min(S.systems.length-1,parseInt(i)||0));const v=$('#acc-view');if(v)v.value=String(S.activeSystem);loadConnFields();render();toast('النظام النشِط: '+activeSys().name);logIt('تبديل نظام: '+activeSys().name);}
-function addSystem(){if(S.systems.length>=8)return toast('الحد الأقصى ٨ أنظمة',1);S.systems.push({name:'نظام '+(S.systems.length+1),sub:'',hdr:'APIKEY',key:''});render();toast('أُضيف نظام');}
-function delSystem(i){if(S.systems.length<=1)return toast('يجب إبقاء نظام واحد على الأقل',1);if(!confirm('حذف «'+S.systems[i].name+'»؟'))return;S.systems.splice(i,1);if(S.activeSystem>=S.systems.length)S.activeSystem=S.systems.length-1;loadConnFields();render();toast('حُذف النظام');}
-function updSystem(i,f,v){S.systems[i][f]=v;if(i===S.activeSystem&&f!=='name')loadConnFields();if(f==='name'){renderSysSwitch();$('#conn-sysname').textContent=activeSys().name;}save();updateConnDot();renderSysBadges();}
+function findSystemByName(n){const k=normName(n);return S.systems.findIndex(sy=>normName(sy.name)===k);}
+function addSystem(name){name=String(name||'').trim()||('نظام '+(S.systems.length+1));
+  if(findSystemByName(name)>=0)return toast('يوجد نظام بنفس الاسم: '+name,1);
+  S.systems.push({name,sub:'',hdr:'APIKEY',key:''});render();toast('أُضيف «'+name+'» — رقمه '+S.systems.length);logIt('إضافة نظام: '+name);return S.systems.length-1;}
+/* الحذف يُزيل دليل حسابات النظام وروابطه فقط، ويُعيد ترقيم الأنظمة التالية حتى لا تُنسب بياناتها لنظام آخر */
+function delSystem(i){i=+i;if(!S.systems[i])return toast('رقم نظام غير موجود',1);if(S.systems.length<=1)return toast('يجب إبقاء نظام واحد على الأقل',1);
+  const nm=S.systems[i].name,nAcc=accountsOf(i).length;
+  if(!confirm('حذف «'+nm+'»؟'+(nAcc?('\nسيُحذف معه دليله ('+nAcc+' حساب) وروابط أكواده.'):'')))return;
+  const shift=x=>x>i?x-1:x;
+  S.accounts=S.accounts.filter(a=>(a.sys==null?0:a.sys)!==i).map(a=>{const s0=a.sys==null?0:a.sys;return Object.assign({},a,{sys:shift(s0)});});
+  const nx={};Object.keys(S.xmap).forEach(k=>{const[f,t]=k.split('>').map(Number);if(f===i||t===i)return;nx[xkey(shift(f),shift(t))]=S.xmap[k];});S.xmap=nx;
+  S.systems.splice(i,1);
+  if(S.activeSystem===i)S.activeSystem=0;else S.activeSystem=shift(S.activeSystem);
+  ['#acc-view','#x-from','#x-to','#p2-src','#p2-dst'].forEach(q=>{const el=$(q);if(el)el.innerHTML='';});
+  loadConnFields();render();toast('حُذف «'+nm+'»');logIt('حذف نظام: '+nm);}
+function updSystem(i,f,v){S.systems[i][f]=v;if(i===S.activeSystem&&f!=='name')loadConnFields();if(f==='name'){renderSysSwitch();$('#conn-sysname').textContent=activeSys().name;refreshSysSelects();}save();updateConnDot();renderSysBadges();}
 function sysConnected(sy){return !!(sy.sub&&sy.key);}
 function renderSystems(){
   const g=$('#sys-grid');if(!g)return;
@@ -479,18 +512,25 @@ function renderSysSwitch(){
   $('#sys-dot').classList.toggle('on',on);
   $('#sys-status').textContent=on?'مُهيّأ للاتصال':'يحتاج نطاقاً ومفتاحاً';
 }
-function renderSysBadges(){const b=$('#b-sys');if(b)b.textContent=S.systems.length;const s=$('#s-sys');if(s)s.textContent=S.systems.length;}
+/* يُحدّث أسماء الأنظمة في قوائم الاختيار مع الإبقاء على الاختيار الحالي */
+function refreshSysSelects(){['#acc-view','#x-from','#x-to'].forEach(q=>{const el=$(q);if(!el)return;[...el.options].forEach(o=>{const i=+o.value;if(i>=0&&S.systems[i])o.textContent=S.systems[i].name;});});fillRoutes();}
+function renderSysBadges(){const n=S.systems.length,ar=String(n).replace(/\d/g,d=>'٠١٢٣٤٥٦٧٨٩'[d]);const b=$('#b-sys');if(b)b.textContent=n;const s=$('#s-sys');if(s)s.textContent=n;['#s-sys-txt','#sys-count-txt'].forEach(q=>{const el=$(q);if(el)el.textContent=ar;});}
 
 /* ============ سطر الأوامر ============ */
+/* يحدّد النظام برقمه (1، ٢ …) أو باسمه (منارة 110). الرقم المجرّد يعني الترتيب. */
+function sysRef(r){r=String(r||'').trim();const d=normName(r);if(/^\d+$/.test(d)){const ix=parseInt(d,10)-1;return S.systems[ix]?ix:findSystemByName(r);}return findSystemByName(r);}
 function runCmd(){
   const c=$('#cmd').value.trim();if(!c)return;
   let m;
   if(/^الحالة/.test(c)){toast(`أنظمة ${S.systems.length} · حسابات ${S.accounts.length} · مطابقة ${S.matches.length} · ضرائب ${S.tax.length} · النشِط: ${activeSys().name}`);}
-  else if(m=c.match(/سمِّ?\s*نظام:\s*(\d+)\s*=\s*(.+)/)){const ix=parseInt(m[1])-1;if(S.systems[ix]){S.systems[ix].name=m[2].trim();toast('سُمّي النظام '+(ix+1)+' → '+m[2].trim());render();}else toast('رقم نظام غير موجود',1);}
-  else if(m=c.match(/فعّ?ل\s*نظام:\s*(\d+)/)){const ix=parseInt(m[1])-1;if(S.systems[ix])setActiveSystem(ix);else toast('رقم نظام غير موجود',1);}
+  else if(/^الأنظمة$/.test(c)){toast(S.systems.map((s,i)=>(i+1)+'. '+s.name).join(' · '));}
+  else if(m=c.match(/^سم[ِّ]*\s*(?:ال)?نظام\s*:\s*(.+?)\s*=\s*(.+)$/)){const ix=sysRef(m[1]);const nn=m[2].trim();if(ix<0)toast('نظام غير موجود: '+m[1],1);else{const dup=findSystemByName(nn);if(dup>=0&&dup!==ix)return toast('يوجد نظام آخر بنفس الاسم',1);S.systems[ix].name=nn;toast('سُمّي النظام '+(ix+1)+' → '+nn);refreshSysSelects();render();}}
+  else if(m=c.match(/^فع[ّ]*ل\s*(?:ال)?نظام\s*:\s*(.+)$/)){const ix=sysRef(m[1]);if(ix>=0)setActiveSystem(ix);else toast('نظام غير موجود: '+m[1],1);}
+  else if(m=c.match(/^(?:أ|ا)ضف\s*(?:ال)?نظام\s*:\s*(.+)$/)){addSystem(m[1]);}
+  else if(m=c.match(/^احذف\s*(?:ال)?نظام\s*:\s*(.+)$/)){const ix=sysRef(m[1]);if(ix>=0)delSystem(ix);else toast('نظام غير موجود: '+m[1],1);}
   else if(m=c.match(/حدّ?ث حساب:\s*(\S+)\s*[←<-]+\s*(.+)/)){const a=S.accounts.find(x=>x.code===m[1]);if(a){a.name=m[2].trim();toast('تم تحديث '+m[1]);}else{S.accounts.push({code:m[1],name:m[2].trim(),type:'أصول'});toast('أُضيف '+m[1]);}render();}
   else if(m=c.match(/ضريبة:\s*(شامل|مضافة|معفى)\s*(\d+)?/)){const mode=m[1]==='شامل'?'inclusive':m[1]==='مضافة'?'added':'exempt';S.tax.push({name:c.replace('ضريبة:','').trim(),rate:+(m[2]||0),mode});toast('أُضيف بروفايل ضريبة');render();}
-  else toast('أمر غير معروف. جرّب: الحالة / سمِّ نظام: 1 = الاسم / فعّل نظام: 2 / حدّث حساب: كود ← اسم',1);
+  else toast('أمر غير معروف. جرّب: الحالة / الأنظمة / سمِّ نظام: 1 = الاسم / فعّل نظام: منارة 110 / أضف نظام: الاسم / احذف نظام: 6 / حدّث حساب: كود ← اسم',1);
   logIt('أمر: '+c);$('#cmd').value='';
 }
 
@@ -685,8 +725,9 @@ function fillRoutes(){
   const optsDst=S.systems.map((sy,i)=>`<option value="sys:${i}">🏢 ${sy.name}</option>`).join('')
     + S.keys.filter(k=>k.type!=='src').map((k,i)=>`<option value="key:${i}">${k.name}</option>`).join('');
   const src=$('#p2-src'),dst=$('#p2-dst');
-  if(src)src.innerHTML=opts;
-  if(dst){dst.innerHTML=optsDst; if(S.systems.length>1)dst.selectedIndex=1;}
+  const keep=(el,html,def)=>{const v=el.value;el.innerHTML=html;if(v&&[...el.options].some(o=>o.value===v))el.value=v;else def&&def(el);};
+  if(src)keep(src,opts);
+  if(dst)keep(dst,optsDst,el=>{if(S.systems.length>1)el.selectedIndex=1;});
 }
 function routeLabel(v){if(!v)return '';const[t,i]=v.split(':');return t==='sys'?(S.systems[i]?S.systems[i].name:'?'):(S.keys[i]?S.keys[i].name:'?');}
 function previewP2(){const s=$('#p2-src').value,d=$('#p2-dst').value,n=parseInt($('#p2-count').value)||0;if(!s||!d)return toast('عرّف مصدراً ووجهة',1);if(s===d)return toast('المصدر والوجهة متطابقان',1);const sl=routeLabel(s),dl=routeLabel(d);
@@ -733,8 +774,8 @@ function exportP3(){const d=p3lines.reduce((s,l)=>s+(+l.d||0),0),c=p3lines.reduc
 /* ============ CSV / التهيئة ============ */
 function downloadCSV(rows,name){const csv='\uFEFF'+rows.map(r=>r.map(c=>`"${String(c==null?'':c).replace(/"/g,'""')}"`).join(',')).join('\n');const b=new Blob([csv],{type:'text/csv;charset=utf-8'});const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download=name+'.csv';a.click();URL.revokeObjectURL(u);}
 function exportConfig(){const b=new Blob([JSON.stringify(S,null,2)],{type:'application/json'});const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download='daftra_config.json';a.click();URL.revokeObjectURL(u);toast('صُدّرت التهيئة');}
-function importConfig(e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const o=JSON.parse(r.result);Object.assign(S,{keys:o.keys||[],accounts:o.accounts||[],matches:o.matches||[],tax:o.tax||S.tax,systems:o.systems||null,activeSystem:o.activeSystem||0,xmap:o.xmap||{},conn:o.conn});migrate();save();loadConnFields();render();toast('استُوردت التهيئة');go('dash');}catch{toast('ملف غير صالح',1);}};r.readAsText(f);}
-function resetAll(){if(confirm('مسح كل البيانات المحفوظة؟')){S.keys=[];S.accounts=[];S.matches=[];S.systems=[{name:'النظام الأول',sub:'',hdr:'APIKEY',key:''},{name:'النظام الثاني',sub:'',hdr:'APIKEY',key:''},{name:'النظام الثالث',sub:'',hdr:'APIKEY',key:''}];S.activeSystem=0;S.xmap={};try{localStorage.removeItem(KEY);}catch(e){}loadConnFields();render();toast('مُسح كل شيء');}}
+function importConfig(e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const o=JSON.parse(r.result);Object.assign(S,{keys:o.keys||[],accounts:o.accounts||[],matches:o.matches||[],tax:o.tax||S.tax,systems:Array.isArray(o.systems)?o.systems:[],activeSystem:o.activeSystem||0,xmap:o.xmap||{},conn:o.conn,ver:o.ver});migrate();save();loadConnFields();render();toast('استُوردت التهيئة');go('dash');}catch{toast('ملف غير صالح',1);}};r.readAsText(f);}
+function resetAll(){if(confirm('مسح كل البيانات المحفوظة؟')){S.keys=[];S.accounts=[];S.matches=[];S.systems=defaultSystems();S.ver=4;S.activeSystem=0;S.xmap={};try{localStorage.removeItem(KEY);}catch(e){}loadConnFields();render();toast('مُسح كل شيء');}}
 
 /* ============ نموذجية ============ */
 function seedDemo(){
@@ -757,7 +798,7 @@ function render(){renderSystems();renderSysSwitch();renderSysBadges();renderKeys
 /* ============ تشغيل ============ */
 load();
 loadConnFields();
-$('#persist-note').innerHTML=PERSIST?'✓ الحفظ التلقائي مُفعّل — بياناتك والأنظمة الثلاثة محفوظة في هذا المتصفح بين الجلسات.':'⚠ تعذّر الحفظ الدائم في هذه البيئة — استخدم «تصدير التهيئة» يدوياً.';
+$('#persist-note').innerHTML=PERSIST?'✓ الحفظ التلقائي مُفعّل — بياناتك وكل الأنظمة محفوظة في هذا المتصفح بين الجلسات.':'⚠ تعذّر الحفظ الدائم في هذه البيئة — استخدم «تصدير التهيئة» يدوياً.';
 if(!PERSIST)$('#persist-note').className='notice warn';
 const dp=$('#drop');['dragover','dragenter'].forEach(ev=>dp.addEventListener(ev,e=>{e.preventDefault();dp.classList.add('over');}));['dragleave','drop'].forEach(ev=>dp.addEventListener(ev,e=>{e.preventDefault();dp.classList.remove('over');}));dp.addEventListener('drop',e=>{if(e.dataTransfer.files[0])readFile(e.dataTransfer.files[0]);});
 render();renderP3();
