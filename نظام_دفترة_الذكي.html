@@ -111,7 +111,7 @@
   <aside>
     <div class="brand">
       <div class="mark">دَ</div>
-      <div><h1>النظام الذكي لدفترة</h1><span>v4.3 · محرّك متعدد الأنظمة · 2026-11-21</span></div>
+      <div><h1>النظام الذكي لدفترة</h1><span>v4.4 · محرّك متعدد الأنظمة · 2026-11-21</span></div>
     </div>
     <div class="sys-switch">
       <label>النظام النشِط</label>
@@ -226,6 +226,11 @@
     <section class="page" id="accounts">
       <div class="head"><h2>الدليل المحاسبي</h2><p>لكل نظام دليله المحاسبي الخاص. يظهر أعلى الصفحة النظام الذي تُضيف حساباته الآن — وهو النظام النشِط.</p></div>
       <div class="notice">تُضاف الحسابات الآن إلى: <b id="acc-target" style="color:var(--teal)">—</b>. لتغيير النظام بدّل «النظام النشِط» من القائمة الجانبية. <br>💡 وجود دليل كل نظام يجعل نقل البيانات بينها أدق: نطابِق كود الحساب هنا بكود مقابله في النظام الآخر.</div>
+      <div class="card"><h3>⇣ جلب الدليل من دفترة</h3>
+        <div class="hint">يسحب دليل حسابات <b>النظام النشِط</b> مباشرة من دفترة (قراءة فقط، كل الصفحات). يُضيف الجديد ويحدّث الأسماء فقط، ولا يحذف أي حساب موجود. تُحفظ نسخة احتياطية قبل التحديث.</div>
+        <div class="row"><button class="btn-primary" onclick="pullChartFromDaftra()">جلب الدليل من دفترة</button>
+          <span class="tag-audit" style="margin:0">المسار: <span class="inline-code" contenteditable id="ep-accounts">/api2/journal_accounts</span></span></div>
+        <div id="acc-pull-out"></div></div>
       <div class="card"><h3>استيراد / تصدير الدليل المحاسبي</h3>
         <div class="hint">ارفع ملف CSV أو Excel لدليل حسابات النظام النشِط (أعمدة: الكود، الاسم، النوع). أو صدّر الدليل الحالي.</div>
         <div class="row">
@@ -342,7 +347,7 @@
           <div class="field" style="max-width:140px"><label>مركز التكلفة</label><input id="j-cc" placeholder="اختياري"></div>
         </div>
       </div>
-      <div class="card"><h3>سطور القيد <span style="font-weight:400;color:var(--muted);font-size:12px">— النظام يوازن آلياً</span></h3>
+      <div class="card"><h3>سطور القيد <span style="font-weight:400;color:var(--muted);font-size:12px">— النظام يوازن آلياً · الحسابات من دليل النظام النشِط (اكتب الكود أو الاسم)</span></h3>
         <div class="tbl-wrap"><table id="p3-tbl"><thead><tr><th style="width:36%">الحساب</th><th>مدين</th><th>دائن</th><th>البيان</th><th>ضريبة</th><th></th></tr></thead><tbody id="p3-body"></tbody></table></div>
         <div class="balance-scale">
           <div class="scale-side"><div class="lbl">إجمالي المدين</div><div class="val" id="sc-debit" style="color:var(--blue)">0.00</div></div>
@@ -638,6 +643,46 @@ function recordsOf(j){const d=Array.isArray(j)?j:(Array.isArray(j&&j.data)?j.dat
 function recName(o,type){if(type==='clients'){const full=[o.first_name,o.last_name].filter(Boolean).join(' ').trim();return o.business_name||full||o.name||o.client_name||'';}return o.name||o.title||o.product_name||'';}
 function recCode(o){return o.id!=null&&o.id!==''?o.id:(o.code||o.client_number||o.product_code||'');}
 function withPage(ep,page,limit){return ep+(ep.includes('?')?'&':'?')+'page='+page+'&limit='+limit;}
+/* يجلب كل صفحات مسار api2 ويرجع السجلات بعد فكّ الغلاف */
+async function fetchAllRecords(ep,progress){
+  const all=[];let page=1,pages=1,total=null,firstKeys='';const LIMIT=100,MAXP=200;
+  do{
+    const r=await daftraFetch(withPage(ep,page,LIMIT));
+    if(!r.ok){const pm=await proxyMsg(r);const e=new Error('http');e.status=r.status;e.pm=pm;e.page=page;throw e;}
+    const j=await r.json();
+    if(page===1){const d0=j&&Array.isArray(j.data)?j.data[0]:null;firstKeys=d0?Object.keys(d0).join('، '):Object.keys(j||{}).join('، ');}
+    const recs=recordsOf(j);all.push(...recs);
+    const pg=j&&j.pagination;if(pg){pages=+pg.page_count||pages;if(pg.count!=null)total=+pg.count;}
+    if(progress)progress(page,pages,all.length);
+    if(!recs.length)break;page++;
+  }while(page<=pages&&page<=MAXP);
+  return {all,total,firstKeys};
+}
+async function pullChartFromDaftra(){
+  const sy=activeSys(),sys=S.activeSystem;const out=$('#acc-pull-out');
+  if(!sy.sub||!sy.key){out.innerHTML='<div class="notice warn">أكمل نطاق ومفتاح «'+sy.name+'» في صفحة الاتصال أولاً.</div>';return;}
+  const ep=$('#ep-accounts').textContent.trim();
+  out.innerHTML='<div class="tag-audit">جارٍ جلب دليل «'+sy.name+'»…</div>';
+  try{
+    const {all,total,firstKeys}=await fetchAllRecords(ep,(pg,pgs,n)=>{out.innerHTML='<div class="tag-audit">جارٍ جلب دليل «'+sy.name+'»… صفحة '+pg+(pgs>1?' من '+pgs:'')+' ('+n+' حساب)</div>';});
+    if(!all.length){out.innerHTML='<div class="notice warn">لم يُقرأ أي حساب من الرد. مفاتيح أول عنصر: <span class="inline-code">'+(firstKeys||'—')+'</span> — لم يتغيّر شيء.</div>';return;}
+    backupBefore('جلب الدليل ('+sy.name+')');
+    let add=0,upd=0,same=0,skip=0;
+    all.forEach(o=>{const code=String(o.code!=null&&o.code!==''?o.code:'').trim();const name=String(o.name||o.title||'').trim();
+      if(!code||!name){skip++;return;}
+      const type=String(o.type||o.account_type||o.nature||'').trim();
+      const ix=findAccIn(sys,code);
+      if(ix>=0){const a=S.accounts[ix];if(a.name===name&&(!type||a.type===type)){same++;return;}a.name=name;if(type)a.type=type;a.daftra_id=o.id;upd++;}
+      else{S.accounts.push({code,name,type:type||'—',sys,daftra_id:o.id});add++;}});
+    const v=$('#acc-view');if(v)v.value=String(sys);render();
+    const partial=(total!=null&&all.length<total)?'<br>⚠ جُلب '+all.length+' من أصل '+total+' — النتيجة جزئية.':'';
+    out.innerHTML='<div class="notice">✓ دليل «'+sy.name+'»: جُلب '+all.length+(total!=null?' (الإجمالي في دفترة: '+total+')':'')+' · أُضيف '+add+' · حُدّث '+upd+' · بلا تغيير '+same+(skip?' · بلا كود/اسم '+skip:'')+partial+'<br>الحسابات متاحة الآن للاختيار في «توليد القيود».</div>';
+    toast('جُلب الدليل: +'+add+' / ~'+upd);logIt('جلب دليل '+sy.name+': +'+add+' ~'+upd);
+  }catch(err){
+    if(err&&err.message==='http'){const hint=err.status===404?'المسار غير موجود — عدّله أعلاه حسب وثائق دفترة':(err.status===401||err.status===403)?'المفتاح لا يملك صلاحية قراءة الدليل':'تحقق من الاتصال';out.innerHTML='<div class="notice warn">استجاب الخادم بـ HTTP '+err.status+err.pm+' — '+hint+'. لم يتغيّر شيء.</div>';}
+    else out.innerHTML=connErrHtml(err,ep);
+  }
+}
 async function syncFrom(type){
   const sy=activeSys();
   const ep=(type==='clients'?$('#ep-clients'):$('#ep-products')).textContent.trim();
@@ -781,7 +826,7 @@ function execP2(s,d,n){$('#p2-out').innerHTML=`<div class="card"><h3>✓ جُه�
 
 /* ============ المسار الثالث ============ */
 function arNum(s){const map={'٠':'0','١':'1','٢':'2','٣':'3','٤':'4','٥':'5','٦':'6','٧':'7','٨':'8','٩':'9'};s=String(s).replace(/[٠-٩]/g,d=>map[d]);const m=s.match(/[\d]+(?:\.\d+)?/);return m?parseFloat(m[0]):0;}
-function findAcct(...names){for(const n of names){const a=S.accounts.find(x=>x.name.includes(n));if(a)return a.name+' ('+a.code+')';}return names[0];}
+function findAcct(...names){const list=accountsOf(S.activeSystem);for(const n of names){const a=list.find(x=>x.name.includes(n));if(a)return a.name;}return names[0];}
 function draftP3(){
   const t=$('#p3-text').value.trim();if(!t)return toast('اكتب وصف العملية',1);
   const amt=arNum(t);if(!amt)return toast('لم أجد مبلغاً',1);
@@ -803,8 +848,15 @@ function draftP3(){
 function addLine(){p3lines.push({acct:'',d:0,c:0,memo:'',tax:''});renderP3();}
 function delLine(i){p3lines.splice(i,1);renderP3();}
 function updLine(i,f,v){p3lines[i][f]=(f==='d'||f==='c')?(parseFloat(v)||0):v;calcBalance();}
+/* قائمة اختيار الحسابات في القيود = دليل النظام النشِط (الاسم + الكود) */
+function fillAcctList(){let dl=$('#p3-accts');if(!dl){dl=document.createElement('datalist');dl.id='p3-accts';document.body.appendChild(dl);}
+  const esc=x=>String(x).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+  dl.innerHTML=accountsOf(S.activeSystem).map(a=>`<option value="${esc(a.name)}" label="${esc(a.code)}">${esc(a.code)} · ${esc(a.name)}</option>`).join('');}
+function acctByInput(v){v=String(v||'').trim();if(!v)return null;const list=accountsOf(S.activeSystem);return list.find(a=>a.name===v)||list.find(a=>a.code===v)||null;}
+function acctCodeLabel(v){const a=acctByInput(v);if(a)return 'كود: '+a.code;return v&&accountsOf(S.activeSystem).length?'⚠ ليس في دليل '+accSysName(S.activeSystem):'';}
+function showAcctCode(el){const a=acctByInput(el.value);if(a&&a.code===el.value.trim()&&a.name!==el.value){el.value=a.name;el.dispatchEvent(new Event('input'));}const d=el.parentNode.querySelector('.acct-code');if(d)d.textContent=acctCodeLabel(el.value);}
 function renderP3(){const b=$('#p3-body');if(!p3lines.length){b.innerHTML='<tr><td colspan="6" class="empty">لا سطور. اكتب وصفاً واضغط «مسودة ذكية».</td></tr>';calcBalance();return;}
-  b.innerHTML=p3lines.map((l,i)=>`<tr><td><input value="${l.acct}" oninput="updLine(${i},'acct',this.value)" placeholder="الحساب"></td><td><input class="num" type="number" value="${l.d||''}" oninput="updLine(${i},'d',this.value)" placeholder="0"></td><td><input class="num" type="number" value="${l.c||''}" oninput="updLine(${i},'c',this.value)" placeholder="0"></td><td><input value="${l.memo}" oninput="updLine(${i},'memo',this.value)" placeholder="بيان"></td><td><input value="${l.tax||''}" oninput="updLine(${i},'tax',this.value)" placeholder="—" style="width:80px"></td><td><span class="del" onclick="delLine(${i})">✕</span></td></tr>`).join('');calcBalance();}
+  fillAcctList();b.innerHTML=p3lines.map((l,i)=>`<tr><td><input list="p3-accts" value="${String(l.acct).replace(/"/g,'&quot;')}" oninput="updLine(${i},'acct',this.value);showAcctCode(this)" onchange="showAcctCode(this)" placeholder="اختر أو اكتب الحساب"><div class="acct-code" style="font-size:11px;color:var(--muted);font-family:var(--mono)">${acctCodeLabel(l.acct)}</div></td><td><input class="num" type="number" value="${l.d||''}" oninput="updLine(${i},'d',this.value)" placeholder="0"></td><td><input class="num" type="number" value="${l.c||''}" oninput="updLine(${i},'c',this.value)" placeholder="0"></td><td><input value="${l.memo}" oninput="updLine(${i},'memo',this.value)" placeholder="بيان"></td><td><input value="${l.tax||''}" oninput="updLine(${i},'tax',this.value)" placeholder="—" style="width:80px"></td><td><span class="del" onclick="delLine(${i})">✕</span></td></tr>`).join('');calcBalance();}
 function calcBalance(){const d=p3lines.reduce((s,l)=>s+(+l.d||0),0),c=p3lines.reduce((s,l)=>s+(+l.c||0),0);$('#sc-debit').textContent=fmt(d);$('#sc-credit').textContent=fmt(c);const diff=Math.abs(d-c),ok=diff<0.005&&d>0;const mid=$('#sc-mid');mid.classList.toggle('ok',ok);mid.querySelector('.big').textContent=ok?'=':'≠';$('#sc-diff').textContent=ok?'متوازن':'فرق '+fmt(diff);}
 function exportP3(){const d=p3lines.reduce((s,l)=>s+(+l.d||0),0),c=p3lines.reduce((s,l)=>s+(+l.c||0),0);if(Math.abs(d-c)>=0.005||d===0)return toast('غير متوازن — لا يُصدَّر',1);const code=$('#j-code').value.trim()||'JRN001',date=$('#j-date').value.trim(),cur=$('#j-cur').value.trim()||'SAR',desc=$('#j-desc').value.trim(),cc=$('#j-cc').value.trim();const head=['Journal Code','Journal Date','Currency','Journal Description','Account Name','Transaction Description','Tags','Cost Center','Tax','Debit','Credit'];const rows=p3lines.map(l=>[code,date,cur,desc,l.acct,l.memo,'',cc,l.tax||'',(+l.d||0).toFixed(2),(+l.c||0).toFixed(2)]);downloadCSV([head,...rows],'daftra_journal_'+(activeSys().sub||'sys'+(S.activeSystem+1)));toast('صُدّر القيد');logIt('مسار3: تصدير');}
 
