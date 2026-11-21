@@ -111,7 +111,7 @@
   <aside>
     <div class="brand">
       <div class="mark">دَ</div>
-      <div><h1>النظام الذكي لدفترة</h1><span>v4.4 · محرّك متعدد الأنظمة · 2026-11-21</span></div>
+      <div><h1>النظام الذكي لدفترة</h1><span>v4.5 · محرّك متعدد الأنظمة · 2026-11-21</span></div>
     </div>
     <div class="sys-switch">
       <label>النظام النشِط</label>
@@ -332,7 +332,7 @@
 
     <!-- ===== مسار 3 ===== -->
     <section class="page" id="p3">
-      <div class="head"><h2>المسار الثالث — توليد القيود</h2><p>حوِّل وصفاً نصياً إلى قيد متوازن بأعمدة قالب دفترة الفعلي.</p></div>
+      <div class="head"><h2>المسار الثالث — توليد القيود</h2><p>القيد لنظام: <b id="p3-sys" style="color:var(--teal)">—</b> (يُبدَّل من القائمة الجانبية). حوِّل وصفاً نصياً إلى قيد متوازن بأعمدة قالب دفترة الفعلي.</p></div>
       <div class="card"><h3>الوصف النصي</h3>
         <div class="hint">مثال: «دفع العميل علي 1150 نقداً شامل ضريبة 15%» أو «صرف إيجار المكتب 3000 من البنك».</div>
         <textarea id="p3-text" placeholder="دفع العميل علي مبلغ 1150 نقداً شامل الضريبة 15%"></textarea>
@@ -354,7 +354,8 @@
           <div class="scale-mid" id="sc-mid"><div class="big">≠</div><div id="sc-diff">—</div></div>
           <div class="scale-side"><div class="lbl">إجمالي الدائن</div><div class="val" id="sc-credit" style="color:var(--teal)">0.00</div></div>
         </div>
-        <button class="btn-primary" onclick="exportP3()">تصدير القيد (CSV)</button>
+        <div id="p3-check"></div>
+        <div class="row"><button onclick="checkP3(true)">تحقّق من الحسابات</button><button class="btn-primary" onclick="exportP3()">تصدير القيد (CSV)</button></div>
       </div>
     </section>
 
@@ -554,7 +555,7 @@ function accSysName(i){return S.systems[i]?S.systems[i].name:('نظام '+(i+1))
 function findAccIn(sys,code){return S.accounts.findIndex(a=>a.code===code&&(a.sys==null?0:a.sys)===sys);}
 function addAccount(){const c=$('#a-code').value.trim(),n=$('#a-name').value.trim();if(!c||!n)return toast('الكود والاسم مطلوبان',1);const sys=S.activeSystem;const ix=findAccIn(sys,c);if(ix>=0){S.accounts[ix].name=n;S.accounts[ix].type=$('#a-type').value;toast('حُدّث '+c+' في '+accSysName(sys));}else{S.accounts.push({code:c,name:n,type:$('#a-type').value,sys});toast('أُضيف '+c+' إلى '+accSysName(sys));}$('#a-code').value=$('#a-name').value='';render();}
 function ingestAccountRows(rows,sys){let cc=0;rows.forEach(p=>{const code=String(p[0]||'').trim(),name=String(p[1]||'').trim();if(!code||!name)return;if(/كود|code/i.test(code)&&/اسم|name/i.test(name))return;/* تخطّي صف العناوين */const type=String(p[2]||'').trim();const ix=findAccIn(sys,code);if(ix>=0){S.accounts[ix].name=name;if(type)S.accounts[ix].type=type;}else S.accounts.push({code,name,type:type||'أصول',sys});cc++;});return cc;}
-function bulkAccounts(){const rows=$('#a-bulk').value.trim().split('\n').filter(r=>r.trim()).map(r=>r.split(/\t|,/));const cc=ingestAccountRows(rows,S.activeSystem);$('#a-bulk').value='';render();toast('عولج '+cc+' حساب في '+accSysName(S.activeSystem));logIt('دليل: +'+cc+' ('+accSysName(S.activeSystem)+')');}
+function bulkAccounts(){if(!$('#a-bulk').value.trim())return toast('مربع «لصق دفعة» فارغ — النص الرمادي مجرد مثال. لسحب الدليل من دفترة استخدم «جلب الدليل من دفترة» أعلى الصفحة',1);const rows=$('#a-bulk').value.trim().split('\n').filter(r=>r.trim()).map(r=>r.split(/\t|,/));const cc=ingestAccountRows(rows,S.activeSystem);$('#a-bulk').value='';render();toast('عولج '+cc+' حساب في '+accSysName(S.activeSystem));logIt('دليل: +'+cc+' ('+accSysName(S.activeSystem)+')');}
 /* يكتشف الفاصل تلقائياً: فاصلة أو فاصلة منقوطة (Excel العربي) أو Tab */
 function parseDelimited(text){
   const firstLine=(text.split(/\r?\n/).find(l=>l.trim())||'');
@@ -653,24 +654,32 @@ async function fetchAllRecords(ep,progress){
     if(page===1){const d0=j&&Array.isArray(j.data)?j.data[0]:null;firstKeys=d0?Object.keys(d0).join('، '):Object.keys(j||{}).join('، ');}
     const recs=recordsOf(j);all.push(...recs);
     const pg=j&&j.pagination;if(pg){pages=+pg.page_count||pages;if(pg.count!=null)total=+pg.count;}
+    else if(j&&j.last_page){pages=+j.last_page||pages;if(j.total!=null)total=+j.total;}
     if(progress)progress(page,pages,all.length);
     if(!recs.length)break;page++;
   }while(page<=pages&&page<=MAXP);
   return {all,total,firstKeys};
 }
+const ALT_ACC_EP='/v2/api/entity/journal_account/list';
+/* نوع الحساب في دفترة: 0 = دائن الطبيعة، 1 = مدين الطبيعة */
+function accTypeFrom(o){if(o.type===0||o.type==='0')return 'دائن';if(o.type===1||o.type==='1')return 'مدين';return String(o.account_type||o.nature||'').trim();}
 async function pullChartFromDaftra(){
   const sy=activeSys(),sys=S.activeSystem;const out=$('#acc-pull-out');
   if(!sy.sub||!sy.key){out.innerHTML='<div class="notice warn">أكمل نطاق ومفتاح «'+sy.name+'» في صفحة الاتصال أولاً.</div>';return;}
   const ep=$('#ep-accounts').textContent.trim();
   out.innerHTML='<div class="tag-audit">جارٍ جلب دليل «'+sy.name+'»…</div>';
   try{
-    const {all,total,firstKeys}=await fetchAllRecords(ep,(pg,pgs,n)=>{out.innerHTML='<div class="tag-audit">جارٍ جلب دليل «'+sy.name+'»… صفحة '+pg+(pgs>1?' من '+pgs:'')+' ('+n+' حساب)</div>';});
-    if(!all.length){out.innerHTML='<div class="notice warn">لم يُقرأ أي حساب من الرد. مفاتيح أول عنصر: <span class="inline-code">'+(firstKeys||'—')+'</span> — لم يتغيّر شيء.</div>';return;}
+    let res,used=ep;
+    try{res=await fetchAllRecords(ep,(pg,pgs,n)=>{out.innerHTML='<div class="tag-audit">جارٍ جلب دليل «'+sy.name+'»… صفحة '+pg+(pgs>1?' من '+pgs:'')+' ('+n+' حساب)</div>';});}
+    catch(e){if(e&&e.message==='http'&&e.status===404){used=ALT_ACC_EP;res=await fetchAllRecords(ALT_ACC_EP,null);}else throw e;}
+    if(!res.all.length&&used===ep){try{const r2=await fetchAllRecords(ALT_ACC_EP,null);if(r2.all.length){res=r2;used=ALT_ACC_EP;}}catch(e){}}
+    const {all,total,firstKeys}=res;
+    if(!all.length){out.innerHTML='<div class="notice warn">لم يُقرأ أي حساب من دفترة (جُرّب المساران <span class="inline-code">'+ep+'</span> و<span class="inline-code">'+ALT_ACC_EP+'</span>). مفاتيح الرد: <span class="inline-code">'+(firstKeys||'—')+'</span> — لم يتغيّر شيء. أرسل لقطة لهذه الرسالة.</div>';return;}
     backupBefore('جلب الدليل ('+sy.name+')');
     let add=0,upd=0,same=0,skip=0;
     all.forEach(o=>{const code=String(o.code!=null&&o.code!==''?o.code:'').trim();const name=String(o.name||o.title||'').trim();
       if(!code||!name){skip++;return;}
-      const type=String(o.type||o.account_type||o.nature||'').trim();
+      const type=accTypeFrom(o);
       const ix=findAccIn(sys,code);
       if(ix>=0){const a=S.accounts[ix];if(a.name===name&&(!type||a.type===type)){same++;return;}a.name=name;if(type)a.type=type;a.daftra_id=o.id;upd++;}
       else{S.accounts.push({code,name,type:type||'—',sys,daftra_id:o.id});add++;}});
@@ -854,11 +863,40 @@ function fillAcctList(){let dl=$('#p3-accts');if(!dl){dl=document.createElement(
   dl.innerHTML=accountsOf(S.activeSystem).map(a=>`<option value="${esc(a.name)}" label="${esc(a.code)}">${esc(a.code)} · ${esc(a.name)}</option>`).join('');}
 function acctByInput(v){v=String(v||'').trim();if(!v)return null;const list=accountsOf(S.activeSystem);return list.find(a=>a.name===v)||list.find(a=>a.code===v)||null;}
 function acctCodeLabel(v){const a=acctByInput(v);if(a)return 'كود: '+a.code;return v&&accountsOf(S.activeSystem).length?'⚠ ليس في دليل '+accSysName(S.activeSystem):'';}
-function showAcctCode(el){const a=acctByInput(el.value);if(a&&a.code===el.value.trim()&&a.name!==el.value){el.value=a.name;el.dispatchEvent(new Event('input'));}const d=el.parentNode.querySelector('.acct-code');if(d)d.textContent=acctCodeLabel(el.value);}
+function showAcctCode(el,i){const a=acctByInput(el.value);if(a&&a.code===el.value.trim()&&a.name!==el.value){el.value=a.name;p3lines[i].acct=a.name;}const d=el.parentNode.querySelector('.acct-code');if(d)d.innerHTML=acctHint(i);}
+/* اقتراح حسابات من دليل النظام النشِط: كود مطابق، ثم بداية الكود، ثم تشابه الاسم بالكلمات */
+function suggestAccounts(v,n){const list=accountsOf(S.activeSystem);v=String(v||'').trim();if(!v||!list.length)return [];
+  const nv=normName(v).replace(/^ال/,'');const toks=normName(v).split(/[\s\-_/()،,]+/).map(t=>t.replace(/^ال/,'')).filter(t=>t.length>1);
+  return list.map(a=>{const na=normName(a.name);let sc=0;
+    if(a.code===v)sc+=100;else if(/^\d+$/.test(v)&&a.code.startsWith(v))sc+=40;
+    if(na===normName(v))sc+=90;else if(nv.length>1&&na.includes(nv))sc+=30;
+    toks.forEach(t=>{if(na.includes(t))sc+=10+t.length;});return {a,sc};})
+   .filter(x=>x.sc>0).sort((x,y)=>y.sc-x.sc).slice(0,n||6).map(x=>x.a);}
+function lineSide(l){return (+l.d||0)>0?'مدين':((+l.c||0)>0?'دائن':'—');}
+function acctHint(i){const l=p3lines[i];const a=acctByInput(l.acct);
+  if(a)return '<span style="font-family:var(--mono)">كود: '+a.code+'</span>';
+  if(!accountsOf(S.activeSystem).length)return l.acct?'<span style="color:var(--amber,#e0a030)">⚠ لا دليل لـ '+accSysName(S.activeSystem)+' — اجلبه من صفحة الدليل</span>':'';
+  if(!l.acct)return '';
+  const sug=suggestAccounts(l.acct,6);
+  return '<span style="color:var(--amber,#e0a030)">⚠ غير موجود في دليل '+accSysName(S.activeSystem)+(sug.length?' — اختر:':' ولا اقتراحات قريبة')+'</span>'+(sug.length?' <select style="font-size:11px;padding:2px 4px;max-width:100%" onchange="pickAcct('+i+',this.value)"><option value="">— اقتراحات ('+sug.length+') —</option>'+sug.map(s=>'<option value="'+String(s.name).replace(/"/g,'&quot;')+'">'+s.code+' · '+s.name+'</option>').join('')+'</select>':'');}
+function pickAcct(i,name){if(!name)return;p3lines[i].acct=name;renderP3();checkP3(false);}
+function unmatchedLines(){return p3lines.map((l,i)=>({l,i})).filter(x=>((+x.l.d||0)>0||(+x.l.c||0)>0)&&!acctByInput(x.l.acct));}
+/* لوحة التحقق قبل التنفيذ: تعرض كل سطر غير موجود بجانبه (مدين/دائن) مع اقتراحات */
+function checkP3(show){const box=$('#p3-check');if(!box)return true;const um=unmatchedLines();
+  if(!um.length){box.innerHTML=show?'<div class="notice">✓ كل حسابات طرفي القيد موجودة في دليل '+accSysName(S.activeSystem)+'.</div>':'';return true;}
+  box.innerHTML='<div class="notice warn"><b>⚠ '+um.length+' حساب غير موجود في دليل '+accSysName(S.activeSystem)+'.</b> اختر الحساب الصحيح لكل طرف قبل التصدير:'+
+    '<table style="margin-top:8px;width:100%"><thead><tr><th>الطرف</th><th>المكتوب</th><th>المبلغ</th><th>اختر من الدليل</th></tr></thead><tbody>'+
+    um.map(x=>{const sug=suggestAccounts(x.l.acct,8);const all=accountsOf(S.activeSystem);
+      const opts=(sug.length?'<optgroup label="اقتراحات">'+sug.map(s=>'<option value="'+String(s.name).replace(/"/g,'&quot;')+'">'+s.code+' · '+s.name+'</option>').join('')+'</optgroup>':'')+
+        (all.length?'<optgroup label="كل الدليل">'+all.map(s=>'<option value="'+String(s.name).replace(/"/g,'&quot;')+'">'+s.code+' · '+s.name+'</option>').join('')+'</optgroup>':'');
+      return '<tr><td><b>'+lineSide(x.l)+'</b></td><td>'+(x.l.acct||'<i>فارغ</i>')+'</td><td class="mono">'+fmt((+x.l.d||0)||(+x.l.c||0))+'</td><td>'+(all.length?'<select onchange="pickAcct('+x.i+',this.value)"><option value="">— اختر —</option>'+opts+'</select>':'لا دليل — اجلبه أولاً')+'</td></tr>';}).join('')+'</tbody></table></div>';
+  return false;}
 function renderP3(){const b=$('#p3-body');if(!p3lines.length){b.innerHTML='<tr><td colspan="6" class="empty">لا سطور. اكتب وصفاً واضغط «مسودة ذكية».</td></tr>';calcBalance();return;}
-  fillAcctList();b.innerHTML=p3lines.map((l,i)=>`<tr><td><input list="p3-accts" value="${String(l.acct).replace(/"/g,'&quot;')}" oninput="updLine(${i},'acct',this.value);showAcctCode(this)" onchange="showAcctCode(this)" placeholder="اختر أو اكتب الحساب"><div class="acct-code" style="font-size:11px;color:var(--muted);font-family:var(--mono)">${acctCodeLabel(l.acct)}</div></td><td><input class="num" type="number" value="${l.d||''}" oninput="updLine(${i},'d',this.value)" placeholder="0"></td><td><input class="num" type="number" value="${l.c||''}" oninput="updLine(${i},'c',this.value)" placeholder="0"></td><td><input value="${l.memo}" oninput="updLine(${i},'memo',this.value)" placeholder="بيان"></td><td><input value="${l.tax||''}" oninput="updLine(${i},'tax',this.value)" placeholder="—" style="width:80px"></td><td><span class="del" onclick="delLine(${i})">✕</span></td></tr>`).join('');calcBalance();}
+  fillAcctList();b.innerHTML=p3lines.map((l,i)=>`<tr><td><input list="p3-accts" value="${String(l.acct).replace(/"/g,'&quot;')}" oninput="updLine(${i},'acct',this.value);showAcctCode(this,${i})" onchange="showAcctCode(this,${i})" placeholder="اختر أو اكتب الحساب"><div class="acct-code" style="font-size:11px;color:var(--muted)">${acctHint(i)}</div></td><td><input class="num" type="number" value="${l.d||''}" oninput="updLine(${i},'d',this.value)" placeholder="0"></td><td><input class="num" type="number" value="${l.c||''}" oninput="updLine(${i},'c',this.value)" placeholder="0"></td><td><input value="${l.memo}" oninput="updLine(${i},'memo',this.value)" placeholder="بيان"></td><td><input value="${l.tax||''}" oninput="updLine(${i},'tax',this.value)" placeholder="—" style="width:80px"></td><td><span class="del" onclick="delLine(${i})">✕</span></td></tr>`).join('');calcBalance();}
 function calcBalance(){const d=p3lines.reduce((s,l)=>s+(+l.d||0),0),c=p3lines.reduce((s,l)=>s+(+l.c||0),0);$('#sc-debit').textContent=fmt(d);$('#sc-credit').textContent=fmt(c);const diff=Math.abs(d-c),ok=diff<0.005&&d>0;const mid=$('#sc-mid');mid.classList.toggle('ok',ok);mid.querySelector('.big').textContent=ok?'=':'≠';$('#sc-diff').textContent=ok?'متوازن':'فرق '+fmt(diff);}
-function exportP3(){const d=p3lines.reduce((s,l)=>s+(+l.d||0),0),c=p3lines.reduce((s,l)=>s+(+l.c||0),0);if(Math.abs(d-c)>=0.005||d===0)return toast('غير متوازن — لا يُصدَّر',1);const code=$('#j-code').value.trim()||'JRN001',date=$('#j-date').value.trim(),cur=$('#j-cur').value.trim()||'SAR',desc=$('#j-desc').value.trim(),cc=$('#j-cc').value.trim();const head=['Journal Code','Journal Date','Currency','Journal Description','Account Name','Transaction Description','Tags','Cost Center','Tax','Debit','Credit'];const rows=p3lines.map(l=>[code,date,cur,desc,l.acct,l.memo,'',cc,l.tax||'',(+l.d||0).toFixed(2),(+l.c||0).toFixed(2)]);downloadCSV([head,...rows],'daftra_journal_'+(activeSys().sub||'sys'+(S.activeSystem+1)));toast('صُدّر القيد');logIt('مسار3: تصدير');}
+function exportP3(){const d=p3lines.reduce((s,l)=>s+(+l.d||0),0),c=p3lines.reduce((s,l)=>s+(+l.c||0),0);if(Math.abs(d-c)>=0.005||d===0)return toast('غير متوازن — لا يُصدَّر',1);
+  if(!checkP3(true))return toast('حدّد الحسابات غير الموجودة أولاً',1);
+  if(!confirm('تصدير قيد لنظام «'+accSysName(S.activeSystem)+'»\nعدد السطور: '+p3lines.length+'\nمدين = دائن = '+fmt(d)+'\n\n'+p3lines.map(l=>lineSide(l)+': '+l.acct+' '+fmt((+l.d||0)||(+l.c||0))).join('\n')+'\n\nمتابعة؟'))return;const code=$('#j-code').value.trim()||'JRN001',date=$('#j-date').value.trim(),cur=$('#j-cur').value.trim()||'SAR',desc=$('#j-desc').value.trim(),cc=$('#j-cc').value.trim();const head=['Journal Code','Journal Date','Currency','Journal Description','Account Name','Transaction Description','Tags','Cost Center','Tax','Debit','Credit'];const rows=p3lines.map(l=>[code,date,cur,desc,l.acct,l.memo,'',cc,l.tax||'',(+l.d||0).toFixed(2),(+l.c||0).toFixed(2)]);downloadCSV([head,...rows],'daftra_journal_'+(activeSys().sub||'sys'+(S.activeSystem+1)));toast('صُدّر القيد');logIt('مسار3: تصدير');}
 
 /* ============ CSV / التهيئة ============ */
 function downloadCSV(rows,name){const csv='\uFEFF'+rows.map(r=>r.map(c=>`"${String(c==null?'':c).replace(/"/g,'""')}"`).join(',')).join('\n');const b=new Blob([csv],{type:'text/csv;charset=utf-8'});const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download=name+'.csv';a.click();URL.revokeObjectURL(u);}
@@ -900,7 +938,7 @@ function seedDemo(){
   loadConnFields();render();toast('حُمّلت بيانات نموذجية (٣ أنظمة مسمّاة)');go('systems');logIt('تحميل نموذجي');}
 
 /* ============ تحديث شامل ============ */
-function render(){renderSafety();renderSystems();renderSysSwitch();renderSysBadges();renderKeys();renderAcc();renderMatch();renderTax();renderXmap();fillRoutes();updateConnDot();
+function render(){const ps=$('#p3-sys');if(ps)ps.textContent=accSysName(S.activeSystem);if(typeof renderP3==='function'&&p3lines.length)renderP3();renderSafety();renderSystems();renderSysSwitch();renderSysBadges();renderKeys();renderAcc();renderMatch();renderTax();renderXmap();fillRoutes();updateConnDot();
   const at=$('#acc-target');if(at)at.textContent=accSysName(S.activeSystem);
   const bx=$('#b-xmap');if(bx)bx.textContent=xlinkCount();
   $('#b-keys').textContent=S.keys.length;$('#b-acc').textContent=$('#s-acc').textContent=S.accounts.length;$('#b-match').textContent=$('#s-match').textContent=S.matches.length;$('#b-tax').textContent=$('#s-tax').textContent=S.tax.length;
