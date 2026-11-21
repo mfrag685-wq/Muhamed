@@ -111,7 +111,7 @@
   <aside>
     <div class="brand">
       <div class="mark">دَ</div>
-      <div><h1>النظام الذكي لدفترة</h1><span>v4.7 · محرّك متعدد الأنظمة · 2026-11-21</span></div>
+      <div><h1>النظام الذكي لدفترة</h1><span>v4.8 · محرّك متعدد الأنظمة · 2026-11-21</span></div>
     </div>
     <div class="sys-switch">
       <label>النظام النشِط</label>
@@ -341,7 +341,7 @@
       </div>
       <div class="card"><h3>ترويسة القيد</h3>
         <div class="row">
-          <div class="field" style="max-width:140px"><label>Journal Code</label><input id="j-code" class="num" value="JRN001"></div>
+          <div class="field" style="max-width:210px"><label>رقم القيد</label><input id="j-code" class="num" value="" readonly placeholder="تلقائي من تسلسل دفترة" title="دفترة تعطي القيد رقمه التالي في تسلسلها عند الإنشاء"><div style="font-size:11px;color:var(--muted)"><span id="j-lastno"></span> <a href="#" onclick="loadLastJournalNo();return false" style="color:var(--teal)">↻ آخر رقم في دفترة</a></div></div>
           <div class="field" style="max-width:150px"><label>التاريخ</label><input id="j-date" type="date"></div>
           <div class="field" style="max-width:110px"><label>العملة</label><input id="j-cur" value="SAR"></div>
           <div class="field"><label>وصف القيد</label><input id="j-desc" oninput="this.dataset.auto=''" placeholder="مطلوب للإرسال — مثال: تحصيل من عميل"></div>
@@ -507,7 +507,7 @@ const fmt=n=>Number(n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximu
 function toast(m,e){const t=$('#toast');t.textContent=m;t.className='toast show'+(e?' err':'');setTimeout(()=>t.className='toast',2800);}
 const logs=[];
 function logIt(m){logs.unshift(new Date().toLocaleTimeString('en-GB')+' · '+m);$('#log').innerHTML=logs.slice(0,12).join('<br>');}
-function go(p){document.querySelectorAll('.nav-item').forEach(n=>n.classList.toggle('active',n.dataset.page===p));document.querySelectorAll('.page').forEach(s=>s.classList.toggle('on',s.id===p));window.scrollTo(0,0);}
+function go(p){document.querySelectorAll('.nav-item').forEach(n=>n.classList.toggle('active',n.dataset.page===p));document.querySelectorAll('.page').forEach(s=>s.classList.toggle('on',s.id===p));window.scrollTo(0,0);if(p==='p3'&&typeof loadLastJournalNo==='function'&&sysConnected(activeSys())&&USE_PROXY)loadLastJournalNo();}
 document.querySelectorAll('.nav-item').forEach(n=>n.onclick=()=>go(n.dataset.page));
 
 /* ============ الأنظمة المحاسبية ============ */
@@ -881,17 +881,26 @@ function findAcct(...names){const list=accountsOf(S.activeSystem);for(const n of
    - «إلى حساب X» = الطرف المستلِم، «من حساب X» = الطرف الدافع.
    - الاتجاه: العميل دفع/قبض/تحصيل = مدين نقدية، دائن العميل · صرف/سداد للمورد = مدين المورد/المصروف، دائن نقدية.
    - عند الشك لا يُخمَّن: يُترك الحساب فارغاً مع خيارات من الدليل. */
-const DRAFT_STOP=new Set(['قيد','تجربه','تجريبي','عميل','العميل','مورد','المورد','دفع','سدد','حساب','الي','من','في','على','علي','مبلغ','ريال','نقدا','نقدي','نقدا','و','عن','الى','رس','قيمه','شركه','مؤسسه','ل','بمبلغ']);
+const DRAFT_STOP=new Set(['قيد','تجربه','تجريبي','عميل','العميل','مورد','المورد','دفع','سدد','حساب','الي','من','في','على','علي','مبلغ','ريال','نقدا','نقدي','و','عن','رس','قيمه','بمبلغ','ل']);
+/* كلمات عامة لا تكفي وحدها للتعرّف على حساب */
+const DRAFT_WEAK=new Set(['شركه','مؤسسه','محدوده','تجاره','للتجاره','مصنع','مجموعه','فرع','شركاء','وشركاه','ذات','مسؤوليه','حساب','اخرون','اخري','عام','عامه']);
 function arTok(s){return normName(s).replace(/[٫,](?=\d)/g,'').replace(/[^\p{L}\p{N}\s]/gu,' ').split(/\s+/).filter(Boolean).map(w=>w.replace(/^(و?(بال|كال|فال|لل|ال))(?=..)/,'')).filter(w=>w.length>1);}
 function draftAmount(t){const s=String(t).replace(/[٠-٩]/g,d=>'٠١٢٣٤٥٦٧٨٩'.indexOf(d)).replace(/(\d),(?=\d{3}\b)/g,'$1');
   const m=s.match(/(\d+(?:\.\d+)?)\s*(?:﷼|ريال|ر\.?\s?س|sar)/i)||s.match(/مبلغ\s*(\d+(?:\.\d+)?)/)||s.match(/(\d+(?:\.\d+)?)(?!\s*%|\d)/);return m?parseFloat(m[1]):0;}
 const CASH_RE=/(خزين|خزن|صندوق|نقد|بنك|مصرف|راجحي|اهلي|انماء|بلاد|شبكه|مدي|عهده)/;
-function draftAccounts(text){const tt=new Set(arTok(text));const list=accountsOf(S.activeSystem);
-  let hits=list.map(a=>{const tk=arTok(a.name).filter(w=>!DRAFT_STOP.has(w));return {a,tk};}).filter(x=>x.tk.length&&x.tk.every(w=>tt.has(w)));
-  hits=hits.filter(x=>!hits.some(y=>y!==x&&y.tk.length>x.tk.length&&x.tk.every(w=>y.tk.includes(w))));
-  return hits.map(x=>x.a);}
+/* حسابات الترحيل فقط: يُستبعد أي حساب له حسابات فرعية (كوده بادئة لكود آخر) */
+function leafAccounts(){const list=accountsOf(S.activeSystem);const codes=list.map(a=>String(a.code||''));
+  return list.filter(a=>{const c=String(a.code||'');return !c||!codes.some(x=>x!==c&&x.length>c.length&&x.startsWith(c));});}
+/* تطابق جزئي: يكفي كلمتان مميزتان من اسم الحساب، أو كل كلماته إن كانت كلمة واحدة.
+   الأعلى تطابقاً يتقدّم، وعند التساوي تُعرض خيارات بدل التخمين. */
+function draftAccounts(text,withAlts){const tt=new Set(arTok(text));
+  let hits=leafAccounts().map(a=>{const all=arTok(a.name).filter(w=>!DRAFT_STOP.has(w));const tk=all.filter(w=>!DRAFT_WEAK.has(w));const m=tk.filter(w=>tt.has(w));return {a,tk,m,cov:tk.length?m.length/tk.length:0};})
+    .filter(x=>x.tk.length&&(x.m.length===x.tk.length||x.m.length>=2));
+  hits.sort((x,y)=>y.m.length-x.m.length||y.cov-x.cov);
+  const kept=[];hits.forEach(x=>{const over=kept.find(k=>x.m.every(w=>k.m.includes(w)));if(!over){x.alts=[];kept.push(x);}else if(over.m.length===x.m.length&&Math.abs(over.cov-x.cov)<1e-9)over.alts.push(x.a);});
+  return withAlts?kept:kept.map(x=>x.a);}
 function phraseAcct(text,re){const m=normName(text).match(re);if(!m)return null;const hs=draftAccounts(m[1]);return hs.length===1?hs[0]:null;}
-function acctsLike(re){return accountsOf(S.activeSystem).filter(a=>re.test(normName(a.name)));}
+function acctsLike(re){return leafAccounts().filter(a=>re.test(normName(a.name)));}
 /* اختيار حساب افتراضي: واحد فقط ← يُختار، أكثر ← خيارات بلا تخمين */
 function pickLike(re,prefer){const c=acctsLike(re);if(prefer){const p=c.filter(a=>prefer.test(normName(a.name)));if(p.length===1)return {acct:p[0].name};}
   if(c.length===1)return {acct:c[0].name};return {acct:'',opts:c.slice(0,8).map(a=>a.name)};}
@@ -905,13 +914,17 @@ function draftP3(){
   const nt=normName(body);
   let vat=0,base=amt;const rM=body.match(/(\d+(?:\.\d+)?)\s*%/);const rate=rM?parseFloat(rM[1]):15;
   if(/شامل/.test(nt)){base=Math.round(amt/(1+rate/100)*100)/100;vat=Math.round((amt-base)*100)/100;}
-  const hits=draftAccounts(body);
+  const hitsX=draftAccounts(body,true),hits=hitsX.map(x=>x.a);
   const toA=phraseAcct(body,/(?:الي|ال|ل|في|على)\s*حساب\s+(.+?)(?:\s+(?:من|بمبلغ|مبلغ)(?=\s|$)|$)/);
   const fromA=phraseAcct(body,/من\s+حساب\s+(.+?)(?:\s+(?:الي|بمبلغ|مبلغ)(?=\s|$)|$)/);
   const cashHits=hits.filter(a=>CASH_RE.test(normName(a.name))),otherHits=hits.filter(a=>!CASH_RE.test(normName(a.name)));
   const bankWord=/(بنك|تحويل|شبكه|مدي|مصرف)/.test(nt);
   const defCash=()=>bankWord?pickLike(/(بنك|مصرف|راجحي|اهلي|انماء|بلاد)/):pickLike(/(خزين|خزن|صندوق|نقديه)/,/(رئيسي|اساسي)/);
-  const one=(arr)=>arr.length===1?{acct:arr[0].name}:arr.length>1?{acct:'',opts:arr.map(a=>a.name)}:null;
+  const one=(arr)=>{const xs=arr.flatMap(a=>{const h=hitsX.find(x=>x.a===a);return h&&h.alts.length?[a,...h.alts]:[a];});return xs.length===1?{acct:xs[0].name}:xs.length>1?{acct:'',opts:xs.map(a=>a.name)}:null;};
+  /* اسم طرف غير موجود في الدليل: خيارات من حسابات الفئة + أي حساب يشترك بكلمة مميزة — بلا اختيار تلقائي */
+  const partyOpts=(re)=>{const tt=new Set(arTok(body).filter(w=>!DRAFT_STOP.has(w)&&!DRAFT_WEAK.has(w)));const lv=leafAccounts();
+    const near=lv.filter(a=>!CASH_RE.test(normName(a.name))&&arTok(a.name).some(w=>tt.has(w)&&!DRAFT_WEAK.has(w)));const cat=lv.filter(a=>re.test(normName(a.name)));
+    return {acct:'',opts:[...new Set([...near,...cat].map(a=>a.name))].slice(0,10)};};
   const isCust=/عميل|عملاء/.test(nt),isSupp=/مورد/.test(nt);
   const payVerb=/(دفع|سدد|حول|اودع)/.test(nt);
   let kind='';
@@ -924,12 +937,12 @@ function draftP3(){
     p3lines.push(mk('d',dr,amt,desc));
     if(party)p3lines.push(mk('c',party,amt,desc));
     else if(vat){p3lines.push(mk('c',pickLike(/(مبيعات|ايراد)/),base,desc));p3lines.push(mk('c',pickLike(/ضريب/,/(مخرجات|مستحق)/),vat,'ضريبة '+rate+'%','Tax '+rate+'%'));}
-    else p3lines.push(mk('c',isCust?pickLike(/(عملاء|ذمم مدينه)/):pickLike(/(عملاء|ذمم مدينه|مبيعات|ايراد)/),amt,desc));
-    note='قبض/تحصيل: المدين = النقدية/البنك المستلِم، الدائن = '+(party?'الطرف المذكور':isCust?'العملاء':'الإيراد');
+    else p3lines.push(mk('c',isCust?partyOpts(/(عملاء|ذمم مدينه)/):pickLike(/(عملاء|ذمم مدينه|مبيعات|ايراد)/),amt,desc));
+    note='قبض/تحصيل: المدين = النقدية/البنك المستلِم، الدائن = '+(party?(party.acct?'حساب الطرف المذكور':'الطرف المذكور (اختر من الخيارات)'):isCust?'حساب العميل (اختر من الخيارات)':'الإيراد');
   }else if(kind==='out'){
     const cr=fromA?{acct:fromA.name}:one(cashHits)||defCash();
     const party=(toA&&!CASH_RE.test(normName(toA.name)))?{acct:toA.name}:one(otherHits);
-    const dr=party||(isSupp?pickLike(/(موردين|مورد|ذمم دائنه)/):pickLike(/(مصروف|مصاريف)/));
+    const dr=party||(isSupp?partyOpts(/(موردين|مورد|ذمم دائنه)/):pickLike(/(مصروف|مصاريف)/));
     if(vat&&!party){p3lines.push(mk('d',dr,base,desc));p3lines.push(mk('d',pickLike(/ضريب/,/(مدخلات)/),vat,'ضريبة مدخلات '+rate+'%','Tax '+rate+'%'));}
     else p3lines.push(mk('d',dr,amt,desc));
     p3lines.push(mk('c',cr,amt,desc));
@@ -985,6 +998,10 @@ function checkP3(show){const box=$('#p3-check');if(!box)return true;const um=unm
 function renderP3(){const b=$('#p3-body');if(!p3lines.length){b.innerHTML='<tr><td colspan="6" class="empty">لا سطور. اكتب وصفاً واضغط «مسودة ذكية».</td></tr>';calcBalance();return;}
   fillAcctList();b.innerHTML=p3lines.map((l,i)=>`<tr><td><input list="p3-accts" value="${String(l.acct).replace(/"/g,'&quot;')}" oninput="updLine(${i},'acct',this.value);showAcctCode(this,${i})" onchange="showAcctCode(this,${i})" placeholder="اختر أو اكتب الحساب"><div class="acct-code" style="font-size:11px;color:var(--muted)">${acctHint(i)}</div></td><td><input class="num" type="number" value="${l.d||''}" oninput="updLine(${i},'d',this.value)" placeholder="0"></td><td><input class="num" type="number" value="${l.c||''}" oninput="updLine(${i},'c',this.value)" placeholder="0"></td><td><input value="${l.memo}" oninput="updLine(${i},'memo',this.value)" placeholder="بيان"></td><td><input value="${l.tax||''}" oninput="updLine(${i},'tax',this.value)" placeholder="—" style="width:80px"></td><td><span class="del" onclick="delLine(${i})">✕</span></td></tr>`).join('');calcBalance();}
 function calcBalance(){const d=p3lines.reduce((s,l)=>s+(+l.d||0),0),c=p3lines.reduce((s,l)=>s+(+l.c||0),0);$('#sc-debit').textContent=fmt(d);$('#sc-credit').textContent=fmt(c);const diff=Math.abs(d-c),ok=diff<0.005&&d>0;const mid=$('#sc-mid');mid.classList.toggle('ok',ok);mid.querySelector('.big').textContent=ok?'=':'≠';$('#sc-diff').textContent=ok?'متوازن':'فرق '+fmt(diff);}
+/* رقم القيد يأتي من تسلسل دفترة نفسها: لا نولّد رقماً. نعرض آخر رقم أُنشئ للمعلومية فقط. */
+async function loadLastJournalNo(){const el=$('#j-lastno');if(!el)return;const sy=activeSys();if(!sy.sub||!sy.key){el.textContent='أكمل الاتصال أولاً';return;}
+  el.textContent='…';try{const r=await daftraFetch('/api2/journals?limit=1&page=1&sort=created&direction=desc');if(!r.ok){el.textContent='تعذّر القراءة (HTTP '+r.status+')';return;}
+    const j=await r.json();const J=recordsOf(j)[0];el.textContent=J&&J.number?'آخر رقم: '+J.number+' — الجديد يأخذ التالي':'لا قيود';}catch(e){el.textContent='تعذّر الاتصال';}}
 function todayISO(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
 function isoToDMY(v){const m=String(v||'').match(/^(\d{4})-(\d{2})-(\d{2})$/);return m?m[3]+'/'+m[2]+'/'+m[1]:v;}
 /* ============ إرسال القيد إلى دفترة (POST /api2/journals) ============
@@ -1006,7 +1023,8 @@ function validateJournal(){const errs=[];const sy=activeSys();
   const d=lines.reduce((s,l)=>s+(+l.d||0),0),c=lines.reduce((s,l)=>s+(+l.c||0),0);
   if(Math.abs(d-c)>=0.005||d===0)errs.push('القيد غير متوازن (مدين '+fmt(d)+' / دائن '+fmt(c)+')');
   if(!checkP3(false))errs.push('حسابات غير موجودة في دليل «'+sy.name+'» — اخترها من اللوحة أعلاه');
-  else{const noId=lines.filter(l=>{const a=acctByInput(l.acct);return a&&!a.daftra_id;});if(noId.length)errs.push('حسابات بلا معرّف دفترة ('+noId.map(l=>l.acct).join('، ')+') — اضغط «جلب الدليل من دفترة» لهذا النظام ثم أعد الاختيار');}
+  else{const lv=new Set(leafAccounts());const par=lines.filter(l=>{const a=acctByInput(l.acct);return a&&!lv.has(a);});if(par.length)errs.push('حسابات رئيسية لا يُرحَّل عليها ('+par.map(l=>l.acct).join('، ')+') — اختر الحساب الفرعي');
+  const noId=lines.filter(l=>{const a=acctByInput(l.acct);return a&&!a.daftra_id;});if(noId.length)errs.push('حسابات بلا معرّف دفترة ('+noId.map(l=>l.acct).join('، ')+') — اضغط «جلب الدليل من دفترة» لهذا النظام ثم أعد الاختيار');}
   return {errs,d,lines};}
 async function sendJournalToDaftra(){
   const out=$('#p3-send-out');if(_sending)return;
@@ -1030,6 +1048,7 @@ async function sendJournalToDaftra(){
       logIt('إرسال قيد: رفض '+r.status);return;}
     _lastSentSig=sig;
     let number='';try{const g=await daftraFetch('/api2/journals/'+id);if(g.ok){const gj=await g.json();const J=gj&&gj.data&&(gj.data.Journal||gj.data);number=J&&J.number||'';}}catch(e){}
+    if(number){$('#j-code').value=number;const ln=$('#j-lastno');if(ln)ln.textContent='';}
     const link=apiBase()+'/owner/journals/view/'+id;
     out.innerHTML='<div class="notice">✓ أُنشئ القيد في «'+sy.name+'»'+(draft?' كمسودة':'')+' — رقم '+(number||'—')+' (المعرّف '+id+'). <a href="'+link+'" target="_blank" rel="noopener">فتحه في دفترة ↗</a></div>';
     toast('أُرسل القيد إلى دفترة');logIt('إرسال قيد '+sy.name+': #'+(number||id));
@@ -1147,7 +1166,7 @@ async function sendInvoiceToDaftra(){
 }
 function exportP3(){const d=p3lines.reduce((s,l)=>s+(+l.d||0),0),c=p3lines.reduce((s,l)=>s+(+l.c||0),0);if(Math.abs(d-c)>=0.005||d===0)return toast('غير متوازن — لا يُصدَّر',1);
   if(!checkP3(true))return toast('حدّد الحسابات غير الموجودة أولاً',1);
-  if(!confirm('تصدير قيد لنظام «'+accSysName(S.activeSystem)+'»\nعدد السطور: '+p3lines.length+'\nمدين = دائن = '+fmt(d)+'\n\n'+p3lines.map(l=>lineSide(l)+': '+l.acct+' '+fmt((+l.d||0)||(+l.c||0))).join('\n')+'\n\nمتابعة؟'))return;const code=$('#j-code').value.trim()||'JRN001',date=isoToDMY($('#j-date').value.trim()),cur=$('#j-cur').value.trim()||'SAR',desc=$('#j-desc').value.trim(),cc=$('#j-cc').value.trim();const head=['Journal Code','Journal Date','Currency','Journal Description','Account Name','Transaction Description','Tags','Cost Center','Tax','Debit','Credit'];const rows=p3lines.map(l=>[code,date,cur,desc,l.acct,l.memo,'',cc,l.tax||'',(+l.d||0).toFixed(2),(+l.c||0).toFixed(2)]);downloadCSV([head,...rows],'daftra_journal_'+(activeSys().sub||'sys'+(S.activeSystem+1)));toast('صُدّر القيد');logIt('مسار3: تصدير');}
+  if(!confirm('تصدير قيد لنظام «'+accSysName(S.activeSystem)+'»\nعدد السطور: '+p3lines.length+'\nمدين = دائن = '+fmt(d)+'\n\n'+p3lines.map(l=>lineSide(l)+': '+l.acct+' '+fmt((+l.d||0)||(+l.c||0))).join('\n')+'\n\nمتابعة؟'))return;const code=$('#j-code').value.trim()||'1',date=isoToDMY($('#j-date').value.trim()),cur=$('#j-cur').value.trim()||'SAR',desc=$('#j-desc').value.trim(),cc=$('#j-cc').value.trim();const head=['Journal Code','Journal Date','Currency','Journal Description','Account Name','Transaction Description','Tags','Cost Center','Tax','Debit','Credit'];const rows=p3lines.map(l=>[code,date,cur,desc,l.acct,l.memo,'',cc,l.tax||'',(+l.d||0).toFixed(2),(+l.c||0).toFixed(2)]);downloadCSV([head,...rows],'daftra_journal_'+(activeSys().sub||'sys'+(S.activeSystem+1)));toast('صُدّر القيد');logIt('مسار3: تصدير');}
 
 /* ============ CSV / التهيئة ============ */
 function downloadCSV(rows,name){const csv='\uFEFF'+rows.map(r=>r.map(c=>`"${String(c==null?'':c).replace(/"/g,'""')}"`).join(',')).join('\n');const b=new Blob([csv],{type:'text/csv;charset=utf-8'});const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download=name+'.csv';a.click();URL.revokeObjectURL(u);}
