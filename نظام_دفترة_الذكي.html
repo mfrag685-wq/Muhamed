@@ -111,7 +111,7 @@
   <aside>
     <div class="brand">
       <div class="mark">دَ</div>
-      <div><h1>النظام الذكي لدفترة</h1><span>v4.8 · محرّك متعدد الأنظمة · 2026-11-21</span></div>
+      <div><h1>النظام الذكي لدفترة</h1><span>v4.9 · محرّك متعدد الأنظمة · 2026-11-21</span></div>
     </div>
     <div class="sys-switch">
       <label>النظام النشِط</label>
@@ -720,8 +720,9 @@ async function pullChartFromDaftra(){
       if(!code||!name){skip++;return;}
       const type=accTypeFrom(o);
       const ix=findAccIn(sys,code);
-      if(ix>=0){const a=S.accounts[ix];if(a.name===name&&(!type||a.type===type)&&String(a.daftra_id)===String(o.id)){same++;return;}a.name=name;if(type)a.type=type;a.daftra_id=o.id;upd++;}
-      else{S.accounts.push({code,name,type:type||'—',sys,daftra_id:o.id});add++;}});
+      const ent=o.entity_type?String(o.entity_type):'';
+      if(ix>=0){const a=S.accounts[ix];if(a.name===name&&(!type||a.type===type)&&String(a.daftra_id)===String(o.id)&&(a.ent||'')===ent){same++;return;}a.name=name;if(type)a.type=type;a.daftra_id=o.id;if(ent)a.ent=ent;else delete a.ent;upd++;}
+      else{const na={code,name,type:type||'—',sys,daftra_id:o.id};if(ent)na.ent=ent;S.accounts.push(na);add++;}});
     const v=$('#acc-view');if(v)v.value=String(sys);render();
     const partial=(total!=null&&all.length<total)?'<br>⚠ جُلب '+all.length+' من أصل '+total+' — النتيجة جزئية.':'';
     out.innerHTML='<div class="notice">✓ دليل «'+sy.name+'»: جُلب '+all.length+(total!=null?' (الإجمالي في دفترة: '+total+')':'')+' · أُضيف '+add+' · حُدّث '+upd+' · بلا تغيير '+same+(skip?' · بلا كود/اسم '+skip:'')+partial+'<br>الحسابات متاحة الآن للاختيار في «توليد القيود».</div>';
@@ -881,80 +882,108 @@ function findAcct(...names){const list=accountsOf(S.activeSystem);for(const n of
    - «إلى حساب X» = الطرف المستلِم، «من حساب X» = الطرف الدافع.
    - الاتجاه: العميل دفع/قبض/تحصيل = مدين نقدية، دائن العميل · صرف/سداد للمورد = مدين المورد/المصروف، دائن نقدية.
    - عند الشك لا يُخمَّن: يُترك الحساب فارغاً مع خيارات من الدليل. */
-const DRAFT_STOP=new Set(['قيد','تجربه','تجريبي','عميل','العميل','مورد','المورد','دفع','سدد','حساب','الي','من','في','على','علي','مبلغ','ريال','نقدا','نقدي','و','عن','رس','قيمه','بمبلغ','ل']);
+const DRAFT_STOP=new Set(['قيد','تجربه','تجريبي','عميل','مورد','دفع','دفعه','دفعنا','سدد','سداد','حساب','الي','من','في','على','علي','مبلغ','بمبلغ','بقيمه','قيمه','ريال','نقدا','نقدي','نقدا','و','عن','رس','ل','قبض','تحصيل','صرف','تحويل','مقابل','فاتوره','دولار','usd','sar','تم','لصالح','بتاريخ','اليوم','شامل','ضريبه','الضريبه']);
 /* كلمات عامة لا تكفي وحدها للتعرّف على حساب */
-const DRAFT_WEAK=new Set(['شركه','مؤسسه','محدوده','تجاره','للتجاره','مصنع','مجموعه','فرع','شركاء','وشركاه','ذات','مسؤوليه','حساب','اخرون','اخري','عام','عامه']);
-function arTok(s){return normName(s).replace(/[٫,](?=\d)/g,'').replace(/[^\p{L}\p{N}\s]/gu,' ').split(/\s+/).filter(Boolean).map(w=>w.replace(/^(و?(بال|كال|فال|لل|ال))(?=..)/,'')).filter(w=>w.length>1);}
+const DRAFT_WEAK=new Set(['شركه','مؤسسه','موسسه','محدوده','تجاره','تجاريه','للتجاره','مصنع','مجموعه','فرع','شركاء','وشركاه','ذات','مسؤوليه','اخرون','اخري','عام','عامه','co','ltd','limited','company','trading','لاثاث','اثاث','للاثاث','سعودي']);
+function arTok(s){return normName(s).replace(/[٫,](?=\d)/g,'').replace(/[^\p{L}\p{N}\s]/gu,' ').split(/\s+/).filter(Boolean).map(w=>w.replace(/^(و?(بال|كال|فال|لل|ال))(?=..)/,'')).filter(w=>w.length>1||/\d/.test(w));}
+const isLatin=w=>/^[a-z0-9]+$/.test(w);
+/* المبلغ: يفضّل الرقم المقترن بعملة (﷼ ريال ر.س $ دولار) ثم «مبلغ N» ثم أول رقم ليس نسبة */
 function draftAmount(t){const s=String(t).replace(/[٠-٩]/g,d=>'٠١٢٣٤٥٦٧٨٩'.indexOf(d)).replace(/(\d),(?=\d{3}\b)/g,'$1');
-  const m=s.match(/(\d+(?:\.\d+)?)\s*(?:﷼|ريال|ر\.?\s?س|sar)/i)||s.match(/مبلغ\s*(\d+(?:\.\d+)?)/)||s.match(/(\d+(?:\.\d+)?)(?!\s*%|\d)/);return m?parseFloat(m[1]):0;}
-const CASH_RE=/(خزين|خزن|صندوق|نقد|بنك|مصرف|راجحي|اهلي|انماء|بلاد|شبكه|مدي|عهده)/;
-/* حسابات الترحيل فقط: يُستبعد أي حساب له حسابات فرعية (كوده بادئة لكود آخر) */
-function leafAccounts(){const list=accountsOf(S.activeSystem);const codes=list.map(a=>String(a.code||''));
-  return list.filter(a=>{const c=String(a.code||'');return !c||!codes.some(x=>x!==c&&x.length>c.length&&x.startsWith(c));});}
-/* تطابق جزئي: يكفي كلمتان مميزتان من اسم الحساب، أو كل كلماته إن كانت كلمة واحدة.
-   الأعلى تطابقاً يتقدّم، وعند التساوي تُعرض خيارات بدل التخمين. */
-function draftAccounts(text,withAlts){const tt=new Set(arTok(text));
-  let hits=leafAccounts().map(a=>{const all=arTok(a.name).filter(w=>!DRAFT_STOP.has(w));const tk=all.filter(w=>!DRAFT_WEAK.has(w));const m=tk.filter(w=>tt.has(w));return {a,tk,m,cov:tk.length?m.length/tk.length:0};})
-    .filter(x=>x.tk.length&&(x.m.length===x.tk.length||x.m.length>=2));
+  let m=s.match(/(?:\$|usd)\s*(\d+(?:\.\d+)?)/i)||s.match(/(\d+(?:\.\d+)?)\s*(?:\$|دولار|usd)/i);if(m)return {amt:parseFloat(m[1]),cur:'USD'};
+  m=s.match(/(\d+(?:\.\d+)?)\s*(?:﷼|ريال|ر\.?\s?س|sar)/i)||s.match(/مبلغ\s*(\d+(?:\.\d+)?)/)||s.match(/(\d+(?:\.\d+)?)(?!\s*%|\d)/);return {amt:m?parseFloat(m[1]):0,cur:''};}
+const CASH_RE=/(خزين|خزن|صندوق|نقديه|بنك|مصرف|راجحي|اهلي|انماء|بلاد|شبكه|مدي|عهده)/;
+/* إن كان الدليل مجلوباً من دفترة بأنواعه نعتمد النوع (treasury) فقط، وإلا نستدل بالاسم */
+const chartHasEnt=()=>accountsOf(S.activeSystem).some(a=>a.ent);
+const isCashAcc=a=>chartHasEnt()?a.ent==='treasury':CASH_RE.test(normName(a.name));
+/* حسابات الترحيل فقط. حسابات دفترة المجلوبة كلها فرعية (الرئيسية فئات منفصلة)،
+   أما الحسابات المستوردة يدوياً فيُستبعد منها ما كوده بادئة لكود حساب آخر. */
+function leafAccounts(){const list=accountsOf(S.activeSystem);const codes=list.filter(a=>!a.daftra_id).map(a=>String(a.code||''));
+  return list.filter(a=>{if(a.daftra_id)return true;const c=String(a.code||'');return !c||!codes.some(x=>x!==c&&x.length>c.length&&x.startsWith(c));});}
+function tokMatch(t,a){return t===a||(isLatin(t)&&t.length>=3&&a.startsWith(t));}
+/* تطابق أسماء الحسابات مع النص:
+   - كلمتان مميزتان أو أكثر، أو كل كلمات الاسم، أو كلمة واحدة لا توجد إلا في هذا الحساب.
+   - الإنجليزية بلا حساسية لحالة الأحرف وتكفي بدايتها (dong ← DONGGUAN).
+   - كلمة واحدة مشتركة بين عدة حسابات ← خيارات، لا تخمين. */
+function draftAccounts(text,withAlts){const tt=arTok(text).filter(w=>!DRAFT_STOP.has(w));const lv=leafAccounts();
+  const info=lv.map(a=>{const tk=arTok(a.name).filter(w=>!DRAFT_STOP.has(w)&&!DRAFT_WEAK.has(w));return {a,tk};}).filter(x=>x.tk.length);
+  const df={};info.forEach(x=>new Set(x.tk).forEach(w=>{df[w]=(df[w]||0)+1;}));
+  let hits=info.map(x=>{const m=x.tk.filter(w=>tt.some(t=>tokMatch(t,w)));return Object.assign(x,{m,cov:m.length/x.tk.length});})
+    .filter(x=>x.m.length&&(x.m.length>=2||x.m.length===x.tk.length||df[x.m[0]]===1||isLatin(x.m[0])));
   hits.sort((x,y)=>y.m.length-x.m.length||y.cov-x.cov);
   const kept=[];hits.forEach(x=>{const over=kept.find(k=>x.m.every(w=>k.m.includes(w)));if(!over){x.alts=[];kept.push(x);}else if(over.m.length===x.m.length&&Math.abs(over.cov-x.cov)<1e-9)over.alts.push(x.a);});
+  kept.forEach(k=>{if(k.m.length===1&&df[k.m[0]]>1&&!isLatin(k.m[0])){info.forEach(x=>{if(x.a!==k.a&&x.tk.includes(k.m[0])&&!k.alts.includes(x.a))k.alts.push(x.a);});}});
   return withAlts?kept:kept.map(x=>x.a);}
-function phraseAcct(text,re){const m=normName(text).match(re);if(!m)return null;const hs=draftAccounts(m[1]);return hs.length===1?hs[0]:null;}
+function phraseAcct(text,re){const m=normName(text).match(re);if(!m)return null;const hs=draftAccounts(m[1],true);return hs.length===1?hs[0]:null;}
 function acctsLike(re){return leafAccounts().filter(a=>re.test(normName(a.name)));}
 /* اختيار حساب افتراضي: واحد فقط ← يُختار، أكثر ← خيارات بلا تخمين */
-function pickLike(re,prefer){const c=acctsLike(re);if(prefer){const p=c.filter(a=>prefer.test(normName(a.name)));if(p.length===1)return {acct:p[0].name};}
-  if(c.length===1)return {acct:c[0].name};return {acct:'',opts:c.slice(0,8).map(a=>a.name)};}
+function pickLike(re,prefer,pool){const c=pool||acctsLike(re);if(prefer){const p=c.filter(a=>prefer.test(normName(a.name)));if(p.length===1)return {acct:p[0].name};}
+  if(c.length===1)return {acct:c[0].name};return {acct:'',opts:c.slice(0,40).map(a=>a.name)};}
 function draftP3(){
   const raw=$('#p3-text').value.trim();if(!raw)return toast('اكتب وصف العملية',1);
   const rows=raw.split(/\n+/).map(x=>x.trim()).filter(Boolean);
   let desc='',body=raw;if(rows.length>1&&!/[\d٠-٩]/.test(rows[0])){desc=rows[0];body=rows.slice(1).join(' ');}
-  const amt=draftAmount(body);if(!amt)return toast('لم أجد مبلغاً',1);
+  const A=draftAmount(body),amt=A.amt;if(!amt)return toast('لم أجد مبلغاً',1);
   if(!desc)desc=body.length>60?body.slice(0,60)+'…':body;
   const dj=$('#j-desc');if(dj&&(!dj.value.trim()||dj.dataset.auto==='1')){dj.value=desc;dj.dataset.auto='1';}
+  const jc=$('#j-cur');let curNote='';if(A.cur&&jc){if(jc.value.trim().toUpperCase()!==A.cur){curNote='⚠ المبلغ مكتوب بالدولار: ضُبطت العملة '+A.cur+' بدل '+(jc.value.trim()||'SAR')+' — دفترة تحوّله بسعر الصرف؛ غيّرها إن كان المقصود ريالاً.';jc.value=A.cur;}}
   const nt=normName(body);
   let vat=0,base=amt;const rM=body.match(/(\d+(?:\.\d+)?)\s*%/);const rate=rM?parseFloat(rM[1]):15;
   if(/شامل/.test(nt)){base=Math.round(amt/(1+rate/100)*100)/100;vat=Math.round((amt-base)*100)/100;}
   const hitsX=draftAccounts(body,true),hits=hitsX.map(x=>x.a);
-  const toA=phraseAcct(body,/(?:الي|ال|ل|في|على)\s*حساب\s+(.+?)(?:\s+(?:من|بمبلغ|مبلغ)(?=\s|$)|$)/);
-  const fromA=phraseAcct(body,/من\s+حساب\s+(.+?)(?:\s+(?:الي|بمبلغ|مبلغ)(?=\s|$)|$)/);
-  const cashHits=hits.filter(a=>CASH_RE.test(normName(a.name))),otherHits=hits.filter(a=>!CASH_RE.test(normName(a.name)));
+  const toX=phraseAcct(body,/(?:الي|ل|في|على|علي)\s*حساب\s+(.+?)(?:\s+(?:من|بمبلغ|مبلغ)(?=\s|$)|$)/);
+  const fromX=phraseAcct(body,/من\s+(?:حساب\s+)?(.+?)(?:\s+(?:الي|ل|بمبلغ|مبلغ)(?=\s|$)|$)/);
+  const toA=toX&&!toX.alts.length?toX.a:null,fromA=fromX&&!fromX.alts.length?fromX.a:null;
+  const cashHits=hits.filter(isCashAcc),otherHits=hits.filter(a=>!isCashAcc(a));
   const bankWord=/(بنك|تحويل|شبكه|مدي|مصرف)/.test(nt);
-  const defCash=()=>bankWord?pickLike(/(بنك|مصرف|راجحي|اهلي|انماء|بلاد)/):pickLike(/(خزين|خزن|صندوق|نقديه)/,/(رئيسي|اساسي)/);
-  const one=(arr)=>{const xs=arr.flatMap(a=>{const h=hitsX.find(x=>x.a===a);return h&&h.alts.length?[a,...h.alts]:[a];});return xs.length===1?{acct:xs[0].name}:xs.length>1?{acct:'',opts:xs.map(a=>a.name)}:null;};
-  /* اسم طرف غير موجود في الدليل: خيارات من حسابات الفئة + أي حساب يشترك بكلمة مميزة — بلا اختيار تلقائي */
-  const partyOpts=(re)=>{const tt=new Set(arTok(body).filter(w=>!DRAFT_STOP.has(w)&&!DRAFT_WEAK.has(w)));const lv=leafAccounts();
-    const near=lv.filter(a=>!CASH_RE.test(normName(a.name))&&arTok(a.name).some(w=>tt.has(w)&&!DRAFT_WEAK.has(w)));const cat=lv.filter(a=>re.test(normName(a.name)));
-    return {acct:'',opts:[...new Set([...near,...cat].map(a=>a.name))].slice(0,10)};};
+  const treas=leafAccounts().filter(isCashAcc);
+  const defCash=()=>bankWord?pickLike(null,null,treas.filter(a=>/(بنك|مصرف|راجحي|اهلي|انماء|بلاد)/.test(normName(a.name)))):pickLike(null,/(رئيسي|اساسي)/,treas.filter(a=>/(خزين|خزن|صندوق|نقديه)/.test(normName(a.name))));
+  /* حساب واحد مؤكَّد ← يُختار؛ تطابق مع بدائل ← خيارات */
+  const one=(arr,pref)=>{const xs=arr.flatMap(a=>{const h=hitsX.find(x=>x.a===a);return h&&h.alts.length?[a,...h.alts]:[a];});let u=[...new Set(xs)];
+    if(u.length>1&&pref){const p=u.filter(a=>a.ent===pref);if(p.length===1)u=p;}
+    return u.length===1?{acct:u[0].name}:u.length>1?{acct:'',opts:u.map(a=>a.name)}:null;};
+  const byEnt=(ent,re)=>{const lv=leafAccounts();const e=lv.filter(a=>a.ent===ent);return e.length?e:lv.filter(a=>re.test(normName(a.name)));};
+  /* طرف غير محدد: خيارات من حسابات نوعه (عملاء/موردون) + أي حساب يشترك بكلمة مميزة */
+  const partyOpts=(ent,re)=>{const tt=new Set(arTok(body).filter(w=>!DRAFT_STOP.has(w)&&!DRAFT_WEAK.has(w)));const lv=leafAccounts();
+    const near=lv.filter(a=>!isCashAcc(a)&&arTok(a.name).some(w=>!DRAFT_WEAK.has(w)&&[...tt].some(t=>tokMatch(t,w))));
+    return {acct:'',opts:[...new Set([...near,...byEnt(ent,re)].map(a=>a.name))].slice(0,60)};};
   const isCust=/عميل|عملاء/.test(nt),isSupp=/مورد/.test(nt);
-  const payVerb=/(دفع|سدد|حول|اودع)/.test(nt);
+  const payVerb=/(دفع|سدد|حول|تحويل|اودع)/.test(nt);
   let kind='';
   if(/(قبض|تحصيل|حصل|استلام|استلمنا|وارد|ايراد)/.test(nt)||(isCust&&!isSupp&&payVerb))kind='in';
   else if(/(صرف|سداد|دفعنا|سددنا|مصروف|ايجار|رواتب|شراء)/.test(nt)||(isSupp&&payVerb)||payVerb)kind='out';
   p3lines=[];let note='';const mk=(side,o,v,memo,tax)=>Object.assign({acct:'',d:side==='d'?v:0,c:side==='c'?v:0,memo,tax:tax||''},o||{});
+  const opt=(o,fb)=>o&&(o.acct||(o.opts&&o.opts.length))?o:fb();
   if(kind==='in'){
-    const dr=toA?{acct:toA.name}:one(cashHits)||defCash();
-    const party=one(otherHits.filter(a=>!toA||a!==toA))||(fromA?{acct:fromA.name}:null);
+    const dr=toA?{acct:toA.name}:opt(one(cashHits),defCash);
+    const pHits=otherHits.filter(a=>a!==toA);
+    const party=one(pHits,'client')||(fromA&&!isCashAcc(fromA)?{acct:fromA.name}:null);
     p3lines.push(mk('d',dr,amt,desc));
     if(party)p3lines.push(mk('c',party,amt,desc));
-    else if(vat){p3lines.push(mk('c',pickLike(/(مبيعات|ايراد)/),base,desc));p3lines.push(mk('c',pickLike(/ضريب/,/(مخرجات|مستحق)/),vat,'ضريبة '+rate+'%','Tax '+rate+'%'));}
-    else p3lines.push(mk('c',isCust?partyOpts(/(عملاء|ذمم مدينه)/):pickLike(/(عملاء|ذمم مدينه|مبيعات|ايراد)/),amt,desc));
-    note='قبض/تحصيل: المدين = النقدية/البنك المستلِم، الدائن = '+(party?(party.acct?'حساب الطرف المذكور':'الطرف المذكور (اختر من الخيارات)'):isCust?'حساب العميل (اختر من الخيارات)':'الإيراد');
+    else if(vat){p3lines.push(mk('c',pickLike(null,null,byEnt('sales',/(مبيعات|ايراد)/)),base,desc));p3lines.push(mk('c',pickLike(null,null,byEnt('income_tax',/ضريب/)),vat,'ضريبة '+rate+'%','Tax '+rate+'%'));}
+    else p3lines.push(mk('c',isCust?partyOpts('client',/(عملاء|ذمم مدينه)/):pickLike(null,null,byEnt('sales',/(مبيعات|ايراد)/)),amt,desc));
+    note='قبض/تحصيل: المدين = النقدية/البنك المستلِم، الدائن = '+(party?'الطرف المذكور':isCust?'حساب العميل':'الإيراد');
   }else if(kind==='out'){
-    const cr=fromA?{acct:fromA.name}:one(cashHits)||defCash();
-    const party=(toA&&!CASH_RE.test(normName(toA.name)))?{acct:toA.name}:one(otherHits);
-    const dr=party||(isSupp?partyOpts(/(موردين|مورد|ذمم دائنه)/):pickLike(/(مصروف|مصاريف)/));
-    if(vat&&!party){p3lines.push(mk('d',dr,base,desc));p3lines.push(mk('d',pickLike(/ضريب/,/(مدخلات)/),vat,'ضريبة مدخلات '+rate+'%','Tax '+rate+'%'));}
+    /* «من X» في الصرف = الجهة الدافعة صراحةً (حتى لو لم يكن نوعها خزينة في دفترة) */
+    const cr=fromA&&fromA!==toA?{acct:fromA.name}:opt(one(cashHits),defCash);
+    const pHits=otherHits.filter(a=>a!==fromA);
+    const party=(toA&&!isCashAcc(toA))?{acct:toA.name}:one(pHits,'supplier');
+    const pa=party&&party.acct?acctByInput(party.acct):null;const splitVat=vat&&!isSupp&&!(pa&&(pa.ent==='supplier'||pa.ent==='client'));
+    const dr=party||(isSupp?partyOpts('supplier',/(موردين|مورد|ذمم دائنه)/):pickLike(/(مصروف|مصاريف)/));
+    if(splitVat){p3lines.push(mk('d',dr,base,desc));p3lines.push(mk('d',pickLike(null,null,byEnt('outcome_tax',/ضريب.*(مدخلات|مدفوع)/)),vat,'ضريبة مدخلات '+rate+'%','Tax '+rate+'%'));}
     else p3lines.push(mk('d',dr,amt,desc));
     p3lines.push(mk('c',cr,amt,desc));
-    note='صرف/سداد: المدين = '+(party?'الطرف المذكور':isSupp?'المورد':'المصروف')+'، الدائن = النقدية/البنك الدافع';
+    note='صرف/سداد: المدين = '+(party?'الطرف المذكور':isSupp?'حساب المورد':'المصروف')+'، الدائن = النقدية/البنك الدافع';
   }else{
-    p3lines.push(mk('d',toA?{acct:toA.name}:{acct:'',opts:hits.map(a=>a.name)},amt,desc));
-    p3lines.push(mk('c',fromA?{acct:fromA.name}:{acct:'',opts:hits.map(a=>a.name)},amt,desc));
+    const all=hits.flatMap(a=>{const h=hitsX.find(x=>x.a===a);return [a,...(h?h.alts:[])];}).map(a=>a.name);
+    p3lines.push(mk('d',toA?{acct:toA.name}:{acct:'',opts:all},amt,desc));
+    p3lines.push(mk('c',fromA?{acct:fromA.name}:{acct:'',opts:all},amt,desc));
     note='لم أتعرّف على اتجاه العملية — اختر طرفي القيد';
   }
-  p3lines.forEach(l=>{if(l.acct)delete l.opts;});
+  /* أي طرف بلا حساب ولا خيارات ← كل حسابات الترحيل كخيارات */
+  p3lines.forEach(l=>{if(l.acct)delete l.opts;else if(!l.opts||!l.opts.length)l.opts=leafAccounts().slice(0,80).map(a=>a.name);});
   renderP3();checkP3(false);
-  const pn=$('#p3-parse');if(pn){const miss=p3lines.filter(l=>!l.acct).length;pn.innerHTML='<div class="tag-audit">فهمت: <b>'+note.replace(/</g,'&lt;')+'</b> · المبلغ <b>'+fmt(amt)+'</b>'+(vat?' (صافي '+fmt(base)+' + ضريبة '+fmt(vat)+')':'')+(hits.length?' · حسابات مذكورة: '+hits.map(a=>a.code+' '+a.name).join('، ').replace(/</g,'&lt;'):'')+(miss?'<br><span class="flag">⚑ '+miss+' طرف بحاجة اختيارك من الخيارات تحت الحساب.</span>':'')+'</div>';}
+  const pn=$('#p3-parse');if(pn){const miss=p3lines.filter(l=>!l.acct).length;const noEnt=!accountsOf(S.activeSystem).some(a=>a.ent);
+    pn.innerHTML='<div class="tag-audit">فهمت: <b>'+note.replace(/</g,'&lt;')+'</b> · المبلغ <b>'+fmt(amt)+(A.cur?' '+A.cur:'')+'</b>'+(vat?' (صافي '+fmt(base)+' + ضريبة '+fmt(vat)+')':'')+(hits.length?' · حسابات مذكورة: '+hits.map(a=>a.code+' '+a.name).join('، ').replace(/</g,'&lt;'):'')+(curNote?'<br><span class="flag">'+curNote+'</span>':'')+(miss?'<br><span class="flag">⚑ '+miss+' طرف بحاجة اختيارك من الخيارات تحت الحساب.</span>':'')+(miss&&noEnt?'<br>تلميح: أعد «جلب الدليل من دفترة» مرة واحدة ليتعرّف النظام على حسابات العملاء والموردين والبنوك بنوعها.':'')+'</div>';}
   toast('مسودة جاهزة — راجعها');logIt('مسار3: مسودة');
 }
 function addLine(){p3lines.push({acct:'',d:0,c:0,memo:'',tax:''});renderP3();}
