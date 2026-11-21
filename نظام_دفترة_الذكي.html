@@ -111,7 +111,7 @@
   <aside>
     <div class="brand">
       <div class="mark">دَ</div>
-      <div><h1>النظام الذكي لدفترة</h1><span>v3 · محرّك متعدد الأنظمة</span></div>
+      <div><h1>النظام الذكي لدفترة</h1><span>v4.1 · محرّك متعدد الأنظمة · 2026-11-21</span></div>
     </div>
     <div class="sys-switch">
       <label>النظام النشِط</label>
@@ -189,7 +189,7 @@
       <div class="card">
         <h3>إعدادات اتصال النظام النشِط</h3>
         <div class="row">
-          <div class="field"><label>نطاق حسابك في دفترة</label><input id="c-sub" placeholder="yourcompany" oninput="saveConn()"><div class="hint" style="margin:4px 0 0">مثال: إن كان رابطك <span class="inline-code">acme.daftra.com</span> فاكتب <b>acme</b></div></div>
+          <div class="field"><label>نطاق حسابك في دفترة</label><input id="c-sub" placeholder="yourcompany" oninput="saveConn()" onblur="this.value=activeSys().sub||''" style="direction:ltr;text-align:left"><div class="hint" style="margin:4px 0 0">مثال: إن كان رابطك <span class="inline-code">acme.daftra.com</span> فاكتب <b>acme</b></div></div>
           <div class="field" style="max-width:150px"><label>اسم ترويسة المفتاح</label><input id="c-hdr" value="APIKEY" oninput="saveConn()"></div>
         </div>
         <div class="row" style="margin-top:10px">
@@ -396,6 +396,7 @@ function migrate(){
     if(!S.systems.length){S.systems=defaultSystems();S.ver=4;}
   }
   if(!S.xmap||typeof S.xmap!=='object')S.xmap={};
+  S.systems.forEach(sy=>{if(sy.sub)sy.sub=normSub(sy.sub);});
   if(!(S.ver>=4))ensureDefaultSystems();
   S.ver=4;
   if(typeof S.activeSystem!=='number'||S.activeSystem<0||S.activeSystem>=S.systems.length)S.activeSystem=0;
@@ -480,7 +481,7 @@ function delSystem(i){i=+i;if(!S.systems[i])return toast('رقم نظام غير
   if(S.activeSystem===i)S.activeSystem=0;else S.activeSystem=shift(S.activeSystem);
   ['#acc-view','#x-from','#x-to','#p2-src','#p2-dst'].forEach(q=>{const el=$(q);if(el)el.innerHTML='';});
   loadConnFields();render();toast('حُذف «'+nm+'»');logIt('حذف نظام: '+nm);}
-function updSystem(i,f,v){S.systems[i][f]=v;if(i===S.activeSystem&&f!=='name')loadConnFields();if(f==='name'){renderSysSwitch();$('#conn-sysname').textContent=activeSys().name;refreshSysSelects();}save();updateConnDot();renderSysBadges();}
+function updSystem(i,f,v){if(f==='sub')v=normSub(v);S.systems[i][f]=v;if(i===S.activeSystem&&f!=='name')loadConnFields();if(f==='name'){renderSysSwitch();$('#conn-sysname').textContent=activeSys().name;refreshSysSelects();}save();updateConnDot();renderSysBadges();}
 function sysConnected(sy){return !!(sy.sub&&sy.key);}
 function renderSystems(){
   const g=$('#sys-grid');if(!g)return;
@@ -587,10 +588,24 @@ function taxOptions(){return S.tax.map((x,i)=>`<option value="${i}">${x.name}</o
 function taxMath(total,tp){if(tp.mode==='exempt')return{pre:total,vat:0,grand:total};if(tp.mode==='inclusive'){const pre=total/(1+tp.rate/100);return{pre,vat:total-pre,grand:total};}const vat=total*tp.rate/100;return{pre:total,vat,grand:total+vat};}
 
 /* ============ الاتصال بدفترة (النظام النشِط) ============ */
+/* يقبل: acme أو acme.daftra.com أو https://acme.daftra.com/... ويُرجع acme فقط */
+function normSub(v){let x=String(v||'').trim().toLowerCase();x=x.replace(/^[a-z]+:\/\//,'').replace(/[\/?#].*$/,'').replace(/:\d+$/,'').replace(/\.daftra\.com\.?$/,'').replace(/^www\./,'');return x;}
+function subValid(x){return /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(x);}
 function loadConnFields(){const sy=activeSys();$('#c-sub').value=sy.sub||'';$('#c-hdr').value=sy.hdr||'APIKEY';$('#c-key').value=sy.key||'';$('#conn-sysname').textContent=sy.name;}
-function saveConn(){const sy=activeSys();sy.sub=$('#c-sub').value.trim();sy.hdr=$('#c-hdr').value.trim()||'APIKEY';sy.key=$('#c-key').value;save();updateConnDot();renderSysSwitch();renderSystems();}
+function saveConn(){const sy=activeSys();sy.sub=normSub($('#c-sub').value);sy.hdr=$('#c-hdr').value.trim()||'APIKEY';sy.key=$('#c-key').value;save();updateConnDot();renderSysSwitch();renderSystems();}
 function updateConnDot(){const on=sysConnected(activeSys());$('#conn-dot').classList.toggle('on',on);const sd=$('#sys-dot');if(sd)sd.classList.toggle('on',on);}
-function apiBase(){return 'https://'+activeSys().sub+'.daftra.com';}
+function apiBase(){return 'https://'+normSub(activeSys().sub)+'.daftra.com';}
+/* عند فتح الصفحة من الموقع تمرّ الطلبات عبر وسيط الخادم (/daftra-proxy) فلا يحجبها CORS.
+   المفتاح يُرسل للوسيط في ترويسة ولا يُحفظ هناك. من ملف محلي يُستخدم الاتصال المباشر. */
+const USE_PROXY=/^https?:$/.test(location.protocol);
+function daftraFetch(ep){const sy=activeSys();const sub=normSub(sy.sub);
+  if(!subValid(sub))return Promise.reject(Object.assign(new Error('bad-sub'),{badSub:true}));
+  if(!USE_PROXY)return fetch(apiBase()+ep,{headers:apiHeaders()});
+  return fetch('/daftra-proxy/'+sub+(ep.startsWith('/')?ep:'/'+ep),{headers:{'X-Daftra-Key-Header':sy.hdr||'APIKEY','X-Daftra-Key':sy.key||''},cache:'no-store'});}
+function connErrHtml(err,ep){
+  if(err&&err.badSub)return '<div class="notice err"><b>النطاق غير صالح.</b> اكتب اسم النطاق فقط، مثل <span class="inline-code">mfrag685</span> (من الرابط mfrag685.daftra.com).</div>';
+  return '<div class="notice err"><b>تعذّر الوصول إلى دفترة'+(USE_PROXY?' عبر وسيط الموقع':' — حجب المتصفح الطلب (CORS)، وهذا متوقّع من ملف محلي')+'.</b><br>جرّب الأمر التالي في الطرفية للتأكد من النطاق والمفتاح:</div><code class="blk">'+curlFor(ep,'GET')+'</code>';}
+async function proxyMsg(r){if(!USE_PROXY)return '';try{const j=await r.clone().json();return j&&j.proxy_error?(' — '+j.proxy_error):'';}catch(e){return '';}}
 function apiHeaders(){const sy=activeSys();const h={'Content-Type':'application/json'};h[sy.hdr||'APIKEY']=sy.key;return h;}
 function curlFor(ep,method,body){
   const sy=activeSys();
@@ -601,16 +616,17 @@ function curlFor(ep,method,body){
 async function testConn(){
   const sy=activeSys();
   if(!sy.sub)return toast('أدخل نطاق حساب «'+sy.name+'» أولاً',1);
+  if(!sy.key)return toast('أدخل مفتاح API لحساب «'+sy.name+'» أولاً',1);
   const ep=$('#ep-clients').textContent.trim();
-  $('#conn-out').innerHTML='<div class="tag-audit">جارٍ الاتصال بـ '+apiBase()+ep+' …</div>';
+  $('#conn-out').innerHTML='<div class="tag-audit">جارٍ الاتصال بـ '+apiBase()+ep+(USE_PROXY?' (عبر وسيط الموقع)':'')+' …</div>';
   logIt('اختبار اتصال: '+sy.name);
   try{
-    const r=await fetch(apiBase()+ep,{headers:apiHeaders()});
-    if(r.ok){$('#conn-out').innerHTML='<div class="notice">✓ نجح اتصال «'+sy.name+'» (HTTP '+r.status+'). يمكنك المزامنة الآن.</div>';toast('الاتصال ناجح');}
-    else $('#conn-out').innerHTML='<div class="notice warn">استجاب الخادم بـ HTTP '+r.status+' — تحقق من المفتاح أو المسار.</div>';
+    const r=await daftraFetch(ep);
+    if(r.ok){$('#conn-out').innerHTML='<div class="notice">✓ نجح اتصال «'+sy.name+'» بـ '+apiBase()+' (HTTP '+r.status+'). يمكنك المزامنة الآن.</div>';toast('الاتصال ناجح');}
+    else{const pm=await proxyMsg(r);const hint=r.status===401||r.status===403?'المفتاح غير مقبول أو لا يملك صلاحية':r.status===404?'المسار أو النطاق غير صحيح':'تحقق من المفتاح أو المسار';$('#conn-out').innerHTML='<div class="notice warn">استجاب الخادم بـ HTTP '+r.status+pm+' — '+hint+'.</div>';}
   }catch(err){
-    $('#conn-out').innerHTML='<div class="notice err"><b>حجب المتصفح الطلب (CORS) — وهذا متوقّع من ملف محلي.</b><br>الحلّان: (١) شغّل النظام من خادمك، أو (٢) استخدم الأمر التالي في الطرفية لتجربة الاتصال يدوياً:</div><code class="blk">'+curlFor(ep,'GET')+'</code>';
-    toast('محجوب بـ CORS — انظر أمر cURL',1);
+    $('#conn-out').innerHTML=connErrHtml(err,ep);
+    toast(err&&err.badSub?'النطاق غير صالح':'تعذّر الاتصال — انظر التفاصيل',1);
   }
 }
 async function syncFrom(type){
@@ -619,14 +635,15 @@ async function syncFrom(type){
   if(!sy.sub||!sy.key)return toast('أكمل إعدادات اتصال «'+sy.name+'» أولاً',1);
   $('#sync-out').innerHTML='<div class="tag-audit">جارٍ الجلب من '+sy.name+'…</div>';
   try{
-    const r=await fetch(apiBase()+ep,{headers:apiHeaders()});
+    const r=await daftraFetch(ep);
+    if(!r.ok){const pm=await proxyMsg(r);$('#sync-out').innerHTML='<div class="notice warn">استجاب الخادم بـ HTTP '+r.status+pm+' — لم يُضف شيء.</div>';return;}
     const j=await r.json();
     const arr=Array.isArray(j)?j:(j.data||j.result||[]);
     let n=0;
     arr.forEach(o=>{const name=o.business_name||o.name||o.title||o.client_name;const code=o.id||o.code||o.client_number;if(name&&code&&!S.matches.find(x=>x.src===name)){S.matches.push({kind:type==='clients'?'عميل':'صنف',src:String(name),dst:String(code)});n++;}});
     render();$('#sync-out').innerHTML='<div class="notice">✓ أُضيف '+n+' سجل إلى جدول المطابقة.</div>';toast('تمت المزامنة: '+n);logIt('مزامنة '+type+': '+n);
   }catch(err){
-    $('#sync-out').innerHTML='<div class="notice err">تعذّرت المزامنة تلقائياً (CORS/شبكة). استخدم cURL لجلب البيانات ثم الصقها في «لصق دفعة»:</div><code class="blk">'+curlFor(ep,'GET')+'</code>';
+    $('#sync-out').innerHTML=connErrHtml(err,ep);
   }
 }
 
