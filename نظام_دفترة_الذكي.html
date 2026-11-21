@@ -111,7 +111,7 @@
   <aside>
     <div class="brand">
       <div class="mark">دَ</div>
-      <div><h1>النظام الذكي لدفترة</h1><span>v4.6 · محرّك متعدد الأنظمة · 2026-11-21</span></div>
+      <div><h1>النظام الذكي لدفترة</h1><span>v4.7 · محرّك متعدد الأنظمة · 2026-11-21</span></div>
     </div>
     <div class="sys-switch">
       <label>النظام النشِط</label>
@@ -133,6 +133,7 @@
       <div class="nav-item" data-page="p1"><span class="ic">1</span> تهيئة ملف استيراد</div>
       <div class="nav-item" data-page="p2"><span class="ic">2</span> النقل بين الأنظمة</div>
       <div class="nav-item" data-page="p3"><span class="ic">3</span> توليد القيود</div>
+      <div class="nav-item" data-page="p4"><span class="ic">4</span> فواتير البيع والشراء</div>
       <b>النسخ الاحتياطي</b>
       <div class="nav-item" data-page="backup"><span class="ic">⇩</span> تصدير / استيراد</div>
     </nav>
@@ -334,16 +335,16 @@
     <section class="page" id="p3">
       <div class="head"><h2>المسار الثالث — توليد القيود</h2><p>القيد لنظام: <b id="p3-sys" style="color:var(--teal)">—</b> (يُبدَّل من القائمة الجانبية). حوِّل وصفاً نصياً إلى قيد متوازن بأعمدة قالب دفترة الفعلي.</p></div>
       <div class="card"><h3>الوصف النصي</h3>
-        <div class="hint">مثال: «دفع العميل علي 1150 نقداً شامل ضريبة 15%» أو «صرف إيجار المكتب 3000 من البنك».</div>
+        <div class="hint">اكتب السطر الأول وصفاً للقيد (اختياري) ثم العملية. أمثلة: «العميل الاسطوره المتطوره دفع 500 نقداً إلى حساب الخزينة الأساسية» · «سداد للمورد منارة المنزل 3000 من حساب البنك» · «صرف إيجار المكتب 3000 من البنك». اذكر أسماء الحسابات كما في الدليل ليُتعرّف عليها.</div>
         <textarea id="p3-text" placeholder="دفع العميل علي مبلغ 1150 نقداً شامل الضريبة 15%"></textarea>
-        <div class="row" style="margin-top:10px"><button class="btn-primary" onclick="draftP3()">مسودة ذكية</button><button class="btn-ghost" onclick="addLine()">+ سطر يدوي</button></div>
+        <div id="p3-parse"></div><div class="row" style="margin-top:10px"><button class="btn-primary" onclick="draftP3()">مسودة ذكية</button><button class="btn-ghost" onclick="addLine()">+ سطر يدوي</button></div>
       </div>
       <div class="card"><h3>ترويسة القيد</h3>
         <div class="row">
           <div class="field" style="max-width:140px"><label>Journal Code</label><input id="j-code" class="num" value="JRN001"></div>
           <div class="field" style="max-width:150px"><label>التاريخ</label><input id="j-date" type="date"></div>
           <div class="field" style="max-width:110px"><label>العملة</label><input id="j-cur" value="SAR"></div>
-          <div class="field"><label>وصف القيد</label><input id="j-desc" placeholder="مطلوب للإرسال — مثال: تحصيل من عميل"></div>
+          <div class="field"><label>وصف القيد</label><input id="j-desc" oninput="this.dataset.auto=''" placeholder="مطلوب للإرسال — مثال: تحصيل من عميل"></div>
           <div class="field" style="max-width:140px"><label>مركز التكلفة</label><input id="j-cc" placeholder="اختياري"></div>
         </div>
       </div>
@@ -359,6 +360,41 @@
           <label style="display:flex;align-items:center;gap:6px;font-size:13px"><input type="checkbox" id="j-draft" checked style="width:auto"> حفظ كمسودة في دفترة (أأمن للتجربة)</label>
           <button class="btn-primary" id="j-send" onclick="sendJournalToDaftra()">⇪ إرسال إلى دفترة</button></div>
         <div id="p3-send-out"></div>
+      </div>
+    </section>
+
+    <!-- ===== مسار 4: الفواتير ===== -->
+    <section class="page" id="p4">
+      <div class="head"><h2>المسار الرابع — فواتير البيع والشراء</h2><p>الفاتورة لنظام: <b id="p4-sys" style="color:var(--teal)">—</b>. الأسعار تُدخل <b>شاملة الضريبة</b>، ولا يُرسل شيء إلى دفترة إلا بعد التحقق والتأكيد.</p></div>
+      <div class="card"><h3>١. بيانات دفترة لهذا النظام (قراءة فقط)</h3>
+        <div class="hint">يجلب العملاء والموردين والأصناف والضرائب من دفترة لاختيارها بالاسم. لا يُكتب شيء في دفترة.</div>
+        <div class="row" style="margin-top:8px"><button onclick="pullInvRefs()">⇣ جلب العملاء والموردين والأصناف والضرائب</button></div>
+        <div id="inv-refs-status"></div><div id="inv-refs-out"></div>
+      </div>
+      <div class="card"><h3>٢. ترويسة الفاتورة</h3>
+        <div class="row">
+          <div class="field" style="max-width:150px"><label>النوع</label><select id="inv-type" onchange="invTypeChanged()"><option value="sale">فاتورة بيع</option><option value="purchase">فاتورة شراء</option></select></div>
+          <div class="field"><label id="inv-party-lbl">العميل</label><input id="inv-party" list="inv-parties" oninput="renderInvCheck()" placeholder="اكتب الاسم واختره من القائمة"><div class="acct-code" id="inv-party-hint" style="font-size:11px;color:var(--muted)"></div></div>
+          <div class="field" style="max-width:150px"><label>التاريخ</label><input id="inv-date" type="date"></div>
+          <div class="field" style="max-width:100px"><label>العملة</label><input id="inv-cur" value="SAR"></div>
+          <div class="field" style="max-width:220px"><label>الضريبة (شامل)</label><select id="inv-tax" onchange="calcInv()"></select></div>
+        </div>
+        <datalist id="inv-parties"></datalist><datalist id="inv-products"></datalist>
+      </div>
+      <div class="card"><h3>٣. البنود <span style="font-weight:400;color:var(--muted);font-size:12px">— سعر الوحدة شامل الضريبة</span></h3>
+        <div class="tbl-wrap"><table><thead><tr><th style="width:38%">الصنف</th><th>الكمية</th><th>سعر الوحدة (شامل)</th><th>الإجمالي (شامل)</th><th></th></tr></thead><tbody id="inv-body"></tbody></table></div>
+        <div class="row" style="margin-top:10px"><button class="btn-ghost" onclick="addInvLine()">+ بند</button></div>
+        <div class="balance-scale">
+          <div class="scale-side"><div class="lbl">الصافي قبل الضريبة</div><div class="val" id="inv-net">0.00</div></div>
+          <div class="scale-side"><div class="lbl">الضريبة <span id="inv-rate"></span></div><div class="val" id="inv-vat" style="color:var(--amber)">0.00</div></div>
+          <div class="scale-side"><div class="lbl">الإجمالي شامل الضريبة</div><div class="val" id="inv-total" style="color:var(--teal)">0.00</div></div>
+        </div>
+        <div class="hint">الصافي = الإجمالي ÷ (1 + النسبة) · الضريبة = الإجمالي − الصافي. مثال بنسبة 15%: 1,150.00 ← صافي 1,000.00 + ضريبة 150.00. الأرقام النهائية تحسبها دفترة، ونقارنها بعد الإرسال.</div>
+        <div id="inv-check"></div>
+        <div class="row" style="margin-top:10px">
+          <label style="display:flex;align-items:center;gap:6px;font-size:13px"><input type="checkbox" id="inv-draft" checked style="width:auto"> حفظ كمسودة في دفترة (أأمن للتجربة)</label>
+          <button class="btn-primary" id="inv-send" onclick="sendInvoiceToDaftra()">⇪ إرسال الفاتورة إلى دفترة</button></div>
+        <div id="inv-send-out"></div>
       </div>
     </section>
 
@@ -839,23 +875,74 @@ function execP2(s,d,n){$('#p2-out').innerHTML=`<div class="card"><h3>✓ جُه�
 /* ============ المسار الثالث ============ */
 function arNum(s){const map={'٠':'0','١':'1','٢':'2','٣':'3','٤':'4','٥':'5','٦':'6','٧':'7','٨':'8','٩':'9'};s=String(s).replace(/[٠-٩]/g,d=>map[d]);const m=s.match(/[\d]+(?:\.\d+)?/);return m?parseFloat(m[0]):0;}
 function findAcct(...names){const list=accountsOf(S.activeSystem);for(const n of names){const a=list.find(x=>x.name.includes(n));if(a)return a.name;}return names[0];}
+/* ===== المسودة الذكية: تفهم الوصف والمبلغ وطرفي القيد من دليل النظام النشِط =====
+   - السطر الأول بلا أرقام (عند وجود أكثر من سطر) = وصف القيد.
+   - أي حساب مذكور بالاسم في النص يُطابَق مع الدليل (مع توحيد ة/ه، أ/ا، ى/ي و«ال»).
+   - «إلى حساب X» = الطرف المستلِم، «من حساب X» = الطرف الدافع.
+   - الاتجاه: العميل دفع/قبض/تحصيل = مدين نقدية، دائن العميل · صرف/سداد للمورد = مدين المورد/المصروف، دائن نقدية.
+   - عند الشك لا يُخمَّن: يُترك الحساب فارغاً مع خيارات من الدليل. */
+const DRAFT_STOP=new Set(['قيد','تجربه','تجريبي','عميل','العميل','مورد','المورد','دفع','سدد','حساب','الي','من','في','على','علي','مبلغ','ريال','نقدا','نقدي','نقدا','و','عن','الى','رس','قيمه','شركه','مؤسسه','ل','بمبلغ']);
+function arTok(s){return normName(s).replace(/[٫,](?=\d)/g,'').replace(/[^\p{L}\p{N}\s]/gu,' ').split(/\s+/).filter(Boolean).map(w=>w.replace(/^(و?(بال|كال|فال|لل|ال))(?=..)/,'')).filter(w=>w.length>1);}
+function draftAmount(t){const s=String(t).replace(/[٠-٩]/g,d=>'٠١٢٣٤٥٦٧٨٩'.indexOf(d)).replace(/(\d),(?=\d{3}\b)/g,'$1');
+  const m=s.match(/(\d+(?:\.\d+)?)\s*(?:﷼|ريال|ر\.?\s?س|sar)/i)||s.match(/مبلغ\s*(\d+(?:\.\d+)?)/)||s.match(/(\d+(?:\.\d+)?)(?!\s*%|\d)/);return m?parseFloat(m[1]):0;}
+const CASH_RE=/(خزين|خزن|صندوق|نقد|بنك|مصرف|راجحي|اهلي|انماء|بلاد|شبكه|مدي|عهده)/;
+function draftAccounts(text){const tt=new Set(arTok(text));const list=accountsOf(S.activeSystem);
+  let hits=list.map(a=>{const tk=arTok(a.name).filter(w=>!DRAFT_STOP.has(w));return {a,tk};}).filter(x=>x.tk.length&&x.tk.every(w=>tt.has(w)));
+  hits=hits.filter(x=>!hits.some(y=>y!==x&&y.tk.length>x.tk.length&&x.tk.every(w=>y.tk.includes(w))));
+  return hits.map(x=>x.a);}
+function phraseAcct(text,re){const m=normName(text).match(re);if(!m)return null;const hs=draftAccounts(m[1]);return hs.length===1?hs[0]:null;}
+function acctsLike(re){return accountsOf(S.activeSystem).filter(a=>re.test(normName(a.name)));}
+/* اختيار حساب افتراضي: واحد فقط ← يُختار، أكثر ← خيارات بلا تخمين */
+function pickLike(re,prefer){const c=acctsLike(re);if(prefer){const p=c.filter(a=>prefer.test(normName(a.name)));if(p.length===1)return {acct:p[0].name};}
+  if(c.length===1)return {acct:c[0].name};return {acct:'',opts:c.slice(0,8).map(a=>a.name)};}
 function draftP3(){
-  const t=$('#p3-text').value.trim();if(!t)return toast('اكتب وصف العملية',1);
-  const amt=arNum(t);if(!amt)return toast('لم أجد مبلغاً',1);
-  let vat=0,base=amt;const rM=t.match(/(\d+)\s*%/);const rate=rM?parseFloat(rM[1]):15;
-  if(/شامل/.test(t)){base=amt/(1+rate/100);vat=amt-base;}
-  const bank=/(بنك|تحويل|شبكة|مدى)/.test(t);const payAcct=bank?findAcct('البنك','المصرف'):findAcct('الصندوق','النقد');
-  p3lines=[];
-  if(/(دفع العميل|تحصيل|قبض|سدد العميل|حصلنا)/.test(t)){
-    p3lines.push({acct:payAcct,d:amt,c:0,memo:t.slice(0,40),tax:''});
-    if(vat){p3lines.push({acct:findAcct('المبيعات','الإيراد'),d:0,c:base,memo:'إيراد',tax:''});p3lines.push({acct:'شامل الضريبة',d:0,c:vat,memo:'ضريبة',tax:'Tax '+rate+'%'});}
-    else p3lines.push({acct:findAcct('العملاء','الذمم المدينة','المبيعات'),d:0,c:amt,memo:'تحصيل',tax:''});
-  }else if(/(صرف|دفع|سداد|مصروف|إيجار|رواتب|فاتورة)/.test(t)){
-    p3lines.push({acct:findAcct('المصروف','الإيجار','المصروفات'),d:base,c:0,memo:t.slice(0,40),tax:''});
-    if(vat)p3lines.push({acct:'شامل الضريبة',d:vat,c:0,memo:'ضريبة مدخلات',tax:'Tax '+rate+'%'});
-    p3lines.push({acct:payAcct,d:0,c:amt,memo:'سداد',tax:''});
-  }else{p3lines.push({acct:payAcct,d:amt,c:0,memo:t.slice(0,40),tax:''});p3lines.push({acct:findAcct('الإيرادات','المبيعات'),d:0,c:amt,memo:'إيراد',tax:''});}
-  renderP3();toast('مسودة جاهزة — راجعها');logIt('مسار3: مسودة');
+  const raw=$('#p3-text').value.trim();if(!raw)return toast('اكتب وصف العملية',1);
+  const rows=raw.split(/\n+/).map(x=>x.trim()).filter(Boolean);
+  let desc='',body=raw;if(rows.length>1&&!/[\d٠-٩]/.test(rows[0])){desc=rows[0];body=rows.slice(1).join(' ');}
+  const amt=draftAmount(body);if(!amt)return toast('لم أجد مبلغاً',1);
+  if(!desc)desc=body.length>60?body.slice(0,60)+'…':body;
+  const dj=$('#j-desc');if(dj&&(!dj.value.trim()||dj.dataset.auto==='1')){dj.value=desc;dj.dataset.auto='1';}
+  const nt=normName(body);
+  let vat=0,base=amt;const rM=body.match(/(\d+(?:\.\d+)?)\s*%/);const rate=rM?parseFloat(rM[1]):15;
+  if(/شامل/.test(nt)){base=Math.round(amt/(1+rate/100)*100)/100;vat=Math.round((amt-base)*100)/100;}
+  const hits=draftAccounts(body);
+  const toA=phraseAcct(body,/(?:الي|ال|ل|في|على)\s*حساب\s+(.+?)(?:\s+(?:من|بمبلغ|مبلغ)(?=\s|$)|$)/);
+  const fromA=phraseAcct(body,/من\s+حساب\s+(.+?)(?:\s+(?:الي|بمبلغ|مبلغ)(?=\s|$)|$)/);
+  const cashHits=hits.filter(a=>CASH_RE.test(normName(a.name))),otherHits=hits.filter(a=>!CASH_RE.test(normName(a.name)));
+  const bankWord=/(بنك|تحويل|شبكه|مدي|مصرف)/.test(nt);
+  const defCash=()=>bankWord?pickLike(/(بنك|مصرف|راجحي|اهلي|انماء|بلاد)/):pickLike(/(خزين|خزن|صندوق|نقديه)/,/(رئيسي|اساسي)/);
+  const one=(arr)=>arr.length===1?{acct:arr[0].name}:arr.length>1?{acct:'',opts:arr.map(a=>a.name)}:null;
+  const isCust=/عميل|عملاء/.test(nt),isSupp=/مورد/.test(nt);
+  const payVerb=/(دفع|سدد|حول|اودع)/.test(nt);
+  let kind='';
+  if(/(قبض|تحصيل|حصل|استلام|استلمنا|وارد|ايراد)/.test(nt)||(isCust&&!isSupp&&payVerb))kind='in';
+  else if(/(صرف|سداد|دفعنا|سددنا|مصروف|ايجار|رواتب|شراء)/.test(nt)||(isSupp&&payVerb)||payVerb)kind='out';
+  p3lines=[];let note='';const mk=(side,o,v,memo,tax)=>Object.assign({acct:'',d:side==='d'?v:0,c:side==='c'?v:0,memo,tax:tax||''},o||{});
+  if(kind==='in'){
+    const dr=toA?{acct:toA.name}:one(cashHits)||defCash();
+    const party=one(otherHits.filter(a=>!toA||a!==toA))||(fromA?{acct:fromA.name}:null);
+    p3lines.push(mk('d',dr,amt,desc));
+    if(party)p3lines.push(mk('c',party,amt,desc));
+    else if(vat){p3lines.push(mk('c',pickLike(/(مبيعات|ايراد)/),base,desc));p3lines.push(mk('c',pickLike(/ضريب/,/(مخرجات|مستحق)/),vat,'ضريبة '+rate+'%','Tax '+rate+'%'));}
+    else p3lines.push(mk('c',isCust?pickLike(/(عملاء|ذمم مدينه)/):pickLike(/(عملاء|ذمم مدينه|مبيعات|ايراد)/),amt,desc));
+    note='قبض/تحصيل: المدين = النقدية/البنك المستلِم، الدائن = '+(party?'الطرف المذكور':isCust?'العملاء':'الإيراد');
+  }else if(kind==='out'){
+    const cr=fromA?{acct:fromA.name}:one(cashHits)||defCash();
+    const party=(toA&&!CASH_RE.test(normName(toA.name)))?{acct:toA.name}:one(otherHits);
+    const dr=party||(isSupp?pickLike(/(موردين|مورد|ذمم دائنه)/):pickLike(/(مصروف|مصاريف)/));
+    if(vat&&!party){p3lines.push(mk('d',dr,base,desc));p3lines.push(mk('d',pickLike(/ضريب/,/(مدخلات)/),vat,'ضريبة مدخلات '+rate+'%','Tax '+rate+'%'));}
+    else p3lines.push(mk('d',dr,amt,desc));
+    p3lines.push(mk('c',cr,amt,desc));
+    note='صرف/سداد: المدين = '+(party?'الطرف المذكور':isSupp?'المورد':'المصروف')+'، الدائن = النقدية/البنك الدافع';
+  }else{
+    p3lines.push(mk('d',toA?{acct:toA.name}:{acct:'',opts:hits.map(a=>a.name)},amt,desc));
+    p3lines.push(mk('c',fromA?{acct:fromA.name}:{acct:'',opts:hits.map(a=>a.name)},amt,desc));
+    note='لم أتعرّف على اتجاه العملية — اختر طرفي القيد';
+  }
+  p3lines.forEach(l=>{if(l.acct)delete l.opts;});
+  renderP3();checkP3(false);
+  const pn=$('#p3-parse');if(pn){const miss=p3lines.filter(l=>!l.acct).length;pn.innerHTML='<div class="tag-audit">فهمت: <b>'+note.replace(/</g,'&lt;')+'</b> · المبلغ <b>'+fmt(amt)+'</b>'+(vat?' (صافي '+fmt(base)+' + ضريبة '+fmt(vat)+')':'')+(hits.length?' · حسابات مذكورة: '+hits.map(a=>a.code+' '+a.name).join('، ').replace(/</g,'&lt;'):'')+(miss?'<br><span class="flag">⚑ '+miss+' طرف بحاجة اختيارك من الخيارات تحت الحساب.</span>':'')+'</div>';}
+  toast('مسودة جاهزة — راجعها');logIt('مسار3: مسودة');
 }
 function addLine(){p3lines.push({acct:'',d:0,c:0,memo:'',tax:''});renderP3();}
 function delLine(i){p3lines.splice(i,1);renderP3();}
@@ -879,7 +966,8 @@ function lineSide(l){return (+l.d||0)>0?'مدين':((+l.c||0)>0?'دائن':'—'
 function acctHint(i){const l=p3lines[i];const a=acctByInput(l.acct);
   if(a)return '<span style="font-family:var(--mono)">كود: '+a.code+'</span>';
   if(!accountsOf(S.activeSystem).length)return l.acct?'<span style="color:var(--amber,#e0a030)">⚠ لا دليل لـ '+accSysName(S.activeSystem)+' — اجلبه من صفحة الدليل</span>':'';
-  if(!l.acct)return '';
+  if(!l.acct&&l.opts&&l.opts.length){const nm=lineSide(l);return '<span style="color:var(--amber,#e0a030)">⚑ اختر حساب الطرف '+nm+':</span> <select style="font-size:11px;padding:2px 4px;max-width:100%" onchange="pickAcct('+i+',this.value)"><option value="">— خيارات ('+l.opts.length+') —</option>'+l.opts.map(n=>{const a=acctByInput(n);return '<option value="'+String(n).replace(/"/g,'&quot;')+'">'+(a?a.code+' · ':'')+String(n).replace(/</g,'&lt;')+'</option>';}).join('')+'</select>';}
+  if(!l.acct)return ((+l.d||0)>0||(+l.c||0)>0)?'<span style="color:var(--amber,#e0a030)">⚑ حدّد الحساب</span>':'';
   const sug=suggestAccounts(l.acct,6);
   return '<span style="color:var(--amber,#e0a030)">⚠ غير موجود في دليل '+accSysName(S.activeSystem)+(sug.length?' — اختر:':' ولا اقتراحات قريبة')+'</span>'+(sug.length?' <select style="font-size:11px;padding:2px 4px;max-width:100%" onchange="pickAcct('+i+',this.value)"><option value="">— اقتراحات ('+sug.length+') —</option>'+sug.map(s=>'<option value="'+String(s.name).replace(/"/g,'&quot;')+'">'+s.code+' · '+s.name+'</option>').join('')+'</select>':'');}
 function pickAcct(i,name){if(!name)return;p3lines[i].acct=name;renderP3();checkP3(false);}
@@ -948,6 +1036,115 @@ async function sendJournalToDaftra(){
   }catch(err){out.innerHTML=connErrHtml(err,'/api2/journals');}
   finally{_sending=false;if(btn)btn.disabled=false;}
 }
+/* ============ مسار 4: فواتير البيع والشراء (POST /api2/invoices · /api2/purchase_invoices) ============
+   الأسعار شاملة الضريبة. البيانات المرجعية (عملاء/موردون/أصناف/ضرائب) تُقرأ فقط وتُحفظ لكل نطاق على حدة
+   حتى لا تختلط الحسابات. لا يُرسل شيء إلا بعد تحقق كامل ← ملخص ← تأكيد صريح. */
+const INV_KEY='daftra_inv_refs_v1';
+let invLines=[{prod:'',qty:1,price:''}],_invSending=false,_invLastSig=null;
+function invRefsAll(){try{return JSON.parse(localStorage.getItem(INV_KEY)||'{}')||{};}catch(e){return {};}}
+function invRefs(){const sub=normSub(activeSys().sub);return (sub&&invRefsAll()[sub])||null;}
+function saveInvRefs(sub,r){const all=invRefsAll();all[sub]=r;try{localStorage.setItem(INV_KEY,JSON.stringify(all));}catch(e){toast('تعذّر حفظ البيانات المرجعية محلياً',1);}}
+function invEsc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');}
+function invIsSale(){return $('#inv-type').value!=='purchase';}
+function partyLabel(o){return o.no?o.name+' · '+o.no:o.name;}
+function prodLabel(o){return o.code?o.name+' · '+o.code:o.name;}
+/* يطابق المُدخل باسم دقيق أو بالتسمية الكاملة أو بالكود — ويرفض الأسماء المكررة */
+function invFind(list,v,lab){v=String(v||'').trim();if(!v||!list)return null;
+  let m=list.filter(o=>lab(o)===v);if(m.length===1)return m[0];
+  m=list.filter(o=>normName(o.name)===normName(v));if(m.length===1)return m[0];if(m.length>1)return {ambiguous:m.length};
+  m=list.filter(o=>o.code&&String(o.code)===v||o.no&&String(o.no)===v);return m.length===1?m[0]:null;}
+function invParty(){const r=invRefs();if(!r)return null;return invFind(invIsSale()?r.clients:r.suppliers,$('#inv-party').value,partyLabel);}
+function invProd(v){const r=invRefs();return r?invFind(r.products,v,prodLabel):null;}
+function invTax(){const r=invRefs();const id=$('#inv-tax').value;return r&&r.taxes?r.taxes.find(t=>String(t.id)===id)||null:null;}
+async function pullInvRefs(){
+  const sy=activeSys(),sub=normSub(sy.sub);const out=$('#inv-refs-out');
+  if(!sy.sub||!sy.key){out.innerHTML='<div class="notice warn">أكمل نطاق ومفتاح «'+invEsc(sy.name)+'» في صفحة الاتصال أولاً.</div>';return;}
+  const parts=[['clients','/api2/clients','عميل'],['suppliers','/api2/suppliers','مورد'],['products','/api2/products','صنف'],['taxes','/api2/taxes','ضريبة']];
+  const res={at:Date.now()},notes=[];
+  for(const [k,ep,lbl] of parts){
+    out.innerHTML='<div class="tag-audit">جارٍ جلب '+lbl+' من «'+invEsc(sy.name)+'»…</div>';
+    try{const {all,total}=await fetchAllRecords(ep,(pg,pgs,n)=>{out.innerHTML='<div class="tag-audit">جارٍ جلب '+lbl+' من «'+invEsc(sy.name)+'»… صفحة '+pg+(pgs>1?' من '+pgs:'')+' ('+n+')</div>';});
+      if(k==='clients'||k==='suppliers')res[k]=all.filter(o=>o.id!=null).map(o=>({id:String(o.id),name:String(recName(o,'clients')).trim(),no:String(o.client_number||o.supplier_number||'')})).filter(o=>o.name);
+      else if(k==='products')res[k]=all.filter(o=>o.id!=null).map(o=>({id:String(o.id),name:String(o.name||'').trim(),code:String(o.product_code||''),sp:o.unit_price,bp:o.buy_price})).filter(o=>o.name);
+      else res[k]=all.filter(o=>o.id!=null).map(o=>({id:String(o.id),name:String(o.name||''),value:+o.value||0,included:String(o.included)==='1',active:String(o.is_active)!=='0'}));
+      if(total!=null&&all.length<total)notes.push('⚠ '+lbl+': جُلب '+all.length+' من أصل '+total+' — النتيجة جزئية');
+    }catch(err){out.innerHTML=err&&err.message==='http'?'<div class="notice warn">تعذّر جلب '+lbl+' (HTTP '+err.status+invEsc(err.pm)+'). لم يُحفظ شيء.</div>':connErrHtml(err,ep);return;}
+  }
+  saveInvRefs(sub,res);renderInv();
+  out.innerHTML='<div class="notice">✓ «'+invEsc(sy.name)+'»: '+res.clients.length+' عميل · '+res.suppliers.length+' مورد · '+res.products.length+' صنف · '+res.taxes.length+' ضريبة'+(notes.length?'<br>'+notes.join('<br>'):'')+'</div>';
+  logIt('جلب بيانات الفواتير: '+sy.name);
+}
+function invTypeChanged(){$('#inv-party-lbl').textContent=invIsSale()?'العميل':'المورد';$('#inv-party').value='';renderInv();}
+function renderInv(){
+  const ps=$('#p4-sys');if(!ps)return;const sy=activeSys();ps.textContent=sy.name;
+  const r=invRefs();const sale=invIsSale();
+  $('#inv-parties').innerHTML=r?(sale?r.clients:r.suppliers).map(o=>'<option value="'+invEsc(partyLabel(o))+'">').join(''):'';
+  $('#inv-products').innerHTML=r?r.products.map(o=>'<option value="'+invEsc(prodLabel(o))+'">').join(''):'';
+  const ts=$('#inv-tax'),prev=ts.value;const taxes=r&&r.taxes?r.taxes.filter(t=>t.active&&t.included):[];
+  ts.innerHTML=taxes.length?taxes.map(t=>'<option value="'+invEsc(t.id)+'">'+invEsc(t.name)+' — '+t.value+'%</option>').join(''):'<option value="">— اجلب الضرائب أولاً —</option>';
+  if(prev&&taxes.some(t=>t.id===prev))ts.value=prev;
+  else{const d=taxes.find(t=>t.value===15)||taxes.find(t=>t.value>0)||taxes[0];if(d)ts.value=d.id;}
+  const st=$('#inv-refs-status'),sub=normSub(sy.sub);if(window._invSub!==sub){window._invSub=sub;const o=$('#inv-refs-out');if(o)o.innerHTML='';}
+  if(st)st.innerHTML=!r?'<div class="notice warn">لا توجد بيانات مرجعية لـ«'+invEsc(sy.name)+'» بعد — اضغط زر الجلب أعلاه.</div>':'<div class="tag-audit">بيانات «'+invEsc(sy.name)+'» محفوظة من '+new Date(r.at).toLocaleString('en-GB')+': '+r.clients.length+' عميل · '+r.suppliers.length+' مورد · '+r.products.length+' صنف · '+r.taxes.length+' ضريبة. أعد الجلب إن أضفت جديداً في دفترة.</div>';
+  renderInvLines();}
+function renderInvLines(){const b=$('#inv-body');if(!b)return;
+  b.innerHTML=invLines.map((l,i)=>`<tr><td><input list="inv-products" value="${invEsc(l.prod)}" oninput="updInv(${i},'prod',this.value)" placeholder="اختر الصنف"><div class="acct-code" id="inv-ph-${i}" style="font-size:11px;color:var(--muted)"></div></td><td><input class="num" type="number" min="0" step="any" value="${invEsc(l.qty)}" oninput="updInv(${i},'qty',this.value)"></td><td><input class="num" type="number" min="0" step="any" value="${invEsc(l.price)}" oninput="updInv(${i},'price',this.value)" placeholder="0.00"></td><td class="mono" id="inv-lt-${i}">0.00</td><td><span class="del" onclick="delInvLine(${i})">✕</span></td></tr>`).join('');
+  calcInv();}
+function addInvLine(){invLines.push({prod:'',qty:1,price:''});renderInvLines();}
+function delInvLine(i){invLines.splice(i,1);if(!invLines.length)invLines.push({prod:'',qty:1,price:''});renderInvLines();}
+function updInv(i,k,v){invLines[i][k]=v;calcInv();}
+function r2(x){return Math.round((x+Number.EPSILON)*100)/100;}
+function invTotals(){const t=invTax();const rate=t?t.value:15;let total=0;invLines.forEach(l=>{total+=(+l.qty||0)*(+l.price||0);});total=r2(total);const net=r2(total/(1+rate/100));return {rate,total,net,vat:r2(total-net)};}
+function calcInv(){const s=invTotals();invLines.forEach((l,i)=>{const c=$('#inv-lt-'+i);if(c)c.textContent=fmt(r2((+l.qty||0)*(+l.price||0)));const h=$('#inv-ph-'+i);if(h){const p=invProd(l.prod);h.textContent=!l.prod?'':p&&p.ambiguous?'⚠ الاسم مكرر — اختر من القائمة':p?'✓ معرّف '+p.id+((invIsSale()?p.sp:p.bp)!=null&&(invIsSale()?p.sp:p.bp)!==''?' · السعر في دفترة '+(invIsSale()?p.sp:p.bp):''):'⚠ غير موجود في أصناف هذا النظام';}});
+  $('#inv-net').textContent=fmt(s.net);$('#inv-vat').textContent=fmt(s.vat);$('#inv-total').textContent=fmt(s.total);$('#inv-rate').textContent='('+s.rate+'%)';renderInvCheck(true);}
+function renderInvCheck(quiet){const h=$('#inv-party-hint');if(!h)return;const v=$('#inv-party').value.trim(),p=invParty();h.textContent=!v?'':p&&p.ambiguous?'⚠ الاسم مكرر — اختر من القائمة':p?'✓ معرّف '+p.id:'⚠ غير موجود في '+(invIsSale()?'عملاء':'موردي')+' هذا النظام';}
+function validateInvoice(){const errs=[];const sy=activeSys();
+  if(!sy.sub||!sy.key)errs.push('أكمل نطاق ومفتاح «'+sy.name+'» في صفحة الاتصال');
+  if(!USE_PROXY)errs.push('الإرسال يعمل فقط من الموقع (ليس من ملف محلي)');
+  if(!invRefs())errs.push('اجلب بيانات «'+sy.name+'» (العملاء والأصناف والضرائب) أولاً');
+  if(!/^\d{4}-\d{2}-\d{2}$/.test($('#inv-date').value.trim()))errs.push('حدّد تاريخ الفاتورة');
+  const p=invParty();if(!p||p.ambiguous)errs.push((invIsSale()?'العميل':'المورد')+' غير محدد أو غير موجود في هذا النظام — اختره من القائمة');
+  const t=invTax();if(!t)errs.push('اختر ضريبة «شامل» من دفترة (اجلب الضرائب أولاً)');
+  const used=invLines.filter(l=>l.prod||l.price!==''&&+l.price);
+  if(!used.length)errs.push('أضف بنداً واحداً على الأقل');
+  used.forEach((l,i)=>{const n='البند '+(i+1);const pr=invProd(l.prod);if(!pr||pr.ambiguous)errs.push(n+': الصنف «'+(l.prod||'فارغ')+'» غير موجود في أصناف هذا النظام');
+    if(!(+l.qty>0))errs.push(n+': الكمية يجب أن تكون أكبر من صفر');if(!(+l.price>0))errs.push(n+': السعر يجب أن يكون أكبر من صفر');});
+  return {errs,party:p,tax:t,lines:used};}
+function invoicePayload(v){const sale=invIsSale(),date=$('#inv-date').value.trim(),cur=($('#inv-cur').value.trim()||'SAR').toUpperCase(),draft=$('#inv-draft').checked?1:0;
+  const items=v.lines.map(l=>({product_id:+invProd(l.prod).id,quantity:+l.qty,unit_price:+(+l.price),tax1:+v.tax.id}));
+  return sale?{Invoice:{client_id:+v.party.id,date,currency_code:cur,draft,is_offline:1},InvoiceItem:items}
+             :{PurchaseOrder:{supplier_id:+v.party.id,date,currency_code:cur,draft,is_offline:1},PurchaseOrderItem:items};}
+async function sendInvoiceToDaftra(){
+  const out=$('#inv-send-out');if(_invSending)return;
+  const v=validateInvoice();
+  if(v.errs.length){out.innerHTML='<div class="notice warn"><b>لم تُرسل — صحّح ما يلي:</b><br>• '+v.errs.map(invEsc).join('<br>• ')+'</div>';return toast('الفاتورة غير جاهزة للإرسال',1);}
+  const sy=activeSys(),sale=invIsSale(),payload=invoicePayload(v),hdr=sale?payload.Invoice:payload.PurchaseOrder,draft=hdr.draft===1,s=invTotals();
+  const sig=JSON.stringify([sy.sub,payload]);
+  let msg='إرسال '+(sale?'فاتورة بيع':'فاتورة شراء')+' إلى دفترة\n\nالنظام: '+sy.name+'  ('+normSub(sy.sub)+'.daftra.com)\nالحالة: '+(draft?'مسودة':'فاتورة نهائية (تؤثر على المخزون والحسابات)')+'\nالتاريخ: '+hdr.date+'\n'+(sale?'العميل: ':'المورد: ')+v.party.name+' (معرّف '+v.party.id+')\nالضريبة: '+v.tax.name+' '+v.tax.value+'% شامل\n\n'+
+    v.lines.map(l=>{const p=invProd(l.prod);return p.name+' — '+l.qty+' × '+fmt(+l.price)+' = '+fmt(r2(l.qty*l.price));}).join('\n')+
+    '\n\nالصافي: '+fmt(s.net)+'\nالضريبة '+s.rate+'%: '+fmt(s.vat)+'\nالإجمالي شامل الضريبة: '+fmt(s.total)+'\n\nهل تؤكد الإرسال؟';
+  if(_invLastSig===sig)msg='⚠ سبق إرسال نفس هذه الفاتورة إلى نفس النظام في هذه الجلسة!\n\n'+msg;
+  if(!confirm(msg))return toast('أُلغي الإرسال');
+  _invSending=true;const btn=$('#inv-send');if(btn)btn.disabled=true;
+  const ep=sale?'/api2/invoices':'/api2/purchase_invoices';
+  out.innerHTML='<div class="tag-audit">جارٍ الإرسال إلى '+invEsc(sy.name)+'…</div>';
+  try{
+    const r=await fetch('/daftra-proxy/'+normSub(sy.sub)+ep,{method:'POST',headers:{'Content-Type':'application/json','X-Daftra-Key-Header':sy.hdr||'APIKEY','X-Daftra-Key':sy.key||''},body:JSON.stringify(payload),cache:'no-store'});
+    let j=null;try{j=await r.json();}catch(e){}
+    const id=j&&(j.id||(j.data&&(j.data.id||(j.data.Invoice&&j.data.Invoice.id)||(j.data.PurchaseOrder&&j.data.PurchaseOrder.id))));
+    if(!r.ok||!id){const em=j?(j.proxy_error||j.message||(j.validation_errors?JSON.stringify(j.validation_errors):'')||(j.errors?JSON.stringify(j.errors):'')||JSON.stringify(j).slice(0,400)):'';
+      out.innerHTML='<div class="notice err"><b>رفضت دفترة الفاتورة (HTTP '+r.status+').</b> لم يُسجَّل شيء.'+(em?'<br>رسالة دفترة: <span class="inline-code">'+invEsc(em)+'</span>':'')+'</div>';
+      logIt('إرسال فاتورة: رفض '+r.status);return;}
+    _invLastSig=sig;
+    let no='',dTotal=null;try{const g=await daftraFetch(ep+'/'+id);if(g.ok){const gj=await g.json();const I=gj&&gj.data&&(gj.data.Invoice||gj.data.PurchaseOrder||gj.data);if(I){no=I.no||'';if(I.summary_total!=null)dTotal=+I.summary_total;}}}catch(e){}
+    const link=apiBase()+(sale?'/owner/invoices/view/':'/owner/purchase_invoices/view/')+id;
+    const diff=dTotal!=null&&Math.abs(dTotal-s.total)>=0.01;
+    out.innerHTML='<div class="notice">✓ أُنشئت '+(sale?'فاتورة البيع':'فاتورة الشراء')+' في «'+invEsc(sy.name)+'»'+(draft?' كمسودة':'')+' — رقم '+invEsc(no||'—')+' (المعرّف '+id+')'+(dTotal!=null?' · إجمالي دفترة '+fmt(dTotal):'')+'. <a href="'+link+'" target="_blank" rel="noopener">فتحها في دفترة ↗</a></div>'+
+      (diff?'<div class="notice warn"><b>⚠ إجمالي دفترة ('+fmt(dTotal)+') يختلف عن الإجمالي هنا ('+fmt(s.total)+').</b> راجع الفاتورة في دفترة قبل اعتمادها — قد تكون الضريبة على الصنف معرّفة بشكل مختلف.</div>':'');
+    toast('أُرسلت الفاتورة إلى دفترة');logIt('إرسال فاتورة '+sy.name+': #'+(no||id));
+  }catch(err){out.innerHTML=connErrHtml(err,ep);}
+  finally{_invSending=false;if(btn)btn.disabled=false;}
+}
 function exportP3(){const d=p3lines.reduce((s,l)=>s+(+l.d||0),0),c=p3lines.reduce((s,l)=>s+(+l.c||0),0);if(Math.abs(d-c)>=0.005||d===0)return toast('غير متوازن — لا يُصدَّر',1);
   if(!checkP3(true))return toast('حدّد الحسابات غير الموجودة أولاً',1);
   if(!confirm('تصدير قيد لنظام «'+accSysName(S.activeSystem)+'»\nعدد السطور: '+p3lines.length+'\nمدين = دائن = '+fmt(d)+'\n\n'+p3lines.map(l=>lineSide(l)+': '+l.acct+' '+fmt((+l.d||0)||(+l.c||0))).join('\n')+'\n\nمتابعة؟'))return;const code=$('#j-code').value.trim()||'JRN001',date=isoToDMY($('#j-date').value.trim()),cur=$('#j-cur').value.trim()||'SAR',desc=$('#j-desc').value.trim(),cc=$('#j-cc').value.trim();const head=['Journal Code','Journal Date','Currency','Journal Description','Account Name','Transaction Description','Tags','Cost Center','Tax','Debit','Credit'];const rows=p3lines.map(l=>[code,date,cur,desc,l.acct,l.memo,'',cc,l.tax||'',(+l.d||0).toFixed(2),(+l.c||0).toFixed(2)]);downloadCSV([head,...rows],'daftra_journal_'+(activeSys().sub||'sys'+(S.activeSystem+1)));toast('صُدّر القيد');logIt('مسار3: تصدير');}
@@ -992,7 +1189,7 @@ function seedDemo(){
   loadConnFields();render();toast('حُمّلت بيانات نموذجية (٣ أنظمة مسمّاة)');go('systems');logIt('تحميل نموذجي');}
 
 /* ============ تحديث شامل ============ */
-function render(){const ps=$('#p3-sys');if(ps)ps.textContent=accSysName(S.activeSystem);if(typeof renderP3==='function'&&p3lines.length)renderP3();renderSafety();renderSystems();renderSysSwitch();renderSysBadges();renderKeys();renderAcc();renderMatch();renderTax();renderXmap();fillRoutes();updateConnDot();
+function render(){const ps=$('#p3-sys');if(ps)ps.textContent=accSysName(S.activeSystem);if(typeof renderInv==='function')renderInv();if(typeof renderP3==='function'&&p3lines.length)renderP3();renderSafety();renderSystems();renderSysSwitch();renderSysBadges();renderKeys();renderAcc();renderMatch();renderTax();renderXmap();fillRoutes();updateConnDot();
   const at=$('#acc-target');if(at)at.textContent=accSysName(S.activeSystem);
   const bx=$('#b-xmap');if(bx)bx.textContent=xlinkCount();
   $('#b-keys').textContent=S.keys.length;$('#b-acc').textContent=$('#s-acc').textContent=S.accounts.length;$('#b-match').textContent=$('#s-match').textContent=S.matches.length;$('#b-tax').textContent=$('#s-tax').textContent=S.tax.length;
@@ -1005,6 +1202,7 @@ $('#persist-note').innerHTML=PERSIST?'✓ الحفظ التلقائي مُفعّ
 if(!PERSIST)$('#persist-note').className='notice warn';
 const dp=$('#drop');['dragover','dragenter'].forEach(ev=>dp.addEventListener(ev,e=>{e.preventDefault();dp.classList.add('over');}));['dragleave','drop'].forEach(ev=>dp.addEventListener(ev,e=>{e.preventDefault();dp.classList.remove('over');}));dp.addEventListener('drop',e=>{if(e.dataTransfer.files[0])readFile(e.dataTransfer.files[0]);});
 {const jd=$('#j-date');if(jd&&!jd.value)jd.value=todayISO();}
+{const idt=$('#inv-date');if(idt&&!idt.value)idt.value=todayISO();}
 render();renderP3();
 </script>
 </body>

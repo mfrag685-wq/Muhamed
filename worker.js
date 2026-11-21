@@ -4,7 +4,7 @@
 // قيود الأمان:
 //  - الوجهة دائماً *.daftra.com فقط (النطاق الفرعي أحرف وأرقام وشرطة).
 //  - المسارات /api2/ و /v2/ فقط. القراءة GET/HEAD، والكتابة POST مسموحة فقط لإنشاء القيود
-//    (/api2/journals) — والصفحة لا ترسل إلا بعد تأكيد صريح من المستخدم.
+//    والفواتير (/api2/journals، /api2/invoices، /api2/purchase_invoices) — والصفحة لا ترسل إلا بعد تأكيد صريح من المستخدم.
 //  - من نفس الموقع فقط (يُرفض أي طلب من موقع آخر).
 //  - المفتاح لا يُسجَّل ولا يُخزَّن، ولا تُمرَّر أي ترويسات أخرى (كوكيز وغيرها).
 // كل ما عدا /daftra-proxy/ يُخدم كملفات ثابتة كما كان.
@@ -13,7 +13,11 @@ const PREFIX = '/daftra-proxy/';
 const SUB_RE = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
 const HDR_RE = /^[A-Za-z0-9-]{1,40}$/;
 // المسارات الوحيدة المسموح فيها بالكتابة (إنشاء فقط)
-const POST_PATHS = new Set(['/api2/journals', '/api2/journals.json']);
+const POST_PATHS = new Set([
+  '/api2/journals', '/api2/journals.json',
+  '/api2/invoices', '/api2/invoices.json',
+  '/api2/purchase_invoices', '/api2/purchase_invoices.json',
+]);
 const MAX_BODY = 200 * 1024;
 const BLOCKED_HDR = new Set(['host', 'cookie', 'authorization-proxy', 'origin', 'referer', 'content-length', 'connection']);
 
@@ -42,7 +46,7 @@ async function proxy(request, url) {
   if (!SUB_RE.test(sub)) return err(400, 'invalid subdomain');
   if (!(path.startsWith('/api2/') || path.startsWith('/v2/'))) return err(400, 'path must start with /api2/ or /v2/');
   if (path.includes('..') || path.includes('//')) return err(400, 'invalid path');
-  if (isPost && !POST_PATHS.has(path)) return err(405, 'POST allowed only for /api2/journals');
+  if (isPost && !POST_PATHS.has(path)) return err(405, 'POST allowed only for journals and invoices');
 
   const keyHeader = request.headers.get('X-Daftra-Key-Header') || 'APIKEY';
   const key = request.headers.get('X-Daftra-Key') || '';
