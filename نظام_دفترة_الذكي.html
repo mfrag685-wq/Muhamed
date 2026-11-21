@@ -111,7 +111,7 @@
   <aside>
     <div class="brand">
       <div class="mark">دَ</div>
-      <div><h1>النظام الذكي لدفترة</h1><span>v4.2 · محرّك متعدد الأنظمة · 2026-11-21</span></div>
+      <div><h1>النظام الذكي لدفترة</h1><span>v4.3 · محرّك متعدد الأنظمة · 2026-11-21</span></div>
     </div>
     <div class="sys-switch">
       <label>النظام النشِط</label>
@@ -146,6 +146,7 @@
         <input id="cmd" placeholder="سطر أوامر… مثال: فعّل نظام: منارة 110  |  سمِّ نظام: 6 = فرع جديد  |  أضف نظام: الاسم  |  الأنظمة  |  الحالة" onkeydown="if(event.key==='Enter')runCmd()">
         <button class="btn-primary" onclick="runCmd()">تنفيذ</button>
       </div>
+      <div id="demo-note"></div>
       <div class="notice" id="persist-note"></div>
       <div class="stat-grid">
         <div class="stat"><div class="n" id="s-sys">0</div><div class="k">نظام محاسبي</div></div>
@@ -157,7 +158,7 @@
         <div class="card">
           <h3>ابدأ بسرعة</h3>
           <div class="hint">حمّل بيانات جاهزة للتجربة، سمِّ أنظمتك أو أضف نظاماً جديداً، أو ارفع أول ملف.</div>
-          <button class="btn-primary" onclick="seedDemo()">بيانات نموذجية</button>
+          <button class="btn-ghost" onclick="seedDemo()" title="يستبدل بياناتك ببيانات تجريبية">بيانات نموذجية (تجربة)</button>
           <button onclick="go('systems')">سمِّ الأنظمة</button>
           <button onclick="go('p1')">ارفع ملف مبيعات</button>
         </div>
@@ -356,9 +357,10 @@
     <section class="page" id="backup">
       <div class="head"><h2>تصدير / استيراد التهيئة</h2><p>حالة النظام تُحفظ تلقائياً في متصفحك. صدّر نسخة للنقل بين الأجهزة.</p></div>
       <div class="split">
-        <div class="card"><h3>⇩ تصدير</h3><div class="hint">ملف JSON بكل التهيئة (الأنظمة الثلاثة + البيانات المشتركة).</div><button class="btn-primary" onclick="exportConfig()">تنزيل التهيئة</button></div>
+        <div class="card"><h3>⇩ تصدير</h3><div class="hint">ملف JSON بكل التهيئة (كل الأنظمة + البيانات المشتركة).</div><button class="btn-primary" onclick="exportConfig()">تنزيل التهيئة</button></div>
         <div class="card"><h3>⇧ استيراد</h3><div class="hint">ارفع ملف تهيئة سابق.</div><input type="file" id="imp-file" accept=".json" onchange="importConfig(event)"></div>
       </div>
+      <div class="card"><h3>↶ التراجع</h3><div class="hint">قبل أي تحميل نموذجي أو مسح أو استيراد تُحفظ نسخة تلقائياً. يمكنك استرجاعها هنا.</div><button onclick="undoReplace()">استرجاع النسخة السابقة</button></div>
       <div class="card"><h3>خطر</h3><button class="btn-danger btn-ghost" onclick="resetAll()">مسح كل البيانات المحفوظة</button></div>
     </section>
   </main>
@@ -809,11 +811,33 @@ function exportP3(){const d=p3lines.reduce((s,l)=>s+(+l.d||0),0),c=p3lines.reduc
 /* ============ CSV / التهيئة ============ */
 function downloadCSV(rows,name){const csv='\uFEFF'+rows.map(r=>r.map(c=>`"${String(c==null?'':c).replace(/"/g,'""')}"`).join(',')).join('\n');const b=new Blob([csv],{type:'text/csv;charset=utf-8'});const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download=name+'.csv';a.click();URL.revokeObjectURL(u);}
 function exportConfig(){const b=new Blob([JSON.stringify(S,null,2)],{type:'application/json'});const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download='daftra_config.json';a.click();URL.revokeObjectURL(u);toast('صُدّرت التهيئة');}
-function importConfig(e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const o=JSON.parse(r.result);Object.assign(S,{keys:o.keys||[],accounts:o.accounts||[],matches:o.matches||[],tax:o.tax||S.tax,systems:Array.isArray(o.systems)?o.systems:[],activeSystem:o.activeSystem||0,xmap:o.xmap||{},conn:o.conn,ver:o.ver});migrate();save();loadConnFields();render();toast('استُوردت التهيئة');go('dash');}catch{toast('ملف غير صالح',1);}};r.readAsText(f);}
-function resetAll(){if(confirm('مسح كل البيانات المحفوظة؟')){S.keys=[];S.accounts=[];S.matches=[];S.systems=defaultSystems();S.ver=4;S.activeSystem=0;S.xmap={};try{localStorage.removeItem(KEY);}catch(e){}loadConnFields();render();toast('مُسح كل شيء');}}
+function importConfig(e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const o=JSON.parse(r.result);if(!confirm('استيراد هذا الملف سيستبدل بياناتك الحالية (تُحفظ نسخة احتياطية). متابعة؟'))return;backupBefore('استيراد ملف');Object.assign(S,{keys:o.keys||[],accounts:o.accounts||[],matches:o.matches||[],tax:o.tax||S.tax,systems:Array.isArray(o.systems)?o.systems:[],activeSystem:o.activeSystem||0,xmap:o.xmap||{},conn:o.conn,ver:o.ver});migrate();save();loadConnFields();render();toast('استُوردت التهيئة');go('dash');}catch{toast('ملف غير صالح',1);}};r.readAsText(f);}
+function resetAll(){if(confirm('مسح كل البيانات المحفوظة؟ (تُحفظ نسخة احتياطية يمكن استرجاعها)')){backupBefore('مسح كل البيانات');S.keys=[];S.accounts=[];S.matches=[];S.systems=defaultSystems();S.ver=4;S.activeSystem=0;S.xmap={};try{localStorage.removeItem(KEY);}catch(e){}loadConnFields();render();toast('مُسح كل شيء');}}
 
 /* ============ نموذجية ============ */
+/* نسخة احتياطية تلقائية قبل أي استبدال شامل (نموذجية / مسح / استيراد) */
+const PREV_KEY=KEY+'_prev';
+function backupBefore(label){try{localStorage.setItem(PREV_KEY,JSON.stringify({at:new Date().toISOString(),label,state:S}));}catch(e){}}
+function getPrev(){try{const r=localStorage.getItem(PREV_KEY);return r?JSON.parse(r):null;}catch(e){return null;}}
+function undoReplace(){const p=getPrev();if(!p||!p.state)return toast('لا توجد نسخة سابقة',1);
+  if(!confirm('استرجاع البيانات كما كانت قبل «'+p.label+'» ('+new Date(p.at).toLocaleString('en-GB')+')؟'))return;
+  const cur=JSON.parse(JSON.stringify(S));const o=JSON.parse(JSON.stringify(p.state));if(!('ver' in o))o.ver=0;if(!Array.isArray(o.systems))o.systems=[];
+  Object.keys(S).forEach(k=>delete S[k]);Object.assign(S,o);migrate();
+  try{localStorage.setItem(PREV_KEY,JSON.stringify({at:new Date().toISOString(),label:'الاسترجاع',state:cur}));}catch(e){}
+  loadConnFields();render();toast('استُرجعت البيانات السابقة');go('systems');}
+const DEMO_NAMES=['الشركة الأم — الرياض','فرع جدة','المستودع — الدمام'];
+function isDemoState(){return S.systems.length===3&&S.systems.every((sy,i)=>sy.name===DEMO_NAMES[i]&&!sy.sub);}
+/* يزيل البيانات النموذجية ويعيد الحسابات الخمسة فارغة (مع نسخة احتياطية) */
+function clearDemo(){if(!confirm('إزالة البيانات النموذجية واستعادة الحسابات الخمسة (منارة 110، منارة 220، أركان 110، أركان 220، المعرض)؟\nستحتاج لإدخال النطاق والمفتاح لكل حساب من جديد.'))return;
+  backupBefore('إزالة النموذجية');S.keys=[];S.accounts=[];S.matches=[];S.systems=defaultSystems();S.ver=4;S.activeSystem=0;S.xmap={};
+  loadConnFields();render();toast('استُعيدت الحسابات الخمسة');go('systems');}
+function renderSafety(){const d=$('#demo-note');if(!d)return;const p=getPrev();let h='';
+  if(isDemoState())h+='<div class="notice warn">⚠ المعروض الآن <b>بيانات نموذجية للتجربة</b> وليست حساباتك. <button class="btn-primary btn-sm" onclick="clearDemo()">إزالتها واستعادة الحسابات الخمسة</button></div>';
+  if(p&&p.state)h+='<div class="notice">↶ توجد نسخة محفوظة قبل «'+p.label+'» ('+new Date(p.at).toLocaleString('en-GB')+'). <button class="btn-sm" onclick="undoReplace()">استرجاعها</button></div>';
+  d.innerHTML=h;}
 function seedDemo(){
+  if(!confirm('تحميل البيانات النموذجية سيستبدل أنظمتك وحساباتك واتصالاتك الحالية ببيانات تجريبية.\nستُحفظ نسخة احتياطية يمكنك استرجاعها. هل تريد المتابعة؟'))return;
+  backupBefore('البيانات النموذجية');
   S.systems=[{name:'الشركة الأم — الرياض',sub:'',hdr:'APIKEY',key:''},{name:'فرع جدة',sub:'',hdr:'APIKEY',key:''},{name:'المستودع — الدمام',sub:'',hdr:'APIKEY',key:''}];
   S.activeSystem=0;
   S.keys=[{name:'سيستم المبيعات الخارجي',type:'src',note:'نقطة البيع'}];
@@ -824,7 +848,7 @@ function seedDemo(){
   loadConnFields();render();toast('حُمّلت بيانات نموذجية (٣ أنظمة مسمّاة)');go('systems');logIt('تحميل نموذجي');}
 
 /* ============ تحديث شامل ============ */
-function render(){renderSystems();renderSysSwitch();renderSysBadges();renderKeys();renderAcc();renderMatch();renderTax();renderXmap();fillRoutes();updateConnDot();
+function render(){renderSafety();renderSystems();renderSysSwitch();renderSysBadges();renderKeys();renderAcc();renderMatch();renderTax();renderXmap();fillRoutes();updateConnDot();
   const at=$('#acc-target');if(at)at.textContent=accSysName(S.activeSystem);
   const bx=$('#b-xmap');if(bx)bx.textContent=xlinkCount();
   $('#b-keys').textContent=S.keys.length;$('#b-acc').textContent=$('#s-acc').textContent=S.accounts.length;$('#b-match').textContent=$('#s-match').textContent=S.matches.length;$('#b-tax').textContent=$('#s-tax').textContent=S.tax.length;
