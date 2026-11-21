@@ -111,7 +111,7 @@
   <aside>
     <div class="brand">
       <div class="mark">دَ</div>
-      <div><h1>النظام الذكي لدفترة</h1><span>v4.9 · محرّك متعدد الأنظمة · 2026-11-21</span></div>
+      <div><h1>النظام الذكي لدفترة</h1><span>v5.0 · محرّك متعدد الأنظمة · 2026-11-21</span></div>
     </div>
     <div class="sys-switch">
       <label>النظام النشِط</label>
@@ -337,7 +337,7 @@
       <div class="card"><h3>الوصف النصي</h3>
         <div class="hint">اكتب السطر الأول وصفاً للقيد (اختياري) ثم العملية. أمثلة: «العميل الاسطوره المتطوره دفع 500 نقداً إلى حساب الخزينة الأساسية» · «سداد للمورد منارة المنزل 3000 من حساب البنك» · «صرف إيجار المكتب 3000 من البنك». اذكر أسماء الحسابات كما في الدليل ليُتعرّف عليها.</div>
         <textarea id="p3-text" placeholder="دفع العميل علي مبلغ 1150 نقداً شامل الضريبة 15%"></textarea>
-        <div id="p3-parse"></div><div class="row" style="margin-top:10px"><button class="btn-primary" onclick="draftP3()">مسودة ذكية</button><button class="btn-ghost" onclick="addLine()">+ سطر يدوي</button></div>
+        <div id="p3-parse"></div><div class="row" style="margin-top:10px"><button class="btn-primary" onclick="draftP3()">مسودة ذكية</button><label style="font-size:12px;display:flex;align-items:center;gap:6px">رسوم البنك وضريبتها: <select id="fee-style" style="width:auto;font-size:12px" onchange="S.feeStyle=this.value;save()"><option value="gross">البنك بالإجمالي + سطور خصم الرسوم</option><option value="net">البنك بالصافي في سطر واحد</option></select></label><button class="btn-ghost" onclick="addLine()">+ سطر يدوي</button></div>
       </div>
       <div class="card"><h3>ترويسة القيد</h3>
         <div class="row">
@@ -890,7 +890,7 @@ const isLatin=w=>/^[a-z0-9]+$/.test(w);
 /* المبلغ: يفضّل الرقم المقترن بعملة (﷼ ريال ر.س $ دولار) ثم «مبلغ N» ثم أول رقم ليس نسبة */
 function draftAmount(t){const s=String(t).replace(/[٠-٩]/g,d=>'٠١٢٣٤٥٦٧٨٩'.indexOf(d)).replace(/(\d),(?=\d{3}\b)/g,'$1');
   let m=s.match(/(?:\$|usd)\s*(\d+(?:\.\d+)?)/i)||s.match(/(\d+(?:\.\d+)?)\s*(?:\$|دولار|usd)/i);if(m)return {amt:parseFloat(m[1]),cur:'USD'};
-  m=s.match(/(\d+(?:\.\d+)?)\s*(?:﷼|ريال|ر\.?\s?س|sar)/i)||s.match(/مبلغ\s*(\d+(?:\.\d+)?)/)||s.match(/(\d+(?:\.\d+)?)(?!\s*%|\d)/);return {amt:m?parseFloat(m[1]):0,cur:''};}
+  m=s.match(/(\d+(?:\.\d+)?)\s*(?:﷼|ريال|ر\.?\s?س|sar)/i)||s.match(/مبلغ\s*(\d+(?:\.\d+)?)/)||s.match(/(?<![\d.])(\d+(?:\.\d+)?)(?!\s*%|[\d.])/);return {amt:m?parseFloat(m[1]):0,cur:''};}
 const CASH_RE=/(خزين|خزن|صندوق|نقديه|بنك|مصرف|راجحي|اهلي|انماء|بلاد|شبكه|مدي|عهده)/;
 /* إن كان الدليل مجلوباً من دفترة بأنواعه نعتمد النوع (treasury) فقط، وإلا نستدل بالاسم */
 const chartHasEnt=()=>accountsOf(S.activeSystem).some(a=>a.ent);
@@ -930,11 +930,12 @@ function draftP3(){
   let vat=0,base=amt;const rM=body.match(/(\d+(?:\.\d+)?)\s*%/);const rate=rM?parseFloat(rM[1]):15;
   if(/شامل/.test(nt)){base=Math.round(amt/(1+rate/100)*100)/100;vat=Math.round((amt-base)*100)/100;}
   const hitsX=draftAccounts(body,true),hits=hitsX.map(x=>x.a);
+  const kindHint=/(قبض|تحصيل|حصل|استلام|وارد|ايداع)/.test(nt)?'in':'';
   const toX=phraseAcct(body,/(?:الي|ل|في|على|علي)\s*حساب\s+(.+?)(?:\s+(?:من|بمبلغ|مبلغ)(?=\s|$)|$)/);
   const fromX=phraseAcct(body,/من\s+(?:حساب\s+)?(.+?)(?:\s+(?:الي|ل|بمبلغ|مبلغ)(?=\s|$)|$)/);
   const toA=toX&&!toX.alts.length?toX.a:null,fromA=fromX&&!fromX.alts.length?fromX.a:null;
   const cashHits=hits.filter(isCashAcc),otherHits=hits.filter(a=>!isCashAcc(a));
-  const bankWord=/(بنك|تحويل|شبكه|مدي|مصرف)/.test(nt);
+  const bankWord=/(بنك|تحويل|حواله|شبكه|مدي|مصرف|نقاط|نقطه|pos)/.test(nt);
   const treas=leafAccounts().filter(isCashAcc);
   const defCash=()=>bankWord?pickLike(null,null,treas.filter(a=>/(بنك|مصرف|راجحي|اهلي|انماء|بلاد)/.test(normName(a.name)))):pickLike(null,/(رئيسي|اساسي)/,treas.filter(a=>/(خزين|خزن|صندوق|نقديه)/.test(normName(a.name))));
   /* حساب واحد مؤكَّد ← يُختار؛ تطابق مع بدائل ← خيارات */
@@ -947,11 +948,40 @@ function draftP3(){
     const near=lv.filter(a=>!isCashAcc(a)&&arTok(a.name).some(w=>!DRAFT_WEAK.has(w)&&[...tt].some(t=>tokMatch(t,w))));
     return {acct:'',opts:[...new Set([...near,...byEnt(ent,re)].map(a=>a.name))].slice(0,60)};};
   const isCust=/عميل|عملاء/.test(nt),isSupp=/مورد/.test(nt);
+  let note='';const mk=(side,o,v,memo,tax)=>Object.assign({acct:'',d:side==='d'?v:0,c:side==='c'?v:0,memo,tax:tax||''},o||{});
+  /* ===== قيود مركّبة: رسوم بنكية وضريبتها (نقاط البيع / تحويل لمورد) =====
+     الرسوم: «رسوم 7» أو «رسوم 0.7%» من المبلغ. ضريبة الرسوم: «ضريبة 15%» وإلا 15%. */
+  const fM=nt.match(/(?:رسوم|عموله)\s*(?:بنكيه\s*|التحويل\s*|نقاط البيع\s*)?(\d+(?:\.\d+)?)\s*(%)?/);
+  if(fM){
+    const r2=x=>Math.round(x*100)/100;const fee=r2(fM[2]?amt*parseFloat(fM[1])/100:parseFloat(fM[1]));
+    const vM=nt.match(/(?:ضريبه|vat|قيمه مضافه)[^\d%]{0,20}(\d+(?:\.\d+)?)\s*%/);const vr=vM?parseFloat(vM[1]):15;const fv=r2(fee*vr/100);
+    const isPos=/(نقاط|نقطه|pos|مدي|شبكه)/.test(nt)&&!/(تحويل|حواله)\s.*مورد|مورد/.test(nt);
+    const bank=one(cashHits)||defCash();const feeAcc=pickLike(/(مصروفات بنكيه|مصاريف بنكيه|عمولات بنكيه|رسوم بنكيه|عمولات نقاط)/);
+    const vatAcc=pickLike(null,/(مدخلات)/,byEnt('outcome_tax',/ضريب.*(مدخلات|مدفوع)/));
+    const net=(S.feeStyle||'gross')==='net';const bankName=bank.acct||'';
+    p3lines=[];
+    if(isPos||kindHint==='in'){
+      const party=one(otherHits.filter(a=>!/(بنكيه|عمولات)/.test(normName(a.name))),'client')||(()=>{const po=partyOpts('client',/(عملاء)/);const sl=byEnt('sales',/(مبيعات)/).map(a=>a.name);return {acct:'',opts:[...new Set(isCust?[...po.opts,...sl]:[...sl,...po.opts])]};})();
+      if(net){p3lines.push(mk('d',bank,r2(amt-fee-fv),desc));}else p3lines.push(mk('d',bank,amt,desc));
+      p3lines.push(mk('d',feeAcc,fee,'رسوم بنكية'));p3lines.push(mk('d',vatAcc,fv,'ضريبة الرسوم '+vr+'%','Tax '+vr+'%'));
+      p3lines.push(mk('c',party,amt,desc));
+      if(!net){p3lines.push(mk('c',bank,fee,'خصم رسوم بنكية'));p3lines.push(mk('c',bank,fv,'خصم ضريبة الرسوم'));}
+      note='تسوية نقاط بيع/تحصيل بنكي برسوم: مدين البنك'+(net?' بالصافي':' بالإجمالي')+' والرسوم '+fmt(fee)+' وضريبتها '+fmt(fv)+'، دائن العميل/المبيعات'+(net?'':' والبنك بالرسوم وضريبتها');
+    }else{
+      const party=(toA&&!isCashAcc(toA))?{acct:toA.name}:one(otherHits.filter(a=>a!==fromA&&!/(بنكيه|عمولات)/.test(normName(a.name))),'supplier')||partyOpts('supplier',/(مورد)/);
+      const cr=fromA&&fromA!==toA?{acct:fromA.name}:bank;
+      p3lines.push(mk('d',party,amt,desc));p3lines.push(mk('d',feeAcc,fee,'رسوم التحويل'));p3lines.push(mk('d',vatAcc,fv,'ضريبة الرسوم '+vr+'%','Tax '+vr+'%'));
+      if(net)p3lines.push(mk('c',cr,r2(amt+fee+fv),desc));
+      else{p3lines.push(mk('c',cr,amt,desc));p3lines.push(mk('c',cr,fee,'رسوم التحويل'));p3lines.push(mk('c',cr,fv,'ضريبة رسوم التحويل'));}
+      note='تحويل لمورد برسوم: المورد يتحمل المبلغ '+fmt(amt)+'، ونتحمل الرسوم '+fmt(fee)+' وضريبتها '+fmt(fv)+' ('+vr+'%) من البنك';
+    }
+    return finishDraft(note,amt,0,0,hits,curNote,A);
+  }
   const payVerb=/(دفع|سدد|حول|تحويل|اودع)/.test(nt);
   let kind='';
   if(/(قبض|تحصيل|حصل|استلام|استلمنا|وارد|ايراد)/.test(nt)||(isCust&&!isSupp&&payVerb))kind='in';
   else if(/(صرف|سداد|دفعنا|سددنا|مصروف|ايجار|رواتب|شراء)/.test(nt)||(isSupp&&payVerb)||payVerb)kind='out';
-  p3lines=[];let note='';const mk=(side,o,v,memo,tax)=>Object.assign({acct:'',d:side==='d'?v:0,c:side==='c'?v:0,memo,tax:tax||''},o||{});
+  p3lines=[];note='';
   const opt=(o,fb)=>o&&(o.acct||(o.opts&&o.opts.length))?o:fb();
   if(kind==='in'){
     const dr=toA?{acct:toA.name}:opt(one(cashHits),defCash);
@@ -979,6 +1009,9 @@ function draftP3(){
     p3lines.push(mk('c',fromA?{acct:fromA.name}:{acct:'',opts:all},amt,desc));
     note='لم أتعرّف على اتجاه العملية — اختر طرفي القيد';
   }
+  return finishDraft(note,amt,vat,base,hits,curNote,A);
+}
+function finishDraft(note,amt,vat,base,hits,curNote,A){
   /* أي طرف بلا حساب ولا خيارات ← كل حسابات الترحيل كخيارات */
   p3lines.forEach(l=>{if(l.acct)delete l.opts;else if(!l.opts||!l.opts.length)l.opts=leafAccounts().slice(0,80).map(a=>a.name);});
   renderP3();checkP3(false);
@@ -1249,7 +1282,7 @@ loadConnFields();
 $('#persist-note').innerHTML=PERSIST?'✓ الحفظ التلقائي مُفعّل — بياناتك وكل الأنظمة محفوظة في هذا المتصفح بين الجلسات.':'⚠ تعذّر الحفظ الدائم في هذه البيئة — استخدم «تصدير التهيئة» يدوياً.';
 if(!PERSIST)$('#persist-note').className='notice warn';
 const dp=$('#drop');['dragover','dragenter'].forEach(ev=>dp.addEventListener(ev,e=>{e.preventDefault();dp.classList.add('over');}));['dragleave','drop'].forEach(ev=>dp.addEventListener(ev,e=>{e.preventDefault();dp.classList.remove('over');}));dp.addEventListener('drop',e=>{if(e.dataTransfer.files[0])readFile(e.dataTransfer.files[0]);});
-{const jd=$('#j-date');if(jd&&!jd.value)jd.value=todayISO();}
+{const jd=$('#j-date');if(jd&&!jd.value)jd.value=todayISO();const fs=$('#fee-style');if(fs&&S.feeStyle)fs.value=S.feeStyle;}
 {const idt=$('#inv-date');if(idt&&!idt.value)idt.value=todayISO();}
 render();renderP3();
 </script>
