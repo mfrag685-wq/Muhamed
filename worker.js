@@ -3,7 +3,8 @@
 // والخادم يمرّر الطلب إلى https://<subdomain>.daftra.com/api2/... مع ترويسة المفتاح.
 // قيود الأمان:
 //  - الوجهة دائماً *.daftra.com فقط (النطاق الفرعي أحرف وأرقام وشرطة).
-//  - المسارات /api2/ و /v2/ فقط، وطلبات قراءة GET/HEAD فقط.
+//  - المسارات /api2/ و /v2/ فقط. القراءة GET/HEAD، والكتابة POST مسموحة فقط لإنشاء القيود
+//    (/api2/journals) — والصفحة لا ترسل إلا بعد تأكيد صريح من المستخدم.
 //  - من نفس الموقع فقط (يُرفض أي طلب من موقع آخر).
 //  - المفتاح لا يُسجَّل ولا يُخزَّن، ولا تُمرَّر أي ترويسات أخرى (كوكيز وغيرها).
 // كل ما عدا /daftra-proxy/ يُخدم كملفات ثابتة كما كان.
@@ -11,6 +12,9 @@
 const PREFIX = '/daftra-proxy/';
 const SUB_RE = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
 const HDR_RE = /^[A-Za-z0-9-]{1,40}$/;
+// المسارات الوحيدة المسموح فيها بالكتابة (إنشاء فقط)
+const POST_PATHS = new Set(['/api2/journals', '/api2/journals.json']);
+const MAX_BODY = 200 * 1024;
 const BLOCKED_HDR = new Set(['host', 'cookie', 'authorization-proxy', 'origin', 'referer', 'content-length', 'connection']);
 
 function err(status, msg) {
@@ -21,7 +25,8 @@ function err(status, msg) {
 }
 
 async function proxy(request, url) {
-  if (request.method !== 'GET' && request.method !== 'HEAD') return err(405, 'GET/HEAD only');
+  const isPost = request.method === 'POST';
+  if (request.method !== 'GET' && request.method !== 'HEAD' && !isPost) return err(405, 'method not allowed');
 
   // نفس الموقع فقط
   const origin = request.headers.get('Origin');
@@ -37,6 +42,7 @@ async function proxy(request, url) {
   if (!SUB_RE.test(sub)) return err(400, 'invalid subdomain');
   if (!(path.startsWith('/api2/') || path.startsWith('/v2/'))) return err(400, 'path must start with /api2/ or /v2/');
   if (path.includes('..') || path.includes('//')) return err(400, 'invalid path');
+  if (isPost && !POST_PATHS.has(path)) return err(405, 'POST allowed only for /api2/journals');
 
   const keyHeader = request.headers.get('X-Daftra-Key-Header') || 'APIKEY';
   const key = request.headers.get('X-Daftra-Key') || '';
@@ -46,10 +52,19 @@ async function proxy(request, url) {
   const target = 'https://' + sub + '.daftra.com' + path + url.search;
   const headers = new Headers({ Accept: 'application/json' });
   headers.set(keyHeader, key);
+  let body;
+  if (isPost) {
+    const ct = request.headers.get('Content-Type') || '';
+    if (!ct.startsWith('application/json')) return err(415, 'JSON body required');
+    body = await request.text();
+    if (body.length > MAX_BODY) return err(413, 'body too large');
+    try { JSON.parse(body); } catch (e) { return err(400, 'invalid JSON'); }
+    headers.set('Content-Type', 'application/json');
+  }
 
   let upstream;
   try {
-    upstream = await fetch(target, { method: request.method, headers, redirect: 'manual' });
+    upstream = await fetch(target, { method: request.method, headers, body, redirect: 'manual' });
   } catch (e) {
     return err(502, 'upstream unreachable');
   }

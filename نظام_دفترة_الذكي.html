@@ -111,7 +111,7 @@
   <aside>
     <div class="brand">
       <div class="mark">دَ</div>
-      <div><h1>النظام الذكي لدفترة</h1><span>v4.5 · محرّك متعدد الأنظمة · 2026-11-21</span></div>
+      <div><h1>النظام الذكي لدفترة</h1><span>v4.6 · محرّك متعدد الأنظمة · 2026-11-21</span></div>
     </div>
     <div class="sys-switch">
       <label>النظام النشِط</label>
@@ -341,9 +341,9 @@
       <div class="card"><h3>ترويسة القيد</h3>
         <div class="row">
           <div class="field" style="max-width:140px"><label>Journal Code</label><input id="j-code" class="num" value="JRN001"></div>
-          <div class="field" style="max-width:150px"><label>التاريخ</label><input id="j-date" value="29/10/2024"></div>
+          <div class="field" style="max-width:150px"><label>التاريخ</label><input id="j-date" type="date"></div>
           <div class="field" style="max-width:110px"><label>العملة</label><input id="j-cur" value="SAR"></div>
-          <div class="field"><label>وصف القيد</label><input id="j-desc" placeholder="March Transactions"></div>
+          <div class="field"><label>وصف القيد</label><input id="j-desc" placeholder="مطلوب للإرسال — مثال: تحصيل من عميل"></div>
           <div class="field" style="max-width:140px"><label>مركز التكلفة</label><input id="j-cc" placeholder="اختياري"></div>
         </div>
       </div>
@@ -355,7 +355,10 @@
           <div class="scale-side"><div class="lbl">إجمالي الدائن</div><div class="val" id="sc-credit" style="color:var(--teal)">0.00</div></div>
         </div>
         <div id="p3-check"></div>
-        <div class="row"><button onclick="checkP3(true)">تحقّق من الحسابات</button><button class="btn-primary" onclick="exportP3()">تصدير القيد (CSV)</button></div>
+        <div class="row"><button onclick="checkP3(true)">تحقّق من الحسابات</button><button onclick="exportP3()">تصدير القيد (CSV)</button>
+          <label style="display:flex;align-items:center;gap:6px;font-size:13px"><input type="checkbox" id="j-draft" checked style="width:auto"> حفظ كمسودة في دفترة (أأمن للتجربة)</label>
+          <button class="btn-primary" id="j-send" onclick="sendJournalToDaftra()">⇪ إرسال إلى دفترة</button></div>
+        <div id="p3-send-out"></div>
       </div>
     </section>
 
@@ -653,7 +656,7 @@ async function fetchAllRecords(ep,progress){
     const j=await r.json();
     if(page===1){const d0=j&&Array.isArray(j.data)?j.data[0]:null;firstKeys=d0?Object.keys(d0).join('، '):Object.keys(j||{}).join('، ');}
     const recs=recordsOf(j);all.push(...recs);
-    const pg=j&&j.pagination;if(pg){pages=+pg.page_count||pages;if(pg.count!=null)total=+pg.count;}
+    const pg=j&&j.pagination;if(pg){pages=+pg.page_count||pages;const tc=pg.count!=null?pg.count:pg.total_results;if(tc!=null)total=+tc;}
     else if(j&&j.last_page){pages=+j.last_page||pages;if(j.total!=null)total=+j.total;}
     if(progress)progress(page,pages,all.length);
     if(!recs.length)break;page++;
@@ -681,7 +684,7 @@ async function pullChartFromDaftra(){
       if(!code||!name){skip++;return;}
       const type=accTypeFrom(o);
       const ix=findAccIn(sys,code);
-      if(ix>=0){const a=S.accounts[ix];if(a.name===name&&(!type||a.type===type)){same++;return;}a.name=name;if(type)a.type=type;a.daftra_id=o.id;upd++;}
+      if(ix>=0){const a=S.accounts[ix];if(a.name===name&&(!type||a.type===type)&&String(a.daftra_id)===String(o.id)){same++;return;}a.name=name;if(type)a.type=type;a.daftra_id=o.id;upd++;}
       else{S.accounts.push({code,name,type:type||'—',sys,daftra_id:o.id});add++;}});
     const v=$('#acc-view');if(v)v.value=String(sys);render();
     const partial=(total!=null&&all.length<total)?'<br>⚠ جُلب '+all.length+' من أصل '+total+' — النتيجة جزئية.':'';
@@ -894,9 +897,60 @@ function checkP3(show){const box=$('#p3-check');if(!box)return true;const um=unm
 function renderP3(){const b=$('#p3-body');if(!p3lines.length){b.innerHTML='<tr><td colspan="6" class="empty">لا سطور. اكتب وصفاً واضغط «مسودة ذكية».</td></tr>';calcBalance();return;}
   fillAcctList();b.innerHTML=p3lines.map((l,i)=>`<tr><td><input list="p3-accts" value="${String(l.acct).replace(/"/g,'&quot;')}" oninput="updLine(${i},'acct',this.value);showAcctCode(this,${i})" onchange="showAcctCode(this,${i})" placeholder="اختر أو اكتب الحساب"><div class="acct-code" style="font-size:11px;color:var(--muted)">${acctHint(i)}</div></td><td><input class="num" type="number" value="${l.d||''}" oninput="updLine(${i},'d',this.value)" placeholder="0"></td><td><input class="num" type="number" value="${l.c||''}" oninput="updLine(${i},'c',this.value)" placeholder="0"></td><td><input value="${l.memo}" oninput="updLine(${i},'memo',this.value)" placeholder="بيان"></td><td><input value="${l.tax||''}" oninput="updLine(${i},'tax',this.value)" placeholder="—" style="width:80px"></td><td><span class="del" onclick="delLine(${i})">✕</span></td></tr>`).join('');calcBalance();}
 function calcBalance(){const d=p3lines.reduce((s,l)=>s+(+l.d||0),0),c=p3lines.reduce((s,l)=>s+(+l.c||0),0);$('#sc-debit').textContent=fmt(d);$('#sc-credit').textContent=fmt(c);const diff=Math.abs(d-c),ok=diff<0.005&&d>0;const mid=$('#sc-mid');mid.classList.toggle('ok',ok);mid.querySelector('.big').textContent=ok?'=':'≠';$('#sc-diff').textContent=ok?'متوازن':'فرق '+fmt(diff);}
+function todayISO(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+function isoToDMY(v){const m=String(v||'').match(/^(\d{4})-(\d{2})-(\d{2})$/);return m?m[3]+'/'+m[2]+'/'+m[1]:v;}
+/* ============ إرسال القيد إلى دفترة (POST /api2/journals) ============
+   لا يُرسل شيء تلقائياً: تحقق كامل ← ملخص ← تأكيد صريح ← إرسال واحد. */
+let _lastSentSig=null,_sending=false;
+function journalPayload(){const date=$('#j-date').value.trim(),desc=$('#j-desc').value.trim(),cur=($('#j-cur').value.trim()||'SAR').toUpperCase();
+  const lines=p3lines.filter(l=>(+l.d||0)>0||(+l.c||0)>0);
+  return {Journal:{date,currency_code:cur,description:desc,draft:$('#j-draft').checked?1:0},
+    JournalTransaction:lines.map(l=>{const a=acctByInput(l.acct);const t={journal_account_id:+a.daftra_id,description:(l.memo||desc)};if((+l.d||0)>0)t.currency_debit=+(+l.d).toFixed(2);else t.currency_credit=+(+l.c).toFixed(2);return t;})};}
+function validateJournal(){const errs=[];const sy=activeSys();
+  if(!sy.sub||!sy.key)errs.push('أكمل نطاق ومفتاح «'+sy.name+'» في صفحة الاتصال');
+  if(!USE_PROXY)errs.push('الإرسال يعمل فقط من الموقع (ليس من ملف محلي)');
+  const date=$('#j-date').value.trim();if(!/^\d{4}-\d{2}-\d{2}$/.test(date))errs.push('حدّد تاريخ القيد');
+  if(!$('#j-desc').value.trim())errs.push('اكتب وصف القيد');
+  const lines=p3lines.filter(l=>(+l.d||0)>0||(+l.c||0)>0);
+  if(lines.length<2)errs.push('القيد يحتاج سطرين على الأقل بمبالغ');
+  if(p3lines.some(l=>(+l.d||0)<0||(+l.c||0)<0))errs.push('لا مبالغ سالبة');
+  if(p3lines.some(l=>(+l.d||0)>0&&(+l.c||0)>0))errs.push('سطر فيه مدين ودائن معاً — افصله سطرين');
+  const d=lines.reduce((s,l)=>s+(+l.d||0),0),c=lines.reduce((s,l)=>s+(+l.c||0),0);
+  if(Math.abs(d-c)>=0.005||d===0)errs.push('القيد غير متوازن (مدين '+fmt(d)+' / دائن '+fmt(c)+')');
+  if(!checkP3(false))errs.push('حسابات غير موجودة في دليل «'+sy.name+'» — اخترها من اللوحة أعلاه');
+  else{const noId=lines.filter(l=>{const a=acctByInput(l.acct);return a&&!a.daftra_id;});if(noId.length)errs.push('حسابات بلا معرّف دفترة ('+noId.map(l=>l.acct).join('، ')+') — اضغط «جلب الدليل من دفترة» لهذا النظام ثم أعد الاختيار');}
+  return {errs,d,lines};}
+async function sendJournalToDaftra(){
+  const out=$('#p3-send-out');if(_sending)return;
+  const v=validateJournal();
+  if(v.errs.length){out.innerHTML='<div class="notice warn"><b>لم يُرسل — صحّح ما يلي:</b><br>• '+v.errs.join('<br>• ')+'</div>';return toast('القيد غير جاهز للإرسال',1);}
+  const sy=activeSys(),payload=journalPayload(),draft=payload.Journal.draft===1;
+  const sig=JSON.stringify([sy.sub,payload]);
+  const ignored=[];if(p3lines.some(l=>l.tax))ignored.push('عمود الضريبة (الضريبة تُسجَّل بسطر حسابها)');if($('#j-cc').value.trim())ignored.push('مركز التكلفة');
+  let msg='إرسال قيد إلى دفترة\n\nالنظام: '+sy.name+'  ('+normSub(sy.sub)+'.daftra.com)\nالحالة: '+(draft?'مسودة (لا يُرحَّل)':'قيد مُرحَّل نهائي')+'\nالتاريخ: '+payload.Journal.date+'\nالوصف: '+payload.Journal.description+'\n\n'+
+    v.lines.map(l=>{const a=acctByInput(l.acct);return lineSide(l)+': '+a.code+' · '+a.name+' — '+fmt((+l.d||0)||(+l.c||0));}).join('\n')+'\n\nالإجمالي: مدين = دائن = '+fmt(v.d)+(ignored.length?'\n\nلن يُرسل: '+ignored.join('، '):'')+'\n\nهل تؤكد الإرسال؟';
+  if(_lastSentSig===sig)msg='⚠ سبق إرسال نفس هذا القيد إلى نفس النظام في هذه الجلسة!\n\n'+msg;
+  if(!confirm(msg))return toast('أُلغي الإرسال');
+  _sending=true;const btn=$('#j-send');if(btn)btn.disabled=true;
+  out.innerHTML='<div class="tag-audit">جارٍ الإرسال إلى '+sy.name+'…</div>';
+  try{
+    const r=await fetch('/daftra-proxy/'+normSub(sy.sub)+'/api2/journals',{method:'POST',headers:{'Content-Type':'application/json','X-Daftra-Key-Header':sy.hdr||'APIKEY','X-Daftra-Key':sy.key||''},body:JSON.stringify(payload),cache:'no-store'});
+    let j=null;try{j=await r.json();}catch(e){}
+    const id=j&&(j.id||(j.data&&(j.data.id||(j.data.Journal&&j.data.Journal.id))));
+    if(!r.ok||!id){const em=j?(j.proxy_error||j.message||(j.validation_errors?JSON.stringify(j.validation_errors):'')||(j.errors?JSON.stringify(j.errors):'')||JSON.stringify(j).slice(0,400)):'';
+      out.innerHTML='<div class="notice err"><b>رفضت دفترة القيد (HTTP '+r.status+').</b> لم يُسجَّل شيء.'+(em?'<br>رسالة دفترة: <span class="inline-code">'+String(em).replace(/</g,'&lt;')+'</span>':'')+'</div>';
+      logIt('إرسال قيد: رفض '+r.status);return;}
+    _lastSentSig=sig;
+    let number='';try{const g=await daftraFetch('/api2/journals/'+id);if(g.ok){const gj=await g.json();const J=gj&&gj.data&&(gj.data.Journal||gj.data);number=J&&J.number||'';}}catch(e){}
+    const link=apiBase()+'/owner/journals/view/'+id;
+    out.innerHTML='<div class="notice">✓ أُنشئ القيد في «'+sy.name+'»'+(draft?' كمسودة':'')+' — رقم '+(number||'—')+' (المعرّف '+id+'). <a href="'+link+'" target="_blank" rel="noopener">فتحه في دفترة ↗</a></div>';
+    toast('أُرسل القيد إلى دفترة');logIt('إرسال قيد '+sy.name+': #'+(number||id));
+  }catch(err){out.innerHTML=connErrHtml(err,'/api2/journals');}
+  finally{_sending=false;if(btn)btn.disabled=false;}
+}
 function exportP3(){const d=p3lines.reduce((s,l)=>s+(+l.d||0),0),c=p3lines.reduce((s,l)=>s+(+l.c||0),0);if(Math.abs(d-c)>=0.005||d===0)return toast('غير متوازن — لا يُصدَّر',1);
   if(!checkP3(true))return toast('حدّد الحسابات غير الموجودة أولاً',1);
-  if(!confirm('تصدير قيد لنظام «'+accSysName(S.activeSystem)+'»\nعدد السطور: '+p3lines.length+'\nمدين = دائن = '+fmt(d)+'\n\n'+p3lines.map(l=>lineSide(l)+': '+l.acct+' '+fmt((+l.d||0)||(+l.c||0))).join('\n')+'\n\nمتابعة؟'))return;const code=$('#j-code').value.trim()||'JRN001',date=$('#j-date').value.trim(),cur=$('#j-cur').value.trim()||'SAR',desc=$('#j-desc').value.trim(),cc=$('#j-cc').value.trim();const head=['Journal Code','Journal Date','Currency','Journal Description','Account Name','Transaction Description','Tags','Cost Center','Tax','Debit','Credit'];const rows=p3lines.map(l=>[code,date,cur,desc,l.acct,l.memo,'',cc,l.tax||'',(+l.d||0).toFixed(2),(+l.c||0).toFixed(2)]);downloadCSV([head,...rows],'daftra_journal_'+(activeSys().sub||'sys'+(S.activeSystem+1)));toast('صُدّر القيد');logIt('مسار3: تصدير');}
+  if(!confirm('تصدير قيد لنظام «'+accSysName(S.activeSystem)+'»\nعدد السطور: '+p3lines.length+'\nمدين = دائن = '+fmt(d)+'\n\n'+p3lines.map(l=>lineSide(l)+': '+l.acct+' '+fmt((+l.d||0)||(+l.c||0))).join('\n')+'\n\nمتابعة؟'))return;const code=$('#j-code').value.trim()||'JRN001',date=isoToDMY($('#j-date').value.trim()),cur=$('#j-cur').value.trim()||'SAR',desc=$('#j-desc').value.trim(),cc=$('#j-cc').value.trim();const head=['Journal Code','Journal Date','Currency','Journal Description','Account Name','Transaction Description','Tags','Cost Center','Tax','Debit','Credit'];const rows=p3lines.map(l=>[code,date,cur,desc,l.acct,l.memo,'',cc,l.tax||'',(+l.d||0).toFixed(2),(+l.c||0).toFixed(2)]);downloadCSV([head,...rows],'daftra_journal_'+(activeSys().sub||'sys'+(S.activeSystem+1)));toast('صُدّر القيد');logIt('مسار3: تصدير');}
 
 /* ============ CSV / التهيئة ============ */
 function downloadCSV(rows,name){const csv='\uFEFF'+rows.map(r=>r.map(c=>`"${String(c==null?'':c).replace(/"/g,'""')}"`).join(',')).join('\n');const b=new Blob([csv],{type:'text/csv;charset=utf-8'});const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download=name+'.csv';a.click();URL.revokeObjectURL(u);}
@@ -950,6 +1004,7 @@ loadConnFields();
 $('#persist-note').innerHTML=PERSIST?'✓ الحفظ التلقائي مُفعّل — بياناتك وكل الأنظمة محفوظة في هذا المتصفح بين الجلسات.':'⚠ تعذّر الحفظ الدائم في هذه البيئة — استخدم «تصدير التهيئة» يدوياً.';
 if(!PERSIST)$('#persist-note').className='notice warn';
 const dp=$('#drop');['dragover','dragenter'].forEach(ev=>dp.addEventListener(ev,e=>{e.preventDefault();dp.classList.add('over');}));['dragleave','drop'].forEach(ev=>dp.addEventListener(ev,e=>{e.preventDefault();dp.classList.remove('over');}));dp.addEventListener('drop',e=>{if(e.dataTransfer.files[0])readFile(e.dataTransfer.files[0]);});
+{const jd=$('#j-date');if(jd&&!jd.value)jd.value=todayISO();}
 render();renderP3();
 </script>
 </body>
