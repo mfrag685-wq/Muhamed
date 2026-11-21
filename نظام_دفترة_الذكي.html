@@ -111,7 +111,7 @@
   <aside>
     <div class="brand">
       <div class="mark">دَ</div>
-      <div><h1>النظام الذكي لدفترة</h1><span>v4.1 · محرّك متعدد الأنظمة · 2026-11-21</span></div>
+      <div><h1>النظام الذكي لدفترة</h1><span>v4.2 · محرّك متعدد الأنظمة · 2026-11-21</span></div>
     </div>
     <div class="sys-switch">
       <label>النظام النشِط</label>
@@ -629,21 +629,39 @@ async function testConn(){
     toast(err&&err.badSub?'النطاق غير صالح':'تعذّر الاتصال — انظر التفاصيل',1);
   }
 }
+/* استجابة دفترة api2: {data:[{Client:{...}}], pagination:{page,page_count,count}}
+   نفكّ الغلاف (Client/Product/…) ونجلب كل الصفحات. */
+function unwrapRec(o){if(o&&typeof o==='object'){const ks=Object.keys(o);if(ks.length===1&&o[ks[0]]&&typeof o[ks[0]]==='object'&&!Array.isArray(o[ks[0]]))return o[ks[0]];if(o.Client)return o.Client;if(o.Product)return o.Product;}return o;}
+function recordsOf(j){const d=Array.isArray(j)?j:(Array.isArray(j&&j.data)?j.data:(j&&j.data&&typeof j.data==='object'?Object.values(j.data):[]));return d.map(unwrapRec).filter(o=>o&&typeof o==='object');}
+function recName(o,type){if(type==='clients'){const full=[o.first_name,o.last_name].filter(Boolean).join(' ').trim();return o.business_name||full||o.name||o.client_name||'';}return o.name||o.title||o.product_name||'';}
+function recCode(o){return o.id!=null&&o.id!==''?o.id:(o.code||o.client_number||o.product_code||'');}
+function withPage(ep,page,limit){return ep+(ep.includes('?')?'&':'?')+'page='+page+'&limit='+limit;}
 async function syncFrom(type){
   const sy=activeSys();
   const ep=(type==='clients'?$('#ep-clients'):$('#ep-products')).textContent.trim();
   if(!sy.sub||!sy.key)return toast('أكمل إعدادات اتصال «'+sy.name+'» أولاً',1);
-  $('#sync-out').innerHTML='<div class="tag-audit">جارٍ الجلب من '+sy.name+'…</div>';
+  const out=$('#sync-out');out.innerHTML='<div class="tag-audit">جارٍ الجلب من '+sy.name+'…</div>';
   try{
-    const r=await daftraFetch(ep);
-    if(!r.ok){const pm=await proxyMsg(r);$('#sync-out').innerHTML='<div class="notice warn">استجاب الخادم بـ HTTP '+r.status+pm+' — لم يُضف شيء.</div>';return;}
-    const j=await r.json();
-    const arr=Array.isArray(j)?j:(j.data||j.result||[]);
-    let n=0;
-    arr.forEach(o=>{const name=o.business_name||o.name||o.title||o.client_name;const code=o.id||o.code||o.client_number;if(name&&code&&!S.matches.find(x=>x.src===name)){S.matches.push({kind:type==='clients'?'عميل':'صنف',src:String(name),dst:String(code)});n++;}});
-    render();$('#sync-out').innerHTML='<div class="notice">✓ أُضيف '+n+' سجل إلى جدول المطابقة.</div>';toast('تمت المزامنة: '+n);logIt('مزامنة '+type+': '+n);
+    const all=[];let page=1,pages=1,total=null,firstKeys='';const LIMIT=100,MAXP=200;
+    do{
+      const r=await daftraFetch(withPage(ep,page,LIMIT));
+      if(!r.ok){const pm=await proxyMsg(r);out.innerHTML='<div class="notice warn">استجاب الخادم بـ HTTP '+r.status+pm+' في الصفحة '+page+' — لم يُضف شيء.</div>';return;}
+      const j=await r.json();
+      if(page===1){const d0=j&&Array.isArray(j.data)?j.data[0]:null;firstKeys=d0?Object.keys(d0).join('، '):Object.keys(j||{}).join('، ');}
+      const recs=recordsOf(j);all.push(...recs);
+      const pg=j&&j.pagination;if(pg){pages=+pg.page_count||pages;if(pg.count!=null)total=+pg.count;}
+      out.innerHTML='<div class="tag-audit">جارٍ الجلب من '+sy.name+'… صفحة '+page+(pages>1?' من '+pages:'')+' ('+all.length+' سجل)</div>';
+      if(!recs.length)break;page++;
+    }while(page<=pages&&page<=MAXP);
+    let n=0,dup=0,skip=0;
+    all.forEach(o=>{const name=String(recName(o,type)).trim();const code=recCode(o);if(!name||code===''||code==null){skip++;return;}if(S.matches.find(x=>x.src===name)){dup++;return;}S.matches.push({kind:type==='clients'?'عميل':'صنف',src:name,dst:String(code)});n++;});
+    render();
+    const partial=(total!=null&&all.length<total)?'<br>⚠ جُلب '+all.length+' من أصل '+total+' — النتيجة جزئية.':'';
+    const diag=(!all.length)?'<br>لم تُقرأ أي سجلات من الرد. مفاتيح أول عنصر: <span class="inline-code">'+(firstKeys||'—')+'</span>':'';
+    out.innerHTML='<div class="notice'+(n?'':' warn')+'">'+(n?'✓ ':'')+'جُلب '+all.length+' سجل'+(total!=null?' (الإجمالي في دفترة: '+total+')':'')+' · أُضيف '+n+' إلى جدول المطابقة · موجود مسبقاً '+dup+(skip?' · بلا اسم/كود '+skip:'')+partial+diag+'</div>';
+    toast('تمت المزامنة: '+n);logIt('مزامنة '+type+': +'+n+' / '+all.length);
   }catch(err){
-    $('#sync-out').innerHTML=connErrHtml(err,ep);
+    out.innerHTML=connErrHtml(err,ep);
   }
 }
 
