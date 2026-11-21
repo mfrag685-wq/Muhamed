@@ -5846,6 +5846,16 @@ function shipFobSar(snap){
   var fx=parseFloat(snap&&snap.fxInvSar)|| ((snap&&snap.invCur)==='SAR'?1:(parseFloat(snap&&snap.fxUsdSar)||3.756));
   return ((snap&&snap.containers)||[]).reduce(function(cs,c){ return cs+((c.invoices)||[]).reduce(function(is,inv){ return is+((inv.items)||[]).reduce(function(s,it){ return s+(parseFloat(it.qty)||0)*(parseFloat(it.unitPrice)||0); },0); },0); },0)*fx;
 }
+// إجمالي الخصم الممنوح من المورد في الشحنة بالريال (مطابق لمنطق snapLanded)
+function shipDiscSar(snap){
+  var fxUsd=parseFloat(snap&&snap.fxUsdSar)||3.756; var invCur=(snap&&snap.invCur)||'USD';
+  return ((snap&&snap.containers)||[]).reduce(function(cs,c){ return cs+((c.invoices)||[]).reduce(function(is,inv){
+    var pc=inv.purchCur||invCur||'USD';
+    var rawInvCur=((inv.items)||[]).reduce(function(s,it){ return s+(parseFloat(it.qty)||0)*(parseFloat(it.unitPrice)||0); },0);
+    var discInvCur=inv.discountType==='percent'?rawInvCur*(parseFloat(inv.discount)||0)/100:(parseFloat(inv.discount)||0);
+    return is+(discInvCur? (pc==='SAR'?discInvCur:discInvCur*fxUsd):0);
+  },0); },0);
+}
 function saPayToSar(p){ var a=parseFloat(p&&p.amount)||0; return (p&&p.cur==='SAR')?a:a*(parseFloat(p&&p.rate)||S.fxUsdSar||3.756); }
 function onSaMethodChange(){ var m=document.getElementById('sa-method').value; var w=document.getElementById('sa-bank-wrap'); if(w) w.style.display=(m==='transfer')?'':'none'; }
 function setSaMode(m){ _saMode=(m==='summary')?'summary':'detail'; renderSupAcct(); }
@@ -5855,8 +5865,12 @@ function saOpeningSar(sup){ if(!sup) return 0; var a=parseFloat(sup.opening)||0;
 function supAcctLedger(name, from, to){
   var lname=String(name||'').toLowerCase();
   // كل الحركات بلا فلترة تاريخ (نفلتر لاحقاً مع ترحيل ما قبل الفترة)
-  var ships=dbLoad().filter(function(s){ return String(s.supplierName||'').toLowerCase()===lname && shipFobSar(s)>0; })
-    .map(function(s){ var nc=((s.containers)||[]).length; return {date:s.shipmentDate||'', kind:'ship', label:tr('شحنة')+' '+(s.shipmentNo||'—')+(nc?' ('+nc+' '+tr('حاوية')+')':''), dr:shipFobSar(s), cr:0}; });
+  var ships=[];
+  dbLoad().filter(function(s){ return String(s.supplierName||'').toLowerCase()===lname && shipFobSar(s)>0; })
+    .forEach(function(s){ var nc=((s.containers)||[]).length;
+      ships.push({date:s.shipmentDate||'', kind:'ship', label:tr('شحنة')+' '+(s.shipmentNo||'—')+(nc?' ('+nc+' '+tr('حاوية')+')':''), dr:shipFobSar(s), cr:0});
+      var dsc=shipDiscSar(s); if(dsc>0) ships.push({date:s.shipmentDate||'', kind:'disc', label:tr('خصم ممنوح من المورد')+' — '+tr('شحنة')+' '+(s.shipmentNo||'—'), dr:0, cr:dsc});
+    });
   // حساب نموذج أ يشمل الدفعات الموسومة «أ» أو «كلاهما» (والقديمة بلا وسم تُعامل كـ«أ»)
   var pays=saPayLoad().filter(function(p){ var tg=p.target||'a'; return String(p.supplier||'').toLowerCase()===lname && (tg==='a'||tg==='both'); })
     .map(function(p){ var m=(p.method==='transfer')?(tr('تحويل')+(p.bank?' — '+p.bank:'')):tr('نقدًا'); var tgl=(p.target==='both')?' [أ+ب]':''; return {date:p.date||'', kind:'pay', id:p.id, label:tr('دفعة')+' ('+m+')'+tgl+(p.ref?' #'+p.ref:'')+(p.notes?' — '+p.notes:''), dr:0, cr:saPayToSar(p)}; });
@@ -5900,6 +5914,8 @@ function renderSupAcct(){
   var rows=name?supAcctLedger(name,from,to):[];
   var totDr=rows.reduce(function(s,r){return s+r.dr;},0);
   var totCr=rows.reduce(function(s,r){return s+r.cr;},0);
+  var totDisc=rows.filter(function(r){return r.kind==='disc';}).reduce(function(s,r){return s+r.cr;},0);
+  var totPay=totCr-totDisc;
   var bal=totDr-totCr;
 
   // مدفوعات موسومة لنموذج ب (للعلم فقط — لا تدخل رصيد نموذج أ)
@@ -5908,7 +5924,8 @@ function renderSupAcct(){
   var sc=document.getElementById('sa-sum-cards');
   if(sc) sc.innerHTML=
     '<div class="sum-card"><div class="lbl">إجمالي المشتريات — مدين (SAR)</div><div class="val">'+fmtD(totDr)+'</div><div class="sub">'+rows.filter(function(r){return r.kind==='ship';}).length+' '+tr('شحنة')+'</div></div>'+
-    '<div class="sum-card"><div class="lbl">إجمالي المسدد لنموذج أ — دائن (SAR)</div><div class="val" style="color:var(--success)">'+fmtD(totCr)+'</div><div class="sub">'+rows.filter(function(r){return r.kind==='pay';}).length+' '+tr('دفعة')+'</div></div>'+
+    '<div class="sum-card"><div class="lbl">إجمالي المسدد لنموذج أ — دائن (SAR)</div><div class="val" style="color:var(--success)">'+fmtD(totPay)+'</div><div class="sub">'+rows.filter(function(r){return r.kind==='pay';}).length+' '+tr('دفعة')+'</div></div>'+
+    (totDisc>0?'<div class="sum-card"><div class="lbl">'+tr('خصم ممنوح من المورد')+' (SAR)</div><div class="val" style="color:var(--success)">'+fmtD(totDisc)+'</div><div class="sub">'+tr('يُخصم من الرصيد')+'</div></div>':'')+
     '<div class="sum-card"><div class="lbl">الرصيد المتبقّي (SAR)</div><div class="val" style="color:'+(bal>0?'var(--danger)':'var(--success)')+'">'+fmtD(bal)+'</div><div class="sub">'+(bal>0?'مستحق للمورد':(bal<0?'مدفوع بالزيادة':'مسدَّد بالكامل'))+'</div></div>'+
     (bPaid>0?'<div class="sum-card"><div class="lbl">مدفوع يخص نموذج ب (SAR)</div><div class="val">'+fmtD(bPaid)+'</div><div class="sub">لا يؤثر على رصيد نموذج أ</div></div>':'');
 
@@ -6026,7 +6043,7 @@ function snapLanded(snap){
       var share=rec.rawInvCur>0?itemValInvCur/rec.rawInvCur:1/((rec.inv.items||[]).length||1);
       var itemPurchSar=pS(itemValInvCur, rec.invPurchCur);
       var totSar=itemPurchSar - share*rec.discSar + share*rec.commSar + share*invFreightSar + share*rec.otherSar + share*invConSar + share*invShipShareSar;
-      out.push({ name:(it.name||'صنف'), qty:(parseFloat(it.qty)||0), fobSar:itemPurchSar, landedSar:totSar, ci:rec.ci, cname:((conts[rec.ci-1]||{}).number||('حاوية '+rec.ci)) });
+      out.push({ name:(it.name||'صنف'), qty:(parseFloat(it.qty)||0), fobSar:itemPurchSar, fobNetSar:(itemPurchSar - share*rec.discSar), landedSar:totSar, ci:rec.ci, cname:((conts[rec.ci-1]||{}).number||('حاوية '+rec.ci)) });
     });
   });
   return out;
@@ -6117,7 +6134,7 @@ function bFxFor(num){
 function aModelsForShip(num){
   var snap=dbLoad().find(function(s){ return String(s.shipmentNo||'')===String(num); });
   var agg={};
-  if(snap){ snapLanded(snap).forEach(function(r){ var k=(r.name||'').trim()||'—'; if(!agg[k]) agg[k]={qty:0,fobSar:0,landedSar:0}; agg[k].qty+=r.qty; agg[k].fobSar+=r.fobSar; agg[k].landedSar+=r.landedSar; }); }
+  if(snap){ snapLanded(snap).forEach(function(r){ var k=(r.name||'').trim()||'—'; if(!agg[k]) agg[k]={qty:0,fobSar:0,landedSar:0}; agg[k].qty+=r.qty; agg[k].fobSar+=(r.fobNetSar!=null?r.fobNetSar:r.fobSar); agg[k].landedSar+=r.landedSar; }); }
   return agg;
 }
 function cmpShipList(){
@@ -7043,7 +7060,7 @@ function exportPaymentsExcel(){
 // ═══════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════
-var APP_VERSION='v2026-11-15.37';   // رقم إصدار ظاهر للتحقق من تحميل أحدث نسخة (لا cache قديم)
+var APP_VERSION='v2026-11-21.38';   // رقم إصدار ظاهر للتحقق من تحميل أحدث نسخة (لا cache قديم)
 // ═══════════════════════════════════════════
 // 🌐 محرّك الترجمة الشامل (عربي / English / 中文) — قاموس + مسح DOM + مراقب تغييرات
 // ═══════════════════════════════════════════
@@ -7110,10 +7127,10 @@ Object.assign(TR.zh,{
 });
 // مفاتيح إضافية لمخرجات التصدير والطباعة
 Object.assign(TR.en,{
- 'جدول العمولة':'Commission Table','الحاويات المحتسبة':'Counted Containers','قيمة الشحنة الخاضعة':'Taxable Shipment Value','المبلغ (ر.س)':'Amount (SAR)','شحنة':'Shipment','فواتير مشتريات مستوردة':'Imported Purchase Invoices','إجمالي المدين':'Total Debit','إجمالي الدفعات':'Total Payments','الدفعات المخصومة':'Deducted Payments','كشف حساب أجور الشحن':'Freight Account Statement','الوصف':'Description','لا توجد حركات':'No transactions','الرصيد الحالي:':'Current Balance:','إجمالي الشحنات':'Total Shipments','لا شحنات':'No shipments'
+ 'جدول العمولة':'Commission Table','الحاويات المحتسبة':'Counted Containers','قيمة الشحنة الخاضعة':'Taxable Shipment Value','المبلغ (ر.س)':'Amount (SAR)','خصم ممنوح من المورد':'Supplier Discount','يُخصم من الرصيد':'Deducted from balance','شحنة':'Shipment','فواتير مشتريات مستوردة':'Imported Purchase Invoices','إجمالي المدين':'Total Debit','إجمالي الدفعات':'Total Payments','الدفعات المخصومة':'Deducted Payments','كشف حساب أجور الشحن':'Freight Account Statement','الوصف':'Description','لا توجد حركات':'No transactions','الرصيد الحالي:':'Current Balance:','إجمالي الشحنات':'Total Shipments','لا شحنات':'No shipments'
 });
 Object.assign(TR.zh,{
- 'جدول العمولة':'佣金表','الحاويات المحتسبة':'计入集装箱','قيمة الشحنة الخاضعة':'应计货值','المبلغ (ر.س)':'金额(里亚尔)','شحنة':'装运','فواتير مشتريات مستوردة':'导入采购发票','إجمالي المدين':'借方合计','إجمالي الدفعات':'付款合计','الدفعات المخصومة':'已扣付款','كشف حساب أجور الشحن':'运费账户对账单','الوصف':'说明','لا توجد حركات':'无交易','الرصيد الحالي:':'当前余额:','إجمالي الشحنات':'装运合计','لا شحنات':'无装运'
+ 'جدول العمولة':'佣金表','الحاويات المحتسبة':'计入集装箱','قيمة الشحنة الخاضعة':'应计货值','المبلغ (ر.س)':'金额(里亚尔)','خصم ممنوح من المورد':'供应商折扣','يُخصم من الرصيد':'从余额中扣除','شحنة':'装运','فواتير مشتريات مستوردة':'导入采购发票','إجمالي المدين':'借方合计','إجمالي الدفعات':'付款合计','الدفعات المخصومة':'已扣付款','كشف حساب أجور الشحن':'运费账户对账单','الوصف':'说明','لا توجد حركات':'无交易','الرصيد الحالي:':'当前余额:','إجمالي الشحنات':'装运合计','لا شحنات':'无装运'
 });
 // الدفعة الثالثة: عبارات الواجهة المتبقية
 Object.assign(TR.en,{
