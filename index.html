@@ -2449,7 +2449,7 @@ td.cash-in{color:#1f6b45;font-weight:700}td.cash-out{color:#b42318;font-weight:7
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-17-a';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-21-a';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   /* أخطاء سباق عرض غير مؤذية (إعادة رسم أثناء مغادرة خانة) — لا تُعرض كعطل ولا توقف النظام */
@@ -9739,9 +9739,13 @@ function renderIncomeVisuals(T){
   var box=document.getElementById('incCards');
   if(box) box.innerHTML=kc('💰','#1f9d57','#e7f6ee','صافي المبيعات',money(T.nrev),'بعد المرتجعات والخصومات',dl(T.nrev,prv&&prv.net_rev,true))
     +kc('🧾','#e8900c','#fdf3e3','تكلفة البضاعة المباعة',money(T.cogs),mg(T.cogs,T.nrev)+' من المبيعات',dl(T.cogs,prv&&prv.cogs,false))
-    +kc('📈','#12b886','#e6f8f2','مجمل الربح',sign(T.gp),'الهامش '+regMarginPill(T.nrev>0.0001?T.gp/T.nrev*100:null),dl(T.gp,prv&&prv.gp,true))
-    +kc('💸','#e03131','#fdecec','المصروفات والفاقد',money(T.exp+T.waste),mg(T.exp+T.waste,T.nrev)+' من المبيعات',dl(T.exp+T.waste,prv&&(prv.exp+prv.waste),false))
-    +kc('🏁','#0f172a','#1e293b','صافي الربح / (الخسارة)',sign(T.net),'الهامش '+mg(T.net,T.nrev),dl(T.net,prv&&prv.net,true),true);
+    +kc('📈','#12b886','#e6f8f2','مجمل الربح (بعد الفاقد)',sign(T.gp),'الهامش '+regMarginPill(T.nrev>0.0001?T.gp/T.nrev*100:null)+(T.waste>0.009?' · الفاقد '+money(T.waste):''),dl(T.gp,prv&&prv.gp,true))
+    +kc('💸','#e03131','#fdecec','المصروفات',money(T.exp),mg(T.exp,T.nrev)+' من المبيعات (الفاقد داخل مجمل الربح)',dl(T.exp,prv&&prv.exp,false))
+    +kc('🏁','#0f172a','#1e293b','صافي الربح / (الخسارة)',sign(T.net),'الهامش '+mg(T.net,T.nrev),dl(T.net,prv&&prv.net,true),true)
+    +'<div class="inc-recon" style="grid-column:1/-1;font-size:12.5px;color:#475569;background:#f8fafc;border:1px dashed #cbd5e1;border-radius:10px;padding:7px 12px;line-height:1.9">🧮 <b>المطابقة:</b> '
+    +money(T.nrev)+' − تكلفة '+money(T.cogs)+(T.waste>0.009?' − فاقد '+money(T.waste):'')+' = مجمل '+sign(T.gp)
+    +' − مصروفات '+money(T.exp)+((T.other&&Math.abs(T.other.net)>0.009)?' '+(T.other.net>0?'+ ':'− ')+'بنود أخرى '+money(Math.abs(T.other.net))+' <span class="mini">(خصم مكتسب '+money(T.other.supDisc)+(T.other.cashAdj?' · فروق جرد '+sign(T.other.cashAdj):'')+(T.other.otherInc?' · إيرادات أخرى '+money(T.other.otherInc):'')+(T.other.fees?' · رسوم بنكية '+money(T.other.fees):'')+')</span>':'')
+    +' = <b>'+sign(T.net)+'</b></div>';
   var ch=document.getElementById('incCharts'); if(!ch) return;
   var wf=waterfallChart('من المبيعات إلى صافي الربح','شلال الربح: كل بند يُخصم من المبيعات حتى صافي الربح',[
     {label:'إجمالي المبيعات',value:T.rev,kind:'total'},{label:'المرتجعات',value:T.ret,kind:'neg'},{label:'الخصومات',value:T.disc,kind:'neg'},
