@@ -458,7 +458,7 @@ const I18N = {
     paste_vins: 'لصق مجموعة أرقام (رقم في كل سطر)', add_from_list: 'إضافة من القائمة', add_rows: 'إضافة صفوف فارغة', add: 'إضافة',
     vin_rule: 'رقم الشاسيه 17 خانة من حروف إنجليزية وأرقام، ولا يحتوي الحروف I و O و Q. الخانات الحمراء غير صحيحة أو مكررة.',
     vin_17: 'رقم الشاسيه (17 خانة)', model_optional: 'الموديل (اختياري)', color: 'اللون', delete: 'حذف', save_shipment: 'حفظ الشحنة',
-    confirm_active_vins: 'هذه السيارات مسجلة في شحنة أخرى لم تُسلَّم بعد. هل تريد المتابعة؟', shipment_saved: 'تم حفظ الشحنة',
+    confirm_active_vins: 'تنبيه: هذه السيارات سبق نقلها في شحنات أخرى (الحركات السابقة أدناه). هل تريد تسجيل حركة جديدة؟', repeat_count: 'مكرر: سبق نقله {n} مرة', repeat_badge: 'مكرر ×{n}', price_freight: 'أجرة الشحنة', price_cost: 'تكاليف الشحنة', shipment_saved: 'تم حفظ الشحنة',
     need_driver_first: 'أضف سائقاً واحداً على الأقل قبل إنشاء شحنة.',
     back_to_list: 'الشحنات', print: 'طباعة', created_by: 'أنشأها', sap_document_no: 'رقم المستند في ساب', vehicles: 'السيارات',
     mark_rest_ok: 'تحديد الباقي كسليمة', condition_notes_ph: 'ملاحظات الحالة (مكان الضرر...)', add_vehicle: 'إضافة سيارة',
@@ -476,7 +476,8 @@ const I18N = {
     change_password: 'تغيير كلمة المرور', current_password: 'كلمة المرور الحالية', new_password: 'كلمة المرور الجديدة', password_changed: 'تم تغيير كلمة المرور',
     err_network: 'تعذر الاتصال بالسحابة. تحقق من الإنترنت.', err_unauthorized: 'انتهت الجلسة، سجّل الدخول مجدداً.',
     err_invalid_credentials: 'اسم المستخدم أو كلمة المرور غير صحيحة.', err_required_fields: 'أكمل الحقول الإلزامية.',
-    err_vin_invalid: 'رقم شاسيه غير صحيح', err_vin_duplicate: 'رقم شاسيه مكرر في نفس الشحنة', err_vin_active: 'السيارة موجودة في شحنة أخرى نشطة',
+    carrier_type: 'نوع الناقلة', carrier_trailer: 'تريلا', carrier_flatbed: 'سطحة', client_rates: 'التسعيرة', rate_price: 'سعر السيارة', rate_price_from: 'ساري من', rate_add: 'إضافة سعر', rate_none: 'لا توجد تسعيرة لهذا العميل بعد.', rate_hint: 'السعر المقترح من تسعيرة العميل: {u} × {n} سيارة = {tot}', rate_note: 'تغيير السعر يسري على الشحنات الجديدة فقط، ولا يغيّر شحنة سُجّلت سابقاً.', rate_history: 'سجل الأسعار', err_rate_invalid: 'بيانات التسعيرة غير مكتملة (من، إلى، نوع الناقلة، سعر صحيح)', err_rate_duplicate: 'يوجد سعر فعّال لنفس المسار ونوع الناقلة',
+    err_vin_invalid: 'رقم شاسيه غير صحيح', err_vin_duplicate: 'رقم شاسيه مكرر في نفس الشحنة', err_vin_repeat: 'السيارة سبق نقلها في شحنة أخرى',
     err_not_found: 'السجل غير موجود.', err_forbidden: 'ليست لديك صلاحية لهذا الإجراء.', err_server_error: 'حدث خطأ في الخادم.',
     err_wrong_password: 'كلمة المرور الحالية غير صحيحة.', err_password_short: 'كلمة المرور 6 خانات على الأقل.', err_cannot_disable_self: 'لا يمكنك إيقاف حسابك.',
     err_shipment_closed: 'الشحنة مغلقة (مسلّمة أو ملغاة).', err_duplicate: 'القيمة مسجلة مسبقاً.', err_no_vehicles: 'أضف رقم شاسيه واحداً على الأقل.',
@@ -859,7 +860,7 @@ const I18N = {
     paste_vins: 'Paste VINs (one per line)', add_from_list: 'Add from list', add_rows: 'Add empty rows', add: 'Add',
     vin_rule: 'A VIN has 17 letters and digits and never contains I, O or Q. Red fields are invalid or duplicated.',
     vin_17: 'VIN (17 characters)', model_optional: 'Model (optional)', color: 'Color', delete: 'Delete', save_shipment: 'Save shipment',
-    confirm_active_vins: 'These cars are already on another undelivered shipment. Continue anyway?', shipment_saved: 'Shipment saved',
+    confirm_active_vins: 'Notice: these cars were already moved on other shipments (previous movements below). Record a new movement?', repeat_count: 'Repeated: moved {n} time(s) before', repeat_badge: 'Repeated ×{n}', price_freight: 'Shipment freight', price_cost: 'Shipment costs', shipment_saved: 'Shipment saved',
     need_driver_first: 'Add at least one driver before creating a shipment.',
     back_to_list: 'Shipments', print: 'Print', created_by: 'Created by', sap_document_no: 'SAP document no.', vehicles: 'Cars',
     mark_rest_ok: 'Mark the rest intact', condition_notes_ph: 'Condition notes (damage location...)', add_vehicle: 'Add car',
@@ -877,7 +878,8 @@ const I18N = {
     change_password: 'Change password', current_password: 'Current password', new_password: 'New password', password_changed: 'Password changed',
     err_network: 'Cannot reach the cloud. Check your connection.', err_unauthorized: 'Session expired. Sign in again.',
     err_invalid_credentials: 'Wrong username or password.', err_required_fields: 'Fill in the required fields.',
-    err_vin_invalid: 'Invalid VIN', err_vin_duplicate: 'Duplicate VIN in the same shipment', err_vin_active: 'Car is on another active shipment',
+    carrier_type: 'Carrier type', carrier_trailer: 'Trailer', carrier_flatbed: 'Flatbed', client_rates: 'Rates', rate_price: 'Price per car', rate_price_from: 'Effective from', rate_add: 'Add rate', rate_none: 'No rates for this client yet.', rate_hint: 'Suggested from client rates: {u} × {n} cars = {tot}', rate_note: 'A price change applies to new shipments only; recorded shipments are never changed.', rate_history: 'Price history', err_rate_invalid: 'Incomplete rate (from, to, carrier type, valid price)', err_rate_duplicate: 'An active rate already exists for this route and carrier',
+    err_vin_invalid: 'Invalid VIN', err_vin_duplicate: 'Duplicate VIN in the same shipment', err_vin_repeat: 'Car was moved on another shipment before',
     err_not_found: 'Record not found.', err_forbidden: 'You don’t have permission for this action.', err_server_error: 'Server error.',
     err_wrong_password: 'Current password is wrong.', err_password_short: 'Password must be at least 6 characters.', err_cannot_disable_self: 'You can’t suspend your own account.',
     err_shipment_closed: 'Shipment is closed (delivered or cancelled).', err_duplicate: 'This value already exists.', err_no_vehicles: 'Add at least one VIN.',
@@ -1206,12 +1208,16 @@ function saveRecon(result) {
   return { id, ...result };
 }
 
-/* سيارات موجودة حالياً في شحنة لم تُسلَّم بعد (لمنع التكرار بالخطأ) */
-function activeConflicts(vins, excludeId = '') {
-  const set = new Set(vins), out = [];
-  allShips().forEach((s) => { if (s.id === excludeId || !['pending', 'in_transit'].includes(s.status)) return;
-    s.vehicles.forEach((v) => set.has(v.vin) && out.push({ vin: v.vin, ref_no: s.ref_no })); });
-  return out;
+/* حركات سابقة لنفس الشاسيه في شحنات أخرى غير ملغاة (أياً كانت حالتها أو تاريخها): تنبيه لا منع.
+   نفس الشاسيه على نفس التريلا في وقت مختلف حركة مستقلة، فلا نستثني أحداً بالتريلا أو السائق.
+   السعر والتكلفة على مستوى الشحنة كلها، ويظهران فقط لمن يملك صلاحية التسعير/التكاليف. */
+function priorMovements(vins, excludeId = '') {
+  const set = new Set(vins), out = [], showFreight = permAny('pricing'), showCost = permAny('costs');
+  allShips().forEach((s) => { if (s.id === excludeId || s.status === 'cancelled') return;
+    s.vehicles.forEach((v) => { if (!set.has(v.vin)) return;
+      out.push({ vin: v.vin, ref_no: s.ref_no, trip_date: s.trip_date, origin: s.origin, destination: s.destination, status: s.status, truck_plate: s.truck_plate,
+        freight: showFreight ? s.freight : null, total_cost: showCost ? s.total_cost : null, vehicle_count: s.vehicle_count }); }); });
+  return out.sort((a, b) => String(a.trip_date).localeCompare(String(b.trip_date)));
 }
 
 /* رقم الشحنة SH-YYYYMM-0001 بعدّاد سحابي ذري، فلا يتكرر الرقم بين جهازين */
@@ -1303,6 +1309,46 @@ function masterSave(table, id, b) {
   if (!id) { id = newKey(); d.created_at = nowStr(); write({ [`${table}/${id}`]: d }); }
   else { const up = {}; Object.keys(d).forEach((k) => (up[`${table}/${id}/${k}`] = d[k])); write(up); }
   return { ...S[table][id], id };
+}
+
+/* ---------- تسعيرة العميل: سعر السيارة الواحدة حسب (من، إلى، نوع الناقلة) ----------
+   تُخزَّن داخل سجل العميل clients/<id>/rates. الأجرة المقترحة تُنسخ إلى الشحنة عند إنشائها فقط،
+   ولا تقرأ أي شاشة أو تقرير التسعيرة بعد ذلك، فتغيير السعر لا يمس الحركات المسجّلة. */
+const CARRIERS = ['trailer', 'flatbed'];
+const normPlace = (x) => String(x || '').trim();
+function rateFor(clientId, origin, destination, carrier) {
+  const rs = ((S.clients || {})[clientId] || {}).rates || {};
+  const k = Object.keys(rs).find((id) => rs[id].active !== 0 && rs[id].carrier === carrier && normPlace(rs[id].origin) === normPlace(origin) && normPlace(rs[id].destination) === normPlace(destination));
+  return k ? { ...rs[k], id: k } : null;
+}
+function rateSave(cid, rid, b) {
+  needPerm('pricing');
+  const c = (S.clients || {})[cid]; if (!c) throw apiErr('not_found');
+  const rs = c.rates || {}, base = `clients/${cid}/rates/`;
+  if (!rid) {
+    const origin = clean(b.origin), destination = clean(b.destination), price = numOrNull(b.price);
+    if (!origin || !destination || !CARRIERS.includes(b.carrier) || price === null || price < 0) throw apiErr('rate_invalid');
+    if (rateFor(cid, origin, destination, b.carrier)) throw apiErr('rate_duplicate');
+    rid = newKey();
+    /* السجل داخل قيمة السعر نفسه: Firebase يرفض طلباً يحوي مساراً وأحد مساراته الفرعية معاً */
+    write({ [base + rid]: { origin, destination, carrier: b.carrier, price: round2(price), price_from: today(), active: 1, created_at: nowStr(), created_by: userName(),
+      history: { [newKey()]: { price: round2(price), at: nowStr(), by: userName() } } } });
+    return { id: rid };
+  }
+  const r = rs[rid]; if (!r) throw apiErr('not_found');
+  const up = {};
+  if ('active' in b) {
+    const on = Number(b.active) ? 1 : 0;
+    if (on && !r.active && rateFor(cid, r.origin, r.destination, r.carrier)) throw apiErr('rate_duplicate');
+    up[base + rid + '/active'] = on;
+  }
+  if ('price' in b) {
+    const price = numOrNull(b.price); if (price === null || price < 0) throw apiErr('rate_invalid');
+    if (round2(price) !== r.price) { up[base + rid + '/price'] = round2(price); up[base + rid + '/price_from'] = today();
+      up[`${base}${rid}/history/${newKey()}`] = { price: round2(price), at: nowStr(), by: userName() }; }
+  }
+  if (Object.keys(up).length) write(up);
+  return { id: rid };
 }
 
 /* ---------- تسجيل حالة السيارة مع سجل التدقيق ---------- */
@@ -1508,6 +1554,8 @@ const API_ROUTES = [
   ['GET', /^\/clients$/, ({ q }) => masterList('clients', q.get('all') === '1')],
   ['POST', /^\/clients$/, ({ body }) => masterSave('clients', null, body)],
   ['PUT', /^\/clients\/([\w-]+)$/, ({ p, body }) => masterSave('clients', p[0], body)],
+  ['POST', /^\/clients\/([\w-]+)\/rates$/, ({ p, body }) => rateSave(p[0], null, body)],
+  ['PUT', /^\/clients\/([\w-]+)\/rates\/([\w-]+)$/, ({ p, body }) => rateSave(p[0], p[1], body)],
 
   ['GET', /^\/shipments$/, ({ q }) => {
     const st = q.get('status'), month = q.get('month'), drv = q.get('driver_id'), qq = String(q.get('q') || '').trim().toLowerCase(), vq = normVin(qq);
@@ -1535,8 +1583,8 @@ const API_ROUTES = [
     const seen = new Set(), dups = [];
     vehicles.forEach((v) => (seen.has(v.vin) ? dups.push(v.vin) : seen.add(v.vin)));
     if (dups.length) throw apiErr('vin_duplicate', { vins: dups });
-    const conflicts = activeConflicts([...seen]);
-    if (conflicts.length && !b.force) throw apiErr('vin_active', { conflicts });
+    const conflicts = priorMovements([...seen]);
+    if (conflicts.length && !b.force) throw apiErr('vin_repeat', { conflicts });
     const tripDate = isYmd(b.trip_date) ? b.trip_date : today();
     const status = ['pending', 'in_transit'].includes(b.status) ? b.status : 'pending';
     const permit_no = clean(b.permit_no);
@@ -1544,13 +1592,17 @@ const API_ROUTES = [
     const home = homeCountry(), oc = clean(b.origin_country) || home, dc = clean(b.destination_country) || home;
     const freight = clean(b.freight) === null ? null : round2(b.freight);
     if (freight !== null && freight < 0) throw apiErr('required_fields');
+    const carrier_type = CARRIERS.includes(b.carrier_type) ? b.carrier_type : null;
+    /* لقطة سعر التسعيرة: تُحفظ فقط إن طابقت الأجرة المدخلة (سعر السيارة × العدد) */
+    const rate = permAny('pricing') && b.client_id ? rateFor(b.client_id, b.origin, b.destination, carrier_type) : null;
+    const rateSnap = rate && freight !== null && freight === round2(rate.price * vehicles.length) ? { rate_unit: rate.price, rate_cars: vehicles.length } : {};
     const ref_no = await nextRef(tripDate);
     const id = newKey(), vs = {};
     vehicles.forEach((v, i) => (vs[newKey()] = { vin: v.vin, model: v.model || clean(b.vehicle_type), color: v.color, condition: 'pending', o: i + 1 }));
     const up = { [`shipments/${id}`]: { ref_no, driver_id: b.driver_id, client_id: b.client_id || null, truck_id: b.truck_id || null,
       origin: clean(b.origin), destination: clean(b.destination), origin_country: oc, destination_country: dc,
       vehicle_type: clean(b.vehicle_type), trip_date: tripDate, status, departure_at: status === 'in_transit' ? nowStr() : null, arrival_at: null,
-      notes: clean(b.notes), sap_document_no: null, freight, created_by_name: userName(), created_at: nowStr(), vehicles: vs,
+      notes: clean(b.notes), sap_document_no: null, freight, carrier_type, ...rateSnap, created_by_name: userName(), created_at: nowStr(), vehicles: vs,
       ...(permit_no ? { permit_no, permit_date: isYmd(b.permit_date) ? b.permit_date : today(), permit_by: userName(), permit_at: nowStr() } : {}) } };
     cityUpdates(oc, clean(b.origin), up); cityUpdates(dc, clean(b.destination), up);
     write(up);
@@ -1696,8 +1748,8 @@ const API_ROUTES = [
     const vin = normVin(b.vin);
     if (!VIN_RE.test(vin)) throw apiErr('vin_invalid', { vins: [vin] });
     if (vehiclesOf(s).some((v) => v.vin === vin)) throw apiErr('vin_duplicate', { vins: [vin] });
-    const conflicts = activeConflicts([vin], id);
-    if (conflicts.length && !b.force) throw apiErr('vin_active', { conflicts });
+    const conflicts = priorMovements([vin], id);
+    if (conflicts.length && !b.force) throw apiErr('vin_repeat', { conflicts });
     const o = vehiclesOf(s).reduce((m, v) => Math.max(m, v.o || 0), 0) + 1;
     write({ [`shipments/${id}/vehicles/${newKey()}`]: { vin, model: clean(b.model) || s.vehicle_type || null, color: clean(b.color), condition: 'pending', o } });
     return { ok: true };
@@ -1726,7 +1778,7 @@ const API_ROUTES = [
     allShips().forEach((s) => s.vehicles.forEach((v) => { if (!v.vin.includes(qq)) return;
       out.push({ ...v, shipment_id: s.id, ref_no: s.ref_no, trip_date: s.trip_date, origin: s.origin, destination: s.destination, status: s.status,
         vehicle_type: s.vehicle_type, departure_at: s.departure_at, arrival_at: s.arrival_at, driver_name: s.driver_name, driver_phone: s.driver_phone,
-        truck_plate: s.truck_plate, client_name: s.client_name, origin_country: s.origin_country, destination_country: s.destination_country, scope: s.scope, permit_no: s.permit_no, log: Object.values(v.log || {}).sort((a, b) => String(b.created_at).localeCompare(a.created_at)) }); }));
+        truck_plate: s.truck_plate, freight: permAny('pricing') ? s.freight : null, total_cost: permAny('costs') ? s.total_cost : null, vehicle_count: s.vehicle_count, client_name: s.client_name, origin_country: s.origin_country, destination_country: s.destination_country, scope: s.scope, permit_no: s.permit_no, log: Object.values(v.log || {}).sort((a, b) => String(b.created_at).localeCompare(a.created_at)) }); }));
     out.sort((a, b) => (b.vin === qq) - (a.vin === qq) || a.vin.localeCompare(b.vin) || String(b.trip_date).localeCompare(a.trip_date));
     return { results: out.slice(0, 100) };
   }],
@@ -1834,6 +1886,11 @@ function describeCall(method, path, b) {
     if (sub === 'temps') { const x = ((s.temps || {})[key]) || {};
       if (tail === 'import') return { ...base, act: 'import', mod: 'temps', post: (r) => ({ msg: `${R}: ${t('logger_imported').replace('{n}', r.added)}` }) };
       return method === 'POST' ? { ...base, act: 'temp', mod: 'temps', msg: `${R}: ${b.value}°C${b.place ? ' — ' + b.place : ''}` } : { ...base, act: 'delete', mod: 'temps', msg: `${R}: ${t('delete')} ${x.value}°C (${x.at})` }; }
+  }
+  if ((m = path.match(/^\/clients\/([\w-]+)\/rates(?:\/([\w-]+))?$/))) {
+    const cl = (S.clients || {})[m[1]] || {}, r = m[2] ? ((cl.rates || {})[m[2]] || {}) : b;
+    return { act: m[2] ? 'edit' : 'add', mod: 'pricing', msg: `${cl.name || ''} · ${t('client_rates')}: ${r.origin || ''} → ${r.destination || ''} (${t('carrier_' + (r.carrier || b.carrier))})` +
+      ('price' in b ? ` · ${t('rate_price')}: ${b.price}` : '') + ('active' in b ? ` · ${t('status')}: ${Number(b.active) ? t('active') : t('inactive')}` : '') };
   }
   if ((m = path.match(/^\/(drivers|trucks|clients)(?:\/([\w-]+))?$/))) {
     const tbl = m[1], old = m[2] ? (S[tbl] || {})[m[2]] || {} : null, nm = (r) => (r && (r.name || r.plate)) || '';
@@ -2373,6 +2430,14 @@ const permitBadge = (s) => s.permit_no ? `<span class="badge bg-road-50 text-roa
   : ['delivered', 'cancelled'].includes(s.status) ? `<span class="badge bg-slate-100 text-slate-500">${t('permit_none')}</span>`
   : `<span class="badge bg-rose-50 text-rose-700 ring-1 ring-rose-200">${t('permit_missing')}</span>`;
 const money = (n) => Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+/* نص تنبيه التكرار: لكل شاسيه عدد حركاته السابقة وتفاصيل كل حركة */
+function repeatText(conflicts) {
+  const by = new Map(); conflicts.forEach((c) => { if (!by.has(c.vin)) by.set(c.vin, []); by.get(c.vin).push(c); });
+  return [...by].map(([vin, list]) => `${vin} — ${t('repeat_count').replace('{n}', list.length)}\n` + list.map((c) =>
+    `   • ${c.ref_no} · ${c.trip_date} · ${c.origin} → ${c.destination}` + (c.truck_plate ? ` · ${c.truck_plate}` : '') +
+    (c.freight !== null && c.freight !== undefined ? ` · ${t('freight')}: ${money(c.freight)}` : '') +
+    (c.total_cost !== null && c.total_cost !== undefined ? ` · ${t('total_cost')}: ${money(c.total_cost)}` : '')).join('\n')).join('\n\n');
+}
 const BUCKET_CLS = { expired: 'bg-rose-600 text-white', d30: 'bg-rose-50 text-rose-700 ring-1 ring-rose-200', d60: 'bg-amber-50 text-amber-800 ring-1 ring-amber-200',
   d90: 'bg-yellow-50 text-yellow-800 ring-1 ring-yellow-200', ok: 'bg-road-50 text-road-700 ring-1 ring-road-200', missing: 'bg-slate-100 text-slate-500' };
 const expText = (x) => x.bucket === 'missing' ? t('b_missing') : x.days < 0 ? t('exp_since').replace('{n}', num(-x.days)) : x.days === 0 ? t('exp_today') : t('exp_in').replace('{n}', num(x.days));
@@ -2692,6 +2757,7 @@ function renderSearchResults(list, q) {
       <header class="p-4 md:p-5 border-b border-slate-200 flex flex-wrap items-center gap-3">
         <div class="vin text-lg md:text-xl font-semibold" dir="ltr">${hl}</div>
         ${condBadge(latest.condition)}
+        ${recs.length > 1 ? `<span class="text-xs font-semibold rounded-full bg-amber-100 text-amber-800 ring-1 ring-amber-300 px-2.5 py-1">${t('repeat_badge').replace('{n}', recs.length)}</span>` : ''}
         <span class="text-sm text-slate-500 ms-auto">${t('trips_for_vin').replace('{n}', recs.length)}</span>
       </header>
       <ol class="relative">
@@ -2710,6 +2776,8 @@ function renderSearchResults(list, q) {
             ${dl(t('model'), val(r.model || r.vehicle_type))}
             ${dl(t('departure_at'), dt(r.departure_at))}
             ${dl(t('arrival_at'), dt(r.arrival_at))}
+            ${r.freight !== null && r.freight !== undefined ? dl(t('price_freight'), money(r.freight)) : ''}
+            ${r.total_cost !== null && r.total_cost !== undefined ? dl(t('price_cost'), money(r.total_cost)) : ''}
           </dl>
           <div class="rounded-lg bg-slate-50 p-3">
             <div class="flex flex-wrap items-center gap-2"><span class="text-sm text-slate-600">${t('condition')}:</span>${condBadge(r.condition)}
@@ -2797,7 +2865,8 @@ async function pageNewShipment(view) {
         <div class="hidden lg:block"></div>
         <div><label class="label">${t('destination_country')}</label><select name="destination_country" id="dc" class="input">${countryOpts(homeCountry())}</select></div>
         <div><label class="label">${t('destination')} <span class="text-rose-500">*</span></label><input name="destination" list="cities-d" class="input" required></div>
-        ${perm('pricing') ? `<div><label class="label">${t('freight')} (${t('sar')})</label><input name="freight" type="number" min="0" step="0.01" class="input" placeholder="0.00"></div>` : ''}
+        <div><label class="label">${t('carrier_type')}</label><select name="carrier_type" id="carrier-sel" class="input"><option value="">${t('choose_truck')}</option>${CARRIERS.map((k) => `<option value="${k}">${t('carrier_' + k)}</option>`).join('')}</select></div>
+        ${perm('pricing') ? `<div><label class="label">${t('freight')} (${t('sar')})</label><input name="freight" id="freight-in" type="number" min="0" step="0.01" class="input" placeholder="0.00"><p id="rate-hint" class="text-xs text-road-700 mt-1"></p></div>` : ''}
         ${perm('permit') ? `<div><label class="label">${t('permit_ref')}</label><input name="permit_no" class="input" dir="ltr" placeholder="${t('permit_ph')}"></div>
         <div><label class="label">${t('permit_date')}</label><input name="permit_date" type="date" class="input" value="${today()}"></div>` : ''}
         <div><label class="label">${t('vehicle_type')}</label><input name="vehicle_type" id="vtype" list="vtypes" class="input"></div>
@@ -2866,7 +2935,20 @@ async function pageNewShipment(view) {
       else inp.classList.add('border-rose-400', 'bg-rose-50');
     });
     $('#v-count').textContent = filled; $('#v-valid').textContent = valid;
+    suggestRate();
   };
+  /* اقتراح الأجرة من تسعيرة العميل: يملأ الخانة فقط إن كانت فارغة أو مقترحة آلياً ولم يعدّلها المستخدم */
+  function suggestRate() {
+    const fr = $('#freight-in'), hint = $('#rate-hint'); if (!fr) return;
+    const f = $('#ship-form').elements, n = $('#v-count') ? Number($('#v-count').textContent) || 0 : 0;
+    const rate = n ? rateFor(f.client_id.value, f.origin.value, f.destination.value, f.carrier_type.value) : null;
+    if (!rate) { hint.textContent = ''; if (fr.dataset.auto === '1') { fr.value = ''; fr.dataset.auto = '0'; } return; }
+    const tot = round2(rate.price * n);
+    hint.textContent = t('rate_hint').replace('{u}', money(rate.price)).replace('{n}', n).replace('{tot}', money(tot));
+    if (!fr.value || fr.dataset.auto === '1') { fr.value = tot; fr.dataset.auto = '1'; }
+  }
+  ['client_id', 'origin', 'destination', 'carrier_type'].forEach((k) => { const el = $('#ship-form').elements[k]; if (el) { el.addEventListener('input', suggestRate); el.addEventListener('change', suggestRate); } });
+  if ($('#freight-in')) $('#freight-in').addEventListener('input', () => { $('#freight-in').dataset.auto = '0'; });
   $('#rows-add').onclick = () => { const n = Math.min(60, Math.max(1, +$('#n-rows').value || 1)); for (let i = 0; i < n; i++) addRow(); update(); };
   $('#bulk-add').onclick = () => {
     const vins = $('#bulk').value.split(/[\s,;]+/).map(normVin).filter(Boolean);
@@ -2890,9 +2972,8 @@ async function pageNewShipment(view) {
       let r;
       try { r = await API.post('/shipments', payload); }
       catch (err) {
-        if (err.code !== 'vin_active') throw err;
-        const list = err.data.conflicts.map((c) => `${c.vin} (${c.ref_no})`).join('\n');
-        if (!confirm(t('confirm_active_vins') + '\n\n' + list)) { btn.disabled = false; return; }
+        if (err.code !== 'vin_repeat') throw err;
+        if (!confirm(t('confirm_active_vins') + '\n\n' + repeatText(err.data.conflicts))) { btn.disabled = false; return; }
         r = await API.post('/shipments', { ...payload, force: true });
       }
       toast(t('shipment_saved')); location.hash = '#/shipments/' + r.id;
@@ -3082,8 +3163,8 @@ async function pageShipment(view, m) {
       if (!VIN_RE.test(vin)) return toast(t('err_vin_invalid'), 'err');
       try { await API.post(`/shipments/${id}/vehicles`, { vin }); }
       catch (e) {
-        if (e.code !== 'vin_active') return toast(e.message + (e.data?.vins ? ': ' + e.data.vins.join(', ') : ''), 'err');
-        if (!confirm(t('confirm_active_vins') + '\n\n' + e.data.conflicts.map((c) => `${c.vin} (${c.ref_no})`).join('\n'))) return;
+        if (e.code !== 'vin_repeat') return toast(e.message + (e.data?.vins ? ': ' + e.data.vins.join(', ') : ''), 'err');
+        if (!confirm(t('confirm_active_vins') + '\n\n' + repeatText(e.data.conflicts))) return;
         try { await API.post(`/shipments/${id}/vehicles`, { vin, force: true }); } catch (e2) { return toast(e2.message, 'err'); }
       }
       toast(t('saved')); reload();
@@ -3094,6 +3175,50 @@ async function pageShipment(view, m) {
 }
 
 /* ---------- صفحات البيانات الأساسية (سائقون / عملاء / مستخدمون) ---------- */
+/* نافذة تسعيرة العميل: صفوف (من، إلى، نوع الناقلة، سعر السيارة) مع سجل الأسعار.
+   التغيير يسري على الشحنات الجديدة فقط. */
+function openRatesModal(client) {
+  const root = $('#modal-root'), cid = client.id;
+  const draw = () => {
+    const rs = (((S.clients || {})[cid] || {}).rates) || {};
+    const list = Object.keys(rs).map((id) => ({ ...rs[id], id }))
+      .sort((a, b) => (a.active === 0) - (b.active === 0) || String(a.origin).localeCompare(String(b.origin), 'ar'));
+    root.innerHTML = `
+    <div class="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-ink/50 sm:p-4" data-backdrop>
+      <div class="bg-white w-full sm:max-w-3xl rounded-t-2xl sm:rounded-2xl shadow-2xl max-h-[92vh] flex flex-col" role="dialog" aria-modal="true">
+        <div class="flex items-center justify-between px-5 py-4 border-b border-slate-200">
+          <h3 class="font-semibold text-lg">${t('client_rates')} — ${esc(client.name)}</h3>
+          <button type="button" class="p-1 text-slate-400 hover:text-ink" data-close aria-label="${t('close')}">${icon('x')}</button>
+        </div>
+        <div class="p-5 overflow-y-auto">
+          <p class="text-xs text-slate-600 bg-amber-50 rounded-lg px-3 py-2 mb-4">${t('rate_note')}</p>
+          <div class="overflow-x-auto"><table class="w-full"><thead><tr><th class="th">${t('origin')}</th><th class="th">${t('destination')}</th><th class="th">${t('carrier_type')}</th><th class="th">${t('rate_price')} (${t('sar')})</th><th class="th">${t('rate_price_from')}</th><th class="th"></th></tr></thead>
+          <tbody>${list.length ? list.map((r) => `<tr class="${r.active === 0 ? 'opacity-50' : ''}"><td class="td">${esc(r.origin)}</td><td class="td">${esc(r.destination)}</td><td class="td">${t('carrier_' + r.carrier)}</td>
+            <td class="td"><input type="number" min="0" step="0.01" class="input w-28" value="${esc(r.price)}" data-price="${r.id}"></td>
+            <td class="td text-xs text-slate-500">${esc(r.price_from || '')}</td>
+            <td class="td text-end whitespace-nowrap"><details class="inline-block me-2 align-middle"><summary class="text-xs text-road-700 cursor-pointer">${t('rate_history')}</summary><ul class="text-xs text-slate-600 mt-1">${Object.values(r.history || {}).sort((a, b) => String(b.at).localeCompare(a.at)).map((h) => `<li>${esc(h.at)} · ${money(h.price)} · ${esc(h.by || '')}</li>`).join('')}</ul></details>
+              <button type="button" class="text-sm text-road-700 hover:underline" data-toggle="${r.id}">${r.active === 0 ? t('active') : t('inactive')}</button></td></tr>`).join('') : `<tr><td class="td text-center text-slate-500 py-6" colspan="6">${t('rate_none')}</td></tr>`}</tbody></table></div>
+          <form id="rate-form" class="grid sm:grid-cols-5 gap-2 items-end mt-5 pt-4 border-t border-slate-200" novalidate>
+            <div><label class="label">${t('origin')}</label><input name="origin" class="input" required></div>
+            <div><label class="label">${t('destination')}</label><input name="destination" class="input" required></div>
+            <div><label class="label">${t('carrier_type')}</label><select name="carrier" class="input">${CARRIERS.map((k) => `<option value="${k}">${t('carrier_' + k)}</option>`).join('')}</select></div>
+            <div><label class="label">${t('rate_price')}</label><input name="price" type="number" min="0" step="0.01" class="input" required></div>
+            <button class="btn btn-primary" type="submit">${t('rate_add')}</button>
+          </form>
+        </div>
+      </div>
+    </div>`;
+    const close = () => (root.innerHTML = '');
+    $$('[data-close]', root).forEach((b) => (b.onclick = close));
+    $('[data-backdrop]', root).onclick = (e) => { if (e.target.dataset.backdrop !== undefined) close(); };
+    const run = async (fn) => { try { await fn(); toast(t('saved')); draw(); } catch (e) { toast(e.message, 'err'); } };
+    $$('[data-price]', root).forEach((i) => (i.onchange = () => run(() => API.put(`/clients/${cid}/rates/${i.dataset.price}`, { price: i.value }))));
+    $$('[data-toggle]', root).forEach((b) => (b.onclick = () => run(() => API.put(`/clients/${cid}/rates/${b.dataset.toggle}`, { active: (rs[b.dataset.toggle] || {}).active === 0 ? 1 : 0 }))));
+    $('#rate-form', root).onsubmit = (e) => { e.preventDefault(); const d = Object.fromEntries(new FormData(e.target)); run(() => API.post(`/clients/${cid}/rates`, d)); };
+  };
+  draw();
+}
+
 function crudPage(cfg) {
   return async (view) => {
     setTitle(t(cfg.title));
@@ -3114,9 +3239,10 @@ function crudPage(cfg) {
       $('#c-body').innerHTML = list.length ? list.map((r) => `<tr class="${r.active ? '' : 'opacity-50'}">
         ${cfg.columns.map((c) => `<td class="td ${c.cls || ''}" ${c.ltr ? 'dir="ltr"' : ''}>${c.render ? c.render(r) : val(r[c.name])}</td>`).join('')}
         <td class="td">${r.active ? `<span class="badge bg-road-50 text-road-700">${t('active')}</span>` : `<span class="badge bg-slate-100 text-slate-500">${t('inactive')}</span>`}</td>
-        ${writable ? `<td class="td text-end"><button class="text-road-700 hover:underline text-sm" data-edit="${r.id}">${t('edit')}</button></td>` : ''}</tr>`).join('')
+        ${writable ? `<td class="td text-end whitespace-nowrap">${cfg.endpoint === '/clients' && perm('pricing') ? `<button class="text-road-700 hover:underline text-sm me-3" data-rates="${r.id}">${t('client_rates')}</button>` : ''}<button class="text-road-700 hover:underline text-sm" data-edit="${r.id}">${t('edit')}</button></td>` : ''}</tr>`).join('')
         : `<tr><td class="td text-center text-slate-500 py-10" colspan="${cfg.columns.length + 2}">${t('no_records')}</td></tr>`;
       $$('[data-edit]').forEach((b) => (b.onclick = () => form(rows.find((r) => String(r.id) === b.dataset.edit))));
+      $$('[data-rates]').forEach((b) => (b.onclick = () => openRatesModal(rows.find((r) => String(r.id) === b.dataset.rates))));
     };
     const form = (row) => {
       const fields = [...cfg.fields(row)];

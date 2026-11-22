@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>نظام استخراج وتنسيق بيانات الإكسيل والتقارير — إعداد أ/ محمد فرج</title>
+<!--
+  ================================================================
+   نظام استخراج وتنسيق بيانات الإكسيل غير المنسّقة وتوليد التقارير
+   - يرفع ملفات Excel خام (xls / xlsx / csv) غير منسّقة
+   - يكتشف الأعمدة تلقائياً وينظّف البيانات
+   - يولّد تقارير: شهري، أرصدة العملاء، المنتجات، المندوبين، الفواتير
+   - يصدّر ملفات Excel منسّقة ويطبع التقارير
+   إعداد وتصميم: أ/ محمد فرج — جميع الحقوق محفوظة © 2026
+  ================================================================
+-->
+<style>
+:root{
+  --ink:#152420;--ink-2:#3f524a;--ink-3:#6b7d74;
+  --canvas:#e9eee9;--surface:#fff;--surface-2:#f5f8f4;
+  --line:#d2dad1;--line-soft:#e6ebe5;
+  --leaf:#2c7a52;--leaf-dark:#1c5638;--leaf-soft:#e5f1e9;
+  --tomato:#c0402a;--tomato-soft:#fbeae6;
+  --citrus:#c1841a;--citrus-soft:#fdf3de;
+  --sky:#37648b;--sky-soft:#e8f0f6;
+  --shadow:0 1px 2px rgba(21,36,32,.06),0 10px 28px rgba(21,36,32,.06);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:"Tajawal","Segoe UI",Tahoma,Arial,sans-serif;background:var(--canvas);color:var(--ink);
+  font-size:15px;line-height:1.6;padding:16px;-webkit-text-size-adjust:100%}
+.wrap{max-width:1500px;margin:0 auto}
+.hidden{display:none!important}
+h1,h2,h3{line-height:1.25}
+a{color:var(--sky)}
+
+/* ===== أزرار ===== */
+button{font-family:inherit;font-size:14px;cursor:pointer;border-radius:8px;border:1px solid transparent;transition:.15s}
+button:focus-visible{outline:2px solid var(--citrus);outline-offset:2px}
+button:disabled{opacity:.45;cursor:not-allowed}
+.btn{padding:8px 14px;background:var(--surface);border-color:var(--line);color:var(--ink)}
+.btn:hover:not(:disabled){background:var(--surface-2)}
+.btn-main{padding:10px 22px;background:var(--leaf);color:#fff;font-weight:700}
+.btn-main:hover:not(:disabled){background:var(--leaf-dark)}
+.btn-alt{padding:9px 16px;background:var(--sky);color:#fff;font-weight:600}
+.btn-alt:hover:not(:disabled){background:#2a4f6d}
+.btn-sm{padding:5px 11px;font-size:12.5px;background:var(--surface);border-color:var(--line);color:var(--ink-2)}
+.btn-sm:hover:not(:disabled){background:var(--surface-2)}
+
+/* ===== الترويسة ===== */
+header.top{background:linear-gradient(160deg,#152420,#1c5638);color:#eaf3ee;border-radius:16px;
+  padding:22px 26px;box-shadow:var(--shadow);margin-bottom:18px}
+header.top h1{font-size:24px;font-weight:800;margin-bottom:4px}
+header.top p{color:#bcd4c6;font-size:14px}
+header.top .by{margin-top:8px;font-size:12.5px;color:#9dbdad}
+
+/* ===== البطاقات ===== */
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);
+  padding:18px 20px;margin-bottom:18px}
+.card > h2{font-size:17px;font-weight:800;color:var(--leaf-dark);margin-bottom:4px;display:flex;align-items:center;gap:8px}
+.card > .sub{color:var(--ink-3);font-size:13px;margin-bottom:14px}
+
+/* ===== منطقة الرفع ===== */
+#drop{border:2px dashed var(--leaf);border-radius:14px;background:var(--leaf-soft);
+  padding:34px 20px;text-align:center;transition:.15s;cursor:pointer}
+#drop.hot{background:#d6ead e;background:#d3e7db;border-color:var(--leaf-dark)}
+#drop .big{font-size:40px;margin-bottom:6px}
+#drop h3{font-size:16px;color:var(--leaf-dark)}
+#drop p{color:var(--ink-3);font-size:13px;margin-top:4px}
+.filelist{margin-top:12px;display:flex;flex-wrap:wrap;gap:8px}
+.filechip{background:var(--surface-2);border:1px solid var(--line);border-radius:999px;
+  padding:5px 12px;font-size:12.5px;display:flex;align-items:center;gap:8px}
+.filechip b{color:var(--leaf-dark)}
+.filechip .x{cursor:pointer;color:var(--tomato);font-weight:800}
+
+/* ===== KPIs ===== */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px}
+.kpi{background:var(--surface-2);border:1px solid var(--line-soft);border-radius:12px;padding:14px 16px}
+.kpi .lbl{font-size:12.5px;color:var(--ink-3)}
+.kpi .val{font-size:22px;font-weight:800;color:var(--ink);margin-top:2px}
+.kpi .val.pos{color:var(--leaf-dark)} .kpi .val.neg{color:var(--tomato)}
+
+/* ===== التبويبات ===== */
+.tabs{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;border-bottom:1px solid var(--line);padding-bottom:8px}
+.tab{padding:8px 15px;border-radius:9px;background:transparent;border:1px solid transparent;color:var(--ink-2);font-weight:600}
+.tab:hover{background:var(--surface-2)}
+.tab.active{background:var(--leaf);color:#fff}
+
+/* ===== الجداول ===== */
+.toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px}
+.toolbar input[type=text],.toolbar select{font-family:inherit;font-size:13.5px;padding:7px 11px;border:1px solid var(--line);
+  border-radius:8px;background:var(--surface);color:var(--ink)}
+.toolbar .spacer{flex:1}
+.tblwrap{overflow-x:auto;border:1px solid var(--line);border-radius:12px}
+table{border-collapse:collapse;width:100%;font-size:13.5px;white-space:nowrap}
+th,td{padding:8px 11px;text-align:right;border-bottom:1px solid var(--line-soft)}
+thead th{background:var(--surface-2);color:var(--ink-2);font-weight:700;position:sticky;top:0;cursor:pointer;user-select:none}
+thead th:hover{background:#eef3ec}
+tbody tr:hover{background:#fafcf9}
+tfoot td{background:var(--leaf-soft);font-weight:800;color:var(--leaf-dark);border-top:2px solid var(--leaf)}
+td.num,th.num{font-variant-numeric:tabular-nums}
+.neg{color:var(--tomato)}
+.muted{color:var(--ink-3)}
+.count-note{font-size:12.5px;color:var(--ink-3);margin-top:8px}
+
+/* ===== كشف الأعمدة ===== */
+.maprow{display:flex;flex-wrap:wrap;gap:10px}
+.mapitem{display:flex;flex-direction:column;gap:3px;font-size:12.5px}
+.mapitem span{color:var(--ink-3)}
+.mapitem select{padding:6px 9px;border:1px solid var(--line);border-radius:8px;background:var(--surface);font-family:inherit}
+
+footer{color:var(--ink-3);text-align:center;font-size:12.5px;padding:14px 0 4px}
+
+@media print{
+  body{background:#fff;padding:0}
+  header.top,#uploadCard,.tabs,.toolbar,#mapCard,footer,.noprint{display:none!important}
+  .card{box-shadow:none;border:none;padding:0}
+  thead th{position:static}
+  .tblwrap{border:1px solid #999}
+  th,td{border-bottom:1px solid #ccc}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <h1>📊 نظام استخراج وتنسيق بيانات الإكسيل والتقارير</h1>
+    <p>ارفع ملفات Excel غير منسّقة — يُنظّفها النظام تلقائياً ويولّد تقارير شهرية وأرصدة عملاء وتقارير المنتجات والمندوبين والفواتير.</p>
+    <div class="by">إعداد وتصميم: أ/ محمد فرج — يعمل بالكامل داخل المتصفح، بياناتك لا تغادر جهازك.</div>
+  </header>
+
+  <!-- الرفع -->
+  <div class="card" id="uploadCard">
+    <h2>1️⃣ رفع الملفات</h2>
+    <div class="sub">يدعم: <b>xls</b> ، <b>xlsx</b> ، <b>xlsm</b> ، <b>csv</b> — ويمكن رفع أكثر من ملف معاً (كل شهر/فرع في ملف).</div>
+    <div id="drop">
+      <div class="big">⬆️</div>
+      <h3>اسحب الملفات هنا أو اضغط للاختيار</h3>
+      <p>سيتم دمج كل الملفات المرفوعة في مجموعة بيانات واحدة منظّفة</p>
+    </div>
+    <input type="file" id="fileInput" multiple accept=".xls,.xlsx,.xlsm,.csv" class="hidden">
+    <div class="filelist" id="fileList"></div>
+    <div id="loadNote" class="count-note"></div>
+  </div>
+
+  <!-- كشف الأعمدة -->
+  <div class="card hidden" id="mapCard">
+    <h2>2️⃣ مطابقة الأعمدة</h2>
+    <div class="sub">اكتشف النظام الأعمدة تلقائياً. عدّل أي مطابقة خاطئة ثم اضغط «إعادة المعالجة».</div>
+    <div class="maprow" id="mapRow"></div>
+    <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn-main" id="reprocBtn">🔄 إعادة المعالجة</button>
+      <span class="count-note" id="mapNote" style="align-self:center"></span>
+    </div>
+  </div>
+
+  <!-- النتائج -->
+  <div id="results" class="hidden">
+
+    <div class="card">
+      <h2>📈 المؤشرات العامة</h2>
+      <div class="kpis" id="kpis"></div>
+    </div>
+
+    <div class="card">
+      <div class="tabs" id="tabs"></div>
+      <div class="toolbar noprint">
+        <input type="text" id="search" placeholder="🔎 بحث في الجدول…">
+        <select id="monthFilter"><option value="">كل الأشهر</option></select>
+        <div class="spacer"></div>
+        <button class="btn-sm" id="printBtn">🖨️ طباعة</button>
+        <button class="btn-alt" id="exportBtn">📥 تصدير Excel (التقرير الحالي)</button>
+        <button class="btn-main" id="exportAllBtn">📦 تصدير كل التقارير</button>
+      </div>
+      <div class="tblwrap"><table id="grid"><thead></thead><tbody></tbody><tfoot></tfoot></table></div>
+      <div class="count-note" id="gridNote"></div>
+    </div>
+
+  </div>
+
+  <footer>نظام استخراج وتنسيق بيانات الإكسيل — إعداد أ/ محمد فرج © 2026</footer>
+</div>
+
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<script>
+/* ============================================================
+   أدوات مساعدة
+   ============================================================ */
+const $ = s => document.querySelector(s);
+const AR_DIGITS = {'٠':'0','١':'1','٢':'2','٣':'3','٤':'4','٥':'5','٦':'6','٧':'7','٨':'8','٩':'9',
+                   '۰':'0','۱':'1','۲':'2','۳':'3','۴':'4','۵':'5','۶':'6','۷':'7','۸':'8','۹':'9'};
+function fixDigits(s){ return String(s).replace(/[٠-٩۰-۹]/g, d => AR_DIGITS[d]); }
+
+// تحويل قيمة إلى رقم مع دعم الأرقام العربية والفواصل والأقواس والعملات
+function toNum(v){
+  if (v === null || v === undefined || v === '') return 0;
+  if (typeof v === 'number') return isFinite(v) ? v : 0;
+  let s = fixDigits(v).trim();
+  let neg = /^\(.*\)$/.test(s) || /^-/.test(s);
+  s = s.replace(/[()]/g,'').replace(/[^\d.\-,]/g,''); // إزالة العملة والرموز
+  s = s.replace(/,/g,'');                              // فاصل الآلاف
+  s = s.replace(/(?!^)-/g,'');                         // إبقاء إشارة السالب في المقدمة فقط
+  let n = parseFloat(s);
+  if (!isFinite(n)) return 0;
+  if (neg && n>0) n = -n;
+  return n;
+}
+const isNum = v => typeof v==='number' || (typeof v==='string' && /\d/.test(fixDigits(v)) && !isNaN(toNum(v)) );
+
+function fmt(n, dec=2){
+  if (n===null||n===undefined||n==='') return '';
+  let x = Number(n);
+  if (!isFinite(x)) return '';
+  return x.toLocaleString('en-US',{minimumFractionDigits:dec,maximumFractionDigits:dec});
+}
+function fmtInt(n){ return Math.round(Number(n)||0).toLocaleString('en-US'); }
+
+// استخراج شهر YYYY-MM من قيمة تاريخ متعددة الصيغ
+function toDate(v){
+  if (v instanceof Date && !isNaN(v)) return v;
+  if (typeof v === 'number'){ // تسلسل إكسيل
+    const d = XLSX.SSF ? XLSX.numdate?.(v) : null;
+    const dt = excelSerialToDate(v); if (dt) return dt;
+  }
+  let s = fixDigits(String(v)).trim();
+  let m;
+  // dd/mm/yyyy أو dd-mm-yyyy
+  if ((m = s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})/))){
+    let [_,d,mo,y]=m; y=y.length===2?'20'+y:y;
+    const dt=new Date(+y,+mo-1,+d); if(!isNaN(dt))return dt;
+  }
+  // yyyy-mm-dd
+  if ((m = s.match(/^(\d{4})[\/\-.](\d{1,2})[\/\-.](\d{1,2})/))){
+    const dt=new Date(+m[1],+m[2]-1,+m[3]); if(!isNaN(dt))return dt;
+  }
+  const dt=new Date(s); return isNaN(dt)?null:dt;
+}
+function excelSerialToDate(n){
+  if(typeof n!=='number'||n<20||n>90000)return null;
+  const d=new Date(Date.UTC(1899,11,30)+n*864e5);
+  return isNaN(d)?null:d;
+}
+function ymOf(v){
+  const d=toDate(v);
+  if(!d)return '';
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+}
+
+/* ============================================================
+   قاموس مطابقة الأعمدة (مرن — كلمات مفتاحية)
+   ============================================================ */
+const FIELDS = [
+  {key:'date',     label:'التاريخ',       kw:['تاريخ','date','التاريخ']},
+  {key:'invoice',  label:'رقم الفاتورة',   kw:['فاتورة','invoice','رقم الفاتورة','مستند','سند']},
+  {key:'customer', label:'العميل',        kw:['عميل','customer','client','اسم العميل','الجهة']},
+  {key:'name',     label:'اسم المنتج',     kw:['الاسم','اسم المنتج','الصنف','المنتج','name','item','بيان']},
+  {key:'code',     label:'كود المنتج',     kw:['كود','code','sku','رمز']},
+  {key:'soldBy',   label:'بيعت بواسطة',    kw:['بيعت','بواسطة','البائع','المندوب','seller','sold','sales']},
+  {key:'unitPrice',label:'سعر الوحدة',     kw:['سعر الوحدة','سعر','price','unit price','السعر']},
+  {key:'qty',      label:'الكمية',         kw:['كمية','qty','quantity','العدد']},
+  {key:'discount', label:'الخصم',          kw:['خصم','discount']},
+  {key:'tax',      label:'الضرائب',        kw:['ضريب','ضرائب','tax','vat','القيمة المضافة']},
+  {key:'total',    label:'الإجمالي',       kw:['إجمالي','اجمالي','الإجمالي','total','amount','القيمة']},
+  {key:'id',       label:'المعرف',         kw:['المعرف','id','معرف']},
+];
+const NUMERIC_KEYS = new Set(['unitPrice','qty','discount','tax','total','id']);
+// صفوف يجب تجاهلها (مجاميع/عناوين أشهر)
+const SKIP_LABELS = ['المجموع','الإجمالي الكلي','الاجمالي الكلي','المجموع الكلي','total','grand total','subtotal'];
+
+/* ============================================================
+   الحالة
+   ============================================================ */
+let RAW_FILES = [];      // {name, rows:[[...]]}
+let MAPPING = {};        // key -> columnIndex
+let HEADERS = [];        // العناوين المكتشفة
+let CLEAN = [];          // صفوف نظيفة ككائنات
+let CUR_TAB = 'data';
+let SORT = {col:null, dir:1};
+
+/* ============================================================
+   قراءة الملفات
+   ============================================================ */
+function readFile(file){
+  return new Promise((res,rej)=>{
+    const r=new FileReader();
+    r.onload=e=>{
+      try{
+        const wb=XLSX.read(e.target.result,{type:'array',cellDates:true});
+        const ws=wb.Sheets[wb.SheetNames[0]];
+        const rows=XLSX.utils.sheet_to_json(ws,{header:1,raw:true,defval:''});
+        res({name:file.name, rows});
+      }catch(err){rej(err);}
+    };
+    r.onerror=rej;
+    r.readAsArrayBuffer(file);
+  });
+}
+
+async function handleFiles(files){
+  for(const f of files){
+    try{
+      const parsed=await readFile(f);
+      RAW_FILES.push(parsed);
+    }catch(err){
+      alert('تعذّر قراءة الملف: '+f.name+'\n'+err);
+    }
+  }
+  renderFileChips();
+  if(RAW_FILES.length){ autoDetectAndProcess(); }
+}
+
+function renderFileChips(){
+  const el=$('#fileList'); el.innerHTML='';
+  RAW_FILES.forEach((f,i)=>{
+    const c=document.createElement('div'); c.className='filechip';
+    c.innerHTML=`📄 <b>${f.name}</b> <span class="muted">(${f.rows.length} صف)</span> <span class="x" title="إزالة">✕</span>`;
+    c.querySelector('.x').onclick=()=>{ RAW_FILES.splice(i,1); renderFileChips();
+      if(RAW_FILES.length) autoDetectAndProcess(); else { $('#results').classList.add('hidden'); $('#mapCard').classList.add('hidden'); } };
+    el.appendChild(c);
+  });
+  $('#loadNote').textContent = RAW_FILES.length ? `تم تحميل ${RAW_FILES.length} ملف.` : '';
+}
+
+/* ============================================================
+   اكتشاف صف العناوين + مطابقة الأعمدة تلقائياً
+   ============================================================ */
+function detectHeaderRow(rows){
+  // صف العناوين: أكثر صف يحتوي خلايا نصية غير رقمية في أول 15 صف
+  let best=0,bestScore=-1;
+  for(let i=0;i<Math.min(15,rows.length);i++){
+    const r=rows[i]; let txt=0;
+    for(const c of r){ if(typeof c==='string' && c.trim() && !isNum(c)) txt++; }
+    if(txt>bestScore){bestScore=txt;best=i;}
+  }
+  return best;
+}
+
+function matchColumns(headerRow){
+  const map={};
+  const used=new Set();
+  const norm=s=>fixDigits(String(s)).toLowerCase().replace(/\s+/g,' ').trim();
+  headerRow.forEach((h,idx)=>{
+    const hn=norm(h);
+    if(!hn)return;
+    for(const f of FIELDS){
+      if(map[f.key]!==undefined)continue;
+      if(f.kw.some(k=>hn.includes(norm(k)))){ map[f.key]=idx; used.add(idx); break; }
+    }
+  });
+  return map;
+}
+
+function autoDetectAndProcess(){
+  // نستخدم أول ملف لاكتشاف العناوين، بافتراض تطابق الهيكل بين الملفات
+  const rows=RAW_FILES[0].rows;
+  const hIdx=detectHeaderRow(rows);
+  HEADERS=rows[hIdx].map(x=>String(x).trim());
+  RAW_FILES[0]._hIdx=hIdx;
+  MAPPING=matchColumns(HEADERS);
+  buildMapUI();
+  process();
+}
+
+function buildMapUI(){
+  const row=$('#mapRow'); row.innerHTML='';
+  FIELDS.forEach(f=>{
+    const item=document.createElement('div'); item.className='mapitem';
+    const opts=['<option value="">— غير موجود —</option>']
+      .concat(HEADERS.map((h,i)=>`<option value="${i}" ${MAPPING[f.key]===i?'selected':''}>${h||('عمود '+(i+1))}</option>`));
+    item.innerHTML=`<span>${f.label}</span><select data-key="${f.key}">${opts.join('')}</select>`;
+    item.querySelector('select').onchange=e=>{
+      const v=e.target.value; if(v==='')delete MAPPING[f.key]; else MAPPING[f.key]=+v;
+    };
+    row.appendChild(item);
+  });
+  $('#mapCard').classList.remove('hidden');
+}
+
+/* ============================================================
+   التنظيف: تحويل الصفوف الخام إلى سجلات نظيفة
+   ============================================================ */
+function process(){
+  CLEAN=[];
+  for(const file of RAW_FILES){
+    const rows=file.rows;
+    // اكتشاف صف العناوين لكل ملف على حدة (قد تختلف مواضع البداية)
+    const hIdx=detectHeaderRow(rows);
+    for(let i=hIdx+1;i<rows.length;i++){
+      const r=rows[i]; if(!r)continue;
+      const nonEmpty=r.filter(c=>String(c).trim()!=='').length;
+      if(nonEmpty===0)continue; // صف فارغ
+      const first=fixDigits(String(r[0]||'')).trim().toLowerCase();
+      // تجاهل صفوف المجاميع
+      if(SKIP_LABELS.some(l=>first.includes(fixDigits(l).toLowerCase())))continue;
+      // تجاهل صف عنوان الشهر (خلية واحدة بصيغة YYYY-MM والباقي فارغ)
+      if(nonEmpty===1 && /^\d{4}-\d{1,2}$/.test(first))continue;
+      // بناء السجل
+      const rec={_file:file.name};
+      let hasData=false;
+      for(const f of FIELDS){
+        const idx=MAPPING[f.key];
+        if(idx===undefined){ rec[f.key]=NUMERIC_KEYS.has(f.key)?0:''; continue; }
+        let val=r[idx];
+        if(NUMERIC_KEYS.has(f.key)){ rec[f.key]=toNum(val); }
+        else { rec[f.key]=(val===undefined||val===null)?'':String(val).trim(); }
+      }
+      // اشتقاق الشهر والتاريخ المنسّق
+      rec._ym = ymOf(rec.date);
+      const d=toDate(rec.date);
+      rec._date = d ? d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0') : String(rec.date||'');
+      // يجب أن يحتوي السجل على قيمة إجمالي أو كمية أو عميل حتى يُعتبر بيانات
+      if(rec.customer||rec.name||rec.total||rec.qty) hasData=true;
+      if(hasData) CLEAN.push(rec);
+    }
+  }
+  $('#mapNote').textContent=`تم استخراج ${CLEAN.length} سجلاً نظيفاً.`;
+  buildMonthFilter();
+  buildTabs();
+  renderKPIs();
+  render();
+  $('#results').classList.remove('hidden');
+}
+
+/* ============================================================
+   المؤشرات العامة
+   ============================================================ */
+function currentRows(){
+  const mf=$('#monthFilter').value;
+  return mf ? CLEAN.filter(r=>r._ym===mf) : CLEAN;
+}
+function renderKPIs(){
+  const rows=currentRows();
+  const sales=rows.reduce((a,r)=>a+r.total,0);
+  const qty=rows.reduce((a,r)=>a+r.qty,0);
+  const tax=rows.reduce((a,r)=>a+r.tax,0);
+  const disc=rows.reduce((a,r)=>a+r.discount,0);
+  const inv=new Set(rows.map(r=>r.invoice).filter(Boolean)).size;
+  const custs=new Set(rows.map(r=>r.customer).filter(Boolean)).size;
+  const returns=rows.filter(r=>r.total<0).reduce((a,r)=>a+r.total,0);
+  const K=[
+    ['صافي المبيعات (SAR)',fmt(sales),sales>=0?'pos':'neg'],
+    ['عدد الفواتير',fmtInt(inv),''],
+    ['إجمالي الكميات',fmt(qty,0),''],
+    ['عدد العملاء',fmtInt(custs),''],
+    ['إجمالي الضرائب',fmt(tax),''],
+    ['قيمة المرتجعات',fmt(returns),returns<0?'neg':''],
+  ];
+  $('#kpis').innerHTML=K.map(k=>`<div class="kpi"><div class="lbl">${k[0]}</div><div class="val ${k[2]}">${k[1]}</div></div>`).join('');
+}
+
+function buildMonthFilter(){
+  const sel=$('#monthFilter'); const cur=sel.value;
+  const months=[...new Set(CLEAN.map(r=>r._ym).filter(Boolean))].sort();
+  sel.innerHTML='<option value="">كل الأشهر</option>'+months.map(m=>`<option value="${m}">${m}</option>`).join('');
+  if(months.includes(cur))sel.value=cur;
+}
+
+/* ============================================================
+   التقارير
+   ============================================================ */
+const TABS=[
+  {key:'data',   label:'📋 البيانات المنظّفة'},
+  {key:'monthly',label:'📅 التقرير الشهري'},
+  {key:'cust',   label:'👥 أرصدة العملاء'},
+  {key:'prod',   label:'📦 تقرير المنتجات'},
+  {key:'seller', label:'🧑‍💼 تقرير المندوبين'},
+  {key:'inv',    label:'🧾 تقرير الفواتير'},
+];
+function buildTabs(){
+  $('#tabs').innerHTML=TABS.map(t=>`<button class="tab ${t.key===CUR_TAB?'active':''}" data-tab="${t.key}">${t.label}</button>`).join('');
+  document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{CUR_TAB=b.dataset.tab;SORT={col:null,dir:1};buildTabs();render();});
+}
+
+// تعريف كل تقرير: أعمدة + مولّد بيانات
+function buildReport(tab, rows){
+  if(tab==='data'){
+    const cols=[
+      {k:'_date',t:'التاريخ'},{k:'invoice',t:'رقم الفاتورة'},{k:'customer',t:'العميل'},
+      {k:'name',t:'اسم المنتج'},{k:'code',t:'الكود'},{k:'soldBy',t:'بيعت بواسطة'},
+      {k:'unitPrice',t:'سعر الوحدة',n:1},{k:'qty',t:'الكمية',n:1,d:0},
+      {k:'discount',t:'الخصم',n:1},{k:'tax',t:'الضرائب',n:1},{k:'total',t:'الإجمالي',n:1},
+    ];
+    const data=rows.map(r=>cols.map(c=>c.n?r[c.k]:r[c.k]));
+    const totals=cols.map(c=>c.n?rows.reduce((a,r)=>a+r[c.k],0):(c.k==='_date'?'الإجمالي':''));
+    return {cols,data,totals};
+  }
+  const groupBy=(keyFn,label)=>{
+    const m=new Map();
+    rows.forEach(r=>{
+      const g=keyFn(r)||'—';
+      if(!m.has(g))m.set(g,{key:g,qty:0,disc:0,tax:0,total:0,invs:new Set()});
+      const o=m.get(g); o.qty+=r.qty; o.disc+=r.discount; o.tax+=r.tax; o.total+=r.total;
+      if(r.invoice)o.invs.add(r.invoice);
+    });
+    return [...m.values()];
+  };
+  if(tab==='monthly'){
+    const g=groupBy(r=>r._ym,'الشهر').sort((a,b)=>a.key<b.key?-1:1);
+    const cols=[{k:'key',t:'الشهر'},{k:'inv',t:'عدد الفواتير',n:1,d:0},{k:'qty',t:'الكميات',n:1,d:0},
+      {k:'disc',t:'الخصومات',n:1},{k:'tax',t:'الضرائب',n:1},{k:'total',t:'صافي المبيعات',n:1}];
+    const data=g.map(o=>[o.key,o.invs.size,o.qty,o.disc,o.tax,o.total]);
+    return withTotals(cols,data,g,1);
+  }
+  if(tab==='cust'){
+    const g=groupBy(r=>r.customer,'العميل').sort((a,b)=>b.total-a.total);
+    const cols=[{k:'key',t:'العميل'},{k:'inv',t:'الفواتير',n:1,d:0},{k:'qty',t:'الكميات',n:1,d:0},
+      {k:'tax',t:'الضرائب',n:1},{k:'total',t:'صافي الرصيد (SAR)',n:1}];
+    const data=g.map(o=>[o.key,o.invs.size,o.qty,o.tax,o.total]);
+    return withTotals(cols,data,g,1);
+  }
+  if(tab==='prod'){
+    const g=groupBy(r=>r.name||r.code,'المنتج').sort((a,b)=>b.total-a.total);
+    const cols=[{k:'key',t:'المنتج'},{k:'qty',t:'الكمية المباعة',n:1,d:0},
+      {k:'total',t:'إجمالي المبيعات',n:1},{k:'avg',t:'متوسط السعر',n:1}];
+    const data=g.map(o=>[o.key,o.qty,o.total, o.qty?o.total/o.qty:0]);
+    const totals=['الإجمالي', g.reduce((a,o)=>a+o.qty,0), g.reduce((a,o)=>a+o.total,0), ''];
+    return {cols,data,totals};
+  }
+  if(tab==='seller'){
+    const g=groupBy(r=>r.soldBy,'المندوب').sort((a,b)=>b.total-a.total);
+    const cols=[{k:'key',t:'المندوب / بيعت بواسطة'},{k:'inv',t:'الفواتير',n:1,d:0},
+      {k:'qty',t:'الكميات',n:1,d:0},{k:'total',t:'إجمالي المبيعات',n:1}];
+    const data=g.map(o=>[o.key,o.invs.size,o.qty,o.total]);
+    return withTotals(cols,data,g,1);
+  }
+  if(tab==='inv'){
+    const m=new Map();
+    rows.forEach(r=>{
+      const g=r.invoice||'—';
+      if(!m.has(g))m.set(g,{key:g,date:r._date,cust:r.customer,soldBy:r.soldBy,qty:0,tax:0,total:0});
+      const o=m.get(g);o.qty+=r.qty;o.tax+=r.tax;o.total+=r.total; if(r.customer)o.cust=r.customer;
+    });
+    const g=[...m.values()].sort((a,b)=>a.date<b.date?-1:1);
+    const cols=[{k:'key',t:'رقم الفاتورة'},{k:'date',t:'التاريخ'},{k:'cust',t:'العميل'},
+      {k:'qty',t:'الكميات',n:1,d:0},{k:'tax',t:'الضرائب',n:1},{k:'total',t:'الإجمالي',n:1}];
+    const data=g.map(o=>[o.key,o.date,o.cust,o.qty,o.tax,o.total]);
+    const totals=['الإجمالي','','',g.reduce((a,o)=>a+o.qty,0),g.reduce((a,o)=>a+o.tax,0),g.reduce((a,o)=>a+o.total,0)];
+    return {cols,data,totals};
+  }
+}
+function withTotals(cols,data,g,firstBlank){
+  const totals=cols.map((c,i)=>{
+    if(i===0)return 'الإجمالي';
+    if(c.k==='inv')return g.reduce((a,o)=>a+o.invs.size,0);
+    if(!c.n)return '';
+    return g.reduce((a,o)=>a+(o[c.k]||0),0);
+  });
+  return {cols,data,totals};
+}
+
+/* ============================================================
+   العرض
+   ============================================================ */
+function render(){
+  let rows=currentRows();
+  const q=fixDigits($('#search').value).trim().toLowerCase();
+  const rep=buildReport(CUR_TAB, rows);
+  let {cols,data,totals}=rep;
+  // بحث
+  if(q){ data=data.filter(row=>row.some(c=>fixDigits(String(c)).toLowerCase().includes(q))); }
+  // فرز
+  if(SORT.col!==null){
+    const ci=SORT.col, numeric=cols[ci].n;
+    data=[...data].sort((a,b)=>{
+      let x=a[ci],y=b[ci];
+      if(numeric){x=Number(x)||0;y=Number(y)||0;return (x-y)*SORT.dir;}
+      return String(x).localeCompare(String(y),'ar')*SORT.dir;
+    });
+  }
+  // رأس الجدول
+  const thead=$('#grid thead'), tbody=$('#grid tbody'), tfoot=$('#grid tfoot');
+  thead.innerHTML='<tr>'+cols.map((c,i)=>{
+    const arrow=SORT.col===i?(SORT.dir>0?' ▲':' ▼'):'';
+    return `<th class="${c.n?'num':''}" data-ci="${i}">${c.t}${arrow}</th>`;
+  }).join('')+'</tr>';
+  thead.querySelectorAll('th').forEach(th=>th.onclick=()=>{
+    const ci=+th.dataset.ci;
+    if(SORT.col===ci)SORT.dir*=-1;else{SORT.col=ci;SORT.dir=1;}
+    render();
+  });
+  // جسم الجدول
+  tbody.innerHTML=data.map(row=>'<tr>'+row.map((c,i)=>{
+    const col=cols[i];
+    if(col.n){ const v=Number(c)||0; const cls=v<0?'num neg':'num'; return `<td class="${cls}">${fmt(v,col.d===0?0:2)}</td>`; }
+    return `<td>${c===''||c===undefined?'<span class="muted">—</span>':c}</td>`;
+  }).join('')+'</tr>').join('');
+  // التذييل
+  tfoot.innerHTML='<tr>'+totals.map((c,i)=>{
+    const col=cols[i];
+    if(col.n && c!==''){ return `<td class="num">${fmt(Number(c),col.d===0?0:2)}</td>`; }
+    return `<td>${c||''}</td>`;
+  }).join('')+'</tr>';
+  $('#gridNote').textContent=`عدد الصفوف المعروضة: ${data.length}`;
+}
+
+/* ============================================================
+   التصدير إلى Excel
+   ============================================================ */
+function reportToAOA(tab){
+  const rows=currentRows();
+  const rep=buildReport(tab, rows);
+  const head=rep.cols.map(c=>c.t);
+  const body=rep.data.map(row=>row.map((c,i)=>rep.cols[i].n?Number(c)||0:c));
+  const foot=rep.totals.map((c,i)=>rep.cols[i].n&&c!==''?Number(c)||0:c);
+  return [head, ...body, foot];
+}
+function styleSheet(ws, ncols){
+  ws['!cols']=Array.from({length:ncols},()=>({wch:16}));
+}
+function exportCurrent(){
+  const aoa=reportToAOA(CUR_TAB);
+  const ws=XLSX.utils.aoa_to_sheet(aoa); styleSheet(ws,aoa[0].length);
+  const wb=XLSX.utils.book_new();
+  const name=TABS.find(t=>t.key===CUR_TAB).label.replace(/[^؀-ۿ\w ]/g,'').trim().slice(0,28);
+  XLSX.utils.book_append_sheet(wb,ws,name||'تقرير');
+  const mf=$('#monthFilter').value;
+  XLSX.writeFile(wb, `تقرير_${name}${mf?'_'+mf:''}.xlsx`);
+}
+function exportAll(){
+  const wb=XLSX.utils.book_new();
+  TABS.forEach(t=>{
+    const aoa=reportToAOA(t.key);
+    const ws=XLSX.utils.aoa_to_sheet(aoa); styleSheet(ws,aoa[0].length);
+    const name=t.label.replace(/[^؀-ۿ\w ]/g,'').trim().slice(0,28);
+    XLSX.utils.book_append_sheet(wb,ws,name||t.key);
+  });
+  const mf=$('#monthFilter').value;
+  XLSX.writeFile(wb, `التقارير_المجمعة${mf?'_'+mf:''}.xlsx`);
+}
+
+/* ============================================================
+   ربط الأحداث
+   ============================================================ */
+const drop=$('#drop'), fi=$('#fileInput');
+drop.onclick=()=>fi.click();
+fi.onchange=e=>{ handleFiles([...e.target.files]); fi.value=''; };
+['dragenter','dragover'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('hot');}));
+['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove('hot');}));
+drop.addEventListener('drop',e=>{ handleFiles([...e.dataTransfer.files]); });
+
+$('#reprocBtn').onclick=()=>{ process(); };
+$('#search').oninput=()=>render();
+$('#monthFilter').onchange=()=>{ renderKPIs(); render(); };
+$('#printBtn').onclick=()=>window.print();
+$('#exportBtn').onclick=exportCurrent;
+$('#exportAllBtn').onclick=exportAll;
+</script>
+</body>
+</html>

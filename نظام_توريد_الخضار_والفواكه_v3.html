@@ -14055,8 +14055,10 @@ function cloudDeviceId(){
     return v; }catch(e){ return 'd0'; }
 }
 /* يكتب بصمة هذا الجهاز في السحابة (اسم المستخدم + الإصدار + وقت الظهور) */
+var _lastPresenceAt=0;
 function cloudMarkPresence(){
   if(!cloudEnabled()||!cloudReady||typeof firebase==='undefined'||!ME) return;
+  _lastPresenceAt=Date.now();
   try{
     var ref=firebase.database().ref('workspaces/'+cloudWid()+'/devices/'+cloudDeviceId());
     ref.set({user:(ME.name||ME.username||'—'), uid:(ME.id||0), role:(ME.role||''),
@@ -14135,7 +14137,12 @@ var _autoUpdT=null, _autoUpdSince=0;
 function autoUpdateSafe(){ try{ if(userTyping()) return false; if(cloudDirty||cloudInflight) return false;
     if((typeof docDirty==='function')&&(docDirty('p')||docDirty('s'))) return false;
     if(document.querySelector('.ds-modal[style*="block"]')) return false; }catch(e){ return false; } return true; }
-function autoUpdateNow(target){ if(_autoUpdT) return; _autoUpdSince=Date.now();
+function autoUpdateNow(target){ if(_autoUpdT) return;
+  /* حماية من حلقة إعادة التحميل: إن أُعيد التحميل مرة لهذا الإصدار وما زالت الصفحة أقدم من build.txt
+     (رُفع build.txt دون رفع APP_BUILD، أو ذاكرة وسيطة قديمة) ⇒ لا نعيد التحميل مجدداً — كان النظام «يخرج» كل بضع ثوانٍ */
+  try{ var _k='veg_erp_upd_try'; if(sessionStorage.getItem(_k)===String(target)){ try{ console.warn('build.txt='+target+' أحدث من APP_BUILD='+APP_BUILD+' بعد إعادة التحميل — أُوقف التحديث التلقائي لمنع الحلقة'); }catch(_){} return; }
+    sessionStorage.setItem(_k,String(target)); }catch(e){}
+  _autoUpdSince=Date.now();
   var tick=function(){ _autoUpdT=null;
     if(autoUpdateSafe()){ try{ toast('🔄 يُحدَّث النظام تلقائياً إلى الإصدار '+(target||'الأحدث')+'…'); }catch(e){} setTimeout(reloadNow,1200); return; }
     if(cloudDirty&&!cloudInflight){ try{ cloudFlush(); }catch(e){} }   /* ارفع المعلّق أولاً ثم حدّث */
@@ -15036,6 +15043,8 @@ function restoreAllUsers(){
 }
 /* حارس دوري يضمن «التخزين المحلي ثم الرفع»: يعيد الاتصال إن انقطع، ويرفع أي
    إدخالات محفوظة على الجهاز ولم تُرفع بعد — فلا تضيع بيانات ولو تعذّر الرفع لفترة */
+/* عودة التبويب للظهور: بصمة فورية كي يظهر الجهاز «متصلاً» عند المدير دون انتظار */
+document.addEventListener('visibilitychange',function(){ try{ if(!document.hidden&&cloudReady) cloudMarkPresence(); }catch(e){} });
 function cloudWatchdog(){
   try{
     if(Date.now()-_lastBuildProbe>180000) checkServerBuild();   /* فحص إصدار الخادم كل 3 دقائق (مستقل عن السحابة) */
@@ -15045,7 +15054,9 @@ function cloudWatchdog(){
     if(cloudInflight&&Date.now()-cloudInflightAt>60000){ cloudInflight=false; cloudDirty=true; cloudLastError=cloudOnline?'تأخّر تأكيد السحابة':'offline'; }   /* رفع عالق > دقيقة ⇒ أعِد إرساله */
     if(cloudDirty&&!cloudInflight){ cloudRetry=0; cloudFlush(); }           /* معلّق لم يُرفع → ادفعه */
     else if(!cloudDirty&&!cloudInflight&&cloudOnline){ var st=document.getElementById('cloudStatus'); if(st&&/sync/.test(st.className)) setCloudStatus('ok'); }   /* لا شيء معلّق ⇒ لا تبقَ «يزامن» */
-    cloudMarkPresence(); cloudWatchDevices(); cloudWatchReloadReq();       /* نبض حضور + مراقبة + استقبال أوامر التحديث */
+    /* نبض الحضور كل ~60ث (العتبة «متصل» = 120ث) ومتوقف أثناء إخفاء التبويب — كل نبضة تُنزَّل لكل الأجهزة المفتوحة فتستهلك حصة Firebase */
+    if(!document.hidden&&Date.now()-_lastPresenceAt>=55000) cloudMarkPresence();
+    cloudWatchDevices(); cloudWatchReloadReq();       /* مراقبة + استقبال أوامر التحديث */
   }catch(e){}
 }
 function cloudInit(){
