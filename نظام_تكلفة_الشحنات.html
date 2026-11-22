@@ -829,6 +829,7 @@ html[data-theme="dark"] .rt td.hl{background:#2e2814;color:var(--accent)}
   <div class="tab"         onclick="showPage('page-comm')">🧮 <span id="tab-comm-label">كشف حساب العمولة</span></div>
   <div class="tab"         onclick="showPage('page-modelrep')" data-i18n="tab.modelrep">📈 تقرير الموديلات</div>
   <div class="tab"         onclick="showPage('page-compare')" data-i18n="tab.compare">⚖️ المقارنة</div>
+  <div class="tab"         onclick="showPage('page-claude')">🤖 <span>ربط كلود</span></div>
 </div>
 
 <div class="main">
@@ -1726,6 +1727,44 @@ html[data-theme="dark"] .rt td.hl{background:#2e2814;color:var(--accent)}
       <div style="font-size:.8rem;color:var(--muted);margin-bottom:8px">لكل نموذج: إجمالي الشحنات − إجمالي الدفعات = المتبقّي (أو فائض مدفوع). دفعة «الشركتان معاً» تُخصم من النموذجين. الوضع التفصيلي يعرض مبلغ كل شحنة قابلاً للتوسّع للموديلات + الدفعات المخصومة.</div>
       <div id="cmp-acct-cols"></div>
     </div>
+  </div>
+</div>
+
+<!-- ══ PAGE: CLAUDE BRIDGE (ربط كلود) ══ -->
+<div id="page-claude" class="page">
+  <div class="alert ai" style="margin-bottom:12px">🤖 <strong>ربط كلود (Claude)</strong> — يتيح لكلود <strong>قراءة بيانات النظام</strong> و<strong>التعديل والإضافة</strong> عليها عبر ملف JSON مُنظّم. الخطوات: ① صدّر بيانات الشركة النشطة ② ارفع الملف لكلود واطلب ما تريد (تسجيل قيود/دفعات/شحنات، أو سحب تقارير) ③ احفظ الملف الذي يعيده كلود ثم استورده هنا ليُطبَّق. البيانات تخصّ <strong>الشركة النشطة فقط</strong>، وكل استيراد قابل للتراجع.</div>
+
+  <div class="card" style="margin-bottom:12px">
+    <div class="card-header" style="background:#143354">① تصدير بيانات النظام إلى كلود (قراءة)</div>
+    <div class="card-body">
+      <div class="alert as" style="margin-bottom:10px;font-size:.8rem">💡 يُصدَّر ملف JSON شامل (الشحنات، الموردون، كل الدفعات، فواتير الشراء، نموذج ب، الإعدادات) مع <strong>دليل الحقول</strong> بداخله ليفهمه كلود. ارفعه في محادثة كلود واطلب تحليلاً أو قيوداً.</div>
+      <div style="display:flex;gap:9px;flex-wrap:wrap;align-items:center">
+        <button class="btn btn-accent" onclick="exportClaudeBundle()">⬇️ تصدير بيانات الشركة (JSON)</button>
+        <button class="btn btn-primary" onclick="copyClaudeBundle()">📋 نسخ للحافظة</button>
+        <span id="claude-export-status" style="font-size:.78rem;color:var(--muted)"></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:12px">
+    <div class="card-header" style="background:#1b5e20">② استيراد ملف كلود (تعديل / إضافة)</div>
+    <div class="card-body">
+      <div class="alert as" style="margin-bottom:10px;font-size:.8rem">💡 ارفع ملف JSON الذي أعاده كلود. يدعم صيغتين: <strong>«أوامر»</strong> (<code>actions</code>) لإضافة/تعديل عناصر محددة، أو <strong>«حزمة كاملة»</strong> (نفس ملف التصدير بعد تعديله) فتُدمج بالمعرّف (id). الدمج الافتراضي يُضيف الجديد ويُحدّث الموجود دون حذف؛ فعّل «استبدال كامل» للاستبدال.</div>
+      <div style="display:flex;gap:9px;flex-wrap:wrap;align-items:center">
+        <button class="btn btn-primary" onclick="document.getElementById('claude-import-input').click()">📥 استيراد ملف كلود (JSON)</button>
+        <label style="display:flex;align-items:center;gap:5px;font-size:.78rem;color:var(--muted);cursor:pointer"><input type="checkbox" id="claude-replace" style="width:auto"> استبدال كامل للمخازن الواردة</label>
+        <input type="file" id="claude-import-input" accept=".json,.txt" style="display:none" onchange="handleClaudeImport(event)">
+        <button class="btn btn-outline" onclick="undoLastImport()" title="إلغاء آخر استيراد">↩ تراجع عن آخر استيراد</button>
+      </div>
+      <div style="margin-top:8px"><textarea id="claude-paste" placeholder="أو ألصق ملف/أوامر كلود هنا ثم اضغط «تطبيق الملصق»" style="width:100%;min-height:90px;font-family:monospace;font-size:.76rem;direction:ltr"></textarea>
+        <button class="btn btn-accent btn-sm" style="margin-top:6px" onclick="applyClaudePaste()">✅ تطبيق الملصق</button></div>
+      <div id="claude-import-status" style="font-size:.8rem;color:var(--muted);margin-top:8px"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header" style="background:#5d3a1a">📘 دليل كلود (انسخه مع الملف إن أردت)</div>
+    <div class="card-body"><pre id="claude-guide" style="white-space:pre-wrap;font-size:.76rem;color:var(--ink);background:var(--bg,#f7f9fc);padding:12px;border-radius:8px;direction:rtl;line-height:1.7"></pre></div>
   </div>
 </div>
 
@@ -3527,7 +3566,7 @@ function preparePricingPrint(){ setTimeout(()=>window.print(),100); }
 function showPage(id){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.getElementById(id).classList.add('active');
-  const pages=['page-dashboard','page-shipment','page-costs','page-results','page-pricing','page-archive','page-payments','page-freight','page-supacct','page-comm','page-modelrep','page-compare'];
+  const pages=['page-dashboard','page-shipment','page-costs','page-results','page-pricing','page-archive','page-payments','page-freight','page-supacct','page-comm','page-modelrep','page-compare','page-claude'];
   document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',pages[i]===id));
   if(id==='page-dashboard'){ renderDashboard(); }
   if(id==='page-shipment'){ try{ _setupInputUX(); refreshInputDatalists(); updateShipLive(); checkDupShipNo(); }catch(e){} }
@@ -3540,6 +3579,7 @@ function showPage(id){
   if(id==='page-comm'){ onCommMethodChange(); renderCommAcct(); }
   if(id==='page-modelrep'){ renderModelReport(); }
   if(id==='page-compare'){ renderCompare(); renderCmpBEditor(); }
+  if(id==='page-claude'){ renderClaudeBridge(); }
 }
 
 // ═══════════════════════════════════════════
@@ -7281,9 +7321,156 @@ function applyCommPaymentRows(aoa,fname){
 }
 
 // ═══════════════════════════════════════════
+// 🤖 ربط كلود (Claude Bridge) — تصدير/استيراد JSON ثنائي الاتجاه
+// ═══════════════════════════════════════════
+var CLAUDE_STORES=[
+  {pfx:'scs_db_',          label:'الشحنات',              kind:'array',  id:'id'},
+  {pfx:'scs_suppliers_',   label:'الموردون',             kind:'array',  id:'name'},
+  {pfx:'scs_pay_',         label:'الدفعات المسددة',      kind:'array',  id:'id'},
+  {pfx:'scs_freightpay_',  label:'دفعات رسوم الشحن',     kind:'array',  id:'id'},
+  {pfx:'scs_commpay_',     label:'دفعات العمولة',        kind:'array',  id:'id'},
+  {pfx:'scs_supplierpay_', label:'دفعات حساب المورد',    kind:'array',  id:'id'},
+  {pfx:'scs_supinv_',      label:'فواتير الشراء',        kind:'array',  id:'id'},
+  {pfx:'scs_cmppay_',      label:'دفعات المقارنة',       kind:'array',  id:'id'},
+  {pfx:'scs_modelb_',      label:'نموذج ب (المقارنة)',   kind:'object'},
+  {pfx:'scs_commcfg_',     label:'إعدادات العمولة',      kind:'object'},
+  {pfx:'scs_cmpcfg_',      label:'إعدادات المقارنة',     kind:'object'},
+  {pfx:'scs_cfg_',         label:'إعدادات عامة',         kind:'object'}
+];
+var CLAUDE_ACTION_STORE={ shipment:'scs_db_', supplier:'scs_suppliers_', payment:'scs_pay_',
+  freight_payment:'scs_freightpay_', commission_payment:'scs_commpay_',
+  supplier_payment:'scs_supplierpay_', purchase_invoice:'scs_supinv_' };
+function _claudePid(){ return getActiveProfileId()||'default'; }
+function _claudeCompanyName(){ try{ var p=profilesLoad().find(function(x){return x.id===getActiveProfileId();}); return p?p.name:'الشركة النشطة'; }catch(e){ return 'الشركة النشطة'; } }
+function buildClaudeBundle(){
+  var pid=_claudePid(); var stores={};
+  CLAUDE_STORES.forEach(function(s){
+    var raw; try{ raw=localStorage.getItem(s.pfx+pid); }catch(e){}
+    if(raw==null) return;
+    try{ stores[s.pfx]=JSON.parse(raw); }catch(e){ stores[s.pfx]=raw; }
+  });
+  return { format:'scs-claude-bridge', version:1, app:(typeof APP_VERSION!=='undefined'?APP_VERSION:''),
+    company:_claudeCompanyName(), profileId:pid, exportedAt:new Date().toISOString(),
+    schema:CLAUDE_STORES.map(function(s){ return {store:s.pfx, label:s.label, kind:s.kind, idField:s.id||null}; }),
+    stores:stores };
+}
+function exportClaudeBundle(){
+  try{
+    var bundle=buildClaudeBundle();
+    var txt=JSON.stringify(bundle,null,2);
+    var blob=new Blob([txt],{type:'application/json'});
+    var url=URL.createObjectURL(blob); var a=document.createElement('a');
+    var fn='كلود_'+String(_claudeCompanyName()).replace(/\s+/g,'_')+'_'+new Date().toISOString().slice(0,10)+'.json';
+    a.href=url; a.download=fn; document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(function(){ URL.revokeObjectURL(url); },1000);
+    var cnt=(bundle.stores['scs_db_']||[]).length;
+    var st=document.getElementById('claude-export-status'); if(st) st.textContent='✅ تم التصدير ('+cnt+' شحنة) — ارفع الملف لكلود';
+    logAction('تصدير بيانات لكلود', _claudeCompanyName());
+    toast('⬇️ تم تصدير بيانات الشركة لكلود');
+  }catch(e){ toast('⚠️ تعذّر التصدير: '+e.message,true); }
+}
+function copyClaudeBundle(){
+  try{
+    var txt=JSON.stringify(buildClaudeBundle(),null,2);
+    var done=function(){ var st=document.getElementById('claude-export-status'); if(st) st.textContent='📋 نُسخت البيانات — ألصقها في محادثة كلود'; toast('📋 تم النسخ للحافظة'); };
+    if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(txt).then(done,function(){ _claudeFallbackCopy(txt); done(); }); }
+    else { _claudeFallbackCopy(txt); done(); }
+  }catch(e){ toast('⚠️ تعذّر النسخ: '+e.message,true); }
+}
+function _claudeFallbackCopy(txt){ var ta=document.createElement('textarea'); ta.value=txt; ta.style.position='fixed'; ta.style.left='-9999px'; document.body.appendChild(ta); ta.select(); try{ document.execCommand('copy'); }catch(e){} document.body.removeChild(ta); }
+function _claudeParse(txt){
+  txt=String(txt||'').replace(/^﻿/,'').trim();
+  var fm=/```(?:json)?\s*([\s\S]*?)\s*```/i.exec(txt); if(fm) txt=fm[1].trim();
+  return JSON.parse(txt);
+}
+function applyClaudeData(obj){
+  if(isReadonly()){ toast('👁 وضع القراءة فقط',true); return false; }
+  if(!can('edit')&&!can('payments')){ toast('لا تملك صلاحية التعديل',true); return false; }
+  if(!obj||typeof obj!=='object'){ toast('⚠️ ملف غير صالح',true); return false; }
+  var replace=document.getElementById('claude-replace')&&document.getElementById('claude-replace').checked;
+  var pid=_claudePid(); var summary=[];
+  var keys=[]; var pfxMap={}; CLAUDE_STORES.forEach(function(s){ pfxMap[s.pfx]=s; });
+  if(obj.stores) Object.keys(obj.stores).forEach(function(p){ if(pfxMap[p]) keys.push(p+pid); });
+  if(Array.isArray(obj.actions)) Object.keys(CLAUDE_ACTION_STORE).forEach(function(e){ keys.push(CLAUDE_ACTION_STORE[e]+pid); });
+  keys=keys.filter(function(k,i){ return keys.indexOf(k)===i; });
+  if(!keys.length){ toast('⚠️ لا يوجد stores ولا actions في الملف',true); return false; }
+  importBackup('استيراد من كلود', keys);
+  // (أ) حزمة كاملة
+  if(obj.stores){
+    CLAUDE_STORES.forEach(function(s){
+      var inc=obj.stores[s.pfx]; if(inc==null) return; var key=s.pfx+pid;
+      if(s.kind==='object'){
+        if(replace){ localStorage.setItem(key, JSON.stringify(inc)); summary.push(s.label+': استبدال'); }
+        else { var cur={}; try{ cur=JSON.parse(localStorage.getItem(key)||'{}')||{}; }catch(e){} localStorage.setItem(key, JSON.stringify(Object.assign(cur,inc))); summary.push(s.label+': دمج'); }
+      } else {
+        if(replace){ localStorage.setItem(key, JSON.stringify(inc||[])); summary.push(s.label+': استبدال ('+(inc||[]).length+')'); }
+        else {
+          var arr=[]; try{ arr=JSON.parse(localStorage.getItem(key)||'[]')||[]; }catch(e){}
+          var idf=s.id||'id', map={}; arr.forEach(function(x,i){ map[String(x[idf])]=i; });
+          var added=0,upd=0; (inc||[]).forEach(function(x){ var k=String(x[idf]); if(k!=='undefined'&&map[k]!=null){ arr[map[k]]=x; upd++; } else { arr.push(x); added++; } });
+          localStorage.setItem(key, JSON.stringify(arr)); summary.push(s.label+': +'+added+(upd?('، تحديث '+upd):''));
+        }
+      }
+    });
+  }
+  // (ب) أوامر
+  if(Array.isArray(obj.actions)){
+    var n=0,fail=0;
+    obj.actions.forEach(function(a){
+      if(!a||!a.type){ fail++; return; }
+      var m=/^(add|update|delete)_(.+)$/.exec(String(a.type)); if(!m){ fail++; return; }
+      var op=m[1], ent=m[2], pfx=CLAUDE_ACTION_STORE[ent]; if(!pfx){ fail++; return; }
+      var key=pfx+pid, arr=[]; try{ arr=JSON.parse(localStorage.getItem(key)||'[]')||[]; }catch(e){}
+      var idf=(ent==='supplier')?'name':'id', d=a.data||{};
+      if(op==='add'){ if(d[idf]==null||d[idf]==='') d[idf]=(ent==='supplier')?(d.name||'مورد'):_claudeNewId(ent); arr.push(d); n++; }
+      else if(op==='update'){ var i=arr.findIndex(function(x){return String(x[idf])===String(d[idf]);}); if(i>=0){ Object.assign(arr[i],d); n++; } else { fail++; } }
+      else if(op==='delete'){ var b=arr.length; arr=arr.filter(function(x){return String(x[idf])!==String(d[idf]);}); if(arr.length<b) n++; else fail++; }
+      localStorage.setItem(key, JSON.stringify(arr));
+    });
+    summary.push('أوامر: نُفّذ '+n+(fail?('، تعذّر '+fail):''));
+  }
+  logAction('استيراد من كلود', summary.join(' | '));
+  try{ renderClaudeBridge(); }catch(e){}
+  var st=document.getElementById('claude-import-status'); if(st) st.innerHTML='✅ تم التطبيق — '+escH(summary.join('  •  '))+'<br>افتح الشاشات المعنية (الشحنات/الدفعات/الكشوف) لرؤية التغييرات.';
+  toast('✅ تم تطبيق ملف كلود — للتراجع اضغط «↩ تراجع عن آخر استيراد»');
+  return true;
+}
+function _claudeNewId(ent){ var p=({shipment:'t',payment:'p',freight_payment:'ft',commission_payment:'cm',supplier_payment:'sp',purchase_invoice:'iv'})[ent]||'x'; return p+'_'+Date.now()+'_'+Math.floor(Math.random()*100000); }
+function handleClaudeImport(e){
+  var file=e.target.files[0]; if(!file) return;
+  var reader=new FileReader();
+  reader.onload=function(ev){ try{ applyClaudeData(_claudeParse(ev.target.result)); }catch(err){ toast('⚠️ ملف JSON غير صالح: '+err.message,true); } e.target.value=''; };
+  reader.readAsText(file,'utf-8');
+}
+function applyClaudePaste(){
+  var ta=document.getElementById('claude-paste'); if(!ta||!ta.value.trim()){ toast('ألصق محتوى الملف أولاً',true); return; }
+  try{ if(applyClaudeData(_claudeParse(ta.value))) ta.value=''; }catch(err){ toast('⚠️ JSON غير صالح: '+err.message,true); }
+}
+function renderClaudeBridge(){
+  var pid=_claudePid();
+  var cnt=function(pfx){ try{ var v=JSON.parse(localStorage.getItem(pfx+pid)||'[]'); return Array.isArray(v)?v.length:Object.keys(v||{}).length; }catch(e){ return 0; } };
+  var es=document.getElementById('claude-export-status');
+  if(es && !es.textContent) es.textContent='الشركة: '+_claudeCompanyName()+' — '+cnt('scs_db_')+' شحنة، '+cnt('scs_suppliers_')+' مورد';
+  var g=document.getElementById('claude-guide');
+  if(g) g.textContent=
+'كيفية استخدام «ربط كلود»:\n'+
+'١) اضغط «تصدير بيانات الشركة (JSON)» وارفع الملف في محادثة كلود (أو انسخه بزر النسخ وألصقه).\n'+
+'٢) اطلب من كلود ما تريد، مثل: «سجّل دفعة شحن 20000 ريال بتاريخ 2026-01-10 مرجع 1234»، أو «أضف شحنة جديدة»، أو «اعطني تقرير أرصدة الموردين وحلّل أعلى الشحنات تكلفة».\n'+
+'٣) للتعديل/الإضافة: اطلب من كلود أن يعيد «ملف استيراد JSON»، احفظه ثم استورده هنا (أو ألصقه في المربع).\n\n'+
+'صيغتان مقبولتان للاستيراد:\n'+
+'• حزمة كاملة: نفس ملف التصدير (المفتاح stores) بعد تعديله — تُدمج بالمعرّف id (أو اسم المورد)، دون حذف ما لم تُفعّل «استبدال كامل».\n'+
+'• أوامر: { "actions": [ {"type":"add_freight_payment","data":{"date":"2026-01-10","amount":20000,"cur":"SAR","ref":"1234","notes":"..."}} ] }\n\n'+
+'أنواع الأوامر = (add | update | delete) + أحد:\n'+
+'  shipment (الشحنات) · supplier (الموردون، المعرّف=name) · payment (الدفعات المسددة) ·\n'+
+'  freight_payment (دفعات الشحن) · commission_payment (دفعات العمولة) ·\n'+
+'  supplier_payment (دفعات حساب المورد) · purchase_invoice (فواتير الشراء)\n\n'+
+'ملاحظات: كل البيانات للشركة النشطة فقط · المبالغ أرقام (يُقبل السالب) · التواريخ YYYY-MM-DD · العملة SAR أو USD · كل استيراد قابل للتراجع.';
+}
+
+// ═══════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════
-var APP_VERSION='v2026-11-22.41';   // رقم إصدار ظاهر للتحقق من تحميل أحدث نسخة (لا cache قديم)
+var APP_VERSION='v2026-11-22.42';   // رقم إصدار ظاهر للتحقق من تحميل أحدث نسخة (لا cache قديم)
 // ═══════════════════════════════════════════
 // 🌐 محرّك الترجمة الشامل (عربي / English / 中文) — قاموس + مسح DOM + مراقب تغييرات
 // ═══════════════════════════════════════════
@@ -7350,10 +7537,10 @@ Object.assign(TR.zh,{
 });
 // مفاتيح إضافية لمخرجات التصدير والطباعة
 Object.assign(TR.en,{
- 'جدول العمولة':'Commission Table','الحاويات المحتسبة':'Counted Containers','قيمة الشحنة الخاضعة':'Taxable Shipment Value','المبلغ (ر.س)':'Amount (SAR)','خصم ممنوح من المورد':'Supplier Discount','استيراد دفعات رسوم الشحن من Excel':'Import Freight Payments from Excel','استيراد دفعات العمولة من Excel':'Import Commission Payments from Excel','تحميل نموذج دفعات العمولة':'Download Commission Payments Template','تحميل نموذج دفعات الشحن':'Download Freight Payments Template','استبدال الدفعات الحالية':'Replace current payments','يُخصم من الرصيد':'Deducted from balance','شحنة':'Shipment','فواتير مشتريات مستوردة':'Imported Purchase Invoices','إجمالي المدين':'Total Debit','إجمالي الدفعات':'Total Payments','الدفعات المخصومة':'Deducted Payments','كشف حساب أجور الشحن':'Freight Account Statement','الوصف':'Description','لا توجد حركات':'No transactions','الرصيد الحالي:':'Current Balance:','إجمالي الشحنات':'Total Shipments','لا شحنات':'No shipments'
+ 'جدول العمولة':'Commission Table','الحاويات المحتسبة':'Counted Containers','قيمة الشحنة الخاضعة':'Taxable Shipment Value','المبلغ (ر.س)':'Amount (SAR)','خصم ممنوح من المورد':'Supplier Discount','استيراد دفعات رسوم الشحن من Excel':'Import Freight Payments from Excel','استيراد دفعات العمولة من Excel':'Import Commission Payments from Excel','ربط كلود':'Claude Link','تحميل نموذج دفعات العمولة':'Download Commission Payments Template','تحميل نموذج دفعات الشحن':'Download Freight Payments Template','استبدال الدفعات الحالية':'Replace current payments','يُخصم من الرصيد':'Deducted from balance','شحنة':'Shipment','فواتير مشتريات مستوردة':'Imported Purchase Invoices','إجمالي المدين':'Total Debit','إجمالي الدفعات':'Total Payments','الدفعات المخصومة':'Deducted Payments','كشف حساب أجور الشحن':'Freight Account Statement','الوصف':'Description','لا توجد حركات':'No transactions','الرصيد الحالي:':'Current Balance:','إجمالي الشحنات':'Total Shipments','لا شحنات':'No shipments'
 });
 Object.assign(TR.zh,{
- 'جدول العمولة':'佣金表','الحاويات المحتسبة':'计入集装箱','قيمة الشحنة الخاضعة':'应计货值','المبلغ (ر.س)':'金额(里亚尔)','خصم ممنوح من المورد':'供应商折扣','استيراد دفعات رسوم الشحن من Excel':'从Excel导入运费付款','استيراد دفعات العمولة من Excel':'从Excel导入佣金付款','تحميل نموذج دفعات العمولة':'下载佣金付款模板','تحميل نموذج دفعات الشحن':'下载运费付款模板','استبدال الدفعات الحالية':'替换现有付款','يُخصم من الرصيد':'从余额中扣除','شحنة':'装运','فواتير مشتريات مستوردة':'导入采购发票','إجمالي المدين':'借方合计','إجمالي الدفعات':'付款合计','الدفعات المخصومة':'已扣付款','كشف حساب أجور الشحن':'运费账户对账单','الوصف':'说明','لا توجد حركات':'无交易','الرصيد الحالي:':'当前余额:','إجمالي الشحنات':'装运合计','لا شحنات':'无装运'
+ 'جدول العمولة':'佣金表','الحاويات المحتسبة':'计入集装箱','قيمة الشحنة الخاضعة':'应计货值','المبلغ (ر.س)':'金额(里亚尔)','خصم ممنوح من المورد':'供应商折扣','استيراد دفعات رسوم الشحن من Excel':'从Excel导入运费付款','استيراد دفعات العمولة من Excel':'从Excel导入佣金付款','ربط كلود':'Claude 连接','تحميل نموذج دفعات العمولة':'下载佣金付款模板','تحميل نموذج دفعات الشحن':'下载运费付款模板','استبدال الدفعات الحالية':'替换现有付款','يُخصم من الرصيد':'从余额中扣除','شحنة':'装运','فواتير مشتريات مستوردة':'导入采购发票','إجمالي المدين':'借方合计','إجمالي الدفعات':'付款合计','الدفعات المخصومة':'已扣付款','كشف حساب أجور الشحن':'运费账户对账单','الوصف':'说明','لا توجد حركات':'无交易','الرصيد الحالي:':'当前余额:','إجمالي الشحنات':'装运合计','لا شحنات':'无装运'
 });
 // الدفعة الثالثة: عبارات الواجهة المتبقية
 Object.assign(TR.en,{
