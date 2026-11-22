@@ -1330,8 +1330,9 @@ function rateSave(cid, rid, b) {
     if (!origin || !destination || !CARRIERS.includes(b.carrier) || price === null || price < 0) throw apiErr('rate_invalid');
     if (rateFor(cid, origin, destination, b.carrier)) throw apiErr('rate_duplicate');
     rid = newKey();
-    write({ [base + rid]: { origin, destination, carrier: b.carrier, price: round2(price), price_from: today(), active: 1, created_at: nowStr(), created_by: userName() },
-      [`${base}${rid}/history/${newKey()}`]: { price: round2(price), at: nowStr(), by: userName() } });
+    /* السجل داخل قيمة السعر نفسه: Firebase يرفض طلباً يحوي مساراً وأحد مساراته الفرعية معاً */
+    write({ [base + rid]: { origin, destination, carrier: b.carrier, price: round2(price), price_from: today(), active: 1, created_at: nowStr(), created_by: userName(),
+      history: { [newKey()]: { price: round2(price), at: nowStr(), by: userName() } } } });
     return { id: rid };
   }
   const r = rs[rid]; if (!r) throw apiErr('not_found');
