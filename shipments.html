@@ -1428,6 +1428,28 @@ html[data-theme="dark"] .rt td.hl{background:#2e2814;color:var(--accent)}
   </div>
 
   <div class="card" style="margin-bottom:12px">
+    <div class="card-header" style="background:#1b5e20">📥 استيراد دفعات العمولة من Excel</div>
+    <div class="card-body">
+      <div class="alert as" style="margin-bottom:10px;font-size:.8rem">
+        💡 <strong>الطريقة:</strong> نزّل النموذج الجاهز أو ارفع كشفك مباشرةً — يكفي عمودا <strong>التاريخ</strong> و<strong>المبلغ</strong>،
+        وتُقرأ تلقائياً أعمدة العملة والمرجع/رقم القيد والبيان إن وُجدت. تُسجَّل الدفعات لحساب العمولة <strong>للشركة النشطة حالياً</strong>.
+      </div>
+      <div style="display:flex;gap:9px;flex-wrap:wrap;align-items:center">
+        <button class="btn btn-accent" onclick="downloadCommPaymentTemplate()">⬇️ تحميل نموذج دفعات العمولة</button>
+        <button class="btn btn-primary" onclick="document.getElementById('comm-pay-excel-input').click()">📊 استيراد من Excel</button>
+        <button class="btn btn-outline" onclick="document.getElementById('comm-pay-csv-input').click()">📄 استيراد من CSV</button>
+        <label style="display:flex;align-items:center;gap:5px;font-size:.78rem;color:var(--muted);cursor:pointer">
+          <input type="checkbox" id="comm-pay-replace" style="width:auto"> استبدال الدفعات الحالية
+        </label>
+        <input type="file" id="comm-pay-excel-input" accept=".xlsx,.xls" style="display:none" onchange="handleCommPayExcelImport(event)">
+        <input type="file" id="comm-pay-csv-input" accept=".csv,.txt" style="display:none" onchange="handleCommPayCsvImport(event)">
+        <button class="btn btn-outline" onclick="undoLastImport()" title="إلغاء آخر عملية استيراد وإرجاع البيانات لما قبلها">↩ تراجع عن آخر استيراد</button>
+      </div>
+      <div id="comm-import-status" style="font-size:.78rem;color:var(--muted);margin-top:8px"></div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:12px">
     <div class="card-header" style="background:#1b5e20">💵 تسجيل دفعة عمولة — للشركة النشطة</div>
     <div class="card-body">
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
@@ -7169,10 +7191,99 @@ function applyFreightPaymentRows(aoa,fname){
   toast('✅ تم استيراد دفعات الشحن ('+count+') — للتراجع اضغط «↩ تراجع عن آخر استيراد»');
 }
 
+// ═══ استيراد دفعات العمولة من Excel/CSV (كشف حساب العمولة) ═══
+var COMM_PAY_HEADERS=['التاريخ','المبلغ','العملة','المرجع / رقم القيد','طريقة الدفع (تحويل/نقدا)','البنك','ملاحظات / البيان'];
+function downloadCommPaymentTemplate(){
+  if(typeof XLSX==='undefined'){ toast('⚠️ مكتبة Excel غير محمّلة',true); return; }
+  var rows=[COMM_PAY_HEADERS,
+    ['2025-07-08',12000,'SAR','1145','تحويل','مصرف الراجحي','عمولة دفعة أولى'],
+    ['2025-08-18',8000,'SAR','1745','تحويل','',''],
+    ['2025-09-13',5500,'SAR','2240','نقدا','','']];
+  var ws=XLSX.utils.aoa_to_sheet(rows); ws['!cols']=[{wch:14},{wch:14},{wch:8},{wch:16},{wch:20},{wch:16},{wch:28}];
+  var info=XLSX.utils.aoa_to_sheet([
+    ['تعليمات تعبئة دفعات العمولة:'],
+    ['• كل دفعة تُسجَّل لحساب العمولة للشركة النشطة حالياً.'],
+    ['• «التاريخ» بصيغة سنة-شهر-يوم (مثال 2025-07-08).'],
+    ['• «المبلغ» رقم فقط (يُقبل السالب للتصحيحات). «العملة» SAR أو USD.'],
+    ['• يكفي عمودا التاريخ والمبلغ؛ باقي الأعمدة اختيارية.'],
+    ['• الأعمدة: '+COMM_PAY_HEADERS.join(' | ')]]);
+  var wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'دفعات_العمولة'); XLSX.utils.book_append_sheet(wb,info,'تعليمات');
+  XLSX.writeFile(wb,'نموذج_دفعات_العمولة.xlsx');
+  toast('⬇️ تم تنزيل نموذج دفعات العمولة');
+}
+function handleCommPayExcelImport(e){
+  const file=e.target.files[0]; if(!file) return;
+  if(typeof XLSX==='undefined'){ toast('⚠️ مكتبة Excel غير محمّلة',true); return; }
+  const reader=new FileReader();
+  reader.onload=function(ev){
+    try{
+      const wb=XLSX.read(ev.target.result,{type:'array',cellDates:true});
+      const shName=wb.SheetNames.find(n=>/دفع|عموله|عمول/.test(n))||wb.SheetNames[0];
+      const aoa=XLSX.utils.sheet_to_json(wb.Sheets[shName],{header:1,defval:''});
+      applyCommPaymentRows(aoa,file.name);
+    }catch(err){ toast('⚠️ خطأ في قراءة الملف: '+err.message,true); }
+    e.target.value='';
+  };
+  reader.readAsArrayBuffer(file);
+}
+function handleCommPayCsvImport(e){
+  const file=e.target.files[0]; if(!file) return;
+  const reader=new FileReader();
+  reader.onload=function(ev){
+    try{ applyCommPaymentRows(parseCSV(ev.target.result),file.name); }
+    catch(err){ toast('⚠️ خطأ في قراءة الملف: '+err.message,true); }
+    e.target.value='';
+  };
+  reader.readAsText(file,'utf-8');
+}
+function applyCommPaymentRows(aoa,fname){
+  if(isReadonly()){ toast('👁 وضع القراءة فقط',true); return; }
+  if(!can('payments')){ toast('لا تملك صلاحية الدفعات',true); return; }
+  if(!aoa||!aoa.length){ toast('⚠️ الملف فارغ',true); return; }
+  const norm=s=>String(s==null?'':s).replace(/[إأآا]/g,'ا').replace(/[ة]/g,'ه').replace(/\s+/g,'').toLowerCase();
+  let hi=aoa.findIndex(r=>Array.isArray(r)&&r.some(c=>String(c).trim()!==''));
+  if(hi<0){ toast('⚠️ لا توجد بيانات في الملف',true); return; }
+  const header=aoa[hi]||[];
+  const idxInc=(...terms)=>{ for(const t of terms){ const i=header.findIndex(h=>norm(h).includes(norm(t))); if(i>=0) return i; } return -1; };
+  let cDate=idxInc('التاريخ','تاريخ'), cAmt=idxInc('المبلغ','مبلغ'), cCur=idxInc('العملة','عمله'),
+      cRef=idxInc('المرجع','مرجع','رقمالقيد','قيد'), cMeth=idxInc('طريقةالدفع','طريقه'),
+      cBank=idxInc('البنك','بنك','مصرف'), cNotes=idxInc('ملاحظات','ملاحظ','البيان','بيان');
+  let dataStart=hi+1;
+  if(cDate<0 && cAmt<0){
+    const first=aoa[hi]||[];
+    const hasSerial=first.length>=5 && /^\d+$/.test(String(first[0]).trim());
+    if(hasSerial){ cDate=1;cAmt=2;cCur=3;cRef=4;cNotes=5; } else { cDate=0;cAmt=1;cCur=2;cRef=3;cNotes=4; }
+    dataStart=hi;
+  }
+  const val=(r,c)=>c>=0?String(r[c]!=null?r[c]:'').trim():'';
+  const out=[]; let count=0;
+  for(let i=dataStart;i<aoa.length;i++){
+    const r=aoa[i]; if(!Array.isArray(r)) continue;
+    const amount=parseFloat(String(r[cAmt]!=null?r[cAmt]:'').replace(/[^\d.\-]/g,''))||0;
+    const ds=toDateStr(r[cDate]);
+    if(!amount || !ds) continue;
+    let cur=val(r,cCur).toUpperCase(); if(!VALID_CURS.includes(cur)) cur='SAR';
+    const mv=norm(val(r,cMeth));
+    const method=(mv.includes('نقد')||mv.includes('cash'))?'cash':'transfer';
+    out.push({ id:'cm_'+Date.now()+'_'+(count++), date:ds, amount:amount, cur:cur, rate:(S.fxUsdSar||3.756),
+      method:method, bank:val(r,cBank), ref:val(r,cRef), notes:val(r,cNotes) });
+  }
+  if(!out.length){ toast('⚠️ لم يُعثر على دفعات صالحة (تأكد من عمودي التاريخ والمبلغ)',true); return; }
+  const replace=document.getElementById('comm-pay-replace')?.checked;
+  importBackup('استيراد دفعات العمولة', [commPayKey()]);
+  const base=replace?[]:commPayLoad();
+  commPaySave(base.concat(out));
+  renderCommAcct();
+  const st=document.getElementById('comm-import-status');
+  if(st) st.innerHTML='✅ استُوردت '+count+' دفعة عمولة'+(replace?' (استبدال)':'')+' — من الملف: '+escH(fname);
+  logAction('استيراد دفعات عمولة', count+' دفعة');
+  toast('✅ تم استيراد دفعات العمولة ('+count+') — للتراجع اضغط «↩ تراجع عن آخر استيراد»');
+}
+
 // ═══════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════
-var APP_VERSION='v2026-11-22.40';   // رقم إصدار ظاهر للتحقق من تحميل أحدث نسخة (لا cache قديم)
+var APP_VERSION='v2026-11-22.41';   // رقم إصدار ظاهر للتحقق من تحميل أحدث نسخة (لا cache قديم)
 // ═══════════════════════════════════════════
 // 🌐 محرّك الترجمة الشامل (عربي / English / 中文) — قاموس + مسح DOM + مراقب تغييرات
 // ═══════════════════════════════════════════
@@ -7239,10 +7350,10 @@ Object.assign(TR.zh,{
 });
 // مفاتيح إضافية لمخرجات التصدير والطباعة
 Object.assign(TR.en,{
- 'جدول العمولة':'Commission Table','الحاويات المحتسبة':'Counted Containers','قيمة الشحنة الخاضعة':'Taxable Shipment Value','المبلغ (ر.س)':'Amount (SAR)','خصم ممنوح من المورد':'Supplier Discount','استيراد دفعات رسوم الشحن من Excel':'Import Freight Payments from Excel','تحميل نموذج دفعات الشحن':'Download Freight Payments Template','استبدال الدفعات الحالية':'Replace current payments','يُخصم من الرصيد':'Deducted from balance','شحنة':'Shipment','فواتير مشتريات مستوردة':'Imported Purchase Invoices','إجمالي المدين':'Total Debit','إجمالي الدفعات':'Total Payments','الدفعات المخصومة':'Deducted Payments','كشف حساب أجور الشحن':'Freight Account Statement','الوصف':'Description','لا توجد حركات':'No transactions','الرصيد الحالي:':'Current Balance:','إجمالي الشحنات':'Total Shipments','لا شحنات':'No shipments'
+ 'جدول العمولة':'Commission Table','الحاويات المحتسبة':'Counted Containers','قيمة الشحنة الخاضعة':'Taxable Shipment Value','المبلغ (ر.س)':'Amount (SAR)','خصم ممنوح من المورد':'Supplier Discount','استيراد دفعات رسوم الشحن من Excel':'Import Freight Payments from Excel','استيراد دفعات العمولة من Excel':'Import Commission Payments from Excel','تحميل نموذج دفعات العمولة':'Download Commission Payments Template','تحميل نموذج دفعات الشحن':'Download Freight Payments Template','استبدال الدفعات الحالية':'Replace current payments','يُخصم من الرصيد':'Deducted from balance','شحنة':'Shipment','فواتير مشتريات مستوردة':'Imported Purchase Invoices','إجمالي المدين':'Total Debit','إجمالي الدفعات':'Total Payments','الدفعات المخصومة':'Deducted Payments','كشف حساب أجور الشحن':'Freight Account Statement','الوصف':'Description','لا توجد حركات':'No transactions','الرصيد الحالي:':'Current Balance:','إجمالي الشحنات':'Total Shipments','لا شحنات':'No shipments'
 });
 Object.assign(TR.zh,{
- 'جدول العمولة':'佣金表','الحاويات المحتسبة':'计入集装箱','قيمة الشحنة الخاضعة':'应计货值','المبلغ (ر.س)':'金额(里亚尔)','خصم ممنوح من المورد':'供应商折扣','استيراد دفعات رسوم الشحن من Excel':'从Excel导入运费付款','تحميل نموذج دفعات الشحن':'下载运费付款模板','استبدال الدفعات الحالية':'替换现有付款','يُخصم من الرصيد':'从余额中扣除','شحنة':'装运','فواتير مشتريات مستوردة':'导入采购发票','إجمالي المدين':'借方合计','إجمالي الدفعات':'付款合计','الدفعات المخصومة':'已扣付款','كشف حساب أجور الشحن':'运费账户对账单','الوصف':'说明','لا توجد حركات':'无交易','الرصيد الحالي:':'当前余额:','إجمالي الشحنات':'装运合计','لا شحنات':'无装运'
+ 'جدول العمولة':'佣金表','الحاويات المحتسبة':'计入集装箱','قيمة الشحنة الخاضعة':'应计货值','المبلغ (ر.س)':'金额(里亚尔)','خصم ممنوح من المورد':'供应商折扣','استيراد دفعات رسوم الشحن من Excel':'从Excel导入运费付款','استيراد دفعات العمولة من Excel':'从Excel导入佣金付款','تحميل نموذج دفعات العمولة':'下载佣金付款模板','تحميل نموذج دفعات الشحن':'下载运费付款模板','استبدال الدفعات الحالية':'替换现有付款','يُخصم من الرصيد':'从余额中扣除','شحنة':'装运','فواتير مشتريات مستوردة':'导入采购发票','إجمالي المدين':'借方合计','إجمالي الدفعات':'付款合计','الدفعات المخصومة':'已扣付款','كشف حساب أجور الشحن':'运费账户对账单','الوصف':'说明','لا توجد حركات':'无交易','الرصيد الحالي:':'当前余额:','إجمالي الشحنات':'装运合计','لا شحنات':'无装运'
 });
 // الدفعة الثالثة: عبارات الواجهة المتبقية
 Object.assign(TR.en,{
