@@ -3712,6 +3712,17 @@ function renderDashboard(){
     latest.map(function(r){ return '<tr><td><strong>'+escH(r.no)+'</strong></td><td>'+escH(r.date||'—')+'</td><td>'+escH(r.sup||'—')+'</td><td>'+r.conts+'</td><td class="n">'+fmtD(r.fob)+'</td><td class="n" style="color:var(--success)">'+fmtD(r.land)+'</td></tr>'; }).join('')+
     '</tbody></table></div>';
 
+  // 📊 الموقف النهائي والمقارنة (أ ↔ ب) — يظهر في الداشبورد عند وجود بيانات مقارنة
+  try{
+    if(cmpHasData()){
+      var Lc=cmpLabels();
+      h+='<div class="card" style="margin-top:14px;border:2px solid #5d3a1a">'+
+        '<div class="card-header" style="background:#5d3a1a;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">'+
+          '<span>📊 الموقف النهائي والمقارنة ('+escH(Lc.a)+' ↔ '+escH(Lc.b)+')</span>'+
+          '<button class="btn btn-outline btn-sm" onclick="showPage(\'page-compare\')">⚖️ فتح شاشة المقارنة</button>'+
+        '</div><div class="card-body">'+buildCmpFinalHtml()+'</div></div>';
+    }
+  }catch(e){}
   el.innerHTML=h;
   _animateDash(el);
 }
@@ -6506,6 +6517,10 @@ function cmpFinalPosition(){
 }
 function renderCmpFinal(){
   var el=document.getElementById('cmp-final-body'); if(!el) return;
+  el.innerHTML=buildCmpFinalHtml();
+}
+function cmpHasData(){ try{ var P=cmpFinalPosition(); return (P.a.purch>0)||(P.b.purch>0)||(P.a.paid>0)||(P.b.paid>0); }catch(e){ return false; } }
+function buildCmpFinalHtml(){
   applyCmpLabels(); var L=cmpLabels(); var P=cmpFinalPosition(); var A=P.a, B=P.b;
   var pct=function(paid,purch){ return purch>0?(paid/purch*100):0; };
   var posTxt=function(rem){ return rem>0.004?'عليه مستحق':(rem<-0.004?'له فائض / رصيد':'مُسدَّد بالكامل'); };
@@ -6533,8 +6548,7 @@ function renderCmpFinal(){
   var dP=A.purch-B.purch, verdict='';
   if(A.purch>0 && B.purch>0){ var who=dP>0?L.b:L.a; var mx=Math.max(A.purch,B.purch); var pcv=mx>0?Math.abs(dP)/mx*100:0;
     verdict=(Math.abs(dP)<0.01)?'التكلفتان متساويتان في الشراء':(escH(who)+' أوفر في الشراء بمقدار '+fmtD(Math.abs(dP))+' ر.س ('+(Math.round(pcv*10)/10)+'%)'); }
-  el.innerHTML=
-    '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;margin-bottom:12px">'+card(L.a,A,'#1a3a5c')+card(L.b,B,'#7a3e10')+'</div>'+
+  return '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;margin-bottom:12px">'+card(L.a,A,'#1a3a5c')+card(L.b,B,'#7a3e10')+'</div>'+
     (verdict?'<div class="alert" style="background:#e9f8ef;border:1px solid #bfe6cf;color:#1b5e20;font-weight:700;margin-bottom:12px">🏆 '+verdict+'</div>':'')+
     '<div style="overflow-x:auto"><table class="tbl"><thead><tr><th>البند</th><th>'+escH(L.a)+'</th><th>'+escH(L.b)+'</th><th>الفرق</th><th>الأوفر</th></tr></thead><tbody>'+
       diffRow('🛒 المشتريات (الشراء)',A.purch,B.purch,true)+
@@ -7550,7 +7564,7 @@ function renderClaudeBridge(){
 // ═══════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════
-var APP_VERSION='v2026-11-24.44';   // رقم إصدار ظاهر للتحقق من تحميل أحدث نسخة (لا cache قديم)
+var APP_VERSION='v2026-11-24.45';   // رقم إصدار ظاهر للتحقق من تحميل أحدث نسخة (لا cache قديم)
 // ═══════════════════════════════════════════
 // 🌐 محرّك الترجمة الشامل (عربي / English / 中文) — قاموس + مسح DOM + مراقب تغييرات
 // ═══════════════════════════════════════════
