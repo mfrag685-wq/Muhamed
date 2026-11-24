@@ -6589,12 +6589,6 @@ function renderCmpNet(){
       '<div style="display:flex;justify-content:space-between;padding:3px 0"><span style="color:var(--muted)">إجمالي الدفعات (ر.س)</span><b>'+fmtD(paid)+'</b></div>'+
       '<div style="display:flex;justify-content:space-between;padding:6px 0;border-top:1px solid var(--border);margin-top:4px;font-weight:800"><span>'+(rem>=0?'المتبقّي':'فائض مدفوع')+'</span><b style="color:'+(rem>0?'var(--danger)':'var(--success)')+'">'+fmtD(Math.abs(rem))+' '+tr('ر.س')+'</b></div>';
     if(_cmpAcctMode==='detail'){
-      ships.forEach(function(s){ var rid='acc-'+model+'-'+_safeId(s.num);
-        h+='<div style="border:1px solid var(--border);border-radius:7px;margin-top:6px">'+
-          '<div style="display:flex;justify-content:space-between;padding:7px 9px;cursor:pointer;background:#eef2f7;font-weight:700" onclick="var e=document.getElementById(\''+rid+'\');if(e)e.hidden=!e.hidden">'+
-          '<span>▾ شحنة #'+escH(s.num)+'</span><b>'+fmtD(s.amt)+' '+tr('ر.س')+'</b></div>'+
-          '<div id="'+rid+'" style="padding:6px 10px;background:#fafbfc;overflow-x:auto">'+modelDetailRows(s.num,model)+'</div></div>';
-      });
       if(invList.length){
         h+='<div style="margin-top:10px;font-weight:700;color:#7a3e10">فواتير مشتريات مستوردة</div>';
         invList.forEach(function(v){ h+='<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px dashed var(--border);font-size:.82rem"><span>'+escH(v.date||'')+(v.shipmentNo?' — شحنة '+escH(v.shipmentNo):'')+(v.supplier?' — '+escH(v.supplier):'')+(v.target==='both'?' <span style="color:#7a3e10">(مشتركة)</span>':'')+'</span><b>+ '+fmtD(supInvToSar(v))+' '+tr('ر.س')+'</b></div>'; });
@@ -6607,8 +6601,42 @@ function renderCmpNet(){
     h+='</div></div>';
     return h;
   }
-  el.innerHTML='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px">'+
+  var html='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px">'+
     colHtml('a',L.a,'#1a3a5c')+colHtml('b',L.b,'#7a3e10')+'</div>';
+  if(_cmpAcctMode==='detail'){
+    html+='<div style="margin-top:14px"><div style="font-weight:800;color:#5d3a1a;margin-bottom:6px">📋 مقارنة الشحنات — شحنة مقابل شحنة (اضغط السهم لفتح تفاصيل الموديلات)</div>'+buildCmpNetUnified()+'</div>';
+  }
+  el.innerHTML=html;
+}
+// جدول موحّد: كل صف = رقم شحنة، يعرض النموذجين في نفس السطر، مطويّ افتراضياً ويُفتح لعرض الموديلات
+function buildCmpNetUnified(){
+  applyCmpLabels(); var L=cmpLabels(); var rows=cmpTotalsRows();
+  if(!rows.length) return '<div style="padding:14px;color:var(--muted)">لا توجد شحنات للمقارنة</div>';
+  var gA=0,gB=0;
+  var body=rows.map(function(r){
+    var rid='cmpnet-'+_safeId(r.num); var d=r.aTot-r.bTot; var hasBoth=r.aTot>0&&r.bTot>0;
+    gA+=r.aTot; gB+=r.bTot;
+    var cheap=!hasBoth?'—':(d>0?('🟢 '+escH(L.b)):(d<0?('🟢 '+escH(L.a)):'='));
+    var head='<tr style="cursor:pointer;background:#f3f6fa" onclick="var e=document.getElementById(\''+rid+'\');if(e){e.hidden=!e.hidden;var a=document.getElementById(\''+rid+'-ar\');if(a)a.textContent=e.hidden?String.fromCharCode(9656):String.fromCharCode(9662);}">'+
+      '<td style="width:24px"><span id="'+rid+'-ar">'+String.fromCharCode(9656)+'</span></td>'+
+      '<td><strong>شحنة #'+escH(r.num)+'</strong></td>'+
+      '<td class="num">'+fmtD(r.aTot)+'</td>'+
+      '<td class="num">'+fmtD(r.bTot)+'</td>'+
+      '<td class="num" style="color:'+(d>0?'var(--danger)':'var(--success)')+'">'+(hasBoth?fmtD(Math.abs(d)):'—')+'</td>'+
+      '<td style="font-weight:700">'+cheap+'</td></tr>';
+    var detail='<tr id="'+rid+'" hidden><td colspan="6" style="background:#fafbfc;padding:10px">'+
+      '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px">'+
+        '<div><div style="font-weight:800;color:#1a3a5c;margin-bottom:4px">'+escH(L.a)+' — شحنة #'+escH(r.num)+'</div>'+modelDetailRows(r.num,'a')+'</div>'+
+        '<div><div style="font-weight:800;color:#7a3e10;margin-bottom:4px">'+escH(L.b)+' — شحنة #'+escH(r.num)+'</div>'+modelDetailRows(r.num,'b')+'</div>'+
+      '</div></td></tr>';
+    return head+detail;
+  }).join('');
+  var gd=gA-gB;
+  return '<div style="overflow-x:auto"><table class="tbl"><thead><tr>'+
+    '<th style="width:24px"></th><th>رقم الشحنة</th><th>'+escH(L.a)+' (ر.س)</th><th>'+escH(L.b)+' (ر.س)</th><th>الفرق</th><th>الأوفر</th></tr></thead><tbody>'+
+    body+
+    '<tr style="background:#e3f2fd;font-weight:800"><td></td><td>الإجمالي</td><td class="num">'+fmtD(gA)+'</td><td class="num">'+fmtD(gB)+'</td><td class="num" style="color:'+(gd>0?'var(--danger)':'var(--success)')+'">'+fmtD(Math.abs(gd))+'</td><td></td></tr>'+
+    '</tbody></table></div>';
 }
 function printCmpAccounts(){
   var L=cmpLabels(); var rows=cmpTotalsRows(); var pays=cmpUnifiedPays();
@@ -7564,7 +7592,7 @@ function renderClaudeBridge(){
 // ═══════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════
-var APP_VERSION='v2026-11-24.45';   // رقم إصدار ظاهر للتحقق من تحميل أحدث نسخة (لا cache قديم)
+var APP_VERSION='v2026-11-24.46';   // رقم إصدار ظاهر للتحقق من تحميل أحدث نسخة (لا cache قديم)
 // ═══════════════════════════════════════════
 // 🌐 محرّك الترجمة الشامل (عربي / English / 中文) — قاموس + مسح DOM + مراقب تغييرات
 // ═══════════════════════════════════════════
