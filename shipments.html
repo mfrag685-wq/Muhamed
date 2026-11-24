@@ -6881,7 +6881,7 @@ function applySupplierPayRows(aoa){
     var cur=String(r[3]==null?'':r[3]).trim().toUpperCase(); cur=(cur==='USD')?'USD':'SAR';
     var mth=String(r[4]==null?'':r[4]).trim(); var method=(/تحويل|transfer|bank/i.test(mth))?'transfer':'cash';
     var tg=String(r[7]==null?'':r[7]).trim(); var target=(tg==='ب'||/^b$/i.test(tg))?'b':((tg==='كلاهما'||/both/i.test(tg))?'both':'a');
-    addRows.push({ id:'sp_'+Date.now()+'_'+i, supplier:sup, date:xlDate(r[1])||new Date().toISOString().slice(0,10),
+    addRows.push({ id:'sp_'+Date.now()+'_'+i, supplier:sup, date:(toDateStr(r[1])||xlDate(r[1])||''),
       amount:amt, cur:cur, rate:(S.fxUsdSar||3.756), target:target, method:method,
       bank:String(r[5]==null?'':r[5]).trim(), ref:String(r[6]==null?'':r[6]).trim(), notes:String(r[8]==null?'':r[8]).trim() });
     added++;
@@ -7597,7 +7597,7 @@ function renderClaudeBridge(){
 // ═══════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════
-var APP_VERSION='v2026-11-24.52';   // رقم إصدار ظاهر للتحقق من تحميل أحدث نسخة (لا cache قديم)
+var APP_VERSION='v2026-11-24.53';   // رقم إصدار ظاهر للتحقق من تحميل أحدث نسخة (لا cache قديم)
 // ═══════════════════════════════════════════
 // 🌐 محرّك الترجمة الشامل (عربي / English / 中文) — قاموس + مسح DOM + مراقب تغييرات
 // ═══════════════════════════════════════════
