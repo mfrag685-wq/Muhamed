@@ -6615,7 +6615,9 @@ function renderCmpNet(){
     var invList=supInvLoad().filter(function(v){ var t=v.target||'both'; return t===model||t==='both'; });
     var invTot=invList.reduce(function(s,v){return s+supInvToSar(v);},0);
     total+=invTot;
-    var pl=pays.filter(function(p){ var t=p.target||'both'; return t===model||t==='both'; });
+    var pl=pays.filter(function(p){ var t=p.target||'both'; return t===model||t==='both'; })
+      .sort(function(a,b){ var da=a.date||'', db=b.date||''; return da<db?-1:(da>db?1:0); });
+    invList=invList.slice().sort(function(a,b){ var da=a.date||'', db=b.date||''; return da<db?-1:(da>db?1:0); });
     var paid=pl.reduce(function(s,p){return s+cmpPayToSar(p);},0);
     var rem=total-paid;
     var h='<div class="card" style="border-top:3px solid '+accent+';margin:0">'+
@@ -6646,7 +6648,7 @@ function printCmpAccounts(){
   function stmt(model,label){
     var total=0, tr='';
     rows.forEach(function(r){ var amt=(model==='a')?r.aTot:r.bTot; if(amt>0){ total+=amt; tr+='<tr><td>شحنة #'+escH(r.num)+'</td><td class=num>'+fmtD(amt)+'</td></tr>'; } });
-    var pl=pays.filter(function(p){ var t=p.target||'both'; return t===model||t==='both'; });
+    var pl=pays.filter(function(p){ var t=p.target||'both'; return t===model||t==='both'; }).sort(function(a,b){ var da=a.date||'', db=b.date||''; return da<db?-1:(da>db?1:0); });
     var paid=pl.reduce(function(s,p){return s+cmpPayToSar(p);},0); var rem=total-paid;
     var pr=pl.map(function(p){ return '<tr><td>'+escH(p.date||'')+' — '+escH(p.bank||(p.method==='transfer'?'تحويل':'نقد'))+(p.target==='both'?' (مشتركة)':'')+'</td><td class=num>'+fmtD(cmpPayToSar(p))+'</td></tr>'; }).join('');
     return '<h3>'+escH(label)+'</h3>'+
@@ -7090,7 +7092,7 @@ function exportCmpAccountsXlsx(){
     rows.forEach(function(r){ var amt=(model==='a')?r.aTot:r.bTot; if(amt>0){ total+=amt; aoa.push([tr('شحنة')+' '+r.num, amt]); } });
     var invs=supInvLoad().filter(function(v){ var t=v.target||'both'; return t===model||t==='both'; });
     var invTot=invs.reduce(function(s,v){return s+supInvToSar(v);},0); if(invTot>0){ total+=invTot; aoa.push([tr('فواتير مشتريات مستوردة'), invTot]); }
-    var pl=pays.filter(function(p){ var t=p.target||'both'; return t===model||t==='both'; });
+    var pl=pays.filter(function(p){ var t=p.target||'both'; return t===model||t==='both'; }).sort(function(a,b){ var da=a.date||'', db=b.date||''; return da<db?-1:(da>db?1:0); });
     var paid=pl.reduce(function(s,p){return s+cmpPayToSar(p);},0);
     aoa.push([]); aoa.push([tr('إجمالي المدين'), total]); aoa.push([tr('إجمالي الدفعات'), paid]); aoa.push([tr('المتبقّي'), total-paid]);
     aoa.push([]); aoa.push([tr('الدفعات المخصومة'),'']);
@@ -7595,7 +7597,7 @@ function renderClaudeBridge(){
 // ═══════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════
-var APP_VERSION='v2026-11-24.51';   // رقم إصدار ظاهر للتحقق من تحميل أحدث نسخة (لا cache قديم)
+var APP_VERSION='v2026-11-24.52';   // رقم إصدار ظاهر للتحقق من تحميل أحدث نسخة (لا cache قديم)
 // ═══════════════════════════════════════════
 // 🌐 محرّك الترجمة الشامل (عربي / English / 中文) — قاموس + مسح DOM + مراقب تغييرات
 // ═══════════════════════════════════════════
