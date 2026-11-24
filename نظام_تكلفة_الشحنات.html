@@ -1725,14 +1725,15 @@ html[data-theme="dark"] .rt td.hl{background:#2e2814;color:var(--accent)}
   <div class="card" id="cmp-net-card" style="margin-top:12px">
     <div class="card-header" style="background:#5d3a1a;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
       <span>📒 كشف حساب النماذج بعد الدفعات (<span class="cmp-lblA-t">أ</span> ↔ <span class="cmp-lblB-t">ب</span>)</span>
-      <span style="display:flex;gap:6px">
+      <span style="display:flex;gap:6px;flex-wrap:wrap">
+        <button class="btn btn-accent btn-sm" id="cmp-net-toggle" onclick="toggleCmpNet()">🔽 طي الكشف</button>
         <button class="btn btn-outline btn-sm" id="cacc-mode-sum" onclick="setCmpAcctMode('summary')">ملخص</button>
         <button class="btn btn-outline btn-sm" id="cacc-mode-det" onclick="setCmpAcctMode('detail')">تفصيلي</button>
         <button class="btn btn-outline btn-sm" onclick="printCmpAccounts()">🖨️ طباعة</button>
         <button class="btn btn-green btn-sm" onclick="exportCmpAccountsXlsx()">⬇️ Excel</button>
       </span>
     </div>
-    <div class="card-body">
+    <div class="card-body" id="cmp-net-body">
       <div style="font-size:.8rem;color:var(--muted);margin-bottom:8px">لكل نموذج: إجمالي الشحنات − إجمالي الدفعات = المتبقّي (أو فائض مدفوع). دفعة «الشركتان معاً» تُخصم من النموذجين. الوضع التفصيلي يعرض مبلغ كل شحنة قابلاً للتوسّع للموديلات + الدفعات المخصومة.</div>
       <div id="cmp-acct-cols"></div>
     </div>
@@ -6496,6 +6497,15 @@ function cmpGrandTotals(){
 }
 var _cmpAcctMode='detail';
 function setCmpAcctMode(m){ _cmpAcctMode=(m==='summary')?'summary':'detail'; renderCmpNet(); }
+function toggleCmpNet(force){
+  var body=document.getElementById('cmp-net-body'), btn=document.getElementById('cmp-net-toggle');
+  if(!body) return;
+  var collapse=(force===true)?true:(force===false?false:!body.hidden);
+  body.hidden=collapse;
+  if(btn) btn.textContent=collapse?'▶️ عرض الكشف':'🔽 طي الكشف';
+  try{ localStorage.setItem('scs_cmpnet_collapsed', collapse?'1':'0'); }catch(e){}
+}
+function applyCmpNetCollapsed(){ try{ toggleCmpNet(localStorage.getItem('scs_cmpnet_collapsed')==='1'); }catch(e){} }
 function _safeId(s){ return String(s).replace(/[^a-zA-Z0-9_-]/g,'_'); }
 // مبلغ الشحنة في نموذج معيّن
 function modelShipAmount(num, model){ var at=aShipTotals(num); return (model==='a')?((cmpBasis()==='fob')?at.fob:at.landed):bShipTotal(num); }
@@ -6600,7 +6610,7 @@ function renderCmpNet(){
     var paid=pl.reduce(function(s,p){return s+cmpPayToSar(p);},0);
     var rem=total-paid;
     var h='<div class="card" style="border-top:3px solid '+accent+';margin:0">'+
-      '<div class="card-header" style="justify-content:flex-start;color:'+accent+'">'+escH(label)+'</div><div class="card-body">'+
+      '<div class="card-header" style="justify-content:flex-start;background:'+accent+';color:#fff">'+escH(label)+'</div><div class="card-body">'+
       '<div style="display:flex;justify-content:space-between;padding:3px 0"><span style="color:var(--muted)">إجمالي المدين (شحنات'+(invTot>0?' + فواتير مستوردة':'')+') (ر.س)</span><b>'+fmtD(total)+'</b></div>'+
       (invTot>0?'<div style="display:flex;justify-content:space-between;padding:3px 0;font-size:.8rem"><span style="color:var(--muted)">— منها فواتير مشتريات مستوردة</span><b style="color:#7a3e10">'+fmtD(invTot)+'</b></div>':'')+
       '<div style="display:flex;justify-content:space-between;padding:3px 0"><span style="color:var(--muted)">إجمالي الدفعات (ر.س)</span><b>'+fmtD(paid)+'</b></div>'+
@@ -6620,6 +6630,7 @@ function renderCmpNet(){
   }
   el.innerHTML='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px">'+
     colHtml('a',L.a,'#1a3a5c')+colHtml('b',L.b,'#7a3e10')+'</div>';
+  applyCmpNetCollapsed();
 }
 function printCmpAccounts(){
   var L=cmpLabels(); var rows=cmpTotalsRows(); var pays=cmpUnifiedPays();
@@ -7575,7 +7586,7 @@ function renderClaudeBridge(){
 // ═══════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════
-var APP_VERSION='v2026-11-24.49';   // رقم إصدار ظاهر للتحقق من تحميل أحدث نسخة (لا cache قديم)
+var APP_VERSION='v2026-11-24.50';   // رقم إصدار ظاهر للتحقق من تحميل أحدث نسخة (لا cache قديم)
 // ═══════════════════════════════════════════
 // 🌐 محرّك الترجمة الشامل (عربي / English / 中文) — قاموس + مسح DOM + مراقب تغييرات
 // ═══════════════════════════════════════════
