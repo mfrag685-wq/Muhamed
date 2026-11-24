@@ -1643,7 +1643,7 @@ html[data-theme="dark"] .rt td.hl{background:#2e2814;color:var(--accent)}
   <div class="card" style="margin-bottom:12px">
     <div class="card-body" style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
       <div class="fg"><label>رقم الشحنة</label><input id="cmp-ship" list="cmp-ship-list" placeholder="اختر/اكتب رقم الشحنة" oninput="onCmpShipChange()" style="min-width:200px"><datalist id="cmp-ship-list"></datalist></div>
-      <div style="font-size:.78rem;color:var(--muted)">اختر رقم شحنة موجوداً في نموذج أ، ثم أدخل أسعار نموذج ب لنفس الموديلات.</div>
+      <div style="font-size:.78rem;color:var(--muted)">اختر رقم شحنة موجوداً في <span class="cmp-lblA-t">نموذج أ</span>، ثم أدخل أسعار <span class="cmp-lblB-t">نموذج ب</span> لنفس الموديلات.</div>
     </div>
   </div>
 
@@ -1661,12 +1661,12 @@ html[data-theme="dark"] .rt td.hl{background:#2e2814;color:var(--accent)}
       </table></div>
       <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
         <button class="btn btn-outline btn-sm" onclick="cmpAddBRow()">＋ صنف</button>
-        <button class="btn btn-outline btn-sm" onclick="cmpPrefillFromA()">⬇️ جلب موديلات نموذج أ</button>
-        <button class="btn btn-accent btn-sm" onclick="cmpSaveB()">💾 حفظ نموذج ب</button>
+        <button class="btn btn-outline btn-sm" onclick="cmpPrefillFromA()">⬇️ جلب موديلات <span class="cmp-lblA-t">نموذج أ</span></button>
+        <button class="btn btn-accent btn-sm" onclick="cmpSaveB()">💾 حفظ <span class="cmp-lblB-t">نموذج ب</span></button>
         <span style="flex:1"></span>
         <button class="btn btn-outline btn-sm" onclick="downloadModelBTemplate()">📄 نموذج فارغ</button>
-        <button class="btn btn-green btn-sm" onclick="exportModelB()">⬇️ تصدير نموذج ب</button>
-        <button class="btn btn-outline btn-sm" onclick="document.getElementById('mb-import-file').click()">⬆️ استيراد نموذج ب</button>
+        <button class="btn btn-green btn-sm" onclick="exportModelB()">⬇️ تصدير <span class="cmp-lblB-t">نموذج ب</span></button>
+        <button class="btn btn-outline btn-sm" onclick="document.getElementById('mb-import-file').click()">⬆️ استيراد <span class="cmp-lblB-t">نموذج ب</span></button>
         <button class="btn btn-outline btn-sm" onclick="undoLastImport()">↩ تراجع عن آخر استيراد</button>
         <input type="file" id="mb-import-file" accept=".xlsx,.xls,.csv" style="display:none" onchange="handleModelBImport(event)">
       </div>
@@ -6222,6 +6222,8 @@ function applyCmpLabels(){
   Array.prototype.forEach.call(document.querySelectorAll('.cmp-lblB-t'),function(e){ e.textContent=L.b; });
   var h1a=document.getElementById('cmp-lblA-h1'), h1b=document.getElementById('cmp-lblB-h1'), bh=document.getElementById('cmp-b-hdr');
   if(h1a) h1a.textContent=L.a; if(h1b) h1b.textContent=L.b; if(bh) bh.textContent=L.b;
+  var ta=document.getElementById('cpay-topt-a'), tb=document.getElementById('cpay-topt-b');
+  if(ta) ta.textContent=L.a+' فقط'; if(tb) tb.textContent=L.b+' فقط';
 }
 function aFxForShip(num){
   var snap=dbLoad().find(function(s){ return String(s.shipmentNo||'')===String(num); });
@@ -6528,7 +6530,7 @@ function buildCmpFinalHtml(){
   function card(label,S,accent){
     var r=pct(S.paid,S.purch); var rr=Math.max(0,Math.min(100,r));
     return '<div class="card" style="border-top:3px solid '+accent+';margin:0">'+
-      '<div class="card-header" style="justify-content:flex-start;color:'+accent+';font-size:1.05rem">'+escH(label)+'</div><div class="card-body">'+
+      '<div class="card-header" style="justify-content:flex-start;background:'+accent+';color:#fff;font-size:1.05rem">'+escH(label)+'</div><div class="card-body">'+
         '<div style="display:flex;justify-content:space-between;padding:4px 0"><span>🛒 المشتريات</span><b>'+fmtD(S.purch)+' '+tr('ر.س')+'</b></div>'+
         (S.inv>0?'<div style="display:flex;justify-content:space-between;padding:2px 0;font-size:.78rem;color:var(--muted)"><span>— منها فواتير مستوردة</span><b>'+fmtD(S.inv)+'</b></div>':'')+
         '<div style="display:flex;justify-content:space-between;padding:4px 0"><span>💸 المسدّد</span><b style="color:var(--success)">'+fmtD(S.paid)+' '+tr('ر.س')+'</b></div>'+
@@ -7592,7 +7594,7 @@ function renderClaudeBridge(){
 // ═══════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════
-var APP_VERSION='v2026-11-24.46';   // رقم إصدار ظاهر للتحقق من تحميل أحدث نسخة (لا cache قديم)
+var APP_VERSION='v2026-11-24.47';   // رقم إصدار ظاهر للتحقق من تحميل أحدث نسخة (لا cache قديم)
 // ═══════════════════════════════════════════
 // 🌐 محرّك الترجمة الشامل (عربي / English / 中文) — قاموس + مسح DOM + مراقب تغييرات
 // ═══════════════════════════════════════════
