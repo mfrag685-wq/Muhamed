@@ -6225,8 +6225,10 @@ function cmpShipList(){
   var nums={};
   dbLoad().forEach(function(s){ if(s.shipmentNo) nums[s.shipmentNo]=1; });
   Object.keys(bLoad()).forEach(function(n){ nums[n]=1; });
-  return Object.keys(nums);
+  return Object.keys(nums).sort(cmpNumCompare);
 }
+function cmpNumKey(n){ var m=String(n||'').match(/\d+/); return m?parseInt(m[0],10):Infinity; }
+function cmpNumCompare(x,y){ var a=cmpNumKey(x), b=cmpNumKey(y); if(a!==b) return a<b?-1:1; x=String(x); y=String(y); return x<y?-1:(x>y?1:0); }
 function onCmpShipChange(){
   var num=(document.getElementById('cmp-ship')||{}).value||''; var b=bLoad()[num]||{};
   _cmpBRows=(b.items?b.items:[]).map(function(x){return {model:x.model,qty:x.qty,price:x.price};});
@@ -6296,7 +6298,7 @@ function cmpTotalsRows(){
     if(aTot<=0 && bTot<=0) return;
     out.push({num:num, aTot:aTot, bTot:bTot, diff:aTot-bTot, hasB:bTot>0});
   });
-  return out.sort(function(x,y){ return (x.num<y.num)?-1:(x.num>y.num?1:0); });
+  return out.sort(function(x,y){ return cmpNumCompare(x.num,y.num); });
 }
 function renderCompare(){
   applyCmpLabels();
