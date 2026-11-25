@@ -2473,6 +2473,7 @@ function pStock(){
   <div class="card no-print"><div class="row">
     <div class="field"><input id="stSearch" placeholder="🔍 بحث بالموديل أو الوصف أو الفئة..." oninput="renderStock()"></div>
     <div class="field" style="max-width:200px"><select id="stCat" onchange="renderStock()"><option value="">كل الفئات</option>${cats.map(c=>`<option>${esc(c)}</option>`).join("")}</select></div>
+    <div class="field" style="max-width:200px;display:flex;align-items:center"><label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:700;white-space:nowrap"><input type="checkbox" id="stAvail" onchange="renderStock()" style="width:auto"> المتاح فقط (رصيد &gt; 0)</label></div>
   </div>
   <p style="font-size:12px;color:var(--muted);margin-top:8px">اكتب <b>العدد الفعلي</b> بجانب كل موديل ليُحسب الفرق تلقائياً. اترك الحقل فارغاً للأصناف التي لم تُجرد بعد.</p></div>
   <div id="stSummary"></div>
@@ -2482,8 +2483,11 @@ function pStock(){
   renderStock();
 }
 function stockFiltered(){
-  const q=($("#stSearch")?.value||"").toLowerCase(),cat=$("#stCat")?.value||"";
-  return citems().filter(i=>((i.code+i.name+(i.model||"")+(i.category||"")).toLowerCase().includes(q))&&(!cat||i.category===cat));
+  const q=($("#stSearch")?.value||"").toLowerCase(),cat=$("#stCat")?.value||"",avail=!!$("#stAvail")?.checked;
+  // ترتيب العرض: غرف النوم أولاً ثم المراتب ثم أي فئة أخرى (مع الحفاظ على الترتيب الأصلي داخل كل فئة)
+  const rank=i=>{const k=CATS.indexOf(normCat(i.category));return k<0?CATS.length:k;};
+  return citems().filter(i=>((i.code+i.name+(i.model||"")+(i.category||"")).toLowerCase().includes(q))&&(!cat||i.category===cat)&&(!avail||stockOf(i.id)>0))
+    .map((i,n)=>({i,n})).sort((a,b)=>rank(a.i)-rank(b.i)||a.n-b.n).map(x=>x.i);
 }
 function renderStock(){
   const rows=stockFiltered();
