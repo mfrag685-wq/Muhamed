@@ -295,7 +295,7 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:#0d9488;box-sh
    ============================================================ */
 const KEY="inv_system_v2";
 /* رقم إصدار التطبيق — يُزاد مع كل تحديث؛ يُقارَن بالنسخة المنشورة لإظهار زر التحديث */
-const APP_VERSION="2026-11-17-03";
+const APP_VERSION="2026-11-25-01";
 let DB,ME;
 /* التحقق من توفّر نسخة أحدث بجلب الملف نفسه (بدون كاش) ومقارنة رقم الإصدار */
 function checkForUpdate(){
@@ -1306,7 +1306,7 @@ function qAc(q){
   qPicked=null;$("#qHint").innerHTML="";
   if(!q){box.style.display="none";return;}
   const ql=q.toLowerCase();
-  const res=citems().filter(i=>i.active!==false&&(itemModel(i)+" "+(i.name||"")+" "+(i.category||"")).toLowerCase().includes(ql)).slice(0,12);
+  const res=sortItems(citems().filter(i=>i.active!==false&&(itemModel(i)+" "+(i.name||"")+" "+(i.category||"")).toLowerCase().includes(ql))).slice(0,12);
   box.innerHTML=res.map(i=>`<div class="ac-item" data-id="${i.id}" onclick="qPick(${i.id})" style="display:flex;align-items:center;gap:10px">
     ${i.image?`<img src="${i.image}" style="width:34px;height:34px;object-fit:cover;border-radius:7px;flex:0 0 auto">`:""}
     <div><b>${esc(itemModel(i))}</b>${(i.name&&i.name!==itemModel(i))?`<span style="color:var(--muted)"> — ${esc(i.name)}</span>`:""}
@@ -1715,7 +1715,7 @@ function editInvoice(gid){
     <div style="font-weight:800;color:var(--green);margin:12px 0 6px">➕ إضافة صنف</div>
     <input id="ie_search" placeholder="🔍 ابحث عن موديل/صنف لإضافته..." oninput="filterIeItems()" style="width:100%;margin-bottom:6px;padding:9px">
     <div class="formgrid">
-      <div class="cell c6"><select id="ie_item"><option value="">— اختر الصنف —</option>${citems().map(i=>`<option value="${i.id}">${esc(itemLabel(i))} — الرصيد ${stockOf(i.id)}</option>`).join("")}</select></div>
+      <div class="cell c6"><select id="ie_item"><option value="">— اختر الصنف —</option>${sortItems(citems()).map(i=>`<option value="${i.id}">${esc(itemLabel(i))} — الرصيد ${stockOf(i.id)}</option>`).join("")}</select></div>
       <div class="cell c2"><input id="ie_q" type="number" inputmode="numeric" placeholder="الكمية"></div>
       <div class="cell c2"><input id="ie_p" type="number" inputmode="decimal" step="0.01" placeholder="السعر"></div>
       <div class="cell c2"><button class="btn blue block" onclick="invEditAdd()">إضافة</button></div>
@@ -1731,17 +1731,37 @@ function editInvoice(gid){
 function filterIeItems(){
   const sel=$("#ie_item");if(!sel)return;
   const q=($("#ie_search")?.value||"").toLowerCase().trim(),cur=sel.value;
-  const items=citems().filter(i=>!q||(itemModel(i)+" "+(i.name||"")+" "+(i.category||"")).toLowerCase().includes(q));
+  const items=sortItems(citems()).filter(i=>!q||(itemModel(i)+" "+(i.name||"")+" "+(i.category||"")).toLowerCase().includes(q));
   sel.innerHTML='<option value="">— اختر الصنف —</option>'+items.map(i=>`<option value="${i.id}">${esc(itemLabel(i))} — الرصيد ${stockOf(i.id)}</option>`).join("");
   if(items.some(i=>i.id===+cur))sel.value=cur;
   else if(items.length===1)sel.value=items[0].id; // نتيجة واحدة = اختيار تلقائي
 }
+/* ترتيب الأصناف: غرف نوم ثم مراتب ثم غيرها، وداخل كل فئة حسب رقم الموديل */
+function sortItems(arr){
+  const ord=c=>{const n=normCat(c);return n==="غرف نوم"?0:n==="مراتب"?1:2;};
+  return arr.slice().sort((a,b)=>{
+    const ca=ord(a.category),cb=ord(b.category);if(ca!==cb)return ca-cb;
+    const ma=String(itemModel(a)||""),mb=String(itemModel(b)||"");
+    const na=parseFloat(ma),nb=parseFloat(mb),aN=!isNaN(na)&&/\d/.test(ma[0]||""),bN=!isNaN(nb)&&/\d/.test(mb[0]||"");
+    if(aN&&bN&&na!==nb)return na-nb;if(aN&&!bN)return -1;if(!aN&&bN)return 1;
+    return ma.localeCompare(mb,"ar");
+  });
+}
+/* بحث تنبّؤي لصفوف محرّر الفاتورة — قائمة عائمة فوق الجدول لتفادي القصّ */
+function ieCloseAc(){const d=document.getElementById("ieAcPop");if(d)d.remove();}
+function ieRowAc(idx,inp){
+  ieCloseAc();const q=(inp.value||"").toLowerCase().trim();
+  const items=sortItems(citems()).filter(i=>!q||(itemModel(i)+" "+(i.name||"")+" "+(i.category||"")).toLowerCase().includes(q)).slice(0,40);
+  const pop=document.createElement("div");pop.id="ieAcPop";const r=inp.getBoundingClientRect();
+  pop.style.cssText=`position:fixed;top:${r.bottom+2}px;right:${Math.max(4,window.innerWidth-r.right)}px;width:${Math.max(r.width,220)}px;max-height:260px;overflow:auto;background:#fff;border:1px solid #cbd5e1;border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.25);z-index:99999`;
+  pop.innerHTML=items.map(i=>`<div style="padding:10px;cursor:pointer;border-bottom:1px solid #f1f5f9;font-size:14px" onmousedown="ieRowPick(${idx},${i.id})"><b>${esc(itemModel(i))}</b> <span style="color:#94a3b8">(${esc(normCat(i.category)||i.category||"")} · رصيد ${stockOf(i.id)})</span></div>`).join("")||`<div style="padding:10px;color:#94a3b8">لا نتائج</div>`;
+  document.body.appendChild(pop);
+}
+function ieRowPick(idx,id){invEdit[idx].itemId=id;ieCloseAc();renderInvEditRows();}
 function renderInvEditRows(){
   const tb=$("#ieRows");if(!tb)return;
   tb.innerHTML=invEdit.map((l,idx)=>{const it=DB.items.find(x=>x.id===l.itemId)||{};
-    return `<tr><td><select style="min-width:150px;max-width:220px;padding:7px" onchange="invEdit[${idx}].itemId=+this.value">
-        ${citems().map(i=>`<option value="${i.id}" ${i.id===l.itemId?"selected":""}>${esc(itemModel(i))}</option>`).join("")}
-      </select></td>
+    return `<tr><td><input value="${esc(itemModel(it))}" placeholder="🔍 ابحث عن موديل..." autocomplete="off" style="min-width:150px;max-width:220px;padding:7px" oninput="ieRowAc(${idx},this)" onfocus="ieRowAc(${idx},this)" onblur="setTimeout(ieCloseAc,150)"></td>
       <td><input type="number" inputmode="numeric" style="width:70px;padding:7px" value="${l.qty}" oninput="invEdit[${idx}].qty=toNum(this.value);updateIeTotals()"></td>
       <td><input type="number" inputmode="decimal" step="0.01" style="width:80px;padding:7px" value="${l.price}" oninput="invEdit[${idx}].price=toNum(this.value);updateIeTotals()"></td>
       <td><input type="number" inputmode="decimal" step="0.01" style="width:70px;padding:7px" value="${l.fee||0}" oninput="invEdit[${idx}].fee=toNum(this.value);updateIeTotals()"></td>
