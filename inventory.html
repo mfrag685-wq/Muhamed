@@ -299,7 +299,7 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:#0d9488;box-sh
    ============================================================ */
 const KEY="inv_system_v2";
 /* رقم إصدار التطبيق — يُزاد مع كل تحديث؛ يُقارَن بالنسخة المنشورة لإظهار زر التحديث */
-const APP_VERSION="2026-11-25-02";
+const APP_VERSION="2026-11-25-03";
 let DB,ME;
 /* التحقق من توفّر نسخة أحدث بجلب الملف نفسه (بدون كاش) ومقارنة رقم الإصدار */
 function checkForUpdate(){
@@ -1713,10 +1713,7 @@ function editInvoice(gid){
       <div class="cell c6"><label>العنوان</label><input id="ie_addr" value="${esc(f.address||"")}"></div>
     </div>
     <div style="font-weight:800;color:var(--amber);margin:10px 0 6px">بنود الفاتورة</div>
-    <div class="table-wrap"><table class="ieTbl" style="width:100%;table-layout:fixed;border-collapse:collapse">
-      <colgroup><col style="width:40%"><col style="width:17%"><col style="width:19%"><col style="width:15%"><col style="width:9%"></colgroup>
-      <thead><tr><th>الصنف</th><th>الكمية</th><th>السعر</th><th>رسوم</th><th></th></tr></thead>
-      <tbody id="ieRows"></tbody></table></div>
+    <div id="ieRows"></div>
     <div id="ieTotals" style="margin:8px 0"></div>
     <div style="font-weight:800;color:var(--green);margin:12px 0 6px">➕ إضافة صنف</div>
     <input id="ie_search" placeholder="🔍 ابحث عن موديل/صنف لإضافته..." oninput="filterIeItems()" style="width:100%;margin-bottom:6px;padding:9px">
@@ -1767,12 +1764,20 @@ function ieRowPick(idx,id){invEdit[idx].itemId=id;ieCloseAc();renderInvEditRows(
 function renderInvEditRows(){
   const tb=$("#ieRows");if(!tb)return;
   tb.innerHTML=invEdit.map((l,idx)=>{const it=DB.items.find(x=>x.id===l.itemId)||{};
-    return `<tr><td style="padding:4px 3px"><input value="${esc(itemModel(it))}" placeholder="🔍 ابحث عن موديل..." autocomplete="off" style="width:100%;padding:8px;box-sizing:border-box" oninput="ieRowAc(${idx},this)" onfocus="ieRowAc(${idx},this)" onblur="setTimeout(ieCloseAc,150)"></td>
-      <td style="padding:4px 3px"><input type="number" inputmode="numeric" style="width:100%;padding:8px;text-align:center;box-sizing:border-box" value="${l.qty}" oninput="invEdit[${idx}].qty=toNum(this.value);updateIeTotals()"></td>
-      <td style="padding:4px 3px"><input type="number" inputmode="decimal" step="0.01" style="width:100%;padding:8px;text-align:center;box-sizing:border-box" value="${l.price}" oninput="invEdit[${idx}].price=toNum(this.value);updateIeTotals()"></td>
-      <td style="padding:4px 3px"><input type="number" inputmode="decimal" step="0.01" style="width:100%;padding:8px;text-align:center;box-sizing:border-box" value="${l.fee||0}" oninput="invEdit[${idx}].fee=toNum(this.value);updateIeTotals()"></td>
-      <td style="padding:4px 3px;text-align:center"><button class="btn red sm" style="padding:6px 8px" onclick="invEditDel(${idx})" title="حذف">✕</button></td></tr>`;}).join("")
-    ||`<tr><td colspan="5" class="empty">لا بنود — أضِف صنفاً.</td></tr>`;
+    const inStyle="width:100%;padding:9px;border:1px solid #cbd5e1;border-radius:9px;box-sizing:border-box;background:#fff";
+    const lab="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:3px";
+    return `<div style="border:1px solid #e2e8f0;border-radius:12px;padding:10px;margin-bottom:8px;background:#f8fafc">
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+        <span style="flex:0 0 22px;height:22px;display:inline-flex;align-items:center;justify-content:center;background:#e0e7ff;color:#4338ca;border-radius:50%;font-size:12px;font-weight:800">${idx+1}</span>
+        <input value="${esc(itemModel(it))}" placeholder="🔍 ابحث عن موديل..." autocomplete="off" style="flex:1;${inStyle}" oninput="ieRowAc(${idx},this)" onfocus="ieRowAc(${idx},this)" onblur="setTimeout(ieCloseAc,150)">
+        <button class="btn red sm" style="padding:8px 10px;flex:0 0 auto" onclick="invEditDel(${idx})" title="حذف">✕</button>
+      </div>
+      <div style="display:flex;gap:8px">
+        <div style="flex:1"><label style="${lab}">الكمية</label><input type="number" inputmode="numeric" style="${inStyle};text-align:center" value="${l.qty}" oninput="invEdit[${idx}].qty=toNum(this.value);updateIeTotals()"></div>
+        <div style="flex:1"><label style="${lab}">السعر ﷼</label><input type="number" inputmode="decimal" step="0.01" style="${inStyle};text-align:center" value="${l.price}" oninput="invEdit[${idx}].price=toNum(this.value);updateIeTotals()"></div>
+        <div style="flex:1"><label style="${lab}">الرسوم ﷼</label><input type="number" inputmode="decimal" step="0.01" style="${inStyle};text-align:center" value="${l.fee||0}" oninput="invEdit[${idx}].fee=toNum(this.value);updateIeTotals()"></div>
+      </div></div>`;}).join("")
+    ||`<div class="empty" style="padding:14px;text-align:center;color:#94a3b8">لا بنود — أضِف صنفاً.</div>`;
   updateIeTotals();
 }
 /* معاينة فورية لإجمالي الفاتورة أثناء التعديل */
