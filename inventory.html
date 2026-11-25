@@ -72,6 +72,10 @@ input[readonly]{background:#f8fafc;color:var(--muted)}
 .btn.amber{background:var(--amber)}
 .btn.sm{padding:8px 12px;font-size:13px}.btn.block{width:100%}.btn.lg{padding:15px;font-size:17px}
 .table-wrap{overflow:auto;-webkit-overflow-scrolling:touch}
+.ieTbl th{font-size:12px;font-weight:800;color:#475569;padding:6px 3px;text-align:center;border-bottom:1px solid var(--line)}
+.ieTbl thead th:first-child{text-align:right}
+.ieTbl td{vertical-align:middle}
+.ieTbl input{border:1px solid #cbd5e1;border-radius:8px;font-size:14px}
 table{width:100%;border-collapse:collapse;font-size:13.5px;min-width:480px}
 th{text-align:right;color:var(--muted);font-weight:600;padding:10px 8px;border-bottom:2px solid var(--line);white-space:nowrap}
 td{padding:11px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
@@ -295,7 +299,7 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:#0d9488;box-sh
    ============================================================ */
 const KEY="inv_system_v2";
 /* رقم إصدار التطبيق — يُزاد مع كل تحديث؛ يُقارَن بالنسخة المنشورة لإظهار زر التحديث */
-const APP_VERSION="2026-11-25-01";
+const APP_VERSION="2026-11-25-02";
 let DB,ME;
 /* التحقق من توفّر نسخة أحدث بجلب الملف نفسه (بدون كاش) ومقارنة رقم الإصدار */
 function checkForUpdate(){
@@ -1709,7 +1713,9 @@ function editInvoice(gid){
       <div class="cell c6"><label>العنوان</label><input id="ie_addr" value="${esc(f.address||"")}"></div>
     </div>
     <div style="font-weight:800;color:var(--amber);margin:10px 0 6px">بنود الفاتورة</div>
-    <div class="table-wrap"><table><thead><tr><th>الصنف</th><th>الكمية</th><th>السعر</th><th>رسوم</th><th></th></tr></thead>
+    <div class="table-wrap"><table class="ieTbl" style="width:100%;table-layout:fixed;border-collapse:collapse">
+      <colgroup><col style="width:40%"><col style="width:17%"><col style="width:19%"><col style="width:15%"><col style="width:9%"></colgroup>
+      <thead><tr><th>الصنف</th><th>الكمية</th><th>السعر</th><th>رسوم</th><th></th></tr></thead>
       <tbody id="ieRows"></tbody></table></div>
     <div id="ieTotals" style="margin:8px 0"></div>
     <div style="font-weight:800;color:var(--green);margin:12px 0 6px">➕ إضافة صنف</div>
@@ -1761,11 +1767,11 @@ function ieRowPick(idx,id){invEdit[idx].itemId=id;ieCloseAc();renderInvEditRows(
 function renderInvEditRows(){
   const tb=$("#ieRows");if(!tb)return;
   tb.innerHTML=invEdit.map((l,idx)=>{const it=DB.items.find(x=>x.id===l.itemId)||{};
-    return `<tr><td><input value="${esc(itemModel(it))}" placeholder="🔍 ابحث عن موديل..." autocomplete="off" style="min-width:150px;max-width:220px;padding:7px" oninput="ieRowAc(${idx},this)" onfocus="ieRowAc(${idx},this)" onblur="setTimeout(ieCloseAc,150)"></td>
-      <td><input type="number" inputmode="numeric" style="width:70px;padding:7px" value="${l.qty}" oninput="invEdit[${idx}].qty=toNum(this.value);updateIeTotals()"></td>
-      <td><input type="number" inputmode="decimal" step="0.01" style="width:80px;padding:7px" value="${l.price}" oninput="invEdit[${idx}].price=toNum(this.value);updateIeTotals()"></td>
-      <td><input type="number" inputmode="decimal" step="0.01" style="width:70px;padding:7px" value="${l.fee||0}" oninput="invEdit[${idx}].fee=toNum(this.value);updateIeTotals()"></td>
-      <td><button class="btn red sm" onclick="invEditDel(${idx})">حذف</button></td></tr>`;}).join("")
+    return `<tr><td style="padding:4px 3px"><input value="${esc(itemModel(it))}" placeholder="🔍 ابحث عن موديل..." autocomplete="off" style="width:100%;padding:8px;box-sizing:border-box" oninput="ieRowAc(${idx},this)" onfocus="ieRowAc(${idx},this)" onblur="setTimeout(ieCloseAc,150)"></td>
+      <td style="padding:4px 3px"><input type="number" inputmode="numeric" style="width:100%;padding:8px;text-align:center;box-sizing:border-box" value="${l.qty}" oninput="invEdit[${idx}].qty=toNum(this.value);updateIeTotals()"></td>
+      <td style="padding:4px 3px"><input type="number" inputmode="decimal" step="0.01" style="width:100%;padding:8px;text-align:center;box-sizing:border-box" value="${l.price}" oninput="invEdit[${idx}].price=toNum(this.value);updateIeTotals()"></td>
+      <td style="padding:4px 3px"><input type="number" inputmode="decimal" step="0.01" style="width:100%;padding:8px;text-align:center;box-sizing:border-box" value="${l.fee||0}" oninput="invEdit[${idx}].fee=toNum(this.value);updateIeTotals()"></td>
+      <td style="padding:4px 3px;text-align:center"><button class="btn red sm" style="padding:6px 8px" onclick="invEditDel(${idx})" title="حذف">✕</button></td></tr>`;}).join("")
     ||`<tr><td colspan="5" class="empty">لا بنود — أضِف صنفاً.</td></tr>`;
   updateIeTotals();
 }
