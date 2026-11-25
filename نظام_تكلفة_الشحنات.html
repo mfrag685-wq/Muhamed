@@ -1507,7 +1507,31 @@ html[data-theme="dark"] .rt td.hl{background:#2e2814;color:var(--accent)}
       <button class="btn btn-green btn-sm" onclick="exportSupplierPays()">⬇️ تصدير الدفعات</button>
       <button class="btn btn-outline btn-sm" onclick="document.getElementById('spay-import-file').click()">⬆️ استيراد الدفعات</button>
       <button class="btn btn-outline btn-sm" onclick="undoLastImport()">↩ تراجع عن آخر استيراد</button>
+      <button class="btn btn-outline btn-sm" onclick="openFixDatesModal()" title="تصحيح الدفعات ذات تاريخ موحّد خاطئ">🛠️ تصحيح التواريخ</button>
       <input type="file" id="spay-import-file" accept=".xlsx,.xls,.csv" style="display:none" onchange="handleSupplierPayImport(event)">
+    </div>
+  </div>
+
+  <!-- أداة تصحيح تواريخ الدفعات -->
+  <div class="modal-overlay" id="fixdates-modal" style="display:none" onclick="if(event.target===this)closeFixDatesModal()">
+    <div class="modal-box" style="width:720px;max-width:95vw;max-height:88vh;overflow-y:auto">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <h2 style="margin:0">🛠️ تصحيح تواريخ الدفعات</h2>
+        <button onclick="closeFixDatesModal()" style="background:none;border:none;font-size:1.4rem;cursor:pointer;color:var(--muted)">✕</button>
+      </div>
+      <div class="alert as" style="font-size:.82rem;margin-bottom:10px">اكتب التاريخ الخاطئ المُوحَّد (مثل الذي وُضع تلقائياً وقت الاستيراد) ثم «عرض»، فتظهر كل الدفعات بذلك التاريخ لتصحيح كلٍّ منها، أو ضع تاريخاً واحداً للجميع.</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-bottom:10px">
+        <div class="fg"><label>التاريخ الخاطئ</label><input type="date" id="fixdates-wrong" style="width:160px"></div>
+        <button class="btn btn-accent btn-sm" onclick="scanFixDates()">🔍 عرض الدفعات</button>
+        <span style="flex:1"></span>
+        <div class="fg"><label>تعيين تاريخ واحد للكل (اختياري)</label><input type="date" id="fixdates-all" style="width:160px"></div>
+        <button class="btn btn-outline btn-sm" onclick="applyFixDatesAll()">تطبيق على الكل</button>
+      </div>
+      <div id="fixdates-list"></div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
+        <button class="btn btn-outline" onclick="closeFixDatesModal()">إلغاء</button>
+        <button class="btn btn-primary" onclick="saveFixDates()">💾 حفظ التصحيحات</button>
+      </div>
     </div>
   </div>
 
@@ -6891,6 +6915,49 @@ function applySupplierPayRows(aoa){
   saPaySave(list.concat(addRows)); if(document.getElementById('page-supacct').classList.contains('active')) renderSupAcct();
   logAction('استيراد دفعات موردين Excel', added+' '+tr('دفعة')); toast('✅ تم استيراد '+added+' دفعة مورد — للتراجع اضغط «↩ تراجع عن آخر استيراد»');
 }
+// ── أداة تصحيح تواريخ الدفعات (لإصلاح الدفعات التي أخذت تاريخاً موحّداً خاطئاً) ──
+function openFixDatesModal(){
+  var m=document.getElementById('fixdates-modal'); if(!m) return;
+  var w=document.getElementById('fixdates-wrong'); if(w && !w.value) w.value='2026-09-29';
+  document.getElementById('fixdates-list').innerHTML='<div style="color:var(--muted);font-size:.82rem;padding:8px">اكتب التاريخ الخاطئ ثم اضغط «عرض الدفعات».</div>';
+  m.style.display='flex';
+}
+function closeFixDatesModal(){ var m=document.getElementById('fixdates-modal'); if(m) m.style.display='none'; }
+function scanFixDates(){
+  var wrong=(document.getElementById('fixdates-wrong')||{}).value||'';
+  var list=saPayLoad();
+  var matches=list.map(function(p,i){ return {p:p,i:i}; }).filter(function(x){ return (x.p.date||'')===wrong; });
+  var el=document.getElementById('fixdates-list');
+  if(!wrong){ el.innerHTML='<div style="color:var(--danger);font-size:.82rem;padding:8px">اكتب التاريخ الخاطئ أولاً.</div>'; return; }
+  if(!matches.length){ el.innerHTML='<div style="color:var(--muted);font-size:.82rem;padding:8px">لا توجد دفعات بهذا التاريخ ('+escH(wrong)+').</div>'; return; }
+  el.innerHTML='<div style="font-size:.8rem;color:var(--muted);margin-bottom:6px">عدد الدفعات: <b>'+matches.length+'</b> — صحّح تاريخ كلٍّ ثم «حفظ التصحيحات».</div>'+
+    '<div style="overflow-x:auto"><table class="tbl" style="font-size:.8rem"><thead><tr><th>المورد</th><th>المبلغ</th><th>البيان</th><th>التاريخ الصحيح</th></tr></thead><tbody>'+
+    matches.map(function(x){ var p=x.p; return '<tr><td>'+escH(p.supplier||'—')+'</td><td class="num">'+fmtD(parseFloat(p.amount)||0)+'</td>'+
+      '<td style="font-size:.76rem">'+escH(p.bank||p.notes||(p.method==='transfer'?'تحويل':'نقد'))+'</td>'+
+      '<td><input type="date" class="fixdate-inp" data-id="'+escH(p.id)+'" value="'+escH(p.date||'')+'" style="width:150px"></td></tr>'; }).join('')+
+    '</tbody></table></div>';
+}
+function applyFixDatesAll(){
+  var d=(document.getElementById('fixdates-all')||{}).value||'';
+  if(!d){ toast('اكتب التاريخ الموحّد أولاً',true); return; }
+  Array.prototype.forEach.call(document.querySelectorAll('.fixdate-inp'),function(inp){ inp.value=d; });
+  toast('تم تعيين التاريخ — اضغط «حفظ التصحيحات»');
+}
+function saveFixDates(){
+  if(isReadonly()){ toast('👁 وضع القراءة فقط',true); return; }
+  var inps=document.querySelectorAll('.fixdate-inp');
+  if(!inps.length){ toast('لا توجد دفعات للتصحيح',true); return; }
+  var map={}; Array.prototype.forEach.call(inps,function(inp){ map[inp.getAttribute('data-id')]=inp.value||''; });
+  importBackup('تصحيح تواريخ الدفعات', [saPayKey()]);
+  var list=saPayLoad(), n=0;
+  list.forEach(function(p){ if(map.hasOwnProperty(p.id) && map[p.id] && map[p.id]!==p.date){ p.date=map[p.id]; n++; } });
+  saPaySave(list);
+  logAction('تصحيح تواريخ الدفعات', n+' دفعة');
+  closeFixDatesModal();
+  try{ renderSupAcct(); }catch(e){}
+  try{ if(document.getElementById('page-compare').classList.contains('active')) renderCompare(); }catch(e){}
+  toast('✅ تم تصحيح '+n+' دفعة — للتراجع اضغط «↩ تراجع عن آخر استيراد»');
+}
 // ═══════════════════════════════════════════
 // 🧾📥 استيراد مجموعة: دفعات (حساب المورد + المقارنة) + فواتير مشتريات (رصيد المورد + المقارنة)
 // ═══════════════════════════════════════════
@@ -7597,7 +7664,7 @@ function renderClaudeBridge(){
 // ═══════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════
-var APP_VERSION='v2026-11-25.54';   // رقم إصدار ظاهر للتحقق من تحميل أحدث نسخة (لا cache قديم)
+var APP_VERSION='v2026-11-25.55';   // رقم إصدار ظاهر للتحقق من تحميل أحدث نسخة (لا cache قديم)
 // ═══════════════════════════════════════════
 // 🌐 محرّك الترجمة الشامل (عربي / English / 中文) — قاموس + مسح DOM + مراقب تغييرات
 // ═══════════════════════════════════════════
