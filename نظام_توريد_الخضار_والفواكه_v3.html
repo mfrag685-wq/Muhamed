@@ -2452,7 +2452,7 @@ td.cash-in{color:#1f6b45;font-weight:700}td.cash-out{color:#b42318;font-weight:7
 /* التقاط نسخة أصلية نظيفة من الصفحة بأكملها (HTML+CSS+JS) فور بدء التنفيذ،
    قبل أي تعديل من الواجهة، لاستخدامها لاحقاً في تصدير نسخة مستقلة لكل مستخدم */
 var PRISTINE_HTML='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
-var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-22-b';
+var AUTHOR='محمد فرج', AUTHOR_EN='Mohamed Farag', AUTHOR_PHONE='00966559486547', AUTHOR_PHONE_INTL='+966559486547', APP_VERSION='3.0', APP_BUILD='2026-11-28-a';
 /* شبكة أمان: أي خطأ غير متوقع يظهر كرسالة واضحة بدل شاشة فارغة */
 window.onerror=function(msg,src,line){
   /* أخطاء سباق عرض غير مؤذية (إعادة رسم أثناء مغادرة خانة) — لا تُعرض كعطل ولا توقف النظام */
@@ -4543,9 +4543,10 @@ function renderTaxTrack(){
         var key=arN(supName(r.supplierId)+' '+(r.lines||[]).map(function(l){ return itemName(l.itemId)+' '+(l.note||''); }).join(' '));
         h+='<tr class="tt-r" data-k="'+esc(key)+'"><td class="mini">'+n+'</td><td class="name"><b>'+esc(supName(r.supplierId))+'</b></td><td class="name">'+items+'</td>'
           +(seeV?'<td>'+(np?'<span class="pill pill-bad">بلا سعر</span>':money((+r.total||0)+(+r.vat||0)))+'</td>':'')
-          +'<td>'+(st==='wait'?'<span class="pill '+(dd>=7?'pill-bad':'pill-warn')+'">⏳ لم تصل</span>':'<span class="pill pill-ok">✅ '+esc(r.tax.no||r.no||'')+'</span>')+'</td>'
+          +'<td>'+(st==='wait'?'<span class="pill '+(dd>=7?'pill-bad':'pill-warn')+'">⏳ لم تصل</span>':'<span class="pill pill-ok">✅ '+esc(r.tax.no||r.no||'')+'</span>')+(r.acc?' <span class="pill" style="background:#e8f0fb;color:#1d4f91" title="سُجّلت بنظام الحسابات '+esc(r.acc.at||'')+(r.acc.by?' — '+esc(r.acc.by):'')+'">📒 بالحسابات</span>':'')+'</td>'
           +'<td class="tt-act">'+(qbCanEdit(r)?'<button class="btn-sm" onclick="qbEdit('+r.id+')" title="تعديل في شاشة الإدخال">✏️ تعديل</button> ':'')
           +(!can('taxRecv')?'':(st==='wait'?'<button class="btn-sm btn-alt" onclick="ttConfirmOpen('+r.id+')" title="تأكيد الوصول مع الرقم والأسعار — ثم الفاتورة التالية">✔ وصلت</button>':'<button class="btn-sm" onclick="ttMarkWait('+r.id+')" title="إرجاع إلى المنتظر">↺</button>'))
+          +(!can('taxRecv')?'':(r.acc?'<button class="btn-sm" onclick="ttMarkAcc('+r.id+')" title="إلغاء تأشير التسجيل بنظام الحسابات">↩ 📒</button>':'<button class="btn-sm btn-alt" style="border-color:#1d4f91;color:#1d4f91" onclick="ttMarkAcc('+r.id+')" title="تأشير أن الفاتورة سُجّلت في نظام الحسابات">📒 سُجّلت بالحسابات</button>'))
           +((can('canEdit')||can('taxRecv'))?' <button class="btn-sm" onclick="ttConfirmOpen('+r.id+',1)" title="عرض الفاتورة وتعديل رقمها وأسعارها هنا دون مغادرة الشاشة">فتح</button>':'')+'</td></tr>'; });
     });
     h+='</tbody></table></div>';
@@ -4697,6 +4698,12 @@ function ttcSave(goNext,keep){ if(!_ttc) return; var r=byId(db.purchases,_ttc.id
   commit('✅ تم تأكيد وصول الفاتورة '+no+(ttNoPrice(r)?' — بلا سعر لبعض الأصناف':''));
   try{ renderTaxTrack(); }catch(e){}
   if(goNext&&nx) ttConfirmOpen(nx); else { dsClose(); if(goNext) toast('✅ تم — لا توجد فواتير أخرى بانتظار التأكيد'); } }
+/* تأشير تسجيل الفاتورة بنظام الحسابات (دفترة) — علامة تتبّع فقط، لا تغيّر أي مبلغ أو رصيد */
+function ttMarkAcc(id){ if(!guard('taxRecv','لمدير النظام أو الموظف المخوَّل فقط')) return; var r=byId(db.purchases,id); if(!r) return; if(!periodGuard(r.date)) return;
+  var old=JSON.parse(JSON.stringify(r)), on=!r.acc;
+  if(on) r.acc={at:nowTs(),by:ME?ME.name:''}; else delete r.acc; stampEdit(r,old);
+  log('edit','المشتريات',(on?'تسجيل بنظام الحسابات':'إلغاء تأشير نظام الحسابات')+' — '+(r.no||'#'+r.id)+' · '+supName(r.supplierId)+' ('+r.date+')');
+  commit(on?'📒 تم التأشير: الفاتورة سُجّلت بنظام الحسابات':'تم إلغاء التأشير'); try{ renderTaxTrack(); }catch(e){} }
 function ttMarkWait(id){ if(!guard('taxRecv','لمدير النظام أو الموظف المخوَّل فقط')) return; var r=byId(db.purchases,id); if(!r||!confirm('إرجاع الفاتورة إلى «لم تصل»؟')) return;
   var old=JSON.parse(JSON.stringify(r)); r.tax={st:'wait'}; stampEdit(r,old); log('edit','المشتريات','إرجاع فاتورة '+(r.no||'#'+r.id)+' إلى «لم تصل»'); commit('تم'); }
 /* طلب واحد مجمّع بكل الفواتير التي لم تصل — مرتّب حسب التاريخ ثم المورد — يُرسَل لموظف المشتريات مرة واحدة */
